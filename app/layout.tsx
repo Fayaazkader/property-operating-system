@@ -1,6 +1,7 @@
 import "./globals.css";
 
 import Sidebar from "./components/Sidebar";
+import Navbar from "./components/Navbar";
 
 export const metadata = {
 
@@ -30,11 +31,13 @@ export default function RootLayout({
 
             <div className="p-6">
 
-              <div className="bg-white rounded-2xl shadow-sm min-h-[95vh]">
+              <div className="bg-white rounded-2xl shadow-sm min-h-[95vh] overflow-hidden">
 
-                {children}
+  <Navbar />
 
-              </div>
+  {children}
+
+</div>
 
             </div>
 
