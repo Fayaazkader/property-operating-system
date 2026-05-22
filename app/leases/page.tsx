@@ -23,10 +23,8 @@ export default async function LeasesPage() {
   const highRiskLeases =
     leases?.filter(
       (lease) =>
-        lease.vacancy_risk ===
-          "High" ||
-        lease.vacancy_risk ===
-          "Critical"
+        lease.vacancy_risk === "High" ||
+        lease.vacancy_risk === "Critical"
     ).length || 0;
 
   const expiringSoon =
@@ -36,9 +34,7 @@ export default async function LeasesPage() {
         return false;
 
       const expiry =
-        new Date(
-          lease.expiry_date
-        );
+        new Date(lease.expiry_date);
 
       const today =
         new Date();
@@ -46,10 +42,7 @@ export default async function LeasesPage() {
       const diffDays =
         (expiry.getTime() -
           today.getTime()) /
-        (1000 *
-          60 *
-          60 *
-          24);
+        (1000 * 60 * 60 * 24);
 
       return diffDays <= 90;
 
@@ -66,9 +59,7 @@ export default async function LeasesPage() {
       return;
 
     const expiry =
-      new Date(
-        lease.expiry_date
-      );
+      new Date(lease.expiry_date);
 
     const today =
       new Date();
@@ -77,10 +68,7 @@ export default async function LeasesPage() {
       Math.ceil(
         (expiry.getTime() -
           today.getTime()) /
-          (1000 *
-            60 *
-            60 *
-            24)
+        (1000 * 60 * 60 * 24)
       );
 
     if (diffDays <= 30) {
@@ -91,9 +79,7 @@ export default async function LeasesPage() {
           `${lease.tenant_name} expires in ${diffDays} days`,
       });
 
-    } else if (
-      diffDays <= 90
-    ) {
+    } else if (diffDays <= 90) {
 
       alerts.push({
         type: "warning",
@@ -103,10 +89,8 @@ export default async function LeasesPage() {
     }
 
     if (
-      lease.vacancy_risk ===
-        "High" ||
-      lease.vacancy_risk ===
-        "Critical"
+      lease.vacancy_risk === "High" ||
+      lease.vacancy_risk === "Critical"
     ) {
 
       alerts.push({
@@ -131,9 +115,7 @@ export default async function LeasesPage() {
     }
 
     const expiry =
-      new Date(
-        lease.expiry_date
-      );
+      new Date(lease.expiry_date);
 
     const today =
       new Date();
@@ -142,25 +124,18 @@ export default async function LeasesPage() {
       Math.ceil(
         (expiry.getTime() -
           today.getTime()) /
-          (1000 *
-            60 *
-            60 *
-            24)
+        (1000 * 60 * 60 * 24)
       );
 
     if (diffDays <= 30) {
 
       criticalCount++;
 
-    } else if (
-      diffDays <= 90
-    ) {
+    } else if (diffDays <= 90) {
 
       renewalPendingCount++;
 
-    } else if (
-      diffDays <= 180
-    ) {
+    } else if (diffDays <= 180) {
 
       monitorCount++;
 
@@ -169,177 +144,267 @@ export default async function LeasesPage() {
       stableCount++;
     }
   });
-const aiInsights: string[] = [];
 
-if (criticalCount >= 3) {
+  const aiInsights: string[] = [];
 
-  aiInsights.push(
-    "Portfolio has elevated critical lease exposure."
-  );
-}
+  if (criticalCount >= 3) {
 
-if (highRiskLeases >= 3) {
-
-  aiInsights.push(
-    "High vacancy risk concentration detected."
-  );
-}
-
-if (expiringSoon >= 5) {
-
-  aiInsights.push(
-    "Significant lease rollover concentration approaching."
-  );
-}
-
-if (totalMonthlyRental > 1000000) {
-
-  aiInsights.push(
-    "Portfolio revenue exposure exceeds enterprise threshold."
-  );
-}
-
-if (aiInsights.length === 0) {
-
-  aiInsights.push(
-    "Portfolio operational health currently stable."
-  );
-}
-let expiry3Months = 0;
-let expiry6Months = 0;
-let expiry12Months = 0;
-
-leases?.forEach((lease) => {
-
-  if (!lease.expiry_date)
-    return;
-
-  const expiry =
-    new Date(lease.expiry_date);
-
-  const today =
-    new Date();
-
-  const diffDays =
-    Math.ceil(
-      (expiry.getTime() -
-        today.getTime()) /
-        (1000 *
-          60 *
-          60 *
-          24)
+    aiInsights.push(
+      "Portfolio has elevated critical lease exposure."
     );
-
-  if (diffDays <= 90) {
-
-    expiry3Months++;
-
   }
 
-  if (diffDays <= 180) {
+  if (highRiskLeases >= 3) {
 
-    expiry6Months++;
-
+    aiInsights.push(
+      "High vacancy risk concentration detected."
+    );
   }
 
-  if (diffDays <= 365) {
+  if (expiringSoon >= 5) {
 
-    expiry12Months++;
+    aiInsights.push(
+      "Significant lease rollover concentration approaching."
+    );
   }
 
-});
+  if (totalMonthlyRental > 1000000) {
+
+    aiInsights.push(
+      "Portfolio revenue exposure exceeds enterprise threshold."
+    );
+  }
+
+  if (aiInsights.length === 0) {
+
+    aiInsights.push(
+      "Portfolio operational health currently stable."
+    );
+  }
+
+  let expiry3Months = 0;
+  let expiry6Months = 0;
+  let expiry12Months = 0;
+
+  leases?.forEach((lease) => {
+
+    if (!lease.expiry_date)
+      return;
+
+    const expiry =
+      new Date(lease.expiry_date);
+
+    const today =
+      new Date();
+
+    const diffDays =
+      Math.ceil(
+        (expiry.getTime() -
+          today.getTime()) /
+        (1000 * 60 * 60 * 24)
+      );
+
+    if (diffDays <= 90) {
+
+      expiry3Months++;
+    }
+
+    if (diffDays <= 180) {
+
+      expiry6Months++;
+    }
+
+    if (diffDays <= 365) {
+
+      expiry12Months++;
+    }
+  });
+
   return (
 
     <main className="p-10 text-black">
 
       <div className="flex justify-between items-center mb-10">
 
-        <h1 className="text-4xl font-bold">
-          Lease Dashboard
-        </h1>
+        <div>
+
+          <h1 className="text-5xl font-black mb-3">
+            Lease Dashboard
+          </h1>
+
+          <p className="text-gray-500 text-lg">
+            Enterprise lease operations and portfolio intelligence.
+          </p>
+
+        </div>
 
         <Link
           href="/leases/new"
-          className="bg-black text-white px-5 py-3 rounded-lg"
+          className="bg-black text-white px-6 py-4 rounded-2xl font-semibold shadow-lg hover:opacity-90 transition-all"
         >
           Create Lease
         </Link>
 
       </div>
 
-     <div className="grid grid-cols-4 gap-6 mb-10">
+      <div className="grid grid-cols-4 gap-6 mb-10">
 
-  <div className="bg-gradient-to-br from-black to-gray-800 text-white rounded-2xl shadow-lg p-8">
+        <div className="bg-gradient-to-br from-black to-gray-800 text-white rounded-2xl shadow-lg p-8">
 
-    <p className="text-gray-300 text-sm uppercase tracking-widest mb-3">
-      Total Leases
-    </p>
+          <p className="text-gray-300 text-sm uppercase tracking-widest mb-3">
+            Total Leases
+          </p>
 
-    <h2 className="text-5xl font-black mb-2">
-      {totalLeases}
-    </h2>
+          <h2 className="text-5xl font-black mb-2">
+            {totalLeases}
+          </h2>
 
-    <p className="text-gray-400 text-sm">
-      Active portfolio agreements
-    </p>
+          <p className="text-gray-400 text-sm">
+            Active portfolio agreements
+          </p>
 
-  </div>
+        </div>
 
-  <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
+        <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
 
-    <p className="text-gray-500 text-sm uppercase tracking-widest mb-3">
-      Monthly Revenue
-    </p>
+          <p className="text-gray-500 text-sm uppercase tracking-widest mb-3">
+            Monthly Revenue
+          </p>
 
-    <h2 className="text-5xl font-black mb-2 text-green-600">
-      R {totalMonthlyRental.toLocaleString()}
-    </h2>
+          <h2 className="text-5xl font-black mb-2 text-green-600">
+            R {totalMonthlyRental.toLocaleString()}
+          </h2>
 
-    <p className="text-gray-400 text-sm">
-      Current monthly portfolio income
-    </p>
+          <p className="text-gray-400 text-sm">
+            Current monthly portfolio income
+          </p>
 
-  </div>
+        </div>
 
-  <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
+        <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
 
-    <p className="text-gray-500 text-sm uppercase tracking-widest mb-3">
-      High Risk Exposure
-    </p>
+          <p className="text-gray-500 text-sm uppercase tracking-widest mb-3">
+            High Risk Exposure
+          </p>
 
-    <h2 className="text-5xl font-black mb-2 text-red-600">
-      {highRiskLeases}
-    </h2>
+          <h2 className="text-5xl font-black mb-2 text-red-600">
+            {highRiskLeases}
+          </h2>
 
-    <p className="text-gray-400 text-sm">
-      Critical vacancy monitoring
-    </p>
+          <p className="text-gray-400 text-sm">
+            Critical vacancy monitoring
+          </p>
 
-  </div>
+        </div>
 
-  <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
+        <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
 
-    <p className="text-gray-500 text-sm uppercase tracking-widest mb-3">
-      Expiring Soon
-    </p>
+          <p className="text-gray-500 text-sm uppercase tracking-widest mb-3">
+            Expiring Soon
+          </p>
 
-    <h2 className="text-5xl font-black mb-2 text-orange-500">
-      {expiringSoon}
-    </h2>
+          <h2 className="text-5xl font-black mb-2 text-orange-500">
+            {expiringSoon}
+          </h2>
 
-    <p className="text-gray-400 text-sm">
-      Renewals within 90 days
-    </p>
+          <p className="text-gray-400 text-sm">
+            Renewals within 90 days
+          </p>
 
-  </div>
+        </div>
 
-</div>
+      </div>
 
-      <div className="bg-white rounded-xl shadow p-6 mb-10">
+      <div className="bg-black text-white rounded-2xl shadow-lg p-8 mb-10">
 
         <div className="flex justify-between items-center mb-6">
 
-          <h2 className="text-2xl font-bold">
+          <h2 className="text-3xl font-black">
+            AI Portfolio Insights
+          </h2>
+
+          <span className="bg-white text-black px-4 py-2 rounded-full text-xs uppercase tracking-widest font-bold">
+            Intelligence Engine
+          </span>
+
+        </div>
+
+        <div className="space-y-4">
+
+          {aiInsights.map(
+            (insight, index) => (
+
+              <div
+                key={index}
+                className="bg-gray-900 border border-gray-800 rounded-2xl p-5"
+              >
+
+                <p className="text-lg">
+                  {insight}
+                </p>
+
+              </div>
+
+            )
+          )}
+
+        </div>
+
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-lg p-8 mb-10">
+
+        <h2 className="text-3xl font-black mb-8">
+          Portfolio Forecasting
+        </h2>
+
+        <div className="grid grid-cols-3 gap-6">
+
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+
+            <p className="text-red-700 text-sm uppercase tracking-wide mb-3 font-bold">
+              Expiring in 3 Months
+            </p>
+
+            <h3 className="text-5xl font-black text-red-800">
+              {expiry3Months}
+            </h3>
+
+          </div>
+
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
+
+            <p className="text-orange-700 text-sm uppercase tracking-wide mb-3 font-bold">
+              Expiring in 6 Months
+            </p>
+
+            <h3 className="text-5xl font-black text-orange-800">
+              {expiry6Months}
+            </h3>
+
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6">
+
+            <p className="text-yellow-700 text-sm uppercase tracking-wide mb-3 font-bold">
+              Expiring in 12 Months
+            </p>
+
+            <h3 className="text-5xl font-black text-yellow-800">
+              {expiry12Months}
+            </h3>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-lg p-8 mb-10">
+
+        <div className="flex justify-between items-center mb-6">
+
+          <h2 className="text-3xl font-black">
             Operational Alerts
           </h2>
 
@@ -364,19 +429,16 @@ leases?.forEach((lease) => {
 
               <div
                 key={index}
-                className={`border-l-4 rounded-lg p-4
-                ${
-                  alert.type ===
-                  "critical"
+                className={`border-l-4 rounded-2xl p-5 ${
+                  alert.type === "critical"
                     ? "bg-red-50 border-red-500"
-                    : alert.type ===
-                      "warning"
+                    : alert.type === "warning"
                     ? "bg-orange-50 border-orange-500"
                     : "bg-yellow-50 border-yellow-500"
                 }`}
               >
 
-                <p className="font-semibold">
+                <p className="font-semibold text-lg">
                   {alert.message}
                 </p>
 
@@ -389,139 +451,57 @@ leases?.forEach((lease) => {
 
       </div>
 
-      <div className="bg-white rounded-xl shadow p-6 mb-10">
-<div className="bg-black text-white rounded-xl shadow p-8 mb-10">
+      <div className="bg-white rounded-2xl shadow-lg p-8 mb-10">
 
-  <div className="flex justify-between items-center mb-6">
-
-    <h2 className="text-3xl font-bold">
-      AI Portfolio Insights
-    </h2>
-    <div className="bg-white rounded-xl shadow p-8 mb-10">
-
-  <h2 className="text-3xl font-bold mb-8">
-    Portfolio Forecasting
-  </h2>
-
-  <div className="grid grid-cols-3 gap-6">
-
-    <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-
-      <p className="text-red-700 text-sm mb-2 font-semibold">
-        Expiring in 3 Months
-      </p>
-
-      <h3 className="text-5xl font-bold text-red-800">
-        {expiry3Months}
-      </h3>
-
-    </div>
-
-    <div className="bg-orange-50 border border-orange-200 rounded-xl p-6">
-
-      <p className="text-orange-700 text-sm mb-2 font-semibold">
-        Expiring in 6 Months
-      </p>
-
-      <h3 className="text-5xl font-bold text-orange-800">
-        {expiry6Months}
-      </h3>
-
-    </div>
-
-    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-
-      <p className="text-yellow-700 text-sm mb-2 font-semibold">
-        Expiring in 12 Months
-      </p>
-
-      <h3 className="text-5xl font-bold text-yellow-800">
-        {expiry12Months}
-      </h3>
-
-    </div>
-
-  </div>
-
-</div>
-
-    <span className="bg-white text-black px-4 py-2 rounded-full text-sm font-bold">
-      Intelligence Engine
-    </span>
-
-  </div>
-
-  <div className="space-y-4">
-
-    {aiInsights.map(
-      (insight, index) => (
-
-        <div
-          key={index}
-          className="bg-gray-900 rounded-lg p-5 border border-gray-700"
-        >
-
-          <p className="text-lg">
-            {insight}
-          </p>
-
-        </div>
-
-      )
-    )}
-
-  </div>
-
-</div>
-        <h2 className="text-2xl font-bold mb-8">
+        <h2 className="text-3xl font-black mb-8">
           Portfolio Risk Distribution
         </h2>
 
         <div className="grid grid-cols-4 gap-6">
 
-          <div className="bg-green-50 rounded-xl p-6 border border-green-200">
+          <div className="bg-green-50 border border-green-200 rounded-2xl p-6">
 
-            <p className="text-green-700 text-sm mb-2 font-semibold">
+            <p className="text-green-700 text-sm uppercase tracking-wide mb-3 font-bold">
               Stable
             </p>
 
-            <h3 className="text-4xl font-bold text-green-800">
+            <h3 className="text-5xl font-black text-green-800">
               {stableCount}
             </h3>
 
           </div>
 
-          <div className="bg-yellow-50 rounded-xl p-6 border border-yellow-200">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6">
 
-            <p className="text-yellow-700 text-sm mb-2 font-semibold">
+            <p className="text-yellow-700 text-sm uppercase tracking-wide mb-3 font-bold">
               Monitor
             </p>
 
-            <h3 className="text-4xl font-bold text-yellow-800">
+            <h3 className="text-5xl font-black text-yellow-800">
               {monitorCount}
             </h3>
 
           </div>
 
-          <div className="bg-orange-50 rounded-xl p-6 border border-orange-200">
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
 
-            <p className="text-orange-700 text-sm mb-2 font-semibold">
+            <p className="text-orange-700 text-sm uppercase tracking-wide mb-3 font-bold">
               Renewal Pending
             </p>
 
-            <h3 className="text-4xl font-bold text-orange-800">
+            <h3 className="text-5xl font-black text-orange-800">
               {renewalPendingCount}
             </h3>
 
           </div>
 
-          <div className="bg-red-50 rounded-xl p-6 border border-red-200">
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
 
-            <p className="text-red-700 text-sm mb-2 font-semibold">
+            <p className="text-red-700 text-sm uppercase tracking-wide mb-3 font-bold">
               Critical
             </p>
 
-            <h3 className="text-4xl font-bold text-red-800">
+            <h3 className="text-5xl font-black text-red-800">
               {criticalCount}
             </h3>
 
@@ -531,9 +511,9 @@ leases?.forEach((lease) => {
 
       </div>
 
-      <div className="bg-white rounded-xl shadow p-6 overflow-auto">
+      <div className="bg-white rounded-2xl shadow-lg p-8 overflow-auto">
 
-        <h2 className="text-2xl font-bold mb-6">
+        <h2 className="text-3xl font-black mb-8">
           Lease Portfolio
         </h2>
 
@@ -541,33 +521,33 @@ leases?.forEach((lease) => {
 
           <thead>
 
-            <tr className="border-b text-left">
+            <tr className="border-b border-gray-200 text-left">
 
-              <th className="p-4">
+              <th className="p-4 text-sm uppercase tracking-wide text-gray-500">
                 Lease ID
               </th>
 
-              <th className="p-4">
+              <th className="p-4 text-sm uppercase tracking-wide text-gray-500">
                 Tenant
               </th>
 
-              <th className="p-4">
+              <th className="p-4 text-sm uppercase tracking-wide text-gray-500">
                 Property
               </th>
 
-              <th className="p-4">
+              <th className="p-4 text-sm uppercase tracking-wide text-gray-500">
                 Monthly Rental
               </th>
 
-              <th className="p-4">
+              <th className="p-4 text-sm uppercase tracking-wide text-gray-500">
                 Vacancy Risk
               </th>
 
-              <th className="p-4">
+              <th className="p-4 text-sm uppercase tracking-wide text-gray-500">
                 Workflow Status
               </th>
 
-              <th className="p-4">
+              <th className="p-4 text-sm uppercase tracking-wide text-gray-500">
                 Lease Health
               </th>
 
@@ -585,14 +565,10 @@ leases?.forEach((lease) => {
               let workflowClass =
                 "bg-green-100 text-green-700";
 
-              if (
-                lease.expiry_date
-              ) {
+              if (lease.expiry_date) {
 
                 const expiry =
-                  new Date(
-                    lease.expiry_date
-                  );
+                  new Date(lease.expiry_date);
 
                 const today =
                   new Date();
@@ -601,15 +577,10 @@ leases?.forEach((lease) => {
                   Math.ceil(
                     (expiry.getTime() -
                       today.getTime()) /
-                      (1000 *
-                        60 *
-                        60 *
-                        24)
+                    (1000 * 60 * 60 * 24)
                   );
 
-                if (
-                  diffDays <= 30
-                ) {
+                if (diffDays <= 30) {
 
                   workflowStatus =
                     "Critical Action";
@@ -617,9 +588,7 @@ leases?.forEach((lease) => {
                   workflowClass =
                     "bg-red-100 text-red-700";
 
-                } else if (
-                  diffDays <= 90
-                ) {
+                } else if (diffDays <= 90) {
 
                   workflowStatus =
                     "Renewal Pending";
@@ -627,9 +596,7 @@ leases?.forEach((lease) => {
                   workflowClass =
                     "bg-orange-100 text-orange-700";
 
-                } else if (
-                  diffDays <= 180
-                ) {
+                } else if (diffDays <= 180) {
 
                   workflowStatus =
                     "Monitor";
@@ -642,29 +609,23 @@ leases?.forEach((lease) => {
               let leaseHealth = 100;
 
               if (
-                lease.vacancy_risk ===
-                "High"
+                lease.vacancy_risk === "High"
               ) {
 
                 leaseHealth -= 35;
               }
 
               if (
-                lease.vacancy_risk ===
-                "Critical"
+                lease.vacancy_risk === "Critical"
               ) {
 
                 leaseHealth -= 50;
               }
 
-              if (
-                lease.expiry_date
-              ) {
+              if (lease.expiry_date) {
 
                 const expiry =
-                  new Date(
-                    lease.expiry_date
-                  );
+                  new Date(lease.expiry_date);
 
                 const today =
                   new Date();
@@ -673,27 +634,18 @@ leases?.forEach((lease) => {
                   Math.ceil(
                     (expiry.getTime() -
                       today.getTime()) /
-                      (1000 *
-                        60 *
-                        60 *
-                        24)
+                    (1000 * 60 * 60 * 24)
                   );
 
-                if (
-                  diffDays <= 30
-                ) {
+                if (diffDays <= 30) {
 
                   leaseHealth -= 40;
 
-                } else if (
-                  diffDays <= 90
-                ) {
+                } else if (diffDays <= 90) {
 
                   leaseHealth -= 25;
 
-                } else if (
-                  diffDays <= 180
-                ) {
+                } else if (diffDays <= 180) {
 
                   leaseHealth -= 10;
                 }
@@ -702,58 +654,67 @@ leases?.forEach((lease) => {
               return (
 
                 <tr
-                  key={
-                    lease.lease_id
-                  }
-                  className="border-b hover:bg-gray-50"
+                  key={lease.lease_id}
+                  className="border-b border-gray-100 hover:bg-gray-50 transition-all"
                 >
 
                   <td className="p-4">
 
                     <Link
                       href={`/leases/${lease.lease_id}`}
-                      className="font-semibold underline"
+                      className="font-bold underline"
                     >
-                      {
-                        lease.lease_id
-                      }
+                      {lease.lease_id}
                     </Link>
 
                   </td>
 
                   <td className="p-4">
-                    {
-                      lease.tenant_name
-                    }
+
+                    <div>
+
+                      <p className="font-bold text-gray-900">
+                        {lease.tenant_name}
+                      </p>
+
+                      <p className="text-xs text-gray-400 mt-1">
+                        Enterprise Tenant
+                      </p>
+
+                    </div>
+
                   </td>
 
                   <td className="p-4">
-                    {
-                      lease.property_name
-                    }
+
+                    <div>
+
+                      <p className="font-semibold text-gray-800">
+                        {lease.property_name}
+                      </p>
+
+                      <p className="text-xs text-gray-400 mt-1">
+                        Managed Asset
+                      </p>
+
+                    </div>
+
+                  </td>
+
+                  <td className="p-4 font-semibold">
+                    R {lease.monthly_rental}
                   </td>
 
                   <td className="p-4">
-                    R{" "}
-                    {
-                      lease.monthly_rental
-                    }
-                  </td>
-
-                  <td className="p-4">
-                    {
-                      lease.vacancy_risk
-                    }
+                    {lease.vacancy_risk}
                   </td>
 
                   <td className="p-4">
 
                     <span
-                      className={`${workflowClass} px-3 py-1 rounded-full text-sm font-bold`}
+                      className={`${workflowClass} px-4 py-2 rounded-full text-xs uppercase tracking-wide font-bold shadow-sm`}
                     >
-                      {
-                        workflowStatus
-                      }
+                      {workflowStatus}
                     </span>
 
                   </td>
@@ -761,8 +722,7 @@ leases?.forEach((lease) => {
                   <td className="p-4">
 
                     <span
-                      className={`px-3 py-1 rounded-full text-sm font-bold
-                      ${
+                      className={`px-4 py-2 rounded-full text-xs uppercase tracking-wide font-bold shadow-sm ${
                         leaseHealth >= 90
                           ? "bg-green-100 text-green-700"
                           : leaseHealth >= 70
