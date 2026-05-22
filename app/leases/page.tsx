@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SearchBar from "../components/SearchBar";
 
 import { supabase } from "../../lib/supabase";
 
@@ -224,32 +225,38 @@ export default async function LeasesPage() {
 
     <main className="p-10 text-black">
 
-      <div className="flex justify-between items-center mb-10">
+     <div className="flex justify-between items-center gap-6 mb-10">
 
-        <div>
+  <div>
 
-          <h1 className="text-5xl font-black mb-3">
-            Lease Dashboard
-          </h1>
+    <h1 className="text-5xl font-black mb-3">
+      Lease Dashboard
+    </h1>
 
-          <p className="text-gray-500 text-lg">
-            Enterprise lease operations and portfolio intelligence.
-          </p>
+    <p className="text-gray-500 text-lg">
+      Enterprise lease operations and portfolio intelligence.
+    </p>
 
-        </div>
+  </div>
 
-        <Link
-          href="/leases/new"
-          className="bg-black text-white px-6 py-4 rounded-2xl font-semibold shadow-lg hover:opacity-90 transition-all"
-        >
-          Create Lease
-        </Link>
+  <div className="flex items-center gap-4 w-[500px]">
 
-      </div>
+    <SearchBar />
+
+    <Link
+      href="/leases/new"
+      className="bg-black text-white px-6 py-4 rounded-2xl font-semibold shadow-lg hover:opacity-90 transition-all whitespace-nowrap"
+    >
+      Create Lease
+    </Link>
+
+  </div>
+
+</div>
 
       <div className="grid grid-cols-4 gap-6 mb-10">
 
-        <div className="bg-gradient-to-br from-black to-gray-800 text-white rounded-2xl shadow-lg p-8">
+        <div className="bg-linear-to-br from-black to-gray-800 text-white rounded-2xl shadow-lg p-8">
 
           <p className="text-gray-300 text-sm uppercase tracking-widest mb-3">
             Total Leases
