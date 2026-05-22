@@ -56,7 +56,7 @@ export default function CommandPalette() {
 
   return (
 
-    <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/40 backdrop-blur-sm pt-[12vh]">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-sm pt-[12vh]">
 
       <div className="w-full max-w-2xl overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-2xl">
 
@@ -77,7 +77,7 @@ export default function CommandPalette() {
 
           </div>
 
-          <Command.List className="max-h-[420px] overflow-y-auto p-3">
+          <Command.List className="max-h-96 overflow-y-auto p-3">
 
             <Command.Empty className="p-6 text-sm text-zinc-500">
 
