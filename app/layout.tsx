@@ -3,12 +3,11 @@ import "./globals.css";
 import Sidebar from "./components/Sidebar";
 import Navbar from "./components/Navbar";
 
+import CommandPalette from "./components/command/CommandPalette";
+
 export const metadata = {
-
   title: "Property OS",
-
-  description:
-    "Enterprise Property Operating System",
+  description: "Enterprise Property Operating System",
 };
 
 export default function RootLayout({
@@ -21,23 +20,29 @@ export default function RootLayout({
 
     <html lang="en">
 
-      <body className="bg-gray-100">
+      <body className="bg-black text-white">
 
-        <div className="flex min-h-screen">
+        <CommandPalette />
+
+        <div className="flex min-h-screen bg-black">
 
           <Sidebar />
 
-          <main className="flex-1">
+          <main className="flex-1 overflow-hidden bg-zinc-950">
 
-            <div className="p-6">
+            <div className="p-5 lg:p-6">
 
-              <div className="bg-white rounded-2xl shadow-sm min-h-[95vh] overflow-hidden">
+              <div className="min-h-[95vh] rounded-3xl border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden">
 
-  <Navbar />
+                <Navbar />
 
-  {children}
+                <div className="bg-zinc-950 min-h-[calc(95vh-80px)]">
 
-</div>
+                  {children}
+
+                </div>
+
+              </div>
 
             </div>
 

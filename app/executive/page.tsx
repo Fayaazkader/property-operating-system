@@ -1,4 +1,10 @@
 import { supabase } from "../../lib/supabase";
+import PageShell from "../components/layout/PageShell";
+import PageHeader from "../components/layout/PageHeader";
+import Toolbar from "../components/layout/Toolbar";
+import SearchInput from "../components/layout/SearchInput";
+import ToolbarButton from "../components/layout/ToolbarButton";
+import KpiCard from "../components/dashboard/KpiCard";
 
 export default async function ExecutivePage() {
 
@@ -36,12 +42,8 @@ export default async function ExecutivePage() {
 
       const diffDays =
         Math.ceil(
-          (expiry.getTime() -
-            today.getTime()) /
-            (1000 *
-              60 *
-              60 *
-              24)
+          (expiry.getTime() - today.getTime()) /
+          (1000 * 60 * 60 * 24)
         );
 
       return diffDays <= 30;
@@ -51,126 +53,123 @@ export default async function ExecutivePage() {
   const openTasks =
     tasks?.filter(
       (task) =>
-        task.status !==
-        "Completed"
+        task.status !== "Completed"
     ).length || 0;
 
   const completedTasks =
     tasks?.filter(
       (task) =>
-        task.status ===
-        "Completed"
+        task.status === "Completed"
     ).length || 0;
 
   return (
 
-    <main className="p-10 text-black">
+    <PageShell>
 
-      <div className="mb-10">
+      <PageHeader
+        title="Executive Dashboard"
+        subtitle="Strategic portfolio and operational intelligence."
+      />
 
-        <h1 className="text-4xl font-bold mb-3">
-          Executive Dashboard
-        </h1>
+      <Toolbar>
 
-        <p className="text-gray-500 text-lg">
-          Strategic portfolio and operational intelligence.
-        </p>
+        <SearchInput />
+
+        <div className="flex flex-wrap items-center gap-3">
+
+          <ToolbarButton label="Export Report" />
+
+          <ToolbarButton label="Filter Assets" />
+
+          <ToolbarButton label="Generate Insights" />
+
+        </div>
+
+      </Toolbar>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+
+        <KpiCard
+          title="Portfolio Revenue"
+          value={`R ${totalRental.toLocaleString()}`}
+          trend="Monthly recurring portfolio income"
+        />
+
+        <KpiCard
+          title="Critical Lease Risk"
+          value={criticalLeases}
+          status="Urgent"
+          valueColor="text-red-600"
+          trend="Expiring within 30 days"
+        />
+
+        <KpiCard
+          title="Open Operational Tasks"
+          value={openTasks}
+          status="Active"
+          valueColor="text-orange-500"
+          trend="Pending operational actions"
+        />
+
+        <KpiCard
+          title="Completed Tasks"
+          value={completedTasks}
+          status="Healthy"
+          valueColor="text-green-600"
+          trend="Operational workflow completion"
+        />
 
       </div>
 
-      <div className="grid grid-cols-4 gap-6 mb-10">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
-        <div className="bg-white rounded-xl shadow p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 p-8">
 
-          <p className="text-gray-500 text-sm mb-2">
-            Portfolio Revenue
-          </p>
+          <div className="flex items-center justify-between mb-8">
 
-          <h2 className="text-4xl font-bold">
-            R {totalRental.toLocaleString()}
-          </h2>
+            <h2 className="text-2xl font-bold text-black">
+              Portfolio Health
+            </h2>
 
-        </div>
+            <span className="text-sm font-medium text-green-600">
+              Stable
+            </span>
 
-        <div className="bg-white rounded-xl shadow p-6">
+          </div>
 
-          <p className="text-gray-500 text-sm mb-2">
-            Critical Lease Risk
-          </p>
+          <div className="space-y-5">
 
-          <h2 className="text-4xl font-bold text-red-600">
-            {criticalLeases}
-          </h2>
+            <div className="flex items-center justify-between border-b pb-4">
 
-        </div>
-
-        <div className="bg-white rounded-xl shadow p-6">
-
-          <p className="text-gray-500 text-sm mb-2">
-            Open Operational Tasks
-          </p>
-
-          <h2 className="text-4xl font-bold text-orange-500">
-            {openTasks}
-          </h2>
-
-        </div>
-
-        <div className="bg-white rounded-xl shadow p-6">
-
-          <p className="text-gray-500 text-sm mb-2">
-            Completed Tasks
-          </p>
-
-          <h2 className="text-4xl font-bold text-green-600">
-            {completedTasks}
-          </h2>
-
-        </div>
-
-      </div>
-
-      <div className="grid grid-cols-2 gap-6">
-
-        <div className="bg-white rounded-xl shadow p-8">
-
-          <h2 className="text-2xl font-bold mb-6">
-            Portfolio Health
-          </h2>
-
-          <div className="space-y-4">
-
-            <div className="flex justify-between">
-
-              <span>
+              <span className="text-zinc-600">
                 Stable Assets
               </span>
 
-              <span className="font-bold text-green-600">
+              <span className="font-semibold text-green-600">
                 Good
               </span>
 
             </div>
 
-            <div className="flex justify-between">
+            <div className="flex items-center justify-between border-b pb-4">
 
-              <span>
+              <span className="text-zinc-600">
                 Renewal Exposure
               </span>
 
-              <span className="font-bold text-orange-500">
+              <span className="font-semibold text-orange-500">
                 Moderate
               </span>
 
             </div>
 
-            <div className="flex justify-between">
+            <div className="flex items-center justify-between">
 
-              <span>
+              <span className="text-zinc-600">
                 Vacancy Threat
               </span>
 
-              <span className="font-bold text-red-600">
+              <span className="font-semibold text-red-600">
                 Monitored
               </span>
 
@@ -180,34 +179,54 @@ export default async function ExecutivePage() {
 
         </div>
 
-        <div className="bg-white rounded-xl shadow p-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 p-8">
 
-          <h2 className="text-2xl font-bold mb-6">
-            Operational Focus
-          </h2>
+          <div className="flex items-center justify-between mb-8">
+
+            <h2 className="text-2xl font-bold text-black">
+              Operational Focus
+            </h2>
+
+            <span className="text-sm font-medium text-zinc-500">
+              Active
+            </span>
+
+          </div>
 
           <div className="space-y-4">
 
-            <div className="border rounded-lg p-4">
+            <div className="rounded-xl border border-zinc-200 p-5 hover:bg-zinc-50 transition">
 
-              <p className="font-semibold">
+              <p className="font-semibold text-black">
                 Renewal negotiations due
               </p>
 
-            </div>
-
-            <div className="border rounded-lg p-4">
-
-              <p className="font-semibold">
-                High-risk vacancy monitoring
+              <p className="text-sm text-zinc-500 mt-1">
+                Priority tenant engagements approaching expiry cycle.
               </p>
 
             </div>
 
-            <div className="border rounded-lg p-4">
+            <div className="rounded-xl border border-zinc-200 p-5 hover:bg-zinc-50 transition">
 
-              <p className="font-semibold">
+              <p className="font-semibold text-black">
+                High-risk vacancy monitoring
+              </p>
+
+              <p className="text-sm text-zinc-500 mt-1">
+                Monitor assets with declining occupancy performance.
+              </p>
+
+            </div>
+
+            <div className="rounded-xl border border-zinc-200 p-5 hover:bg-zinc-50 transition">
+
+              <p className="font-semibold text-black">
                 Tenant engagement required
+              </p>
+
+              <p className="text-sm text-zinc-500 mt-1">
+                Proactive retention discussions recommended.
               </p>
 
             </div>
@@ -218,6 +237,6 @@ export default async function ExecutivePage() {
 
       </div>
 
-    </main>
+    </PageShell>
   );
 }

@@ -29,35 +29,99 @@ export default function Navbar() {
 
   return (
 
-    <div className="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center rounded-t-2xl">
-
-      <div>
-
-        <h1 className="text-2xl font-black text-black">
-          Property OS
-        </h1>
-
-        <p className="text-sm text-gray-500 mt-1">
-          Enterprise Property Operating Platform
-        </p>
-
-      </div>
+    <div className="bg-zinc-900 border-b border-zinc-800 px-8 py-5 flex items-center justify-between">
 
       <div className="flex items-center gap-6">
 
-        <div className="bg-green-100 text-green-700 px-4 py-2 rounded-full text-xs uppercase tracking-widest font-bold">
-          Live Environment
+        <div>
+
+          <h1 className="text-2xl font-black tracking-tight text-white">
+            Property OS
+          </h1>
+
+          <p className="text-sm text-zinc-400 mt-1">
+            Enterprise Property Operating Platform
+          </p>
+
         </div>
 
-        <div className="text-right">
+        <div className="hidden xl:flex items-center">
 
-          <p className="text-xs uppercase tracking-widest text-gray-400 mb-1">
-            Logged In User
-          </p>
+          <input
+            type="text"
+            placeholder="Search portfolio, leases, tenants..."
+            className="
+              w-[320px]
+              rounded-2xl
+              border
+              border-zinc-700
+              bg-zinc-800
+              px-5
+              py-3
+              text-sm
+              text-white
+              outline-none
+              transition
+              focus:border-white
+            "
+          />
 
-          <p className="font-bold text-gray-900">
-            {email}
-          </p>
+        </div>
+
+      </div>
+
+      <div className="flex items-center gap-5">
+
+        <div className="hidden md:flex items-center gap-2 rounded-full bg-green-500/10 px-4 py-2">
+
+          <div className="h-2 w-2 rounded-full bg-green-500" />
+
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-green-400">
+            Live Environment
+          </span>
+
+        </div>
+
+        <button
+          className="
+            flex
+            h-11
+            w-11
+            items-center
+            justify-center
+            rounded-2xl
+            border
+            border-zinc-700
+            bg-zinc-800
+            text-lg
+            transition
+            hover:bg-zinc-700
+          "
+        >
+          🔔
+        </button>
+
+        <div className="flex items-center gap-4 rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3">
+
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-sm font-bold text-black">
+
+            {email
+              ? email.charAt(0).toUpperCase()
+              : "U"}
+
+          </div>
+
+          <div className="hidden lg:block">
+
+            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-1">
+              Logged In User
+            </p>
+
+            <p className="text-sm font-semibold text-white">
+              {email}
+            </p>
+
+          </div>
 
         </div>
 

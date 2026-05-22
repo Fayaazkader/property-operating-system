@@ -7,6 +7,11 @@ import React, {
 
 import { supabase } from "../../../lib/supabase";
 
+import PageShell from "../../components/layout/PageShell";
+import KpiCard from "../../components/dashboard/KpiCard";
+import StatusBadge from "../../components/ui/StatusBadge";
+import DocumentUploader from "../../components/documents/DocumentUploader";
+
 export default function LeaseDetailPage({
   params,
 }: {
@@ -24,6 +29,9 @@ export default function LeaseDetailPage({
 
   const [activities, setActivities] =
     useState<any[]>([]);
+
+    const [documents, setDocuments] =
+  useState<any[]>([]);
 
   const [taskTitle, setTaskTitle] =
     useState("");
@@ -91,6 +99,24 @@ export default function LeaseDetailPage({
       setActivities(
         activityData || []
       );
+      const { data: documentData } =
+  await supabase
+    .from("lease_documents")
+    .select("*")
+    .eq(
+      "lease_id",
+      resolvedParams.leaseId
+    )
+    .order(
+      "created_at",
+      {
+        ascending: false,
+      }
+    );
+
+setDocuments(
+  documentData || []
+);
     }
 
     fetchData();
@@ -188,42 +214,126 @@ export default function LeaseDetailPage({
   if (!lease) {
 
     return (
-      <main className="p-10">
+      <main className="p-10 text-white">
         Loading...
       </main>
     );
   }
 
+  const expiry =
+    new Date(lease.expiry_date);
+
+  const today =
+    new Date();
+
+  const expiryDays =
+    Math.ceil(
+      (expiry.getTime() -
+        today.getTime()) /
+      (1000 * 60 * 60 * 24)
+    );
+
+  const renewalRisk =
+    expiryDays <= 30
+      ? "Critical"
+      : expiryDays <= 90
+      ? "Moderate"
+      : "Stable";
+
   return (
 
-    <main className="min-h-screen bg-gray-100 p-10 text-black">
+    <PageShell>
 
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
 
-        <h1 className="text-4xl font-bold">
-          Lease Workspace
-        </h1>
+        <div>
+
+          <h1 className="text-4xl font-bold text-white">
+            Lease Workspace
+          </h1>
+
+          <p className="text-zinc-400 mt-2">
+            Operational lease management and intelligence environment.
+          </p>
+
+        </div>
 
         <a
           href={`/leases/${lease.lease_id}/edit`}
-          className="bg-black text-white px-5 py-3 rounded-lg"
+          className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 font-semibold text-black"
         >
           Edit Lease
         </a>
 
       </div>
 
-      <div className="bg-white rounded-xl shadow p-8 mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
 
-        <div className="grid grid-cols-3 gap-8">
+        <KpiCard
+          title="Monthly Rental"
+          value={`R ${Number(
+            lease.monthly_rental || 0
+          ).toLocaleString()}`}
+          trend="Current contractual revenue"
+        />
+
+        <KpiCard
+          title="Days To Expiry"
+          value={expiryDays}
+          valueColor={
+            expiryDays <= 30
+              ? "text-red-600"
+              : expiryDays <= 90
+              ? "text-orange-500"
+              : "text-green-600"
+          }
+          trend="Lease renewal exposure"
+        />
+
+        <KpiCard
+          title="Operational Tasks"
+          value={tasks.length}
+          trend="Workflow actions linked to lease"
+        />
+
+        <KpiCard
+          title="Renewal Risk"
+          value={renewalRisk}
+          valueColor={
+            renewalRisk === "Critical"
+              ? "text-red-600"
+              : renewalRisk === "Moderate"
+              ? "text-orange-500"
+              : "text-green-600"
+          }
+          trend="Operational intelligence assessment"
+        />
+
+      </div>
+
+      <div className="bg-white rounded-3xl shadow-sm border border-zinc-200 p-8">
+
+        <div className="flex items-center justify-between mb-8">
+
+          <h2 className="text-2xl font-bold text-black">
+            Lease Information
+          </h2>
+
+          <StatusBadge
+            status={renewalRisk}
+          />
+
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
 
           <div>
 
-            <p className="text-gray-500 text-sm">
+            <p className="text-zinc-500 text-sm mb-2">
               Lease ID
             </p>
 
-            <p className="font-bold text-lg">
+            <p className="font-bold text-lg text-black">
               {lease.lease_id}
             </p>
 
@@ -231,11 +341,11 @@ export default function LeaseDetailPage({
 
           <div>
 
-            <p className="text-gray-500 text-sm">
+            <p className="text-zinc-500 text-sm mb-2">
               Tenant Name
             </p>
 
-            <p className="font-bold text-lg">
+            <p className="font-bold text-lg text-black">
               {lease.tenant_name}
             </p>
 
@@ -243,11 +353,11 @@ export default function LeaseDetailPage({
 
           <div>
 
-            <p className="text-gray-500 text-sm">
+            <p className="text-zinc-500 text-sm mb-2">
               Property Name
             </p>
 
-            <p className="font-bold text-lg">
+            <p className="font-bold text-lg text-black">
               {lease.property_name}
             </p>
 
@@ -255,11 +365,11 @@ export default function LeaseDetailPage({
 
           <div>
 
-            <p className="text-gray-500 text-sm">
+            <p className="text-zinc-500 text-sm mb-2">
               Expiry Date
             </p>
 
-            <p className="font-bold text-lg">
+            <p className="font-bold text-lg text-black">
               {lease.expiry_date}
             </p>
 
@@ -267,11 +377,11 @@ export default function LeaseDetailPage({
 
           <div>
 
-            <p className="text-gray-500 text-sm">
+            <p className="text-zinc-500 text-sm mb-2">
               Monthly Rental
             </p>
 
-            <p className="font-bold text-lg">
+            <p className="font-bold text-lg text-black">
               R {lease.monthly_rental}
             </p>
 
@@ -281,11 +391,11 @@ export default function LeaseDetailPage({
 
       </div>
 
-      <div className="grid grid-cols-2 gap-6 mb-10">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
-        <div className="bg-white rounded-xl shadow p-8">
+        <div className="bg-white rounded-3xl shadow-sm border border-zinc-200 p-8">
 
-          <h2 className="text-2xl font-bold mb-6">
+          <h2 className="text-2xl font-bold text-black mb-8">
             Create Task
           </h2>
 
@@ -298,7 +408,7 @@ export default function LeaseDetailPage({
                 e.target.value
               )
             }
-            className="border rounded-lg p-3 w-full mb-4"
+            className="w-full rounded-2xl border border-zinc-200 px-4 py-3 mb-4"
           />
 
           <select
@@ -308,7 +418,7 @@ export default function LeaseDetailPage({
                 e.target.value
               )
             }
-            className="border rounded-lg p-3 w-full mb-4"
+            className="w-full rounded-2xl border border-zinc-200 px-4 py-3 mb-4"
           >
 
             <option>
@@ -337,22 +447,22 @@ export default function LeaseDetailPage({
                 e.target.value
               )
             }
-            className="border rounded-lg p-3 w-full"
-            rows={4}
+            rows={5}
+            className="w-full rounded-2xl border border-zinc-200 px-4 py-3"
           />
 
           <button
             onClick={handleCreateTask}
-            className="mt-6 bg-black text-white px-6 py-3 rounded-lg"
+            className="mt-6 rounded-2xl bg-black px-6 py-3 font-semibold text-white"
           >
             Create Task
           </button>
 
         </div>
 
-        <div className="bg-white rounded-xl shadow p-8">
+        <div className="bg-white rounded-3xl shadow-sm border border-zinc-200 p-8">
 
-          <h2 className="text-2xl font-bold mb-6">
+          <h2 className="text-2xl font-bold text-black mb-8">
             Add Activity
           </h2>
 
@@ -364,13 +474,13 @@ export default function LeaseDetailPage({
                 e.target.value
               )
             }
-            className="border rounded-lg p-3 w-full"
-            rows={8}
+            rows={10}
+            className="w-full rounded-2xl border border-zinc-200 px-4 py-3"
           />
 
           <button
             onClick={addActivity}
-            className="mt-6 bg-black text-white px-6 py-3 rounded-lg"
+            className="mt-6 rounded-2xl bg-black px-6 py-3 font-semibold text-white"
           >
             Save Activity
           </button>
@@ -379,19 +489,31 @@ export default function LeaseDetailPage({
 
       </div>
 
-      <div className="bg-white rounded-xl shadow p-8 mb-10">
+      <div className="bg-white rounded-3xl shadow-sm border border-zinc-200 p-8">
 
-        <h2 className="text-2xl font-bold mb-6">
-          Operational Tasks
-        </h2>
+        <div className="flex items-center justify-between mb-8">
+
+          <h2 className="text-2xl font-bold text-black">
+            Operational Tasks
+          </h2>
+
+          <StatusBadge
+            status={`${tasks.length} Active`}
+          />
+
+        </div>
 
         <div className="space-y-4">
 
           {tasks.length === 0 && (
 
-            <p className="text-gray-500">
-              No tasks yet.
-            </p>
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-8">
+
+              <p className="text-zinc-500">
+                No operational tasks yet.
+              </p>
+
+            </div>
 
           )}
 
@@ -399,59 +521,59 @@ export default function LeaseDetailPage({
 
             <div
               key={task.id}
-              className="border rounded-xl p-6 flex justify-between items-start"
+              className="rounded-2xl border border-zinc-200 p-6"
             >
 
-              <div>
+              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
 
-                <div className="flex items-center gap-3 mb-2">
+                <div>
 
-                  <h3 className="font-bold text-lg">
-                    {task.task_title}
-                  </h3>
+                  <div className="flex items-center gap-3 mb-3">
 
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold
-                    ${
-                      task.priority === "Critical"
-                        ? "bg-red-100 text-red-700"
-                        : task.priority === "High"
-                        ? "bg-orange-100 text-orange-700"
-                        : task.priority === "Medium"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-green-100 text-green-700"
-                    }`}
-                  >
-                    {task.priority}
-                  </span>
+                    <h3 className="text-lg font-bold text-black">
+                      {task.task_title}
+                    </h3>
+
+                    <StatusBadge
+                      status={task.priority}
+                    />
+
+                  </div>
+
+                  <p className="text-zinc-600">
+                    {task.task_description}
+                  </p>
+
+                  <div className="mt-4">
+
+                    <StatusBadge
+                      status={
+                        task.status ||
+                        "Active"
+                      }
+                    />
+
+                  </div>
 
                 </div>
 
-                <p className="text-gray-600">
-                  {task.task_description}
-                </p>
+                {task.status !==
+                  "Completed" && (
 
-                <p className="text-sm text-gray-400 mt-3">
-                  Status: {task.status}
-                </p>
+                  <button
+                    onClick={() =>
+                      completeTask(
+                        task.id
+                      )
+                    }
+                    className="rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white"
+                  >
+                    Complete
+                  </button>
+
+                )}
 
               </div>
-
-              {task.status !==
-                "Completed" && (
-
-                <button
-                  onClick={() =>
-                    completeTask(
-                      task.id
-                    )
-                  }
-                  className="bg-black text-white px-4 py-2 rounded-lg"
-                >
-                  Complete
-                </button>
-
-              )}
 
             </div>
 
@@ -461,9 +583,9 @@ export default function LeaseDetailPage({
 
       </div>
 
-      <div className="bg-white rounded-xl shadow p-8">
+      <div className="bg-white rounded-3xl shadow-sm border border-zinc-200 p-8">
 
-        <h2 className="text-2xl font-bold mb-6">
+        <h2 className="text-2xl font-bold text-black mb-8">
           Activity Timeline
         </h2>
 
@@ -471,9 +593,13 @@ export default function LeaseDetailPage({
 
           {activities.length === 0 && (
 
-            <p className="text-gray-500">
-              No activity yet.
-            </p>
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-8">
+
+              <p className="text-zinc-500">
+                No activity yet.
+              </p>
+
+            </div>
 
           )}
 
@@ -482,35 +608,41 @@ export default function LeaseDetailPage({
 
               <div
                 key={activity.id}
-                className="border-l-4 border-black bg-gray-50 p-5 rounded-lg"
+                className="rounded-2xl border border-zinc-200 bg-zinc-50 p-6"
               >
 
-                <div className="flex justify-between items-center mb-3">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
 
-                  <span className="font-bold">
-                    {
-                      activity.activity_type
-                    }
-                  </span>
+                  <div className="flex items-center gap-3">
 
-                  <span className="text-sm text-gray-500">
+                    <StatusBadge
+                      status={
+                        activity.activity_type
+                      }
+                    />
+
+                  </div>
+
+                  <p className="text-sm text-zinc-500">
+
                     {new Date(
                       activity.created_at
                     ).toLocaleString()}
-                  </span>
+
+                  </p>
 
                 </div>
 
-                <p className="text-gray-700">
-                  {
-                    activity.activity_note
-                  }
+                <p className="text-zinc-700 leading-7">
+
+                  {activity.activity_note}
+
                 </p>
 
-                <p className="text-sm text-gray-400 mt-3">
-                  By: {
-                    activity.created_by
-                  }
+                <p className="mt-5 text-sm text-zinc-500">
+
+                  By: {activity.created_by}
+
                 </p>
 
               </div>
@@ -521,7 +653,102 @@ export default function LeaseDetailPage({
         </div>
 
       </div>
+<div className="bg-white rounded-3xl shadow-sm border border-zinc-200 p-8">
 
-    </main>
+  <div className="flex items-center justify-between mb-8">
+
+    <div>
+
+      <h2 className="text-2xl font-bold text-black">
+        Lease Documents
+      </h2>
+
+      <p className="text-zinc-500 mt-2">
+        Operational lease agreements and supporting documentation.
+      </p>
+
+    </div>
+
+    <StatusBadge
+      status={`${documents.length} Documents`}
+    />
+
+  </div>
+
+  <div className="mb-8">
+
+    <DocumentUploader
+      leaseId={lease.lease_id}
+      onUploadComplete={() =>
+        window.location.reload()
+      }
+    />
+
+  </div>
+
+  <div className="space-y-4">
+
+    {documents.length === 0 && (
+
+      <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-8">
+
+        <p className="text-zinc-500">
+          No lease documents uploaded yet.
+        </p>
+
+      </div>
+
+    )}
+
+    {documents.map((document) => (
+
+      <div
+        key={document.id}
+        className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 rounded-2xl border border-zinc-200 p-6"
+      >
+
+        <div>
+
+          <div className="flex items-center gap-3 mb-3">
+
+            <p className="text-lg font-bold text-black">
+
+              {document.document_name}
+
+            </p>
+
+            <StatusBadge
+              status={
+                document.document_type ||
+                "Document"
+              }
+            />
+
+          </div>
+
+          <p className="text-sm text-zinc-500">
+
+            Uploaded by {document.uploaded_by}
+
+          </p>
+
+        </div>
+
+        <a
+          href={document.document_url}
+          target="_blank"
+          className="inline-flex items-center justify-center rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white"
+        >
+          Open Document
+        </a>
+
+      </div>
+
+    ))}
+
+  </div>
+
+</div>
+    </PageShell>
   );
 }

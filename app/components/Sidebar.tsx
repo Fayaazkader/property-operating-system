@@ -7,9 +7,13 @@ import {
   useState,
 } from "react";
 
+import { usePathname } from "next/navigation";
+
 import { supabase } from "../../lib/supabase";
 
 export default function Sidebar() {
+
+  const pathname = usePathname();
 
   const [role, setRole] =
     useState("Asset Manager");
@@ -45,98 +49,158 @@ export default function Sidebar() {
 
   }, []);
 
- return (
+  const navigation = [
+    {
+      label: "Lease Dashboard",
+      href: "/leases",
+    },
+    {
+      label: "Tenant CRM",
+      href: "/tenants",
+    },
+    {
+      label: "Import Center",
+      href: "/imports",
+    },
+    {
+      label: "Executive Dashboard",
+      href: "/executive",
+    },
+    {
+      label: "Operational Calendar",
+      href: "/calendar",
+    },
+    {
+      label: "Financial Operations",
+      href: "/financials",
+    },
+    {
+      label: "Notifications Center",
+      href: "/notifications",
+    },
+  ];
 
-  <aside className="w-72 min-h-screen bg-black text-white px-6 py-8">
+  return (
 
-    <div className="mb-12">
+    <aside className="w-72 min-h-screen bg-black text-white flex flex-col border-r border-zinc-800">
 
-      <h1 className="text-4xl font-black tracking-tight">
-        Property OS
-      </h1>
+      <div className="px-6 pt-8 pb-6 border-b border-zinc-800">
 
-      <p className="text-gray-400 mt-2 text-sm">
-        Enterprise Operating Platform
-      </p>
+        <h1 className="text-4xl font-black tracking-tight">
+          Property OS
+        </h1>
 
-    </div>
+        <p className="text-zinc-500 mt-2 text-sm">
+          Enterprise Operating Platform
+        </p>
 
-    <div className="bg-gray-900 rounded-2xl p-5 mb-10 border border-gray-800">
+      </div>
 
-      <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">
-        Logged In As
-      </p>
+      <div className="px-6 py-6">
 
-      <p className="font-bold text-lg">
-        {role}
-      </p>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
 
-    </div>
+          <p className="text-zinc-500 text-xs uppercase tracking-[0.2em] mb-2">
+            Logged In As
+          </p>
 
-    <nav className="space-y-3">
+          <p className="font-semibold text-lg text-white">
+            {role}
+          </p>
 
-      <Link
-        href="/leases"
-        className="block bg-gray-900 hover:bg-gray-800 transition-all p-4 rounded-xl font-semibold"
-      >
-        Lease Dashboard
-      </Link>
+        </div>
 
-      <Link
-        href="/tenants"
-        className="block hover:bg-gray-900 transition-all p-4 rounded-xl"
-      >
-        Tenant CRM
-      </Link>
+      </div>
 
-      <Link
-        href="/imports"
-        className="block hover:bg-gray-900 transition-all p-4 rounded-xl"
-      >
-        Import Center
-      </Link>
+      <div className="px-4 flex-1 overflow-y-auto">
 
-      <Link
-        href="/executive"
-        className="block hover:bg-gray-900 transition-all p-4 rounded-xl"
-      >
-        Executive Dashboard
-      </Link>
+        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 px-3 mb-4">
+          Workspace
+        </p>
 
-      <Link
-        href="/calendar"
-        className="block hover:bg-gray-900 transition-all p-4 rounded-xl"
-      >
-        Operational Calendar
-      </Link>
+        <nav className="space-y-2">
 
-      <Link
-        href="/financials"
-        className="block hover:bg-gray-900 transition-all p-4 rounded-xl"
-      >
-        Financial Operations
-      </Link>
+          {navigation.map((item) => {
 
-      <Link
-        href="/notifications"
-        className="block hover:bg-gray-900 transition-all p-4 rounded-xl"
-      >
-        Notifications Center
-      </Link>
+            const isActive =
+              pathname === item.href;
 
-      {role === "Admin" && (
+            return (
 
-        <Link
-          href="/admin"
-          className="block hover:bg-gray-900 transition-all p-4 rounded-xl"
-        >
-          Admin Console
-        </Link>
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`
+                  flex
+                  items-center
+                  rounded-2xl
+                  px-4
+                  py-4
+                  text-sm
+                  font-medium
+                  transition-all
+                  duration-200
 
-      )}
+                  ${
+                    isActive
+                      ? "bg-white text-black shadow-sm"
+                      : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
+                  }
+                `}
+              >
+                {item.label}
+              </Link>
 
-    </nav>
+            );
+          })}
 
-  </aside>
-);
+          {role === "Admin" && (
+
+            <Link
+              href="/admin"
+              className={`
+                flex
+                items-center
+                rounded-2xl
+                px-4
+                py-4
+                text-sm
+                font-medium
+                transition-all
+                duration-200
+
+                ${
+                  pathname === "/admin"
+                    ? "bg-white text-black shadow-sm"
+                    : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
+                }
+              `}
+            >
+              Admin Console
+            </Link>
+
+          )}
+
+        </nav>
+
+      </div>
+
+      <div className="p-6 border-t border-zinc-800">
+
+        <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-4">
+
+          <p className="text-sm font-semibold mb-1">
+            Rentora Enterprise
+          </p>
+
+          <p className="text-xs text-zinc-500">
+            Commercial property operating intelligence platform.
+          </p>
+
+        </div>
+
+      </div>
+
+    </aside>
+  );
 }
