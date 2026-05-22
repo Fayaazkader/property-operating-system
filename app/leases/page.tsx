@@ -239,7 +239,7 @@ export default async function LeasesPage() {
 
   </div>
 
-  <div className="flex items-center gap-4 w-[500px]">
+  <div className="flex items-center gap-4 w-96">
 
     <SearchBar />
 
