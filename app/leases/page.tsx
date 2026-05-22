@@ -267,58 +267,73 @@ leases?.forEach((lease) => {
 
       </div>
 
-      <div className="grid grid-cols-4 gap-6 mb-10">
+     <div className="grid grid-cols-4 gap-6 mb-10">
 
-        <div className="bg-white rounded-xl shadow p-6">
+  <div className="bg-gradient-to-br from-black to-gray-800 text-white rounded-2xl shadow-lg p-8">
 
-          <p className="text-gray-500 text-sm mb-2">
-            Total Leases
-          </p>
+    <p className="text-gray-300 text-sm uppercase tracking-widest mb-3">
+      Total Leases
+    </p>
 
-          <h2 className="text-4xl font-bold">
-            {totalLeases}
-          </h2>
+    <h2 className="text-5xl font-black mb-2">
+      {totalLeases}
+    </h2>
 
-        </div>
+    <p className="text-gray-400 text-sm">
+      Active portfolio agreements
+    </p>
 
-        <div className="bg-white rounded-xl shadow p-6">
+  </div>
 
-          <p className="text-gray-500 text-sm mb-2">
-            Monthly Rental
-          </p>
+  <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
 
-          <h2 className="text-4xl font-bold">
-            R{" "}
-            {totalMonthlyRental.toLocaleString()}
-          </h2>
+    <p className="text-gray-500 text-sm uppercase tracking-widest mb-3">
+      Monthly Revenue
+    </p>
 
-        </div>
+    <h2 className="text-5xl font-black mb-2 text-green-600">
+      R {totalMonthlyRental.toLocaleString()}
+    </h2>
 
-        <div className="bg-white rounded-xl shadow p-6">
+    <p className="text-gray-400 text-sm">
+      Current monthly portfolio income
+    </p>
 
-          <p className="text-gray-500 text-sm mb-2">
-            High Vacancy Risk
-          </p>
+  </div>
 
-          <h2 className="text-4xl font-bold text-red-600">
-            {highRiskLeases}
-          </h2>
+  <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
 
-        </div>
+    <p className="text-gray-500 text-sm uppercase tracking-widest mb-3">
+      High Risk Exposure
+    </p>
 
-        <div className="bg-white rounded-xl shadow p-6">
+    <h2 className="text-5xl font-black mb-2 text-red-600">
+      {highRiskLeases}
+    </h2>
 
-          <p className="text-gray-500 text-sm mb-2">
-            Expiring in 90 Days
-          </p>
+    <p className="text-gray-400 text-sm">
+      Critical vacancy monitoring
+    </p>
 
-          <h2 className="text-4xl font-bold text-orange-500">
-            {expiringSoon}
-          </h2>
+  </div>
 
-        </div>
+  <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
 
-      </div>
+    <p className="text-gray-500 text-sm uppercase tracking-widest mb-3">
+      Expiring Soon
+    </p>
+
+    <h2 className="text-5xl font-black mb-2 text-orange-500">
+      {expiringSoon}
+    </h2>
+
+    <p className="text-gray-400 text-sm">
+      Renewals within 90 days
+    </p>
+
+  </div>
+
+</div>
 
       <div className="bg-white rounded-xl shadow p-6 mb-10">
 
