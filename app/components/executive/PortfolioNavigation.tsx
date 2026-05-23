@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 type Property = {
   name: string;
   occupancy: string;
@@ -158,11 +159,16 @@ export default function PortfolioNavigation({
 
           </div>
 
-          <button className="text-sm font-semibold text-zinc-600 hover:text-black transition">
+         <Link
+  href={`/property/${property.name
+    .toLowerCase()
+    .replaceAll(" ", "-")}`}
+  className="text-sm font-semibold text-zinc-600 hover:text-black transition"
+>
 
-            Open Workspace
+  Open Workspace
 
-          </button>
+</Link>
 
         </div>
 
