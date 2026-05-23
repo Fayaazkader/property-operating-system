@@ -5,6 +5,17 @@ import Toolbar from "../components/layout/Toolbar";
 import SearchInput from "../components/layout/SearchInput";
 import ToolbarButton from "../components/layout/ToolbarButton";
 import KpiCard from "../components/dashboard/KpiCard";
+import ExecutiveCommandBanner from "../components/executive/ExecutiveCommandBanner";
+import ExecutiveSummaryBar from "../components/executive/ExecutiveSummaryBar";
+import PortfolioNavigation from "../components/executive/PortfolioNavigation";
+import ExecutivePriorities from "../components/executive/ExecutivePriorities";
+import PerformanceTrendAnalysis from "../components/executive/PerformanceTrendAnalysis";
+import RecommendedActions from "../components/executive/RecommendedActions";
+import CrossPortfolioRiskMatrix from "../components/executive/CrossPortfolioRiskMatrix";
+import ExecutiveInsights from "../components/executive/ExecutiveInsights";
+import ExecutiveReportCenter from "../components/executive/ExecutiveReportCenter";
+import ExecutiveTimeline from "../components/executive/ExecutiveTimeline";
+import PortfolioPerformanceTable from "../components/executive/PortfolioPerformanceTable";
 
 export default async function ExecutivePage() {
 
@@ -83,6 +94,7 @@ export default async function ExecutivePage() {
       (task) =>
         task.status === "Completed"
     ).length || 0;
+    const occupancyRate = 91;
     const portfolioRiskScore =
   (
     criticalLeases * 15 +
@@ -120,6 +132,158 @@ const portfolioRiskLevel =
   }) || [];
 
 const executiveAlerts: string[] = [];
+const executivePriorities = [
+
+    
+  {
+    level: "HIGH PRIORITY",
+    message:
+      `${criticalLeases} leases require immediate renewal engagement.`,
+    color:
+      "border-orange-200 bg-orange-50 text-orange-700",
+  },
+  
+
+  {
+    level: "CRITICAL",
+    message:
+      "Office portfolio occupancy remains below operational target.",
+    color:
+      "border-red-200 bg-red-50 text-red-700",
+  },
+
+  {
+    level: "ACTION REQUIRED",
+    message:
+      `${openTasks} operational tasks remain unresolved.`,
+    color:
+      "border-blue-200 bg-blue-50 text-blue-700",
+  },
+
+];
+const executiveInsights = [
+
+  "Industrial portfolio renewal exposure has increased this quarter.",
+
+  "Office occupancy performance remains below target thresholds.",
+
+  "Renewal concentration risk is heavily weighted toward Q4 expiries.",
+
+  "Operational task completion efficiency improved this month.",
+
+];
+const recommendedActions = [
+
+  {
+    title:
+      "Initiate Office Portfolio Retention Strategy",
+    description:
+      "Occupancy performance has declined below target thresholds. Executive engagement recommended.",
+  },
+
+  {
+    title:
+      "Escalate Industrial Renewal Negotiations",
+    description:
+      "Multiple industrial lease renewals approaching expiry without finalized engagement.",
+  },
+
+  {
+    title:
+      "Review Vacancy Mitigation Incentives",
+    description:
+      "Consider strategic tenant retention incentives for high-risk assets.",
+  },
+
+];
+const performanceTrends = [
+
+  {
+    metric: "Occupancy Performance",
+    direction: "↑ Improving",
+    value: "+4.2%",
+    color: "text-green-600",
+  },
+
+  {
+    metric: "Portfolio Revenue",
+    direction: "↑ Growth",
+    value: "+8.7%",
+    color: "text-green-600",
+  },
+
+  {
+    metric: "Renewal Exposure",
+    direction: "↓ Reducing",
+    value: "-3.1%",
+    color: "text-blue-600",
+  },
+
+  {
+    metric: "Task Completion Velocity",
+    direction: "↑ Improving",
+    value: "+12%",
+    color: "text-orange-500",
+  },
+
+];
+const portfolioHierarchy = [
+
+  {
+    portfolio: "Retail Portfolio",
+    properties: [
+      {
+        name: "Sandton City",
+        occupancy: "98%",
+        leases: 42,
+        risk: "Low",
+      },
+      {
+        name: "Rosebank Mall",
+        occupancy: "94%",
+        leases: 28,
+        risk: "Moderate",
+      },
+    ],
+  },
+
+  {
+    portfolio: "Industrial Assets",
+    properties: [
+      {
+        name: "Jet Park Distribution",
+        occupancy: "89%",
+        leases: 14,
+        risk: "Moderate",
+      },
+      {
+        name: "Midrand Logistics",
+        occupancy: "91%",
+        leases: 21,
+        risk: "Low",
+      },
+    ],
+  },
+
+  {
+    portfolio: "Office Portfolio",
+    properties: [
+      {
+        name: "Lakewood Offices",
+        occupancy: "82%",
+        leases: 18,
+        risk: "Critical",
+      },
+      {
+        name: "Rivonia Corporate",
+        occupancy: "86%",
+        leases: 12,
+        risk: "Moderate",
+      },
+    ],
+  },
+
+];
 
 if (criticalLeases > 0) {
 
@@ -150,6 +314,13 @@ if (portfolioRiskLevel === "Critical") {
         title="Executive Dashboard"
         subtitle="Strategic portfolio and operational intelligence."
       />
+     <ExecutiveCommandBanner />
+<ExecutiveSummaryBar
+  leaseCount={leases?.length || 0}
+  occupancyRate={occupancyRate}
+  renewalCount={upcomingRenewals.length}
+  portfolioRiskLevel={portfolioRiskLevel}
+/>
       {executiveAlerts.length > 0 && (
 
   <div className="mb-6 space-y-4">
@@ -190,7 +361,9 @@ if (portfolioRiskLevel === "Critical") {
   </div>
 
 )}
-
+<ExecutivePriorities
+  priorities={executivePriorities}
+/>
       <Toolbar>
 
         <SearchInput />
@@ -206,7 +379,71 @@ if (portfolioRiskLevel === "Critical") {
         </div>
 
       </Toolbar>
+ <PortfolioPerformanceTable />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
 
+  <button className="rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm hover:bg-zinc-50 transition">
+
+    <p className="text-sm text-zinc-500 mb-2">
+      Operations
+    </p>
+
+    <p className="text-lg font-bold text-black">
+      + Create Task
+    </p>
+
+  </button>
+
+  <button className="rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm hover:bg-zinc-50 transition">
+
+    <p className="text-sm text-zinc-500 mb-2">
+      Portfolio
+    </p>
+
+    <p className="text-lg font-bold text-black">
+      + Portfolio Note
+    </p>
+
+  </button>
+
+  <button className="rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm hover:bg-zinc-50 transition">
+
+    <p className="text-sm text-zinc-500 mb-2">
+      Intelligence
+    </p>
+
+    <p className="text-lg font-bold text-black">
+      + Generate Report
+    </p>
+
+  </button>
+
+  <button className="rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm hover:bg-zinc-50 transition">
+
+    <p className="text-sm text-zinc-500 mb-2">
+      Renewals
+    </p>
+
+    <p className="text-lg font-bold text-black">
+      + Renewal Review
+    </p>
+
+  </button>
+
+</div>
+<ExecutiveInsights
+  insights={executiveInsights}
+/>
+<RecommendedActions
+  actions={recommendedActions}
+/>
+<PortfolioNavigation
+  portfolioHierarchy={portfolioHierarchy}
+/>
+<PerformanceTrendAnalysis
+  trends={performanceTrends}
+/>
+<CrossPortfolioRiskMatrix />
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
 
         <KpiCard
@@ -369,6 +606,9 @@ if (portfolioRiskLevel === "Critical") {
         </div>
 
       </div>
+<ExecutiveTimeline
+  activities={activities || []}
+/>
 <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 p-8">
 
   <div className="flex items-center justify-between mb-8">
@@ -457,6 +697,57 @@ if (portfolioRiskLevel === "Critical") {
       </div>
 
     ))}
+
+  </div>
+
+</div>
+<div className="mb-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+
+  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+
+    <div>
+
+      <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 mb-2">
+        Portfolio Context
+      </p>
+
+      <h2 className="text-2xl font-bold text-black">
+        All Portfolios
+      </h2>
+
+      <p className="text-zinc-500 mt-2">
+        Enterprise-wide operational visibility across all managed assets.
+      </p>
+
+    </div>
+
+    <div className="flex flex-wrap gap-3">
+
+      <button className="rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white">
+
+        All Portfolios
+
+      </button>
+
+      <button className="rounded-2xl border border-zinc-200 px-5 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50">
+
+        Retail Portfolio
+
+      </button>
+
+      <button className="rounded-2xl border border-zinc-200 px-5 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50">
+
+        Industrial Assets
+
+      </button>
+
+      <button className="rounded-2xl border border-zinc-200 px-5 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50">
+
+        Office Portfolio
+
+      </button>
+
+    </div>
 
   </div>
 
@@ -557,6 +848,7 @@ if (portfolioRiskLevel === "Critical") {
   </div>
 
 </div>
+<ExecutiveReportCenter />
 <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 p-8">
 
   <div className="flex items-center justify-between mb-8">
