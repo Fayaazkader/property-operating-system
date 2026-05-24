@@ -16,6 +16,7 @@ import ExecutiveInsights from "../components/executive/ExecutiveInsights";
 import ExecutiveReportCenter from "../components/executive/ExecutiveReportCenter";
 import ExecutiveTimeline from "../components/executive/ExecutiveTimeline";
 import PortfolioPerformanceTable from "../components/executive/PortfolioPerformanceTable";
+import AppShell from "@/app/components/layout/AppShell";
 
 export default async function ExecutivePage() {
 
@@ -307,6 +308,7 @@ if (portfolioRiskLevel === "Critical") {
 }
 
   return (
+    <AppShell>
 
     <PageShell>
 
@@ -987,5 +989,6 @@ if (portfolioRiskLevel === "Critical") {
 
 </div>
     </PageShell>
+    </AppShell>
   );
 }
