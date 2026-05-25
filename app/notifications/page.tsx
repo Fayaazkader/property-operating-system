@@ -19,6 +19,34 @@ export default function NotificationsPage() {
 
   const [selectedNotification, setSelectedNotification] =
     useState<any>(null);
+    const groupedNotifications =
+  notifications.reduce(
+
+    (groups, notification) => {
+
+      if (
+        !groups[notification.type]
+      ) {
+
+        groups[
+          notification.type
+        ] = [];
+      }
+
+      groups[
+        notification.type
+      ].push(notification);
+
+      return groups;
+
+    },
+
+    {} as Record<
+      string,
+      typeof notifications
+    >
+
+  );
 
   useEffect(() => {
 
@@ -327,6 +355,11 @@ export default function NotificationsPage() {
                 Mark Reviewed
 
               </button>
+              <button className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-semibold text-red-600">
+
+  Escalate Issue
+
+</button>
 
             </div>
 

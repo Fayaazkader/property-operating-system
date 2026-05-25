@@ -1,3 +1,4 @@
+"use client";
 import { supabase } from "../../lib/supabase";
 import PageShell from "../components/layout/PageShell";
 import PageHeader from "../components/layout/PageHeader";
@@ -17,41 +18,20 @@ import ExecutiveReportCenter from "../components/executive/ExecutiveReportCenter
 import ExecutiveTimeline from "../components/executive/ExecutiveTimeline";
 import PortfolioPerformanceTable from "../components/executive/PortfolioPerformanceTable";
 import AppShell from "@/app/components/layout/AppShell";
+import { usePlatform } from "../context/PlatformContext";
+import Breadcrumbs from "../components/navigation/Breadcrumbs";
 
-export default async function ExecutivePage() {
+export default function ExecutivePage() {
+const { activeCompany } =
+  usePlatform();
 
-  const { data: leases } =
-    await supabase
-      .from("leases")
-      .select("*");
+const leases: any[] = [];
 
-  const { data: tasks } =
-    await supabase
-      .from("tasks")
-      .select("*");
-      const { data: activities } =
-  await supabase
-    .from("activities")
-    .select("*")
-    .order(
-      "created_at",
-      {
-        ascending: false,
-      }
-    )
-    .limit(8);
-    const { data: documents } =
-  await supabase
-    .from("lease_documents")
-    .select("*")
-    .order(
-      "created_at",
-      {
-        ascending: false,
-      }
-    )
-    .limit(6);
+const tasks: any[] = [];
 
+const activities: any[] = [];
+
+const documents: any[] = [];
   const totalRental =
     leases?.reduce(
       (sum, lease) =>
@@ -312,10 +292,25 @@ if (portfolioRiskLevel === "Critical") {
 
     <PageShell>
 
+      <Breadcrumbs
+  items={[
+    {
+      label: "Portfolio",
+    },
+    {
+      label:
+        activeCompany.name,
+    },
+    {
+      label: "Executive",
+    },
+  ]}
+/>
       <PageHeader
         title="Executive Dashboard"
         subtitle="Strategic portfolio and operational intelligence."
       />
+
      <ExecutiveCommandBanner />
 <ExecutiveSummaryBar
   leaseCount={leases?.length || 0}
@@ -438,14 +433,8 @@ if (portfolioRiskLevel === "Critical") {
 />
 <RecommendedActions
   actions={recommendedActions}
+
 />
-<PortfolioNavigation
-  portfolioHierarchy={portfolioHierarchy}
-/>
-<PerformanceTrendAnalysis
-  trends={performanceTrends}
-/>
-<CrossPortfolioRiskMatrix />
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
 
         <KpiCard

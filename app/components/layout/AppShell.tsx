@@ -4,6 +4,8 @@ import { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navigation } from "@/app/config/navigation";
+import { companies } from "@/app/config/companies";
+import { usePlatform } from "../../context/PlatformContext";
 
 
 
@@ -16,14 +18,20 @@ export default function AppShell({
 }: Props) {
 
   const pathname = usePathname();
-  const currentRole =
-  "executive";
+  const {
+  activeCompany,
+  setActiveCompany,
+  activeRole,
+  setActiveRole,
+} = usePlatform();
+  
+  
 
   return (
 
-    <div className="flex min-h-screen bg-zinc-100">
+    <div className="flex h-screen overflow-hidden bg-zinc-100">
 
-      <aside className="hidden lg:flex w-72 flex-col bg-black text-white p-6">
+      <aside className="hidden lg:flex w-72 flex-col bg-black text-white p-6 overflow-y-auto">
 
         <div className="mb-10">
 
@@ -38,6 +46,35 @@ export default function AppShell({
             Property OS
 
           </h1>
+          <p className="mt-3 text-sm text-zinc-500">
+
+  {activeCompany.name}
+
+</p>
+<div className="mt-6 space-y-2">
+
+  {companies.map((company) => (
+
+    <button
+  key={company.id}
+  onClick={() =>
+    setActiveCompany(company)
+  }
+      className={`w-full rounded-xl border px-4 py-3 text-left text-sm font-semibold transition
+      ${
+        company.id === activeCompany.id
+          ? "border-white bg-white text-black"
+          : "border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+      }`}
+    >
+
+      {company.name}
+
+    </button>
+
+  ))}
+
+</div>
 
         </div>
 
@@ -45,7 +82,7 @@ export default function AppShell({
 
          {navigation
   .filter((item) =>
-    item.roles.includes(currentRole)
+    item.roles.includes(activeRole.id)
   )
   .map((item) => {
 
@@ -93,7 +130,7 @@ export default function AppShell({
 
       </aside>
 
-      <main className="flex-1 p-6">
+      <main className="flex-1 overflow-y-auto p-6">
 
         {children}
 

@@ -4,6 +4,8 @@ import Sidebar from "./components/Sidebar";
 import Navbar from "./components/Navbar";
 
 import CommandPalette from "./components/command/CommandPalette";
+import { PlatformProvider } from "./context/PlatformContext";
+
 
 export const metadata = {
   title: "Property OS",
@@ -21,18 +23,19 @@ export default function RootLayout({
     <html lang="en">
 
       <body className="bg-black text-white">
+        <PlatformProvider>
 
         <CommandPalette />
 
-        <div className="flex min-h-screen bg-black">
+        <div className="flex h-screen overflow-hidden bg-black">
 
           <Sidebar />
 
-          <main className="flex-1 overflow-hidden bg-zinc-950">
+          <main className="flex-1 overflow-y-auto bg-zinc-950">
 
             <div className="p-5 lg:p-6">
 
-              <div className="min-h-[95vh] rounded-3xl border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden">
+              <div className="min-h-full rounded-3xl border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden">
 
                 <Navbar />
 
@@ -50,8 +53,10 @@ export default function RootLayout({
 
         </div>
 
-      </body>
+      </PlatformProvider>
 
-    </html>
+</body>
+
+</html>
   );
 }

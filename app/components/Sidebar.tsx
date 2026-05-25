@@ -10,79 +10,23 @@ import {
 import { usePathname } from "next/navigation";
 
 import { supabase } from "../../lib/supabase";
+import { navigation } from "@/app/config/navigation";
+
+import { usePlatform } from "../context/PlatformContext";
+import { roles } from "@/app/config/roles";
 
 export default function Sidebar() {
 
   const pathname = usePathname();
+  const {
+  activeRole,
+  setActiveRole,
+} = usePlatform();
 
-  const [role, setRole] =
-    useState("Asset Manager");
-
-  useEffect(() => {
-
-    async function fetchRole() {
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user?.email)
-        return;
-
-      const { data } =
-        await supabase
-          .from("user_roles")
-          .select("*")
-          .eq(
-            "user_email",
-            user.email
-          )
-          .single();
-
-      if (data?.role) {
-
-        setRole(data.role);
-      }
-    }
-
-    fetchRole();
-
-  }, []);
-
-  const navigation = [
-    {
-      label: "Lease Dashboard",
-      href: "/leases",
-    },
-    {
-      label: "Tenant CRM",
-      href: "/tenants",
-    },
-    {
-      label: "Import Center",
-      href: "/imports",
-    },
-    {
-      label: "Executive Dashboard",
-      href: "/executive",
-    },
-    {
-      label: "Operational Calendar",
-      href: "/calendar",
-    },
-    {
-      label: "Financial Operations",
-      href: "/financials",
-    },
-    {
-      label: "Notifications Center",
-      href: "/notifications",
-    },
-  ];
 
   return (
 
-    <aside className="w-72 min-h-screen bg-black text-white flex flex-col border-r border-zinc-800">
+    <aside className="w-64 min-h-screen bg-black text-white flex flex-col border-r border-zinc-800">
 
       <div className="px-6 pt-8 pb-6 border-b border-zinc-800">
 
@@ -104,9 +48,46 @@ export default function Sidebar() {
             Logged In As
           </p>
 
-          <p className="font-semibold text-lg text-white">
-            {role}
-          </p>
+        <p className="font-semibold text-lg text-white">
+
+  {activeRole.label}
+
+</p>
+
+<div className="mt-5 space-y-2">
+
+  {roles.map((role) => (
+
+    <button
+      key={role.id}
+      onClick={() =>
+        setActiveRole(role)
+      }
+      className={`
+        w-full
+        rounded-xl
+        border
+        px-3
+        py-2
+        text-left
+        text-sm
+        transition
+
+        ${
+          activeRole.id === role.id
+            ? "border-white bg-white text-black"
+            : "border-zinc-800 bg-black text-zinc-400 hover:border-zinc-700 hover:text-white"
+        }
+      `}
+    >
+
+      {role.label}
+
+    </button>
+
+  ))}
+
+</div>
 
         </div>
 
@@ -120,7 +101,11 @@ export default function Sidebar() {
 
         <nav className="space-y-2">
 
-          {navigation.map((item) => {
+        {navigation
+  .filter((item) =>
+    item.roles.includes(activeRole.id)
+  )
+  .map((item) => {
 
             const isActive =
               pathname === item.href;
@@ -154,32 +139,7 @@ export default function Sidebar() {
             );
           })}
 
-          {role === "Admin" && (
-
-            <Link
-              href="/admin"
-              className={`
-                flex
-                items-center
-                rounded-2xl
-                px-4
-                py-4
-                text-sm
-                font-medium
-                transition-all
-                duration-200
-
-                ${
-                  pathname === "/admin"
-                    ? "bg-white text-black shadow-sm"
-                    : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
-                }
-              `}
-            >
-              Admin Console
-            </Link>
-
-          )}
+         
 
         </nav>
 

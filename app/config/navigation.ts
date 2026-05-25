@@ -32,7 +32,7 @@ export const navigation = [
 
   {
     label: "Tasks",
-    href: "/executive",
+    href: "/tasks",
     roles: [
       "operations",
       "asset_manager",
@@ -42,7 +42,7 @@ export const navigation = [
 
   {
     label: "Documents",
-    href: "/executive",
+    href: "/documents",
     roles: [
       "leasing",
       "finance",
@@ -52,7 +52,7 @@ export const navigation = [
 
   {
     label: "Reports",
-    href: "/executive",
+    href: "/reports",
     roles: [
       "executive",
       "finance",
