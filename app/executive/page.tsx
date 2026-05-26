@@ -306,21 +306,439 @@ if (portfolioRiskLevel === "Critical") {
     },
   ]}
 />
+<div className="mb-8 rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-900 to-black p-8">
+
+  <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+
+    <div>
+
+      <p className="mb-3 text-sm uppercase tracking-[0.3em] text-zinc-500">
+
+        Executive Workspace
+
+      </p>
+
+      <h1 className="text-5xl font-black tracking-tight text-white">
+
+        Portfolio Command Center
+
+      </h1>
+
+      <p className="mt-4 max-w-3xl text-lg leading-8 text-zinc-400">
+
+        Strategic operational oversight across portfolio performance,
+        risk exposure,
+        workflow execution,
+        and executive intelligence.
+
+      </p>
+
+    </div>
+
+    <div className="flex gap-3">
+
+      <button className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200">
+
+        Open Portfolio
+
+      </button>
+
+      <button className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 transition hover:border-zinc-600 hover:text-white">
+
+        Executive Reports
+
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
       <PageHeader
         title="Executive Dashboard"
         subtitle="Strategic portfolio and operational intelligence."
       />
 
      <ExecutiveCommandBanner />
-<ExecutiveSummaryBar
-  leaseCount={leases?.length || 0}
-  occupancyRate={occupancyRate}
-  renewalCount={upcomingRenewals.length}
-  portfolioRiskLevel={portfolioRiskLevel}
-/>
+<div className="mb-6 rounded-3xl border border-zinc-800 bg-zinc-900/60 p-6 backdrop-blur-sm">
+
+  <ExecutiveSummaryBar
+    leaseCount={leases?.length || 0}
+    occupancyRate={occupancyRate}
+    renewalCount={upcomingRenewals.length}
+    portfolioRiskLevel={portfolioRiskLevel}
+  />
+
+</div>
+<div className="mb-12 grid grid-cols-1 xl:grid-cols-3 gap-4">
+
+  <div className="rounded-3xl border border-orange-500/20 bg-orange-500/5 p-6">
+
+    <p className="text-sm uppercase tracking-[0.2em] text-orange-300 mb-3">
+
+      Immediate Focus
+
+    </p>
+
+    <h3 className="text-2xl font-bold text-white mb-3">
+
+      Renewals Requiring Engagement
+
+    </h3>
+
+    <p className="leading-7 text-zinc-400">
+
+      Several lease renewals are approaching critical engagement windows
+      and require executive visibility.
+
+    </p>
+
+  </div>
+  
+
+  <div className="rounded-3xl border border-red-500/20 bg-red-500/5 p-6">
+
+    <p className="text-sm uppercase tracking-[0.2em] text-red-300 mb-3">
+
+      Operational Risk
+
+    </p>
+
+    <h3 className="text-2xl font-bold text-white mb-3">
+
+      Escalated Workflow Exposure
+
+    </h3>
+
+    <p className="leading-7 text-zinc-400">
+
+      Operational workflows remain unresolved across multiple
+      high-priority portfolio activities.
+
+    </p>
+
+  </div>
+
+  <div className="rounded-3xl border border-blue-500/20 bg-blue-500/5 p-6">
+
+    <p className="text-sm uppercase tracking-[0.2em] text-blue-300 mb-3">
+
+      Executive Insight
+
+    </p>
+
+    <h3 className="text-2xl font-bold text-white mb-3">
+
+      Portfolio Stability Improving
+
+    </h3>
+
+    <p className="leading-7 text-zinc-400">
+
+      Occupancy performance and operational completion rates
+      continue trending positively across the portfolio.
+
+    </p>
+
+  </div>
+
+</div>
+<div className="mb-10 rounded-3xl border border-zinc-800 bg-zinc-900 p-5">
+
+  <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+
+    <div>
+
+      <p className="mb-2 text-sm uppercase tracking-[0.25em] text-zinc-500">
+
+        Live Executive Activity
+
+      </p>
+
+      <h3 className="text-2xl font-bold text-white">
+
+        Portfolio Operational Feed
+
+      </h3>
+
+    </div>
+
+    <div className="flex flex-wrap gap-3 text-sm text-zinc-400">
+
+      <div className="rounded-2xl border border-zinc-800 bg-black px-4 py-3">
+
+        Lease renewal escalated • 2m ago
+
+      </div>
+
+      <div className="rounded-2xl border border-zinc-800 bg-black px-4 py-3">
+
+        Maintenance workflow approved • 8m ago
+
+      </div>
+
+      <div className="rounded-2xl border border-zinc-800 bg-black px-4 py-3">
+
+        Occupancy report generated • 14m ago
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+<div className="mb-12 flex flex-wrap items-center gap-3">
+
+  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm font-semibold text-emerald-300">
+
+    Portfolio Stable
+
+  </div>
+
+  <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 px-4 py-3 text-sm font-semibold text-orange-300">
+
+    14 Renewals Active
+
+  </div>
+
+  <div className="rounded-2xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm font-semibold text-red-300">
+
+    3 Executive Escalations
+
+  </div>
+
+  <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 px-4 py-3 text-sm font-semibold text-blue-300">
+
+    Occupancy Trending Up
+
+  </div>
+
+</div>
+<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-12">
+
+  <button className="group rounded-[2rem] border border-zinc-800 bg-zinc-900 p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-zinc-700 hover:bg-zinc-800 hover:shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+
+    <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 mb-3">
+
+      Portfolio
+
+    </p>
+
+    <h3 className="mb-3 text-2xl font-black text-white transition group-hover:text-zinc-100">
+
+      Companies
+
+    </h3>
+
+    <p className="text-sm leading-6 text-zinc-400">
+
+      Navigate portfolio entities,
+      operational groups,
+      and company-level intelligence.
+
+    </p>
+    <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-zinc-500 transition group-hover:text-white">
+
+  Enter Portfolio Layer
+
+  <span className="transition group-hover:translate-x-1">
+
+    →
+
+  </span>
+
+</div>
+
+  </button>
+
+  <button className="group rounded-[2rem] border border-zinc-800 bg-zinc-900 p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-zinc-700 hover:bg-zinc-800 hover:shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+
+    <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 mb-3">
+
+      Assets
+
+    </p>
+
+    <h3 className="mb-3 text-2xl font-black text-white transition group-hover:text-zinc-100">
+
+      Properties
+
+    </h3>
+
+    <p className="text-sm leading-6 text-zinc-400">
+
+      Review operational asset performance,
+      occupancy,
+      maintenance,
+      and vacancies.
+
+    </p>
+    <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-zinc-500 transition group-hover:text-white">
+
+  Explore Property Operations
+
+  <span className="transition group-hover:translate-x-1">
+
+    →
+
+  </span>
+
+</div>
+
+  </button>
+
+  <button className="group rounded-[2rem] border border-zinc-800 bg-zinc-900 p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-zinc-700 hover:bg-zinc-800 hover:shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+
+    <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 mb-3">
+
+      Operations
+
+    </p>
+
+    <h3 className="mb-3 text-2xl font-black text-white transition group-hover:text-zinc-100">
+
+      Workflows
+
+    </h3>
+
+    <p className="text-sm leading-6 text-zinc-400">
+
+      Manage operational execution,
+      escalations,
+      tasks,
+      and workflow coordination.
+
+    </p>
+    <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-zinc-500 transition group-hover:text-white">
+
+  Open Workflow Center
+
+  <span className="transition group-hover:translate-x-1">
+
+    →
+
+  </span>
+
+</div>
+
+  </button>
+
+  <button className="group rounded-[2rem] border border-zinc-800 bg-zinc-900 p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-zinc-700 hover:bg-zinc-800 hover:shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+
+    <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 mb-3">
+
+      Intelligence
+
+    </p>
+
+    <h3 className="mb-3 text-2xl font-black text-white transition group-hover:text-zinc-100">
+
+      Insights
+
+    </h3>
+
+    <p className="text-sm leading-6 text-zinc-400">
+
+      Explore executive trends,
+      operational exposure,
+      and portfolio intelligence.
+
+    </p>
+    <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-zinc-500 transition group-hover:text-white">
+
+  Review Executive Intelligence
+
+  <span className="transition group-hover:translate-x-1">
+
+    →
+
+  </span>
+
+</div>
+
+  </button>
+
+</div>
+<div className="mb-12 grid grid-cols-1 xl:grid-cols-3 gap-5">
+
+  <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-6">
+
+    <p className="mb-3 text-sm uppercase tracking-[0.25em] text-emerald-300">
+
+      Stable Operations
+
+    </p>
+
+    <h3 className="mb-3 text-3xl font-black text-white">
+
+      92% Portfolio Stability
+
+    </h3>
+
+    <p className="leading-7 text-zinc-400">
+
+      Core operational performance remains stable across
+      occupancy,
+      collections,
+      and workflow completion metrics.
+
+    </p>
+
+  </div>
+
+  <div className="rounded-3xl border border-orange-500/20 bg-orange-500/5 p-6">
+
+    <p className="mb-3 text-sm uppercase tracking-[0.25em] text-orange-300">
+
+      Attention Required
+
+    </p>
+
+    <h3 className="mb-3 text-3xl font-black text-white">
+
+      14 Renewal Workflows Active
+
+    </h3>
+
+    <p className="leading-7 text-zinc-400">
+
+      Multiple lease renewals require executive oversight
+      and operational coordination within upcoming review windows.
+
+    </p>
+
+  </div>
+
+  <div className="rounded-3xl border border-blue-500/20 bg-blue-500/5 p-6">
+
+    <p className="mb-3 text-sm uppercase tracking-[0.25em] text-blue-300">
+
+      Intelligence Layer
+
+    </p>
+
+    <h3 className="mb-3 text-3xl font-black text-white">
+
+      Executive Forecast Positive
+
+    </h3>
+
+    <p className="leading-7 text-zinc-400">
+
+      Portfolio operational indicators continue trending positively
+      across occupancy,
+      leasing velocity,
+      and execution efficiency.
+
+    </p>
+
+  </div>
+
+</div>
       {executiveAlerts.length > 0 && (
 
-  <div className="mb-6 space-y-4">
+  <div className="mb-12 rounded-[2rem] border border-red-500/20 bg-gradient-to-br from-red-500/10 to-black p-8 shadow-2xl space-y-5">
 
     {executiveAlerts.map(
       (alert, index) => (
@@ -338,9 +756,11 @@ if (portfolioRiskLevel === "Critical") {
 
             <div>
 
-              <p className="font-bold text-red-700 mb-1">
-                Executive Alert
-              </p>
+            <p className="font-black uppercase tracking-[0.2em] text-red-300 mb-2">
+
+  Executive Priority Alert
+
+</p>
 
               <p className="text-red-600">
                 {alert}
@@ -358,9 +778,43 @@ if (portfolioRiskLevel === "Critical") {
   </div>
 
 )}
-<ExecutivePriorities
-  priorities={executivePriorities}
-/>
+<div className="mb-10">
+
+  <div className="mb-5 flex items-center justify-between">
+
+    <div>
+
+      <p className="text-sm uppercase tracking-[0.25em] text-zinc-500 mb-3">
+
+        Strategic Priorities
+
+      </p>
+
+      <h2 className="text-3xl font-bold text-white">
+
+        Executive Attention Areas
+
+      </h2>
+
+    </div>
+
+    <button className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 transition hover:border-zinc-600 hover:text-white">
+
+      View All Priorities
+
+    </button>
+
+  </div>
+
+  <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+
+    <ExecutivePriorities
+      priorities={executivePriorities}
+    />
+
+  </div>
+
+</div>
       <Toolbar>
 
         <SearchInput />
@@ -376,7 +830,46 @@ if (portfolioRiskLevel === "Critical") {
         </div>
 
       </Toolbar>
- <PortfolioPerformanceTable />
+ <div className="mb-10">
+
+  <div className="mb-5">
+
+    <p className="text-sm uppercase tracking-[0.25em] text-zinc-500 mb-3">
+
+      Portfolio Intelligence
+
+    </p>
+
+    <h2 className="text-3xl font-bold text-white">
+
+      Asset Performance Overview
+
+    </h2>
+
+  </div>
+
+  <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+
+    <PortfolioPerformanceTable />
+
+  </div>
+
+</div>
+ <div className="mb-5">
+
+  <p className="text-sm uppercase tracking-[0.25em] text-zinc-500 mb-3">
+
+    Executive Operations
+
+  </p>
+
+  <h2 className="text-3xl font-bold text-white">
+
+    Operational Command Actions
+
+  </h2>
+
+</div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
 
   <button className="rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm hover:bg-zinc-50 transition">
@@ -428,13 +921,57 @@ if (portfolioRiskLevel === "Critical") {
   </button>
 
 </div>
-<ExecutiveInsights
-  insights={executiveInsights}
-/>
-<RecommendedActions
-  actions={recommendedActions}
+<div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-10">
 
-/>
+  <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+
+    <div className="mb-5">
+
+      <p className="text-sm uppercase tracking-[0.25em] text-zinc-500 mb-3">
+
+        Executive Intelligence
+
+      </p>
+
+      <h2 className="text-3xl font-bold text-white">
+
+        Portfolio Insights
+
+      </h2>
+
+    </div>
+
+    <ExecutiveInsights
+      insights={executiveInsights}
+    />
+
+  </div>
+
+  <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+
+    <div className="mb-5">
+
+      <p className="text-sm uppercase tracking-[0.25em] text-zinc-500 mb-3">
+
+        Operational Execution
+
+      </p>
+
+      <h2 className="text-3xl font-bold text-white">
+
+        Recommended Actions
+
+      </h2>
+
+    </div>
+
+    <RecommendedActions
+      actions={recommendedActions}
+    />
+
+  </div>
+
+</div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
 
         <KpiCard

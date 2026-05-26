@@ -22,25 +22,78 @@ export default function Sidebar() {
   activeRole,
   setActiveRole,
 } = usePlatform();
+const [
+  collapsed,
+  setCollapsed,
+] = useState(false);
 
 
   return (
 
-    <aside className="w-64 min-h-screen bg-black text-white flex flex-col border-r border-zinc-800">
+    <aside
+  className={`
+    ${
+      collapsed
+        ? "w-20"
+        : "w-64"
+    }
+    min-h-screen
+    bg-black
+    text-white
+    flex
+    flex-col
+    border-r
+    border-zinc-800
+    transition-all
+    duration-300
+  `}
+> 
+<div className="flex justify-end p-3">
+
+  <button
+    onClick={() =>
+      setCollapsed(
+        !collapsed
+      )
+    }
+    className="rounded-xl border border-zinc-800 px-3 py-2 text-sm text-zinc-400 transition hover:border-zinc-700 hover:text-white"
+  >
+
+    {collapsed
+      ? "→"
+      : "←"}
+
+  </button>
+
+</div>
 
       <div className="px-6 pt-8 pb-6 border-b border-zinc-800">
 
-        <h1 className="text-4xl font-black tracking-tight">
-          Property OS
-        </h1>
+       {!collapsed && (
 
-        <p className="text-zinc-500 mt-2 text-sm">
-          Enterprise Operating Platform
-        </p>
+  <h1 className="text-4xl font-black tracking-tight">
+
+    Property OS
+
+  </h1>
+
+)}
+
+        {!collapsed && (
+
+  <p className="text-zinc-500 mt-2 text-sm">
+
+    Enterprise Operating Platform
+
+  </p>
+
+)}
 
       </div>
 
-      <div className="px-6 py-6">
+      {!collapsed && (
+
+  <div className="px-6 py-6">
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
 
@@ -92,12 +145,19 @@ export default function Sidebar() {
         </div>
 
       </div>
+      )}
 
       <div className="px-4 flex-1 overflow-y-auto">
 
-        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 px-3 mb-4">
-          Workspace
-        </p>
+        {!collapsed && (
+
+  <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 px-3 mb-4">
+
+    Workspace
+
+  </p>
+
+)}
 
         <nav className="space-y-2">
 
@@ -116,24 +176,36 @@ export default function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={`
-                  flex
-                  items-center
-                  rounded-2xl
-                  px-4
-                  py-4
-                  text-sm
-                  font-medium
-                  transition-all
-                  duration-200
+  flex
+  items-center
+  h-14
+  ${
+    collapsed
+      ? "justify-center"
+      : ""
+  }
+  rounded-3xl
+  ${
+  collapsed
+    ? "px-0"
+    : "px-4"
+}
+  py-4
+  text-sm
+  font-medium
+  transition-all
+  duration-200
 
-                  ${
-                    isActive
-                      ? "bg-white text-black shadow-sm"
-                      : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
-                  }
-                `}
+  ${
+    isActive
+      ? "bg-white text-black shadow-sm"
+      : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
+  }
+`}
               >
-                {item.label}
+                {collapsed
+  ? item.label.charAt(0)
+  : item.label}
               </Link>
 
             );
@@ -145,7 +217,9 @@ export default function Sidebar() {
 
       </div>
 
-      <div className="p-6 border-t border-zinc-800">
+      {!collapsed && (
+
+  <div className="p-6 border-t border-zinc-800">
 
         <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-4">
 
@@ -160,6 +234,7 @@ export default function Sidebar() {
         </div>
 
       </div>
+      )}
 
     </aside>
   );
