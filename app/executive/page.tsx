@@ -1514,6 +1514,257 @@ if (portfolioRiskLevel === "Critical") {
   </div>
 
 </div>
+<div className="mb-12 rounded-[2rem] border border-zinc-800 bg-zinc-900 p-8">
+
+  <div className="mb-6 flex items-center justify-between">
+
+    <div>
+
+      <p className="mb-3 text-sm uppercase tracking-[0.25em] text-zinc-500">
+
+        Operational Accountability
+
+      </p>
+
+      <h2 className="text-3xl font-black text-white">
+
+        Responsibility Assignments
+
+      </h2>
+
+    </div>
+
+    <button className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200">
+
+      + Assign Responsibility
+
+    </button>
+
+  </div>
+
+  <div className="space-y-4">
+
+    <div className="rounded-3xl border border-zinc-800 bg-black p-5">
+
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+
+        <div>
+
+          <p className="text-sm uppercase tracking-[0.2em] text-orange-400 mb-2">
+
+            Lease Renewal
+
+          </p>
+
+          <h3 className="text-2xl font-bold text-white mb-2">
+
+            Sandton Gate • Renewal Engagement
+
+          </h3>
+
+          <p className="text-zinc-400 leading-7">
+
+            Renewal engagement required before escalation threshold
+            is reached for upcoming lease expiry.
+
+          </p>
+
+        </div>
+
+        <div className="flex flex-col gap-3">
+
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-300">
+
+            Assigned To: Sarah Johnson
+
+          </div>
+
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-300">
+
+            Due Date: 12 June 2026
+
+          </div>
+
+          <div className="rounded-2xl border border-orange-500/20 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-300">
+
+            Pending Executive Review
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <div className="mt-4 flex items-center gap-3">
+
+  <div className="rounded-full bg-emerald-500 px-3 py-1 text-xs font-bold text-black">
+
+    Assigned
+
+  </div>
+
+  <div className="h-[2px] w-8 bg-zinc-700" />
+
+  <div className="rounded-full bg-orange-400 px-3 py-1 text-xs font-bold text-black">
+
+    In Progress
+
+  </div>
+
+  <div className="h-[2px] w-8 bg-zinc-700" />
+
+  <div className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-bold text-zinc-400">
+
+    Review
+
+  </div>
+
+  <div className="h-[2px] w-8 bg-zinc-700" />
+
+  <div className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-bold text-zinc-400">
+
+    Complete
+
+  </div>
+
+</div>
+<div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
+
+  <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+
+    <div>
+
+      <p className="mb-2 text-sm uppercase tracking-[0.2em] text-red-300">
+
+        Escalation Protocol
+
+      </p>
+
+      <p className="leading-7 text-zinc-400">
+
+        If renewal engagement is not completed before the due date,
+        the workflow will escalate to executive operations review.
+
+      </p>
+
+    </div>
+
+    <div className="rounded-2xl border border-red-500/20 bg-black px-4 py-3 text-sm font-semibold text-red-300">
+
+      Escalation Window: 3 Days Remaining
+
+    </div>
+    
+  </div>
+  <div className="flex flex-wrap gap-3">
+
+  <button className="rounded-2xl bg-red-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-400">
+
+    Escalate Now
+
+  </button>
+
+  <button className="rounded-2xl border border-zinc-700 px-4 py-3 text-sm font-semibold text-zinc-300 transition hover:border-zinc-600 hover:text-white">
+
+    Reassign Responsibility
+
+  </button>
+
+  <button className="rounded-2xl border border-zinc-700 px-4 py-3 text-sm font-semibold text-zinc-300 transition hover:border-zinc-600 hover:text-white">
+
+    Extend Due Date
+
+  </button>
+
+</div>
+
+</div>
+
+<div className="mt-6 rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+
+  <p className="mb-5 text-sm uppercase tracking-[0.25em] text-zinc-500">
+
+    Workflow Timeline
+
+  </p>
+
+  <div className="space-y-4">
+
+    <div className="flex items-start gap-4">
+
+      <div className="mt-1 h-3 w-3 rounded-full bg-emerald-400" />
+
+      <div>
+
+        <p className="font-semibold text-white">
+
+          Responsibility Assigned
+
+        </p>
+
+        <p className="text-sm text-zinc-500">
+
+          Assigned by Executive Operations • 08 June 2026 • 09:42
+
+        </p>
+
+      </div>
+
+    </div>
+
+    <div className="flex items-start gap-4">
+
+      <div className="mt-1 h-3 w-3 rounded-full bg-orange-400" />
+
+      <div>
+
+        <p className="font-semibold text-white">
+
+          Renewal Engagement Started
+
+        </p>
+
+        <p className="text-sm text-zinc-500">
+
+          Asset manager initiated tenant engagement workflow.
+
+        </p>
+
+      </div>
+
+    </div>
+
+    <div className="flex items-start gap-4">
+
+      <div className="mt-1 h-3 w-3 rounded-full bg-red-400" />
+
+      <div>
+
+        <p className="font-semibold text-white">
+
+          Executive Review Pending
+
+        </p>
+
+        <p className="text-sm text-zinc-500">
+
+          Workflow approaching escalation threshold window.
+
+        </p>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+</div>
+
     </PageShell>
     </AppShell>
   );
