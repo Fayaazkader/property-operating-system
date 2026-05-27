@@ -17,7 +17,6 @@ import ExecutiveInsights from "../components/executive/ExecutiveInsights";
 import ExecutiveReportCenter from "../components/executive/ExecutiveReportCenter";
 import ExecutiveTimeline from "../components/executive/ExecutiveTimeline";
 import PortfolioPerformanceTable from "../components/executive/PortfolioPerformanceTable";
-import AppShell from "@/app/components/layout/AppShell";
 import { usePlatform } from "../context/PlatformContext";
 import Breadcrumbs from "../components/navigation/Breadcrumbs";
 
@@ -288,8 +287,7 @@ if (portfolioRiskLevel === "Critical") {
 }
 
   return (
-    <AppShell>
-
+    
     <PageShell>
 
       <Breadcrumbs
@@ -1547,6 +1545,58 @@ if (portfolioRiskLevel === "Critical") {
     <div className="rounded-3xl border border-zinc-800 bg-black p-5">
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="rounded-3xl border border-zinc-800 bg-black p-5">
+
+  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+
+    <div>
+
+      <p className="text-sm uppercase tracking-[0.2em] text-blue-400 mb-2">
+
+        Maintenance Workflow
+
+      </p>
+
+      <h3 className="text-2xl font-bold text-white mb-2">
+
+        Lakewood Offices • HVAC Escalation
+
+      </h3>
+
+      <p className="text-zinc-400 leading-7">
+
+        Maintenance escalation triggered after unresolved HVAC system failures
+        affecting multiple tenants within the office block.
+
+      </p>
+
+    </div>
+
+    <div className="flex flex-col gap-3">
+
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-300">
+
+        Assigned To: Michael Daniels
+
+      </div>
+
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-300">
+
+        Due Date: 14 June 2026
+
+      </div>
+
+      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-sm font-semibold text-blue-300">
+
+        Vendor Coordination Active
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
 
         <div>
 
@@ -1766,6 +1816,5 @@ if (portfolioRiskLevel === "Critical") {
 </div>
 
     </PageShell>
-    </AppShell>
   );
 }

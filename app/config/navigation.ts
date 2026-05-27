@@ -6,6 +6,10 @@ export const navigation = [
     roles: [
       "executive",
       "enterprise",
+      "asset_manager",
+      "operations",
+      "leasing",
+      "finance",
     ],
   },
 
@@ -13,9 +17,12 @@ export const navigation = [
     label: "Properties",
     href: "/property/lakewood-offices",
     roles: [
-      "asset_manager",
       "executive",
       "enterprise",
+      "asset_manager",
+      "operations",
+      "leasing",
+      "finance",
     ],
   },
 
@@ -23,10 +30,12 @@ export const navigation = [
     label: "Leases",
     href: "/leases",
     roles: [
-      "leasing",
-      "asset_manager",
       "executive",
       "enterprise",
+      "asset_manager",
+      "operations",
+      "leasing",
+      "finance",
     ],
   },
 
@@ -34,9 +43,12 @@ export const navigation = [
     label: "Tasks",
     href: "/tasks",
     roles: [
-      "operations",
-      "asset_manager",
+      "executive",
       "enterprise",
+      "asset_manager",
+      "operations",
+      "leasing",
+      "finance",
     ],
   },
 
@@ -44,9 +56,12 @@ export const navigation = [
     label: "Documents",
     href: "/documents",
     roles: [
+      "executive",
+      "enterprise",
+      "asset_manager",
+      "operations",
       "leasing",
       "finance",
-      "enterprise",
     ],
   },
 
@@ -55,8 +70,24 @@ export const navigation = [
     href: "/reports",
     roles: [
       "executive",
-      "finance",
       "enterprise",
+      "asset_manager",
+      "operations",
+      "leasing",
+      "finance",
+    ],
+  },
+
+  {
+    label: "Operations",
+    href: "/operations",
+    roles: [
+      "executive",
+      "enterprise",
+      "asset_manager",
+      "operations",
+      "leasing",
+      "finance",
     ],
   },
 
