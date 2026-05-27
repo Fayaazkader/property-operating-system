@@ -19,8 +19,11 @@ import ExecutiveTimeline from "../components/executive/ExecutiveTimeline";
 import PortfolioPerformanceTable from "../components/executive/PortfolioPerformanceTable";
 import { usePlatform } from "../context/PlatformContext";
 import Breadcrumbs from "../components/navigation/Breadcrumbs";
+import { getExecutiveMetrics } from "@/lib/dashboard";
 
-export default function ExecutivePage() {
+export default async function ExecutivePage() {
+  const metrics =
+  await getExecutiveMetrics();
 const { activeCompany } =
   usePlatform();
 
@@ -1013,6 +1016,38 @@ if (portfolioRiskLevel === "Critical") {
       : "text-green-600"
   }
   trend="Calculated operational exposure"
+/>
+<KpiCard
+  title="Total Properties"
+  value={metrics.totalProperties}
+  trend="Live portfolio asset count"
+/>
+
+<KpiCard
+  title="Active Leases"
+  value={metrics.activeLeases}
+  trend="Currently active lease agreements"
+/>
+
+<KpiCard
+  title="Arrears Exposure"
+  value={`R ${metrics.totalArrearsExposure.toLocaleString()}`}
+  valueColor="text-red-600"
+  trend="Outstanding receivables exposure"
+/>
+
+<KpiCard
+  title="Under-Recovery Exposure"
+  value={`R ${metrics.totalUnderRecoveryExposure.toLocaleString()}`}
+  valueColor="text-orange-500"
+  trend="Operational recovery leakage"
+/>
+
+<KpiCard
+  title="Critical Operational Tasks"
+  value={metrics.criticalOperationalTasks}
+  valueColor="text-red-500"
+  trend="Escalated governance workflows"
 />
 
       </div>

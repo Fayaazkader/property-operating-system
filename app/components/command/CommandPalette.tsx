@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   Command
 } from "cmdk";
+import { commands } from "@/app/config/commands";
 
 export default function CommandPalette() {
 
