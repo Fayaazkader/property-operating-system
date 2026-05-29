@@ -22,7 +22,7 @@ export default function Breadcrumbs({
         (item, index) => (
 
           <div
-            key={item.label}
+            key={`${item.label}-${index}`}
             className="flex items-center gap-3"
           >
 

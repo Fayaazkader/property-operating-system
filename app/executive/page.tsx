@@ -1,4 +1,3 @@
-"use client";
 import { supabase } from "../../lib/supabase";
 import PageShell from "../components/layout/PageShell";
 import PageHeader from "../components/layout/PageHeader";
@@ -17,15 +16,30 @@ import ExecutiveInsights from "../components/executive/ExecutiveInsights";
 import ExecutiveReportCenter from "../components/executive/ExecutiveReportCenter";
 import ExecutiveTimeline from "../components/executive/ExecutiveTimeline";
 import PortfolioPerformanceTable from "../components/executive/PortfolioPerformanceTable";
-import { usePlatform } from "../context/PlatformContext";
 import Breadcrumbs from "../components/navigation/Breadcrumbs";
-import { getExecutiveMetrics } from "@/lib/dashboard";
+import {
+  getExecutiveMetrics,
+  getCriticalLeaseExposure,
+  getCriticalOperationalTasks,
+  getArrearsExposure,
+  getOccupancyOverview,
+  getExecutiveActionItems,
+} from "@/lib/dashboard";
+import Link from "next/link";
 
 export default async function ExecutivePage() {
   const metrics =
   await getExecutiveMetrics();
-const { activeCompany } =
-  usePlatform();
+  const criticalLeaseExposure =
+  await getCriticalLeaseExposure();
+  const criticalOperationalTasks =
+  await getCriticalOperationalTasks();
+  const arrearsExposure =
+  await getArrearsExposure();
+  const occupancyOverview =
+  await getOccupancyOverview();
+  const executiveActionItems =
+  await getExecutiveActionItems();
 
 const leases: any[] = [];
 
@@ -143,7 +157,331 @@ const executivePriorities = [
       "border-blue-200 bg-blue-50 text-blue-700",
   },
 
-];
+];<div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mt-8">
+
+  {/* LEFT COLUMN */}
+
+  <div className="space-y-8">
+
+    {/* LEASE EXPOSURE */}
+
+    <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+
+      <div className="mb-6">
+
+        <h2 className="text-2xl font-bold text-white">
+          Critical Lease Exposure
+        </h2>
+
+        <p className="text-zinc-500 text-sm mt-1">
+          Active leases expiring within the next 90 days.
+        </p>
+
+      </div>
+
+      <div className="space-y-4">
+
+        {criticalLeaseExposure.map((lease) => (
+
+          <div
+            key={lease.lease_id}
+            className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-4"
+          >
+
+            <div>
+
+              <p className="font-semibold text-white">
+                {lease.tenant_name}
+              </p>
+
+              <p className="text-sm text-zinc-500">
+                {lease.property_name}
+              </p>
+
+            </div>
+
+            <div className="text-right">
+
+              <p className="text-sm text-zinc-400">
+                Expiry Date
+              </p>
+
+              <p className="font-semibold text-red-500">
+                {lease.expiry_date}
+              </p>
+
+            </div>
+
+          </div>
+
+        ))}
+
+      </div>
+
+    </div>
+
+    {/* ARREARS */}
+
+    <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+
+      <div className="mb-6">
+
+        <h2 className="text-2xl font-bold text-white">
+          Arrears Exposure
+        </h2>
+
+        <p className="text-zinc-500 text-sm mt-1">
+          Outstanding tenant receivables requiring recovery attention.
+        </p>
+
+      </div>
+
+      <div className="space-y-4">
+
+        {arrearsExposure.map((invoice) => (
+
+          <div
+            key={invoice.invoice_number}
+            className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-4"
+          >
+
+            <div>
+
+              <p className="font-semibold text-white">
+                {invoice.invoice_number}
+              </p>
+
+              <p className="text-sm text-zinc-500">
+                {invoice.payment_status}
+              </p>
+
+            </div>
+
+            <div className="text-right">
+
+              <p className="text-sm text-zinc-400">
+                Outstanding
+              </p>
+
+              <p className="font-semibold text-red-500">
+                R {Number(invoice.outstanding_amount).toLocaleString()}
+              </p>
+
+            </div>
+
+          </div>
+
+        ))}
+
+      </div>
+
+    </div>
+
+    {/* OCCUPANCY */}
+
+    <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+
+      <div className="mb-6">
+
+        <h2 className="text-2xl font-bold text-white">
+          Occupancy Intelligence
+        </h2>
+
+        <p className="text-zinc-500 text-sm mt-1">
+          Real-time portfolio occupancy visibility.
+        </p>
+
+      </div>
+
+      <div className="space-y-4">
+
+        {occupancyOverview.map((property) => (
+
+          <div
+            key={property.property_name}
+            className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-4"
+          >
+
+            <div>
+
+              <p className="font-semibold text-white">
+                {property.property_name}
+              </p>
+
+              <p className="text-sm text-zinc-500">
+                Occupied: {property.occupied_area_sqm} sqm
+              </p>
+
+            </div>
+
+            <div className="text-right">
+
+              <p className="text-sm text-zinc-400">
+                Occupancy
+              </p>
+
+              <p className="font-semibold text-green-500">
+                {property.occupancyPercentage}%
+              </p>
+
+            </div>
+
+          </div>
+
+        ))}
+
+      </div>
+
+    </div>
+
+  </div>
+
+  {/* RIGHT COLUMN */}
+
+  <div className="space-y-8">
+
+    {/* OPERATIONAL TASKS */}
+<div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+
+  <div className="mb-6 flex items-start">
+
+    <div>
+
+      <h2 className="text-2xl font-bold text-white">
+        Critical Operational Tasks
+      </h2>
+
+      <p className="text-zinc-500 text-sm mt-1">
+        Escalated operational workflows requiring attention.
+      </p>
+
+    </div>
+
+    <Link
+      href="/operations"
+      className="ml-auto rounded-2xl border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-white transition hover:border-zinc-700"
+    >
+
+      View All
+
+    </Link>
+
+  </div>
+
+  <div className="space-y-4">
+
+        {criticalOperationalTasks.map((task) => (
+
+          <div
+            key={task.task_id}
+            className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-4"
+          >
+
+            <div>
+
+              <p className="font-semibold text-white">
+                {task.task_type}
+              </p>
+
+              <p className="text-sm text-zinc-500">
+                {task.property_name}
+              </p>
+
+            </div>
+
+            <div className="text-right">
+
+              <p className="text-sm text-zinc-400">
+                Escalation Level
+              </p>
+
+              <p className="font-semibold text-red-500">
+                Level {task.escalation_level}
+              </p>
+
+            </div>
+
+          </div>
+
+        ))}
+
+      </div>
+
+    </div>
+
+    {/* EXECUTIVE ACTIONS */}
+
+    <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+
+      <div className="mb-6">
+
+        <h2 className="text-2xl font-bold text-white">
+          Executive Action Center
+        </h2>
+
+        <p className="text-zinc-500 text-sm mt-1">
+          Priority operational actions requiring leadership attention.
+        </p>
+
+      </div>
+
+      <div className="space-y-4">
+
+        {executiveActionItems.map((task) => (
+
+          <div
+            key={task.task_id}
+            className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-4"
+          >
+
+            <div>
+
+              <p className="font-semibold text-white">
+                {task.task_type}
+              </p>
+
+              <p className="text-sm text-zinc-500">
+                {task.property_name}
+              </p>
+
+            </div>
+
+            <div className="text-right">
+
+              <p className="text-sm text-zinc-400">
+                Priority
+              </p>
+
+              <p
+                className={`
+                  font-semibold
+                  ${
+                    task.priority === "Critical"
+                      ? "text-red-500"
+                      : task.priority === "High"
+                      ? "text-orange-500"
+                      : "text-yellow-500"
+                  }
+                `}
+              >
+
+                {task.priority}
+
+              </p>
+
+            </div>
+
+          </div>
+
+        ))}
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
 const executiveInsights = [
 
   "Industrial portfolio renewal exposure has increased this quarter.",
@@ -300,7 +638,7 @@ if (portfolioRiskLevel === "Critical") {
     },
     {
       label:
-        activeCompany.name,
+        "Portfolio",
     },
     {
       label: "Executive",
@@ -333,6 +671,44 @@ if (portfolioRiskLevel === "Critical") {
         and executive intelligence.
 
       </p>
+      <div className="mt-8 flex flex-wrap gap-4">
+
+  <Link
+  href="/leases/new"
+  className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-black transition hover:scale-[1.02]"
+>
+
+  Create Lease
+
+</Link>
+
+ <Link
+  href="/finance/arrears"
+  className="rounded-2xl border border-zinc-800 bg-zinc-900 px-5 py-3 text-sm font-bold text-white transition hover:border-zinc-700"
+>
+
+  View Arrears
+
+</Link>
+<Link
+  href="/operations"
+  className="rounded-2xl border border-zinc-800 bg-zinc-900 px-5 py-3 text-sm font-bold text-white transition hover:border-zinc-700"
+>
+
+  Operational Tasks
+
+</Link>
+
+<Link
+  href="/executive/reports"
+  className="rounded-2xl border border-zinc-800 bg-zinc-900 px-5 py-3 text-sm font-bold text-white transition hover:border-zinc-700"
+>
+
+  Portfolio Report
+
+</Link>
+
+</div>
 
     </div>
 
@@ -351,624 +727,6 @@ if (portfolioRiskLevel === "Critical") {
       </button>
 
     </div>
-
-  </div>
-
-</div>
-      <PageHeader
-        title="Executive Dashboard"
-        subtitle="Strategic portfolio and operational intelligence."
-      />
-
-     <ExecutiveCommandBanner />
-<div className="mb-6 rounded-3xl border border-zinc-800 bg-zinc-900/60 p-6 backdrop-blur-sm">
-
-  <ExecutiveSummaryBar
-    leaseCount={leases?.length || 0}
-    occupancyRate={occupancyRate}
-    renewalCount={upcomingRenewals.length}
-    portfolioRiskLevel={portfolioRiskLevel}
-  />
-
-</div>
-<div className="mb-12 grid grid-cols-1 xl:grid-cols-3 gap-4">
-
-  <div className="rounded-3xl border border-orange-500/20 bg-orange-500/5 p-6">
-
-    <p className="text-sm uppercase tracking-[0.2em] text-orange-300 mb-3">
-
-      Immediate Focus
-
-    </p>
-
-    <h3 className="text-2xl font-bold text-white mb-3">
-
-      Renewals Requiring Engagement
-
-    </h3>
-
-    <p className="leading-7 text-zinc-400">
-
-      Several lease renewals are approaching critical engagement windows
-      and require executive visibility.
-
-    </p>
-
-  </div>
-  
-
-  <div className="rounded-3xl border border-red-500/20 bg-red-500/5 p-6">
-
-    <p className="text-sm uppercase tracking-[0.2em] text-red-300 mb-3">
-
-      Operational Risk
-
-    </p>
-
-    <h3 className="text-2xl font-bold text-white mb-3">
-
-      Escalated Workflow Exposure
-
-    </h3>
-
-    <p className="leading-7 text-zinc-400">
-
-      Operational workflows remain unresolved across multiple
-      high-priority portfolio activities.
-
-    </p>
-
-  </div>
-
-  <div className="rounded-3xl border border-blue-500/20 bg-blue-500/5 p-6">
-
-    <p className="text-sm uppercase tracking-[0.2em] text-blue-300 mb-3">
-
-      Executive Insight
-
-    </p>
-
-    <h3 className="text-2xl font-bold text-white mb-3">
-
-      Portfolio Stability Improving
-
-    </h3>
-
-    <p className="leading-7 text-zinc-400">
-
-      Occupancy performance and operational completion rates
-      continue trending positively across the portfolio.
-
-    </p>
-
-  </div>
-
-</div>
-<div className="mb-10 rounded-3xl border border-zinc-800 bg-zinc-900 p-5">
-
-  <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-
-    <div>
-
-      <p className="mb-2 text-sm uppercase tracking-[0.25em] text-zinc-500">
-
-        Live Executive Activity
-
-      </p>
-
-      <h3 className="text-2xl font-bold text-white">
-
-        Portfolio Operational Feed
-
-      </h3>
-
-    </div>
-
-    <div className="flex flex-wrap gap-3 text-sm text-zinc-400">
-
-      <div className="rounded-2xl border border-zinc-800 bg-black px-4 py-3">
-
-        Lease renewal escalated • 2m ago
-
-      </div>
-
-      <div className="rounded-2xl border border-zinc-800 bg-black px-4 py-3">
-
-        Maintenance workflow approved • 8m ago
-
-      </div>
-
-      <div className="rounded-2xl border border-zinc-800 bg-black px-4 py-3">
-
-        Occupancy report generated • 14m ago
-
-      </div>
-
-    </div>
-
-  </div>
-
-</div>
-<div className="mb-12 flex flex-wrap items-center gap-3">
-
-  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm font-semibold text-emerald-300">
-
-    Portfolio Stable
-
-  </div>
-
-  <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 px-4 py-3 text-sm font-semibold text-orange-300">
-
-    14 Renewals Active
-
-  </div>
-
-  <div className="rounded-2xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm font-semibold text-red-300">
-
-    3 Executive Escalations
-
-  </div>
-
-  <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 px-4 py-3 text-sm font-semibold text-blue-300">
-
-    Occupancy Trending Up
-
-  </div>
-
-</div>
-<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-12">
-
-  <button className="group rounded-[2rem] border border-zinc-800 bg-zinc-900 p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-zinc-700 hover:bg-zinc-800 hover:shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
-
-    <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 mb-3">
-
-      Portfolio
-
-    </p>
-
-    <h3 className="mb-3 text-2xl font-black text-white transition group-hover:text-zinc-100">
-
-      Companies
-
-    </h3>
-
-    <p className="text-sm leading-6 text-zinc-400">
-
-      Navigate portfolio entities,
-      operational groups,
-      and company-level intelligence.
-
-    </p>
-    <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-zinc-500 transition group-hover:text-white">
-
-  Enter Portfolio Layer
-
-  <span className="transition group-hover:translate-x-1">
-
-    →
-
-  </span>
-
-</div>
-
-  </button>
-
-  <button className="group rounded-[2rem] border border-zinc-800 bg-zinc-900 p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-zinc-700 hover:bg-zinc-800 hover:shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
-
-    <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 mb-3">
-
-      Assets
-
-    </p>
-
-    <h3 className="mb-3 text-2xl font-black text-white transition group-hover:text-zinc-100">
-
-      Properties
-
-    </h3>
-
-    <p className="text-sm leading-6 text-zinc-400">
-
-      Review operational asset performance,
-      occupancy,
-      maintenance,
-      and vacancies.
-
-    </p>
-    <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-zinc-500 transition group-hover:text-white">
-
-  Explore Property Operations
-
-  <span className="transition group-hover:translate-x-1">
-
-    →
-
-  </span>
-
-</div>
-
-  </button>
-
-  <button className="group rounded-[2rem] border border-zinc-800 bg-zinc-900 p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-zinc-700 hover:bg-zinc-800 hover:shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
-
-    <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 mb-3">
-
-      Operations
-
-    </p>
-
-    <h3 className="mb-3 text-2xl font-black text-white transition group-hover:text-zinc-100">
-
-      Workflows
-
-    </h3>
-
-    <p className="text-sm leading-6 text-zinc-400">
-
-      Manage operational execution,
-      escalations,
-      tasks,
-      and workflow coordination.
-
-    </p>
-    <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-zinc-500 transition group-hover:text-white">
-
-  Open Workflow Center
-
-  <span className="transition group-hover:translate-x-1">
-
-    →
-
-  </span>
-
-</div>
-
-  </button>
-
-  <button className="group rounded-[2rem] border border-zinc-800 bg-zinc-900 p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-zinc-700 hover:bg-zinc-800 hover:shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
-
-    <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 mb-3">
-
-      Intelligence
-
-    </p>
-
-    <h3 className="mb-3 text-2xl font-black text-white transition group-hover:text-zinc-100">
-
-      Insights
-
-    </h3>
-
-    <p className="text-sm leading-6 text-zinc-400">
-
-      Explore executive trends,
-      operational exposure,
-      and portfolio intelligence.
-
-    </p>
-    <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-zinc-500 transition group-hover:text-white">
-
-  Review Executive Intelligence
-
-  <span className="transition group-hover:translate-x-1">
-
-    →
-
-  </span>
-
-</div>
-
-  </button>
-
-</div>
-<div className="mb-12 grid grid-cols-1 xl:grid-cols-3 gap-5">
-
-  <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-6">
-
-    <p className="mb-3 text-sm uppercase tracking-[0.25em] text-emerald-300">
-
-      Stable Operations
-
-    </p>
-
-    <h3 className="mb-3 text-3xl font-black text-white">
-
-      92% Portfolio Stability
-
-    </h3>
-
-    <p className="leading-7 text-zinc-400">
-
-      Core operational performance remains stable across
-      occupancy,
-      collections,
-      and workflow completion metrics.
-
-    </p>
-
-  </div>
-
-  <div className="rounded-3xl border border-orange-500/20 bg-orange-500/5 p-6">
-
-    <p className="mb-3 text-sm uppercase tracking-[0.25em] text-orange-300">
-
-      Attention Required
-
-    </p>
-
-    <h3 className="mb-3 text-3xl font-black text-white">
-
-      14 Renewal Workflows Active
-
-    </h3>
-
-    <p className="leading-7 text-zinc-400">
-
-      Multiple lease renewals require executive oversight
-      and operational coordination within upcoming review windows.
-
-    </p>
-
-  </div>
-
-  <div className="rounded-3xl border border-blue-500/20 bg-blue-500/5 p-6">
-
-    <p className="mb-3 text-sm uppercase tracking-[0.25em] text-blue-300">
-
-      Intelligence Layer
-
-    </p>
-
-    <h3 className="mb-3 text-3xl font-black text-white">
-
-      Executive Forecast Positive
-
-    </h3>
-
-    <p className="leading-7 text-zinc-400">
-
-      Portfolio operational indicators continue trending positively
-      across occupancy,
-      leasing velocity,
-      and execution efficiency.
-
-    </p>
-
-  </div>
-
-</div>
-      {executiveAlerts.length > 0 && (
-
-  <div className="mb-12 rounded-[2rem] border border-red-500/20 bg-gradient-to-br from-red-500/10 to-black p-8 shadow-2xl space-y-5">
-
-    {executiveAlerts.map(
-      (alert, index) => (
-
-        <div
-          key={index}
-          className="rounded-2xl border border-red-200 bg-red-50 p-5"
-        >
-
-          <div className="flex items-start gap-4">
-
-            <div className="text-2xl">
-              ⚠️
-            </div>
-
-            <div>
-
-            <p className="font-black uppercase tracking-[0.2em] text-red-300 mb-2">
-
-  Executive Priority Alert
-
-</p>
-
-              <p className="text-red-600">
-                {alert}
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      )
-    )}
-
-  </div>
-
-)}
-<div className="mb-10">
-
-  <div className="mb-5 flex items-center justify-between">
-
-    <div>
-
-      <p className="text-sm uppercase tracking-[0.25em] text-zinc-500 mb-3">
-
-        Strategic Priorities
-
-      </p>
-
-      <h2 className="text-3xl font-bold text-white">
-
-        Executive Attention Areas
-
-      </h2>
-
-    </div>
-
-    <button className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 transition hover:border-zinc-600 hover:text-white">
-
-      View All Priorities
-
-    </button>
-
-  </div>
-
-  <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
-
-    <ExecutivePriorities
-      priorities={executivePriorities}
-    />
-
-  </div>
-
-</div>
-      <Toolbar>
-
-        <SearchInput />
-
-        <div className="flex flex-wrap items-center gap-3">
-
-          <ToolbarButton label="Export Report" />
-
-          <ToolbarButton label="Filter Assets" />
-
-          <ToolbarButton label="Generate Insights" />
-
-        </div>
-
-      </Toolbar>
- <div className="mb-10">
-
-  <div className="mb-5">
-
-    <p className="text-sm uppercase tracking-[0.25em] text-zinc-500 mb-3">
-
-      Portfolio Intelligence
-
-    </p>
-
-    <h2 className="text-3xl font-bold text-white">
-
-      Asset Performance Overview
-
-    </h2>
-
-  </div>
-
-  <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
-
-    <PortfolioPerformanceTable />
-
-  </div>
-
-</div>
- <div className="mb-5">
-
-  <p className="text-sm uppercase tracking-[0.25em] text-zinc-500 mb-3">
-
-    Executive Operations
-
-  </p>
-
-  <h2 className="text-3xl font-bold text-white">
-
-    Operational Command Actions
-
-  </h2>
-
-</div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-
-  <button className="rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm hover:bg-zinc-50 transition">
-
-    <p className="text-sm text-zinc-500 mb-2">
-      Operations
-    </p>
-
-    <p className="text-lg font-bold text-black">
-      + Create Task
-    </p>
-
-  </button>
-
-  <button className="rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm hover:bg-zinc-50 transition">
-
-    <p className="text-sm text-zinc-500 mb-2">
-      Portfolio
-    </p>
-
-    <p className="text-lg font-bold text-black">
-      + Portfolio Note
-    </p>
-
-  </button>
-
-  <button className="rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm hover:bg-zinc-50 transition">
-
-    <p className="text-sm text-zinc-500 mb-2">
-      Intelligence
-    </p>
-
-    <p className="text-lg font-bold text-black">
-      + Generate Report
-    </p>
-
-  </button>
-
-  <button className="rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm hover:bg-zinc-50 transition">
-
-    <p className="text-sm text-zinc-500 mb-2">
-      Renewals
-    </p>
-
-    <p className="text-lg font-bold text-black">
-      + Renewal Review
-    </p>
-
-  </button>
-
-</div>
-<div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-10">
-
-  <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
-
-    <div className="mb-5">
-
-      <p className="text-sm uppercase tracking-[0.25em] text-zinc-500 mb-3">
-
-        Executive Intelligence
-
-      </p>
-
-      <h2 className="text-3xl font-bold text-white">
-
-        Portfolio Insights
-
-      </h2>
-
-    </div>
-
-    <ExecutiveInsights
-      insights={executiveInsights}
-    />
-
-  </div>
-
-  <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
-
-    <div className="mb-5">
-
-      <p className="text-sm uppercase tracking-[0.25em] text-zinc-500 mb-3">
-
-        Operational Execution
-
-      </p>
-
-      <h2 className="text-3xl font-bold text-white">
-
-        Recommended Actions
-
-      </h2>
-
-    </div>
-
-    <RecommendedActions
-      actions={recommendedActions}
-    />
 
   </div>
 
@@ -1051,6 +809,159 @@ if (portfolioRiskLevel === "Critical") {
 />
 
       </div>
+      <div className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+
+<div className="flex items-center justify-between mb-6">
+
+  <div>
+
+    <h2 className="text-2xl font-bold text-white">
+      Critical Operational Tasks
+    </h2>
+
+    <p className="text-zinc-500 text-sm mt-1">
+      Escalated operational workflows requiring attention.
+    </p>
+
+  </div>
+
+  <Link
+    href="/operations"
+    className="rounded-2xl border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-white transition hover:border-zinc-700"
+  >
+
+    View All
+
+  </Link>
+
+</div>
+
+  <div className="space-y-4">
+
+    {criticalOperationalTasks.map((task) => (
+
+      <div
+        key={task.task_id}
+        className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-4"
+      >
+
+        <div>
+
+          <p className="font-semibold text-white">
+
+            {task.task_type}
+
+          </p>
+
+          <p className="text-sm text-zinc-500">
+
+            {task.property_name}
+
+          </p>
+
+        </div>
+
+        <div className="text-right">
+
+          <p className="text-sm text-zinc-400">
+
+            Escalation Level
+
+          </p>
+
+          <p className="font-semibold text-red-500">
+
+            Level {task.escalation_level}
+
+          </p>
+
+        </div>
+
+      </div>
+
+    ))}
+
+  </div>
+
+</div>
+      <div className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+
+  <div className="flex items-center justify-between mb-6">
+
+    <div>
+
+      <h2 className="text-2xl font-bold text-white">
+
+        Critical Lease Exposure
+
+      </h2>
+
+      <p className="text-zinc-500 text-sm mt-1">
+
+        Active leases expiring within the next 90 days.
+
+      </p>
+
+    </div>
+    <Link
+  href="/leases"
+  className="rounded-2xl border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-white transition hover:border-zinc-700"
+>
+
+  View All
+
+</Link>
+
+  </div>
+
+  <div className="space-y-4">
+
+    {criticalLeaseExposure.map((lease) => (
+
+      <div
+        key={lease.lease_id}
+        className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-4"
+      >
+
+        <div>
+
+          <p className="font-semibold text-white">
+
+            {lease.tenant_name}
+
+          </p>
+
+          <p className="text-sm text-zinc-500">
+
+            {lease.property_name}
+
+          </p>
+
+        </div>
+
+        <div className="text-right">
+
+          <p className="text-sm text-zinc-400">
+
+            Expiry Date
+
+          </p>
+
+          <p className="font-semibold text-red-500">
+
+            {lease.expiry_date}
+
+          </p>
+
+        </div>
+
+      </div>
+
+    ))}
+
+  </div>
+
+</div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 

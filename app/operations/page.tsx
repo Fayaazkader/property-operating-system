@@ -1,4 +1,82 @@
-export default function OperationsPage() {
+import { supabase } from "@/lib/supabase";
+import TaskCard from "./TaskCard";
+export default async function OperationsPage() {
+const { data: tasks } =
+  await supabase
+  
+
+    .from("tasks")
+
+    .select(`
+      task_id,
+      task_type,
+      property_name,
+      priority,
+      escalation_level,
+      task_status,
+      assigned_to,
+      due_date
+    `)
+
+    .neq("task_status", "Completed")
+
+    .order("escalation_level", {
+      ascending: false,
+    })
+
+    .limit(5);
+    const openTasks =
+  tasks?.filter(
+    (task) =>
+      task.task_status === "Open"
+  ).length || 0;
+
+const inProgressTasks =
+  tasks?.filter(
+    (task) =>
+      task.task_status === "In Progress"
+  ).length || 0;
+
+const overdueTasks =
+  tasks?.filter(
+    (task) =>
+      task.due_date &&
+      new Date(task.due_date).getTime() <
+        Date.now()
+  ).length || 0;
+
+const criticalTasks =
+  tasks?.filter(
+    (task) =>
+      task.priority === "Critical"
+  ).length || 0;
+  const escalationQueue =
+  tasks?.filter(
+    (task) =>
+      task.priority === "Critical" ||
+      task.escalation_level >= 3
+  ) || [];
+
+
+const { data: auditLogs } =
+  await supabase
+
+    .from("task_audit_log")
+
+    .select(`
+      task_id,
+      action_type,
+      previous_value,
+      new_value,
+      action_timestamp,
+      action_by
+    `)
+
+    .order("action_timestamp", {
+      ascending: false,
+    })
+
+    .limit(10);
 
   return (
 
@@ -66,6 +144,7 @@ export default function OperationsPage() {
             </h1>
 
             <p className="mt-4 max-w-3xl text-lg leading-8 text-zinc-400">
+              
 
               Workflow coordination,
               operational accountability,
@@ -74,8 +153,76 @@ export default function OperationsPage() {
               and execution oversight across the portfolio.
 
             </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+
+  <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 px-5 py-3">
+
+    <p className="text-xs uppercase tracking-[0.2em] text-blue-300">
+
+      Open
+
+    </p>
+
+    <p className="mt-2 text-2xl font-black text-white">
+
+      {openTasks}
+
+    </p>
+
+  </div>
+
+  <div className="rounded-2xl border border-orange-500/20 bg-orange-500/10 px-5 py-3">
+
+    <p className="text-xs uppercase tracking-[0.2em] text-orange-300">
+
+      In Progress
+
+    </p>
+
+    <p className="mt-2 text-2xl font-black text-white">
+
+      {inProgressTasks}
+
+    </p>
+
+  </div>
+
+  <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-3">
+
+    <p className="text-xs uppercase tracking-[0.2em] text-red-300">
+
+      Overdue
+
+    </p>
+
+    <p className="mt-2 text-2xl font-black text-white">
+
+      {overdueTasks}
+
+    </p>
+
+  </div>
+
+  <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-3">
+
+    <p className="text-xs uppercase tracking-[0.2em] text-red-300">
+
+      Critical
+
+    </p>
+
+    <p className="mt-2 text-2xl font-black text-white">
+
+      {criticalTasks}
+
+    </p>
+
+  </div>
+
+</div>
 
           </div>
+          
 
           <div className="flex gap-3">
 
@@ -168,22 +315,65 @@ export default function OperationsPage() {
         </div>
 
         <div className="space-y-4">
+          <div className="mt-12 mb-10">
 
-          <div className="rounded-3xl border border-zinc-800 bg-black p-5">
+  <div className="mb-6 flex items-center justify-between">
 
-            <h3 className="text-2xl font-bold text-white mb-2">
+    <div>
 
-              Sandton Gate • Renewal Escalation
+      <p className="text-sm uppercase tracking-[0.25em] text-red-400">
 
-            </h3>
+        Escalation Queue
 
-            <p className="text-zinc-400">
+      </p>
 
-              Renewal engagement awaiting tenant confirmation.
+      <h2 className="mt-2 text-4xl font-black text-white">
 
-            </p>
+        Critical Operational Risks
 
-          </div>
+      </h2>
+
+    </div>
+
+    <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-3">
+
+      <p className="text-xs uppercase tracking-[0.2em] text-red-300">
+
+        Escalated Workflows
+
+      </p>
+
+      <p className="mt-2 text-2xl font-black text-white">
+
+        {escalationQueue.length}
+
+      </p>
+
+    </div>
+
+  </div>
+
+  <div className="space-y-5">
+
+    {escalationQueue.map((task) => (
+
+      <TaskCard
+        key={task.task_id}
+        task={task}
+      />
+
+    ))}
+
+  </div>
+
+</div>
+
+         {tasks?.map((task) => (
+<TaskCard
+  key={task.task_id}
+  task={task}
+/>
+))}
 
           <div className="rounded-3xl border border-zinc-800 bg-black p-5">
 
@@ -481,6 +671,86 @@ export default function OperationsPage() {
       </p>
 
     </div>
+
+  </div>
+
+</div>
+<div className="mt-12 rounded-[2rem] border border-zinc-800 bg-zinc-900 p-8">
+
+  <div className="mb-8">
+
+    <p className="mb-3 text-sm uppercase tracking-[0.25em] text-zinc-500">
+
+      Governance Audit Trail
+
+    </p>
+
+    <h2 className="text-4xl font-black text-white">
+
+      Operational Activity History
+
+    </h2>
+
+  </div>
+
+  <div className="space-y-4">
+
+    {auditLogs?.map((log, index) => (
+
+      <div
+        key={index}
+        className="rounded-3xl border border-zinc-800 bg-black p-5"
+      >
+
+        <div className="flex items-start justify-between">
+
+          <div>
+
+            <p className="text-xl font-bold text-white">
+
+              {log.action_type}
+
+            </p>
+
+            <p className="mt-2 text-zinc-400">
+
+              Task: {log.task_id}
+
+            </p>
+
+            <p className="mt-1 text-sm text-zinc-500">
+
+              {log.previous_value}
+              {" → "}
+              {log.new_value}
+
+            </p>
+
+          </div>
+
+          <div className="text-right">
+
+            <p className="text-sm text-zinc-400">
+
+              {log.action_by}
+
+            </p>
+
+            <p className="mt-2 text-xs text-zinc-500">
+
+              {new Date(
+                log.action_timestamp
+              ).toLocaleString()}
+
+            </p>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    ))}
 
   </div>
 
