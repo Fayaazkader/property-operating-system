@@ -70,7 +70,7 @@ export default function TasksPage() {
   "Awaiting Approval":
     "bg-orange-500/20 text-orange-400",
 
-  Completed:
+  Resolved:
     "bg-green-500/20 text-green-400",
 
   Escalated:

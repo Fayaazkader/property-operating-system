@@ -83,13 +83,13 @@ const documents: any[] = [];
   const openTasks =
     tasks?.filter(
       (task) =>
-        task.status !== "Completed"
+        task.status !== "Resolved"
     ).length || 0;
 
-  const completedTasks =
+  const resolvedTasks =
     tasks?.filter(
       (task) =>
-        task.status === "Completed"
+        task.status === "Resolved"
     ).length || 0;
     const occupancyRate = 91;
     const portfolioRiskScore =
@@ -756,8 +756,8 @@ if (portfolioRiskLevel === "Critical") {
         />
 
         <KpiCard
-          title="Completed Tasks"
-          value={completedTasks}
+          title="Resolved Tasks"
+          value={resolvedTasks}
           status="Healthy"
           valueColor="text-green-600"
           trend="Operational workflow completion"
@@ -1623,7 +1623,7 @@ if (portfolioRiskLevel === "Critical") {
 
   <div className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-bold text-zinc-400">
 
-    Complete
+    Resolved
 
   </div>
 
