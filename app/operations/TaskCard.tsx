@@ -2,11 +2,6 @@
 
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import {
-  TASK_STATUSES,
-  TASK_PRIORITIES,
-  ESCALATION_LIMIT,
-} from "@/lib/workflow";
 
 interface TaskCardProps {
   task: {
@@ -29,12 +24,10 @@ export default function TaskCard({
   task.due_date &&
   new Date(task.due_date).getTime() <
     Date.now() &&
-  task.task_status !==
-TASK_STATUSES.COMPLETED;
+  task.task_status !== "Completed";
 
   async function markComplete() {
-    if (task.priority ===
-TASK_PRIORITIES.CRITICAL) {
+    if (task.priority === "Critical") {
 
   const confirmed = window.confirm(
     "Are you sure you want to complete this critical operational workflow?"
@@ -90,8 +83,7 @@ await supabase
 
       .update({
         escalation_level:
-          task.escalation_level >=
-ESCALATION_LIMIT,
+          task.escalation_level + 1,
       })
 
       .eq("task_id", task.task_id);
@@ -157,27 +149,6 @@ ESCALATION_LIMIT,
             {task.property_name}
 
           </p>
-          <div className="mt-3 inline-flex items-center rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2">
-
-  <div className="mr-3 h-2 w-2 rounded-full bg-emerald-400" />
-
-  <div>
-
-    <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-500">
-
-      Assigned To
-
-    </p>
-
-    <p className="text-sm font-semibold text-white">
-
-      {task.assigned_to || "Unassigned"}
-
-    </p>
-
-  </div>
-
-</div>
           <div className="mt-3">
 
   <span
@@ -203,7 +174,9 @@ ESCALATION_LIMIT,
     `}
   >
 
-    {task.task_status}
+    {isOverdue
+  ? "Overdue"
+  : task.task_status}
     
 
   </span>
@@ -243,36 +216,10 @@ ESCALATION_LIMIT,
         >
 
           {task.priority}
-          
 
         </div>
-        {isOverdue && (
-
-  <div
-    className="
-      mt-3
-      rounded-full
-      border
-      border-red-500/20
-      bg-red-500/10
-      px-4
-      py-2
-      text-xs
-      font-bold
-      uppercase
-      tracking-[0.25em]
-      text-red-300
-    "
-  >
-
-    Overdue
-
-  </div>
-
-)}
 
       </div>
-      
 
   <div className="mt-4 flex gap-2">
 

@@ -15,7 +15,11 @@ const { data: tasks } =
       escalation_level,
       task_status,
       assigned_to,
-      due_date
+      due_date,
+task_audit_log (
+  action_type,
+  action_timestamp
+)
     `)
 
     .neq("task_status", "Completed")

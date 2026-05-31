@@ -275,7 +275,7 @@ export async function getExecutiveActionItems() {
         task_status
       `)
 
-      .neq("task_status", "Completed")
+      .neq("task_status", "Resolved")
 
       .order("escalation_level", {
         ascending: false,
