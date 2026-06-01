@@ -10,7 +10,9 @@ import {
 import { usePathname } from "next/navigation";
 
 import { supabase } from "../../lib/supabase";
-import { navigation } from "@/app/config/navigation";
+import {
+  getNavigationForRole,
+} from "@/lib/rbac/navigation";
 
 import { usePlatform } from "../context/PlatformContext";
 import { roles } from "@/app/config/roles";
@@ -142,11 +144,9 @@ duration-300
 
         <nav className="space-y-2">
 
-        {navigation
-  .filter((item) =>
-    item.roles.includes(activeRole.id)
-  )
-  .map((item) => {
+        {getNavigationForRole(
+  activeRole.id as any
+).map((item) => {
 
             const isActive =
               pathname === item.href;

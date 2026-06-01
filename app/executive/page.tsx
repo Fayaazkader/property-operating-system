@@ -26,6 +26,8 @@ import {
   getExecutiveActionItems,
 } from "@/lib/dashboard";
 import Link from "next/link";
+import DashboardRenderer from "@/lib/dashboard/DashboardRenderer";
+import { executiveDashboard } from "@/lib/dashboard/executive";
 
 export default async function ExecutivePage() {
   const metrics =
@@ -630,6 +632,9 @@ if (portfolioRiskLevel === "Critical") {
   return (
     
     <PageShell>
+      <DashboardRenderer
+  widgets={executiveDashboard}
+/>
 
       <Breadcrumbs
   items={[
