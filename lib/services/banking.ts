@@ -74,8 +74,15 @@ const allocationAction =
     const requiresEscalation =
   !matchedTenant &&
   amount >= 50000;
+  const queue =
+  requiresEscalation
+    ? "escalated"
+    : matchedTenant
+    ? "ready"
+    : "review";
 
 return {
+  id: crypto.randomUUID(),
   transactionDate:
     columns[0]?.trim() ||
     "",
@@ -99,6 +106,7 @@ return {
   allocationAction,
   reviewPriority,
   requiresEscalation,
+  queue,
 };
           }
         )

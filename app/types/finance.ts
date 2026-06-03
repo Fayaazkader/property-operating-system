@@ -30,6 +30,14 @@ export type TransactionStatus =
   | "flagged";
 
 export type ImportedTransaction = {
+  id: string;
+  entityId?: string;
+
+portfolioId?: string;
+
+propertyId?: string;
+
+bankAccountId?: string;
   transactionDate: string;
 
   description: string;
@@ -38,7 +46,12 @@ export type ImportedTransaction = {
 
   reference?: string;
 
-  status?: TransactionStatus;
+  status?:
+  | "unmatched"
+  | "matched"
+  | "allocated"
+  | "flagged"
+  | "posted";
   matchConfidence?: number;
   matchedTenant?: string;
   matchedLease?: string;
@@ -48,4 +61,24 @@ export type ImportedTransaction = {
   | "medium"
   | "high";
   requiresEscalation?: boolean;
+  governanceBlocked?: boolean;
+  governanceReason?: string;
+  queue?: TransactionQueue;
+};
+export type TransactionQueue =
+  | "ready"
+  | "review"
+  | "escalated"
+  | "posted"
+  | "governance";
+  export type AllocationTarget = {
+  entityId: string;
+
+  portfolioId: string;
+
+  propertyId: string;
+
+  leaseId: string;
+
+  tenantName: string;
 };
