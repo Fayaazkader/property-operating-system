@@ -11,6 +11,11 @@ import {
   ImportedTransaction,
 } from "@/app/types/finance";
 import TransactionReviewPanel from "@/components/financials/TransactionReviewPanel";
+import {
+  getEscalatedExposure,
+  getGovernanceBlockedTransactions,
+  getReadyToPostValue,
+} from "@/lib/analytics/executive";
 
 export default function BankingImportsPage() {
   const [
@@ -69,8 +74,129 @@ const [
   | "highPriority"
   | "escalated"
 >("all");
+const operationalActivity = [
+  {
+    id: "1",
+
+    title:
+      "Escalation triggered",
+
+    description:
+      "Large unmatched payment requires operational review.",
+
+    severity:
+      "critical",
+
+    createdAt:
+      "5 min ago",
+  },
+
+  {
+    id: "2",
+
+    title:
+      "Transactions posted",
+
+    description:
+      "12 operationally approved transactions were posted successfully.",
+
+    severity:
+      "info",
+
+    createdAt:
+      "18 min ago",
+  },
+
+  {
+    id: "3",
+
+    title:
+      "Governance protection activated",
+
+    description:
+      "Cross-entity allocation attempt was automatically blocked.",
+
+    severity:
+      "warning",
+
+    createdAt:
+      "42 min ago",
+  },
+];
+const currentUserRole =
+  "manager";
+function updateTransaction(
+  transactionId: string,
+
+  updates: Partial<
+    ImportedTransaction
+  >
+) {
+
+  setTransactions(
+    (
+      currentTransactions
+    ) =>
+      currentTransactions.map(
+        (transaction) =>
+
+          transaction.id ===
+          transactionId
+            ? {
+                ...transaction,
+                ...updates,
+              }
+            : transaction
+      )
+  );
+
+}
 function handleBulkPost() {
-  
+
+  const selectedReadyTransactions =
+
+    transactions.filter(
+      (transaction) =>
+
+        selectedTransactions.includes(
+          transaction.id
+        )
+    );
+
+  if (
+    selectedReadyTransactions.length ===
+    0
+  ) {
+
+    alert(
+      "Select at least one ready transaction."
+    );
+
+    return;
+  }
+
+  const invalidTransactions =
+
+    selectedReadyTransactions.filter(
+      (transaction) =>
+
+        transaction.queue !==
+          "ready" ||
+
+        transaction.status !==
+          "matched"
+    );
+
+  if (
+    invalidTransactions.length > 0
+  ) {
+
+    alert(
+      "Only matched ready transactions can be posted."
+    );
+
+    return;
+  }
 
   setTransactions(
     transactions.map(
@@ -90,6 +216,12 @@ function handleBulkPost() {
 
             queue:
               "posted",
+
+            postedAt:
+              new Date().toLocaleString(),
+
+            postedBy:
+              "Finance Manager",
           };
 
         }
@@ -240,6 +372,20 @@ const filteredTransactions =
         "posted"
     ).length,
 };
+const readyToPostValue =
+  getReadyToPostValue(
+    transactions
+  );
+
+const escalatedExposure =
+  getEscalatedExposure(
+    transactions
+  );
+
+const governanceBlockedCount =
+  getGovernanceBlockedTransactions(
+    transactions
+  ).length;
   async function handleImport(
     file: File
   ) {
@@ -444,6 +590,399 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
   </div>
 
 </div>
+<div
+  className="
+    mt-6
+    grid
+    gap-6
+    xl:grid-cols-3
+  "
+>
+
+  <button
+  type="button"
+  onClick={() => {
+
+    setActiveQueue(
+      "ready"
+    );
+
+    setActiveFilter(
+      "all"
+    );
+
+  }}
+  className="
+    rounded-3xl
+    border
+    border-zinc-800
+    bg-zinc-900/70
+    p-6
+    text-left
+    transition
+    hover:border-zinc-700
+    hover:bg-zinc-900
+  "
+>
+
+    <p
+      className="
+        text-xs
+        uppercase
+        tracking-[0.2em]
+        text-zinc-500
+      "
+    >
+      Ready To Post
+    </p>
+
+    <h3
+      className="
+        mt-4
+        text-4xl
+        font-black
+        text-white
+      "
+    >
+      R
+      {readyToPostValue.toLocaleString()}
+    </h3>
+
+    <p
+      className="
+        mt-4
+        text-sm
+        text-zinc-500
+      "
+    >
+      Operationally approved
+      transactions awaiting posting.
+    </p>
+    <p
+  className="
+    mt-4
+    text-xs
+    font-semibold
+    text-green-300
+  "
+>
+  Stable operational queue
+</p>
+
+  </button>
+
+  <button
+  type="button"
+  onClick={() => {
+
+    setActiveQueue(
+      "escalated"
+    );
+
+    setActiveFilter(
+      "escalated"
+    );
+
+  }}
+  className="
+    rounded-3xl
+    border
+    border-red-500/20
+    bg-red-500/[0.04]
+    p-6
+    text-left
+    transition
+    hover:border-red-500/40
+    hover:bg-red-500/[0.08]
+  "
+>
+
+    <p
+      className="
+        text-xs
+        uppercase
+        tracking-[0.2em]
+        text-red-300
+      "
+    >
+      Escalated Exposure
+    </p>
+
+    <h3
+      className="
+        mt-4
+        text-4xl
+        font-black
+        text-white
+      "
+    >
+      R
+      {escalatedExposure.toLocaleString()}
+    </h3>
+
+    <p
+      className="
+        mt-4
+        text-sm
+        text-zinc-400
+      "
+    >
+      Financial exposure currently
+      requiring operational review.
+    </p>
+    <p
+  className="
+    mt-4
+    text-xs
+    font-semibold
+    text-red-300
+  "
+>
+  Requires immediate attention
+</p>
+
+  </button>
+  <button
+  type="button"
+  onClick={() => {
+
+    setActiveQueue(
+      "posted"
+    );
+
+  }}
+  className={`
+    rounded-2xl
+    border
+    px-5
+    py-3
+    text-sm
+    font-semibold
+    transition
+
+    ${
+      activeQueue ===
+      "posted"
+        ? "border-green-500/30 bg-green-500/10 text-green-300"
+        : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-white"
+    }
+  `}
+>
+  Posted
+</button>
+
+  <button
+  type="button"
+  onClick={() => {
+
+    setActiveQueue(
+      "governance"
+    );
+
+    setActiveFilter(
+      "all"
+    );
+
+  }}
+  className="
+    rounded-3xl
+    border
+    border-purple-500/20
+    bg-purple-500/[0.04]
+    p-6
+    text-left
+    transition
+    hover:border-purple-500/40
+    hover:bg-purple-500/[0.08]
+  "
+>
+
+    <p
+      className="
+        text-xs
+        uppercase
+        tracking-[0.2em]
+        text-purple-300
+      "
+    >
+      Governance Blocks
+    </p>
+
+    <h3
+      className="
+        mt-4
+        text-4xl
+        font-black
+        text-white
+      "
+    >
+      {
+        governanceBlockedCount
+      }
+    </h3>
+
+    <p
+      className="
+        mt-4
+        text-sm
+        text-zinc-400
+      "
+    >
+      Transactions blocked by
+      governance enforcement rules.
+    </p>
+    <p
+  className="
+    mt-4
+    text-xs
+    font-semibold
+    text-purple-300
+  "
+>
+  Governance protection active
+</p>
+
+  </button>
+
+</div>
+<div
+  className="
+    mt-6
+    rounded-3xl
+    border
+    border-zinc-800
+    bg-zinc-900/60
+    p-6
+  "
+>
+
+  <div
+    className="
+      flex
+      items-center
+      justify-between
+    "
+  >
+
+    <div>
+
+      <p
+        className="
+          text-xs
+          uppercase
+          tracking-[0.2em]
+          text-zinc-500
+        "
+      >
+        Operational Activity
+      </p>
+
+      <h3
+        className="
+          mt-3
+          text-3xl
+          font-black
+          text-white
+        "
+      >
+        Live Workflow Feed
+      </h3>
+
+    </div>
+
+  </div>
+
+  <div
+    className="
+    max-h-[420px]
+overflow-y-auto
+      mt-8
+      space-y-4
+      
+    "
+  >
+
+    {operationalActivity.map(
+      (activity) => (
+
+        <div
+          key={activity.id}
+          className="
+            rounded-2xl
+            border
+            border-zinc-800
+            bg-black/20
+            p-5
+          "
+        >
+
+          <div
+            className="
+              flex
+              items-start
+              justify-between
+              gap-6
+            "
+          >
+
+            <div>
+
+              <p
+                className={`
+                  text-sm
+                  font-semibold
+
+                  ${
+                    activity.severity ===
+                    "critical"
+                      ? "text-red-300"
+                      : activity.severity ===
+                        "warning"
+                      ? "text-purple-300"
+                      : "text-green-300"
+                  }
+                `}
+              >
+                {activity.title}
+              </p>
+
+              <p
+                className="
+                  mt-2
+                  text-sm
+                  leading-7
+                  text-zinc-400
+                "
+              >
+                {
+                  activity.description
+                }
+              </p>
+
+            </div>
+
+            <p
+              className="
+                whitespace-nowrap
+                text-xs
+                text-zinc-500
+              "
+            >
+              {
+                activity.createdAt
+              }
+            </p>
+
+          </div>
+
+        </div>
+
+      )
+    )}
+
+  </div>
+
+</div>
 <div className="flex flex-wrap gap-3">
 
   {[
@@ -498,8 +1037,6 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
   ))}
 
 </div>
-{selectedTransactions.length >
-  0 && (
 
   <div
     className="
@@ -532,7 +1069,117 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
     </div>
 
     <div className="flex gap-4">
+<button
+  type="button"
+  disabled={
+  filteredTransactions.filter(
+    (transaction) =>
+      transaction.queue ===
+        "ready" &&
+      transaction
+        .matchConfidence &&
+      transaction
+        .matchConfidence >=
+        85
+  ).length === 0
+}
+  onClick={() => {
 
+    const readyTransactions =
+      filteredTransactions
+        .filter(
+          (
+            transaction
+          ) =>
+            transaction.queue ===
+              "ready" &&
+            transaction
+              .matchConfidence &&
+            transaction
+              .matchConfidence >=
+              85
+        )
+        .map(
+          (
+            transaction
+          ) =>
+            transaction.id
+        );
+
+    setSelectedTransactions(
+      readyTransactions
+    );
+
+  }}
+  className="
+    rounded-2xl
+    border
+    border-zinc-700
+    px-5
+    py-3
+    text-sm
+    font-semibold
+    text-zinc-300
+    transition
+    hover:border-zinc-500
+    hover:text-white
+    disabled:cursor-not-allowed
+disabled:opacity-40
+  "
+>
+  Select Ready
+</button>
+<button
+  type="button"
+ onClick={() => {
+
+  if (
+    !selectedTransaction
+  ) {
+    return;
+  }
+
+  updateTransaction(
+    selectedTransaction.id,
+    {
+  queue: "ready",
+
+  requiresEscalation:
+    false,
+
+  status: "matched",
+
+  matchConfidence: 100,
+}
+  );
+
+  setActiveQueue(
+    "ready"
+  );
+
+  setActiveFilter(
+    "all"
+  );
+
+  setReviewOpen(false);
+
+}}
+  className="
+    rounded-2xl
+    border
+    border-orange-500/20
+    bg-orange-500/10
+    px-5
+    py-3
+    text-sm
+    font-semibold
+    text-orange-300
+    transition
+    hover:bg-orange-500/20
+  "
+>
+  Confirm Match
+</button>
       <button
   type="button"
   disabled={selectedTransactions.some(
@@ -572,7 +1219,9 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
 >
   Approve & Post
 </button>
-
+{
+  currentUserRole ===
+  "manager" && (
       <button
         className="
           rounded-2xl
@@ -593,12 +1242,14 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
       >
         Clear
       </button>
+      )
+}
 
     </div>
 
   </div>
 
-)}
+
 {transactions.length > 0 && (
 
   <div
@@ -649,12 +1300,11 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
       </h2>
       <p
   className="
-    mt-3
-    max-w-2xl
-    text-sm
-    leading-7
-    text-zinc-500
-  "
+  truncate
+  text-sm
+  font-medium
+  text-white
+"
 >
 
   {
@@ -676,9 +1326,17 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
 
     </div>
 
-    <div className="overflow-x-auto">
+    <div
+  className="
+    overflow-hidden
+  "
+>
 
-      <table className="w-full">
+  <table
+  className="
+    w-full
+  "
+>
 
         <thead
           className="
@@ -697,85 +1355,89 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
 />
 
             <th
-              className="
-                px-6
-                py-4
-                text-left
-                text-xs
-                uppercase
-                tracking-[0.2em]
-                text-zinc-500
-              "
+             className="
+  px-4
+  py-4
+  text-left
+  text-xs
+  uppercase
+  tracking-[0.2em]
+  text-zinc-500
+"
             >
               Date
             </th>
 
             <th
               className="
-                px-6
-                py-4
-                text-left
-                text-xs
-                uppercase
-                tracking-[0.2em]
-                text-zinc-500
-              "
+  px-4
+  py-4
+  text-left
+  text-xs
+  uppercase
+  tracking-[0.2em]
+  text-zinc-500
+"
             >
               Description
             </th>
 
             <th
               className="
-                px-6
-                py-4
-                text-right
-                text-xs
-                uppercase
-                tracking-[0.2em]
-                text-zinc-500
-              "
+  w-[160px]
+  px-4
+  py-4
+  text-left
+  text-xs
+  uppercase
+  tracking-[0.2em]
+  text-zinc-500
+"
             >
               Amount
             </th>
             <th
   className="
-    px-6
-    py-4
-    text-left
-    text-xs
-    uppercase
-    tracking-[0.2em]
-    text-zinc-500
-  "
+  px-4
+  py-4
+  text-left
+  text-xs
+  uppercase
+  tracking-[0.2em]
+  text-zinc-500
+"
 >
   Status
 </th>
 <th
   className="
-    px-6
-    py-4
-    text-left
-    text-xs
-    uppercase
-    tracking-[0.2em]
-    text-zinc-500
-  "
+  px-4
+  py-4
+  text-left
+  text-xs
+  uppercase
+  tracking-[0.2em]
+  text-zinc-500
+"
 >
   Queue
 </th>
+
 <th
-  className="
-    px-6
-    py-4
-    text-right
-    text-xs
-    uppercase
-    tracking-[0.2em]
-    text-zinc-500
-  "
+ className="
+  w-[180px]
+  px-4
+  py-4
+  text-left
+  text-xs
+  uppercase
+  tracking-[0.2em]
+  text-zinc-500
+"
 >
   Actions
 </th>
+
 
 
 
@@ -866,13 +1528,17 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
 >
   <td
   className="
-    px-6
-    py-5
+    px-4
+py-4
   "
 >
 
   <input
     type="checkbox"
+    disabled={
+  transaction.queue ===
+  "posted"
+}
     checked={selectedTransactions.includes(
       transaction.id
     )}
@@ -911,6 +1577,8 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
       rounded
       border-zinc-700
       bg-zinc-900
+      disabled:cursor-not-allowed
+disabled:opacity-40
     "
   />
 
@@ -918,8 +1586,8 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
 
                 <td
                   className="
-                    px-6
-                    py-5
+                    px-4
+py-4
                     text-sm
                     text-zinc-300
                   "
@@ -931,8 +1599,8 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
 
                 <td
                   className="
-                    px-6
-                    py-5
+                    px-4
+py-4
                     text-sm
                     text-white
                   "
@@ -944,20 +1612,18 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
 
                 <td
                   className="
-                    px-6
-                    py-5
-                    text-right
-                    font-semibold
-                    text-white
-                  "
+  w-[160px]
+  px-4
+  py-4
+"
                 >
                   R
                   {transaction.amount.toLocaleString()}
                 </td>
                 <td
   className="
-    px-6
-    py-5
+    px-4
+py-4
   "
 >
 
@@ -985,8 +1651,8 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
 </td>
 <td
   className="
-    px-6
-    py-5
+    px-4
+py-4
   "
 >
 
@@ -1020,10 +1686,10 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
 </td>
 <td
   className="
-    px-6
-    py-5
-    text-right
-  "
+  w-[180px]
+  px-4
+  py-4
+"
 >
 {selectedTransaction
   ?.governanceBlocked && (
@@ -1068,6 +1734,10 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
 )}
   <button
     type="button"
+    disabled={
+  transaction.queue ===
+  "posted"
+}
     onClick={() => {
 
       setSelectedTransaction(
@@ -1088,12 +1758,16 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
       transition
       hover:border-zinc-500
       hover:text-white
+      disabled:cursor-not-allowed
+disabled:opacity-40
     "
   >
     Review
   </button>
 
 </td>
+
+
               </tr>
 
             )
@@ -1116,6 +1790,29 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
   onClose={() =>
     setReviewOpen(false)
   }
+  onUpdateTransaction={
+  (
+    updatedTransaction
+  ) => {
+    setSelectedTransaction(
+  updatedTransaction
+);
+
+    setTransactions(
+      transactions.map(
+        (
+          transaction
+        ) =>
+          
+
+          transaction.id ===
+          updatedTransaction.id
+            ? updatedTransaction
+            : transaction
+      )
+    );
+  }
+}
 />
     </div>
   );

@@ -11,12 +11,16 @@ type Props = {
   open: boolean;
 
   onClose: () => void;
+  onUpdateTransaction: (
+  transaction: ImportedTransaction
+) => void;
 };
 
 export default function TransactionReviewPanel({
   transaction,
   open,
   onClose,
+  onUpdateTransaction,
 }: Props) {
   if (
     !open ||
@@ -26,7 +30,22 @@ export default function TransactionReviewPanel({
   }
 
   return (
+
+  <div
+    className="
+      fixed
+      inset-0
+      z-40
+      bg-black/40
+      backdrop-blur-sm
+    "
+    onClick={onClose}
+  >
+
     <div
+    onClick={(event) =>
+  event.stopPropagation()
+}
       className="
         fixed
         inset-y-0
@@ -40,12 +59,14 @@ export default function TransactionReviewPanel({
         bg-black
         p-8
         shadow-2xl
+        
       "
     >
 
       <div className="flex items-start justify-between">
 
         <div>
+          
 
           <p
             className="
@@ -71,27 +92,16 @@ export default function TransactionReviewPanel({
 
         </div>
 
-        <button
-          onClick={onClose}
-          className="
-            rounded-xl
-            border
-            border-zinc-700
-            px-4
-            py-2
-            text-sm
-            text-zinc-400
-            transition
-            hover:border-zinc-500
-            hover:text-white
-          "
-        >
-          Close
-        </button>
-
+        
       </div>
 
-      <div className="mt-10 space-y-8">
+      <div
+  className="
+    mt-10
+    space-y-8
+    pb-40
+  "
+>
 
         <div
           className="
@@ -134,7 +144,72 @@ export default function TransactionReviewPanel({
           <p className="text-sm text-zinc-500">
             Matched Tenant
           </p>
+<div
+  className="
+    rounded-3xl
+    border
+    border-zinc-800
+    bg-zinc-900
+    p-6
+  "
+>
 
+  <p
+    className="
+      text-sm
+      text-zinc-500
+    "
+  >
+    Match Intelligence
+  </p>
+
+  <div
+    className="
+      mt-5
+      space-y-4
+    "
+  >
+
+    {
+      transaction.matchReasons?.map(
+        (reason) => (
+
+          <div
+            key={reason}
+            className="
+              flex
+              items-center
+              gap-3
+            "
+          >
+
+            <div
+              className="
+                h-2
+                w-2
+                rounded-full
+                bg-green-400
+              "
+            />
+
+            <p
+              className="
+                text-sm
+                text-zinc-300
+              "
+            >
+              {reason}
+            </p>
+
+          </div>
+
+        )
+      )
+    }
+
+  </div>
+
+</div>
           <p
             className="
               mt-2
@@ -162,6 +237,230 @@ export default function TransactionReviewPanel({
           <p className="text-sm text-zinc-500">
             Suggested Action
           </p>
+          {
+  transaction.requiresEscalation && (
+
+    <div
+      className="
+        mt-6
+        rounded-2xl
+        border
+        border-red-500/20
+        bg-red-500/[0.04]
+        p-5
+      "
+    >
+
+      <p
+        className="
+          text-xs
+          uppercase
+          tracking-[0.2em]
+          text-red-300
+        "
+      >
+        Escalation Reason
+      </p>
+
+      <p
+        className="
+          mt-3
+          text-sm
+          text-zinc-300
+        "
+      >
+        High-value unmatched
+        transaction requiring
+        finance management
+        review.
+      </p>
+
+    </div>
+
+  )
+}
+<div
+  className="
+    mt-6
+  "
+>
+
+  <p
+    className="
+      text-xs
+      uppercase
+      tracking-[0.2em]
+      text-zinc-500
+    "
+  >
+    Routing Decision
+  </p>
+  {
+  transaction.manualAllocation && (
+
+    <div
+      className="
+        mt-6
+        rounded-2xl
+        border
+        border-zinc-800
+        bg-zinc-900/60
+        p-5
+      "
+    >
+
+      <p
+        className="
+          text-xs
+          uppercase
+          tracking-[0.2em]
+          text-zinc-500
+        "
+      >
+        Manual Allocation
+      </p>
+
+      <p
+        className="
+          mt-3
+          text-sm
+          text-zinc-300
+        "
+      >
+        No automatic tenant
+        allocation was found.
+        This transaction requires
+        manual allocation review.
+      </p>
+
+      <button
+        type="button"
+        className="
+          mt-5
+          rounded-xl
+          border
+          border-zinc-700
+          px-4
+          py-2
+          text-sm
+          text-zinc-300
+          transition
+          hover:border-zinc-500
+          hover:text-white
+        "
+      >
+        Allocate Manually
+      </button>
+
+    </div>
+
+  )
+}
+
+  <p
+    className="
+      mt-3
+      text-sm
+      text-zinc-300
+    "
+  >
+    {
+      transaction.queue ===
+      "escalated"
+        ? "Escalated queue due to operational risk."
+        : transaction.queue ===
+          "review"
+        ? "Sent for reconciliation review."
+        : transaction.queue ===
+          "ready"
+        ? "Ready for operational posting."
+        : "Transaction finalized."
+    }
+  </p>
+
+</div>
+          <div
+  className="
+    mt-6
+  "
+>
+
+  <p
+    className="
+      text-xs
+      uppercase
+      tracking-[0.2em]
+      text-zinc-500
+    "
+  >
+    Priority
+  </p>
+
+  <div
+    className="
+      mt-3
+    "
+  >
+
+    <span
+      className={`
+        rounded-full
+        px-3
+        py-1
+        text-xs
+        font-semibold
+
+        ${
+          transaction.reviewPriority ===
+          "high"
+            ? "bg-red-500/20 text-red-300"
+            : transaction.reviewPriority ===
+              "medium"
+            ? "bg-orange-500/20 text-orange-300"
+            : "bg-zinc-700 text-zinc-300"
+        }
+      `}
+    >
+
+      {
+        transaction.reviewPriority
+      }
+
+    </span>
+
+  </div>
+
+</div>
+<div
+  className="
+    mt-6
+  "
+>
+
+  <p
+    className="
+      text-xs
+      uppercase
+      tracking-[0.2em]
+      text-zinc-500
+    "
+  >
+    Assigned
+  </p>
+
+  <p
+    className="
+      mt-3
+      text-sm
+      text-white
+    "
+  >
+    {
+      transaction.assignedTo
+    }
+  </p>
+
+</div>
 
           <p
             className="
@@ -175,15 +474,7 @@ export default function TransactionReviewPanel({
               transaction.allocationAction
             }
           </p>
-          <div
-  className="
-    rounded-3xl
-    border
-    border-zinc-800
-    bg-zinc-900
-    p-6
-  "
->
+          </div>
 
   <p className="text-sm text-zinc-500">
     Workflow Actions
@@ -204,34 +495,9 @@ export default function TransactionReviewPanel({
 
   <div className="mt-6 space-y-6">
 
-    {[
-      {
-        id: "1",
-        label:
-          "Transaction imported",
-
-        timestamp:
-          "2 mins ago",
-      },
-
-      {
-        id: "2",
-        label:
-          "Tenant match detected",
-
-        timestamp:
-          "1 min ago",
-      },
-
-      {
-        id: "3",
-        label:
-          "Allocation recommendation generated",
-
-        timestamp:
-          "Just now",
-      },
-    ].map((activity) => (
+   {
+  transaction.activity?.map(
+    (activity) => (
 
       <div
         key={activity.id}
@@ -266,15 +532,65 @@ export default function TransactionReviewPanel({
 
       </div>
 
-    ))}
+    )
+  )
+}
+
+    
 
   </div>
 
 </div>
 
-  <div className="mt-6 flex flex-wrap gap-4">
-
+  <div
+  className="
+  sticky
+  bottom-[-2rem]
+  left-0
+  right-0
+  mt-10
+  flex
+  flex-wrap
+  gap-4
+  border-t
+  border-zinc-800
+  bg-black
+  px-8
+  py-6
+"
+>
+<button
+  onClick={onClose}
+  className="
+    rounded-2xl
+    border
+    border-zinc-700
+    px-5
+    py-3
+    text-sm
+    font-semibold
+    text-zinc-300
+    transition
+    hover:border-zinc-500
+    hover:text-white
+  "
+>
+  Close Review
+</button>
     <button
+    onClick={() => {
+
+  onUpdateTransaction({
+    ...transaction,
+
+    queue: "ready",
+
+    status: "matched",
+
+    requiresEscalation: false,
+  });
+
+}}
       className="
         rounded-2xl
         bg-green-500/20
@@ -285,12 +601,38 @@ export default function TransactionReviewPanel({
         text-green-300
         transition
         hover:bg-green-500/30
+        
       "
     >
       Approve Allocation
+      
     </button>
 
     <button
+    onClick={() => {
+
+  onUpdateTransaction({
+    ...transaction,
+
+    queue: "escalated",
+
+    requiresEscalation: true,
+    activity: [
+  ...(transaction.activity || []),
+
+  {
+    id: crypto.randomUUID(),
+
+    label:
+      "Transaction escalated",
+
+    timestamp:
+      new Date().toLocaleString(),
+  },
+],
+  });
+
+}}
       className="
         rounded-2xl
         bg-red-500/20
@@ -307,6 +649,29 @@ export default function TransactionReviewPanel({
     </button>
 
     <button
+    onClick={() => {
+
+  onUpdateTransaction({
+    ...transaction,
+
+    assignedTo:
+      "Finance Manager",
+      activity: [
+  ...(transaction.activity || []),
+
+  {
+    id: crypto.randomUUID(),
+
+    label:
+      "Finance review assigned",
+
+    timestamp:
+      new Date().toLocaleString(),
+  },
+],
+  });
+
+}}
       className="
         rounded-2xl
         bg-blue-500/20
@@ -327,9 +692,7 @@ export default function TransactionReviewPanel({
 </div>
 
         </div>
+ </div>
 
-      </div>
-
-    </div>
   );
 }

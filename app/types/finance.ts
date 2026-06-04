@@ -28,10 +28,17 @@ export type TransactionStatus =
   | "matched"
   | "allocated"
   | "flagged";
+export type TransactionActivity = {
+  id: string;
 
+  label: string;
+
+  timestamp: string;
+};
 export type ImportedTransaction = {
   id: string;
   entityId?: string;
+  activity?: TransactionActivity[];
 
 portfolioId?: string;
 
@@ -55,15 +62,22 @@ bankAccountId?: string;
   matchConfidence?: number;
   matchedTenant?: string;
   matchedLease?: string;
+  matchReasons?: string[];
   allocationAction?: string;
+  manualAllocation?: boolean;
   reviewPriority?:
   | "low"
   | "medium"
   | "high";
+  assignedTo?: string;
   requiresEscalation?: boolean;
   governanceBlocked?: boolean;
   governanceReason?: string;
   queue?: TransactionQueue;
+  postedAt?: string;
+
+postedBy?: string;
+  
 };
 export type TransactionQueue =
   | "ready"
@@ -81,4 +95,18 @@ export type TransactionQueue =
   leaseId: string;
 
   tenantName: string;
+};
+export type OperationalActivity = {
+  id: string;
+
+  title: string;
+
+  description: string;
+
+  severity:
+    | "info"
+    | "warning"
+    | "critical";
+
+  createdAt: string;
 };

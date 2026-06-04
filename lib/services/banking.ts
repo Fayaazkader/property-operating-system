@@ -61,26 +61,61 @@ const matchedTenant =
       "Lake Foods"
     ? "LSE-2026-014"
     : undefined;
+    const matchReasons =
+
+  matchedTenant
+    ? [
+        "Tenant keyword matched",
+        "Lease association identified",
+        "Historical allocation pattern detected",
+      ]
+    : [
+        "No confident tenant match detected",
+      ];
 const allocationAction =
   matchedLease
     ? `Allocate to ${matchedLease}`
     : "Manual review required";
+    const manualAllocation =
+
+  !matchedTenant;
     const reviewPriority =
-  matchedTenant
-    ? "low"
-    : amount >= 50000
+
+  amount >= 100000
     ? "high"
-    : "medium";
+    : amount >= 25000
+    ? "medium"
+    : "low";
+    
     const requiresEscalation =
   !matchedTenant &&
   amount >= 50000;
+  const assignedTo =
+
+  requiresEscalation
+    ? "Finance Manager"
+    : matchedTenant
+    ? "Auto-cleared"
+    : "Reconciliation Team";
+  
   const queue =
+
   requiresEscalation
     ? "escalated"
     : matchedTenant
     ? "ready"
     : "review";
+const activity = [
+  {
+    id: crypto.randomUUID(),
 
+    label:
+      "Transaction imported",
+
+    timestamp:
+      new Date().toLocaleString(),
+  },
+];
 return {
   id: crypto.randomUUID(),
   transactionDate:
@@ -103,10 +138,14 @@ return {
 
   matchedTenant,
   matchedLease,
+  matchReasons,
   allocationAction,
+  manualAllocation,
   reviewPriority,
+  assignedTo,
   requiresEscalation,
   queue,
+  activity,
 };
           }
         )
