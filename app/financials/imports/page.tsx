@@ -16,6 +16,32 @@ import {
   getGovernanceBlockedTransactions,
   getReadyToPostValue,
 } from "@/lib/analytics/executive";
+import {
+  currentUser,
+} from "@/lib/auth/mock-session";
+
+import {
+  canPostTransactions,
+} from "@/lib/auth/permissions";
+import {
+  getBulkCompletableTransactions,
+} from "@/lib/finance/bulk-governance";
+import {
+  getTransactionExceptionReason,
+} from "@/lib/finance/exception-reasons";
+import {
+  isExceptionTransaction,
+} from "@/lib/finance/exception-queue";
+import {
+  logOperationalEvent,
+  operationalAuditEvents,
+} from "@/lib/audit/operational-audit";
+import {
+  getTransactionSeverity,
+} from "@/lib/finance/severity";
+import {
+  getOperationalHealth,
+} from "@/lib/finance/operational-health";
 
 export default function BankingImportsPage() {
   const [
@@ -47,6 +73,10 @@ const [
   setReviewOpen,
 ] = useState(false);
 const [
+  postingMessage,
+  setPostingMessage,
+] = useState("");
+const [
   selectedTransactions,
   setSelectedTransactions,
 ] = useState<string[]>(
@@ -73,6 +103,7 @@ const [
   | "unmatched"
   | "highPriority"
   | "escalated"
+  | "exceptions"
 >("all");
 const operationalActivity = [
   {
@@ -162,6 +193,19 @@ function handleBulkPost() {
           transaction.id
         )
     );
+    if (
+  !canPostTransactions(
+    currentUser.role
+  )
+) {
+
+  alert(
+    "You do not have permission to post transactions."
+  );
+  
+
+  return;
+}
 
   if (
     selectedReadyTransactions.length ===
@@ -174,26 +218,44 @@ function handleBulkPost() {
 
     return;
   }
-
+const completableTransactions =
+  getBulkCompletableTransactions(
+    selectedReadyTransactions
+  );
   const invalidTransactions =
 
-    selectedReadyTransactions.filter(
+  selectedReadyTransactions.filter(
+    (transaction) =>
+
+      transaction.queue !==
+        "ready" ||
+
+      transaction.status !==
+        "matched" ||
+
+      !transaction.isBalanced
+  );
+  const exceptionReasons =
+  invalidTransactions
+    .map(
       (transaction) =>
-
-        transaction.queue !==
-          "ready" ||
-
-        transaction.status !==
-          "matched"
-    );
+        getTransactionExceptionReason(
+          transaction
+        )
+    )
+    .filter(Boolean);
 
   if (
     invalidTransactions.length > 0
   ) {
 
     alert(
-      "Only matched ready transactions can be posted."
-    );
+  `
+${invalidTransactions.length} transactions require review:
+
+${exceptionReasons.join("\n")}
+  `
+);
 
     return;
   }
@@ -208,21 +270,57 @@ function handleBulkPost() {
           )
         ) {
 
-          return {
-            ...transaction,
+         const autoComplete =
+  completableTransactions.some(
+    
+    (
+      completableTransaction
+    ) =>
 
-            status:
-              "posted",
+      completableTransaction.id ===
+      transaction.id
+  );
+  logOperationalEvent({
+  id: crypto.randomUUID(),
 
-            queue:
-              "posted",
+  action:
+    autoComplete
+      ? "Transaction auto-completed"
+      : "Transaction approved",
 
-            postedAt:
-              new Date().toLocaleString(),
+  severity:
+    autoComplete
+      ? "info"
+      : "warning",
 
-            postedBy:
-              "Finance Manager",
-          };
+  transactionId:
+    transaction.id,
+
+  createdAt:
+    new Date().toLocaleString(),
+});
+
+return {
+  ...transaction,
+
+  status:
+    "matched",
+
+  queue:
+    autoComplete
+      ? "posted"
+      : "ready",
+
+  workflowStatus:
+    autoComplete
+      ? "resolved"
+      : "assigned",
+
+  postingStatus:
+    autoComplete
+      ? "finalized"
+      : "approved",
+};
 
         }
 
@@ -235,6 +333,15 @@ function handleBulkPost() {
   setSelectedTransactions(
     []
   );
+  setPostingMessage(
+  `${selectedReadyTransactions.length} transactions successfully posted`
+);
+
+setTimeout(() => {
+
+  setPostingMessage("");
+
+}, 4000);
 }
 const filteredTransactions =
   transactions.filter(
@@ -246,23 +353,28 @@ const filteredTransactions =
           : transaction.queue ===
             activeQueue;
 
-      const filterMatch =
-        activeFilter === "all"
-          ? true
-          : activeFilter ===
-            "matched"
-          ? transaction.status ===
-            "matched"
-          : activeFilter ===
-            "unmatched"
-          ? transaction.status ===
-            "unmatched"
-          : activeFilter ===
-            "highPriority"
-          ? transaction.reviewPriority ===
-            "high"
-          : transaction.requiresEscalation ===
-            true;
+    const filterMatch =
+  activeFilter === "all"
+    ? true
+    : activeFilter ===
+      "matched"
+    ? transaction.status ===
+      "matched"
+    : activeFilter ===
+      "unmatched"
+    ? transaction.status ===
+      "unmatched"
+    : activeFilter ===
+      "highPriority"
+    ? transaction.reviewPriority ===
+      "high"
+    : activeFilter ===
+      "exceptions"
+    ? isExceptionTransaction(
+        transaction
+      )
+    : transaction.requiresEscalation ===
+      true;
 
       return (
         queueMatch &&
@@ -271,68 +383,7 @@ const filteredTransactions =
 
     }
   );
-  <div className="flex flex-wrap gap-3">
-
-  {[
-    {
-      key: "all",
-      label: "All",
-    },
-    {
-      key: "matched",
-      label: "Matched",
-    },
-    {
-      key: "unmatched",
-      label: "Unmatched",
-    },
-    {
-      key: "highPriority",
-      label: "High Priority",
-    },
-    {
-      key: "escalated",
-      label: "Escalated",
-    },
-  ].map((filter) => (
-
-    <button
-      key={filter.key}
-      type="button"
-      onClick={() =>
-        setActiveFilter(
-          filter.key as
-            | "all"
-            | "matched"
-            | "unmatched"
-            | "highPriority"
-            | "escalated"
-        )
-      }
-      className={`
-        rounded-full
-        px-4
-        py-2
-        text-xs
-        font-semibold
-        transition
-
-        ${
-          activeFilter ===
-          filter.key
-            ? "bg-white text-black"
-            : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
-        }
-      `}
-    >
-
-      {filter.label}
-
-    </button>
-
-  ))}
-
-</div>
+  
     const queueCounts = {
   all:
     transactions.length,
@@ -386,12 +437,17 @@ const governanceBlockedCount =
   getGovernanceBlockedTransactions(
     transactions
   ).length;
+  const operationalHealth =
+  getOperationalHealth(
+    transactions
+  );
   async function handleImport(
     file: File
   ) {
     setLoading(true);
 
     setFileName(file.name);
+   
 
     const result =
       await importBankTransactions(
@@ -416,6 +472,75 @@ if (
   }
 
   return (
+  <>
+    <div className="flex flex-wrap gap-3">
+
+  {[
+    {
+      key: "all",
+      label: "All",
+    },
+    {
+      key: "matched",
+      label: "Matched",
+    },
+    {
+      key: "unmatched",
+      label: "Unmatched",
+    },
+    {
+      key: "highPriority",
+      label: "High Priority",
+    },
+    {
+      key: "escalated",
+      label: "Escalated",
+    },
+    {
+  key: "exceptions",
+  label: "Exceptions",
+},
+  ].map((filter) => (
+
+    <button
+      key={filter.key}
+      type="button"
+      onClick={() =>
+        setActiveFilter(
+          filter.key as
+            | "all"
+            | "matched"
+            | "unmatched"
+            | "highPriority"
+            | "escalated"
+            | "exceptions"
+        )
+      }
+      className={`
+        rounded-full
+        px-4
+        py-2
+        text-xs
+        font-semibold
+        transition
+
+        ${
+          activeFilter ===
+          filter.key
+            ? "bg-white text-black"
+            : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+        }
+      `}
+    >
+
+      {filter.label}
+
+    </button>
+
+  ))}
+
+</div>
+    
   <div
   className="
     mx-auto
@@ -486,6 +611,101 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
           handleImport
         }
       />
+      <div
+  className={`
+    rounded-3xl
+    border
+    p-6
+
+    ${
+      operationalHealth.severity ===
+      "critical"
+        ? "border-red-500/20 bg-red-500/[0.05]"
+        : operationalHealth.severity ===
+          "warning"
+        ? "border-orange-500/20 bg-orange-500/[0.05]"
+        : "border-green-500/20 bg-green-500/[0.05]"
+    }
+  `}
+>
+
+  <div
+    className="
+      flex
+      items-center
+      justify-between
+    "
+  >
+
+    <div>
+
+      <p
+        className="
+          text-xs
+          uppercase
+          tracking-[0.2em]
+          text-zinc-500
+        "
+      >
+        Operational Health
+      </p>
+
+      <h2
+        className="
+          mt-3
+          text-3xl
+          font-black
+          text-white
+        "
+      >
+        {
+          operationalHealth.label
+        }
+      </h2>
+
+    </div>
+
+  </div>
+
+</div>
+      {
+  postingMessage && (
+
+    <div
+      className="
+        rounded-3xl
+        border
+        border-green-500/20
+        bg-green-500/[0.05]
+        p-6
+      "
+    >
+
+      <p
+        className="
+          text-sm
+          font-semibold
+          text-green-300
+        "
+      >
+        {postingMessage}
+      </p>
+
+      <p
+        className="
+          mt-2
+          text-sm
+          text-zinc-400
+        "
+      >
+        Operational queues updated
+        successfully.
+      </p>
+
+    </div>
+
+  )
+}
       <div className="grid gap-6 md:grid-cols-3">
 
   <div
@@ -520,6 +740,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
     </h2>
 
   </div>
+  
 
   <div
     className="
@@ -890,8 +1111,78 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
 
     </div>
 
-  </div>
+  <div
+    className="
+      max-h-[420px]
+      overflow-y-auto
+      mt-8
+      space-y-4
+    "
+  >
 
+   {
+  operationalAuditEvents.map(
+    (event) => (
+
+      <div
+        key={event.id}
+        className="
+          rounded-2xl
+          border
+          border-zinc-800
+          bg-black/20
+          p-5
+        "
+      >
+
+        <div
+          className="
+            flex
+            items-center
+            justify-between
+          "
+        >
+
+          <p
+            className={`
+              text-sm
+              font-semibold
+
+              ${
+                event.severity ===
+                "critical"
+                  ? "text-red-300"
+                  : event.severity ===
+                    "warning"
+                  ? "text-orange-300"
+                  : "text-green-300"
+              }
+            `}
+          >
+            {event.action}
+          </p>
+
+          <p
+            className="
+              text-xs
+              text-zinc-500
+            "
+          >
+            {
+              event.createdAt
+            }
+          </p>
+
+        </div>
+
+      </div>
+
+        )
+      )
+    }
+
+  </div>
+</div>
   <div
     className="
     max-h-[420px]
@@ -1035,6 +1326,7 @@ overflow-y-auto
     </button>
 
   ))}
+
 
 </div>
 
@@ -1182,6 +1474,7 @@ disabled:opacity-40
 </button>
       <button
   type="button"
+  
   disabled={selectedTransactions.some(
     (id) => {
 
@@ -1215,10 +1508,29 @@ disabled:opacity-40
     hover:bg-green-500/30
     disabled:cursor-not-allowed
     disabled:opacity-40
+    
   "
 >
-  Approve & Post
+ Smart Approve & Post
 </button>
+{
+  !canPostTransactions(
+    currentUser.role
+  ) && (
+
+    <p
+      className="
+        mt-3
+        text-xs
+        text-red-400
+      "
+    >
+      Your role does not
+      have posting authority.
+    </p>
+
+  )
+}
 {
   currentUserRole ===
   "manager" && (
@@ -1422,7 +1734,19 @@ disabled:opacity-40
 >
   Queue
 </th>
-
+<th
+  className="
+    px-4
+    py-4
+    text-left
+    text-xs
+    uppercase
+    tracking-[0.2em]
+    text-zinc-500
+  "
+>
+  Severity
+</th>
 <th
  className="
   w-[180px]
@@ -1455,7 +1779,7 @@ disabled:opacity-40
   <tr>
 
     <td
-      colSpan={6}
+      colSpan={7}
       className="
         px-6
         py-20
@@ -1495,12 +1819,21 @@ disabled:opacity-40
 
 )}
           {filteredTransactions.map(
-            (
-              transaction,
-              index
-            ) => (
+          (
+  transaction,
+  index
+) => {
+
+  const severity =
+    getTransactionSeverity(
+      transaction
+    );
+
+  return (
+              
 
               <tr
+              
               
   key={index}
   className={`
@@ -1510,20 +1843,17 @@ disabled:opacity-40
   hover:bg-white/[0.03]
 
   ${
-  transaction.queue ===
-  "governance"
-    ? "bg-purple-500/[0.05]"
-    : transaction.queue ===
-      "escalated"
-    ? "bg-red-500/[0.04]"
-    : transaction.queue ===
-      "review"
-    ? "bg-orange-500/[0.03]"
-    : transaction.queue ===
-      "posted"
-    ? "opacity-60"
-    : ""
-}
+    severity ===
+    "critical"
+      ? "bg-red-500/[0.05]"
+      : severity ===
+        "warning"
+      ? "bg-orange-500/[0.04]"
+      : transaction.queue ===
+        "posted"
+      ? "opacity-60"
+      : ""
+  }
 `}
 >
   <td
@@ -1686,6 +2016,38 @@ py-4
 </td>
 <td
   className="
+    px-4
+    py-4
+  "
+>
+
+  <span
+    className={`
+      rounded-full
+      px-3
+      py-1
+      text-xs
+      font-semibold
+
+      ${
+        severity ===
+        "critical"
+          ? "bg-red-500/20 text-red-300"
+          : severity ===
+            "warning"
+          ? "bg-orange-500/20 text-orange-300"
+          : "bg-blue-500/20 text-blue-300"
+      }
+    `}
+  >
+
+    {severity}
+
+  </span>
+
+</td>
+<td
+  className="
   w-[180px]
   px-4
   py-4
@@ -1770,8 +2132,10 @@ disabled:opacity-40
 
               </tr>
 
-            )
-          )}
+            );
+
+          }
+        )}
 
         </tbody>
 
@@ -1815,5 +2179,6 @@ disabled:opacity-40
 }
 />
     </div>
+  </>
   );
 }

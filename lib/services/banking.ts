@@ -5,6 +5,27 @@ import {
 import {
   ServiceResponse,
 } from "@/app/types/service";
+import {
+  determineWorkflowOwner,
+} from "@/lib/workflows/routing";
+import {
+  classifyTransaction,
+} from "@/lib/finance/classification";
+import {
+  determineAllocationStatus,
+} from "@/lib/finance/allocation-resolution";
+import {
+  isAllocationBalanced,
+} from "@/lib/finance/allocation-integrity";
+import {
+  calculateOutstandingBalance,
+} from "@/lib/finance/outstanding-balance";
+import {
+  isPeriodLocked,
+} from "@/lib/finance/period-governance";
+import {
+  generateAutomaticAllocations,
+} from "@/lib/finance/allocation-automation";
 
 export async function importBankTransactions(
   file: File
@@ -76,6 +97,58 @@ const allocationAction =
   matchedLease
     ? `Allocate to ${matchedLease}`
     : "Manual review required";
+    const allocationCategory =
+  classifyTransaction(
+    description
+  );
+  const isSuspense =
+
+  allocationCategory ===
+  "Suspense Receipt";
+  const automaticAllocations =
+  generateAutomaticAllocations({
+    amount,
+    matchedTenant,
+  } as ImportedTransaction);
+
+const splitAllocations =
+
+  automaticAllocations.length > 0
+
+    ? automaticAllocations
+
+    : [
+        {
+          id: crypto.randomUUID(),
+
+          category:
+            allocationCategory,
+
+          amount,
+
+          percentage: 100,
+        },
+      ];
+      const allocationStatus =
+  determineAllocationStatus({
+    amount,
+    splitAllocations,
+    isSuspense,
+  } as ImportedTransaction);
+  const isBalanced =
+  isAllocationBalanced({
+    amount,
+    splitAllocations,
+  } as ImportedTransaction);
+  const outstandingBalance =
+  calculateOutstandingBalance({
+    amount,
+    splitAllocations,
+  } as ImportedTransaction);
+  const periodLocked =
+  isPeriodLocked(
+    columns[0]?.trim() || ""
+  );
     const manualAllocation =
 
   !matchedTenant;
@@ -91,13 +164,15 @@ const allocationAction =
   !matchedTenant &&
   amount >= 50000;
   const assignedTo =
+  determineWorkflowOwner({
+    requiresEscalation,
+    manualAllocation,
+    slaStatus:
 
-  requiresEscalation
-    ? "Finance Manager"
-    : matchedTenant
-    ? "Auto-cleared"
-    : "Reconciliation Team";
-  
+      requiresEscalation
+        ? "attention_required"
+        : "within_sla",
+  } as ImportedTransaction);
   const queue =
 
   requiresEscalation
@@ -140,11 +215,29 @@ return {
   matchedLease,
   matchReasons,
   allocationAction,
+  allocationCategory,
+  splitAllocations,
+  allocationStatus,
+  isBalanced,
+  outstandingBalance,
+  periodLocked,
+  isSuspense,
   manualAllocation,
   reviewPriority,
   assignedTo,
   requiresEscalation,
   queue,
+ workflowStatus:
+
+  isSuspense
+    ? "in_review"
+    : requiresEscalation
+    ? "escalated"
+    : matchedTenant
+    ? "assigned"
+    : "unassigned",
+    postingStatus:
+  "pending",
   activity,
 };
           }

@@ -1,3 +1,6 @@
+import {
+  SplitAllocation,
+} from "@/app/types/allocation";
 export type BankTransaction = {
   id: string;
 
@@ -61,14 +64,41 @@ bankAccountId?: string;
   | "posted";
   matchConfidence?: number;
   matchedTenant?: string;
-  matchedLease?: string;
+    matchedLease?: string;
   matchReasons?: string[];
   allocationAction?: string;
   manualAllocation?: boolean;
+  allocationCategory?: string;
+  splitAllocations?: SplitAllocation[];
+  allocationStatus?:
+  | "unallocated"
+  | "partially_allocated"
+  | "fully_allocated"
+  | "suspense";
+  isBalanced?: boolean;
+  outstandingBalance?: number;
+  periodLocked?: boolean;
+  isSuspense?: boolean;
   reviewPriority?:
   | "low"
   | "medium"
   | "high";
+  workflowStatus?:
+  | "unassigned"
+  | "assigned"
+  | "in_review"
+  | "escalated"
+  | "resolved"
+  | "posted";
+  postingStatus?:
+  | "pending"
+  | "approved"
+  | "posted"
+  | "finalized";
+  slaStatus?:
+  | "within_sla"
+  | "attention_required"
+  | "breached";
   assignedTo?: string;
   requiresEscalation?: boolean;
   governanceBlocked?: boolean;
@@ -79,6 +109,21 @@ bankAccountId?: string;
 postedBy?: string;
   
 };
+export type OperationalAuditEvent =
+  {
+    id: string;
+
+    action: string;
+
+    severity:
+      | "info"
+      | "warning"
+      | "critical";
+
+    transactionId?: string;
+
+    createdAt: string;
+  };
 export type TransactionQueue =
   | "ready"
   | "review"
