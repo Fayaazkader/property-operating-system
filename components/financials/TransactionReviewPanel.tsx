@@ -116,26 +116,34 @@ const transactionLocked =
   >
 
     <div
-    onClick={(event) =>
-  event.stopPropagation()
-}
-      className="
-        fixed
-        inset-y-0
-        right-0
-        z-50
-        w-full
-        max-w-2xl
-        overflow-y-auto
-        border-l
-        border-zinc-800
-        bg-black
-        p-8
-        shadow-2xl
-        
-      "
-    >
+    
+  onClick={(event) =>
+    event.stopPropagation()
+  }
+  className="
+    fixed
+    inset-y-0
+    right-0
+    z-50
+    flex
+    h-full
+    w-full
+    max-w-2xl
+    flex-col
+    border-l
+    border-zinc-800
+    bg-black
+    shadow-2xl
+  "
 
+    >
+<div
+  className="
+    flex-1
+    overflow-y-auto
+    p-8
+  "
+>
       <div className="flex items-start justify-between">
 
         <div>
@@ -170,9 +178,11 @@ const transactionLocked =
 
       <div
   className="
-    mt-10
-    space-y-8
-    pb-40
+    flex-1
+    overflow-y-auto
+    space-y-5
+    px-8
+    py-6
   "
 >
 
@@ -182,7 +192,7 @@ const transactionLocked =
             border
             border-zinc-800
             bg-zinc-900
-            p-6
+            p-4
           "
         >
 
@@ -193,7 +203,7 @@ const transactionLocked =
           <p
             className="
               mt-2
-              text-4xl
+              text-3xl
               font-black
               text-white
             "
@@ -210,7 +220,7 @@ const transactionLocked =
             border
             border-zinc-800
             bg-zinc-900
-            p-6
+            p-4
           "
         >
 
@@ -240,7 +250,7 @@ const transactionLocked =
   <div
     className="
       mt-5
-      space-y-4
+      space-y-3
     "
   >
 
@@ -297,39 +307,7 @@ const transactionLocked =
           </p>
 
         </div>
-        <div
-  className="
-    rounded-3xl
-    border
-    border-zinc-800
-    bg-zinc-900
-    p-6
-  "
->
-
-  <p
-    className="
-      text-sm
-      text-zinc-500
-    "
-  >
-    Allocation Category
-  </p>
-
-  <p
-    className="
-      mt-2
-      text-xl
-      font-semibold
-      text-white
-    "
-  >
-    {
-      transaction.allocationCategory
-    }
-  </p>
-
-</div>
+        
 {
   transaction.isSuspense && (
 
@@ -369,97 +347,7 @@ const transactionLocked =
 
   )
 }
-<div
-  className="
-    rounded-3xl
-    border
-    border-zinc-800
-    bg-zinc-900
-    p-6
-  "
->
 
-  <p
-    className="
-      text-sm
-      text-zinc-500
-    "
-  >
-    Split Allocations
-  </p>
-
-  <div
-    className="
-      mt-5
-      space-y-4
-    "
-  >
-
-    {
-      transaction.splitAllocations?.map(
-        (allocation) => (
-
-          <div
-            key={allocation.id}
-            className="
-              flex
-              items-center
-              justify-between
-              rounded-2xl
-              border
-              border-zinc-800
-              p-4
-            "
-          >
-
-            <div>
-
-              <p
-                className="
-                  text-sm
-                  font-semibold
-                  text-white
-                "
-              >
-                {
-                  allocation.category
-                }
-              </p>
-
-              <p
-                className="
-                  mt-1
-                  text-xs
-                  text-zinc-500
-                "
-              >
-                {
-                  allocation.percentage
-                }%
-              </p>
-
-            </div>
-
-            <p
-              className="
-                text-sm
-                font-semibold
-                text-zinc-300
-              "
-            >
-              R
-              {allocation.amount.toLocaleString()}
-            </p>
-
-          </div>
-
-        )
-      )
-    }
-
-  </div>
-
-</div>
 {
   !transaction.isBalanced && (
 
@@ -640,44 +528,7 @@ const transactionLocked =
 
   )
 }
-{
-  transaction.isBalanced && (
 
-    <div
-      className="
-        rounded-3xl
-        border
-        border-green-500/20
-        bg-green-500/[0.04]
-        p-6
-      "
-    >
-
-      <p
-        className="
-          text-sm
-          text-green-300
-        "
-      >
-        Allocation Automatically Balanced
-      </p>
-
-      <p
-        className="
-          mt-3
-          text-sm
-          text-zinc-300
-        "
-      >
-        Operational allocation
-        rules automatically
-        resolved this transaction.
-      </p>
-
-    </div>
-
-  )
-}
 <div
   className="
     rounded-3xl
@@ -802,113 +653,8 @@ const transactionLocked =
   </div>
 
 </div>
-<div
-  className="
-    rounded-3xl
-    border
-    border-zinc-800
-    bg-zinc-900
-    p-6
-  "
->
 
-  <p
-    className="
-      text-sm
-      text-zinc-500
-    "
-  >
-    Allocation Status
-  </p>
 
-  <div className="mt-4">
-
-    <span
-      className={`
-        rounded-full
-        px-3
-        py-1
-        text-xs
-        font-semibold
-
-        ${
-          transaction.allocationStatus ===
-          "fully_allocated"
-            ? "bg-green-500/20 text-green-300"
-            : transaction.allocationStatus ===
-              "partially_allocated"
-            ? "bg-orange-500/20 text-orange-300"
-            : transaction.allocationStatus ===
-              "suspense"
-            ? "bg-red-500/20 text-red-300"
-            : "bg-zinc-700 text-zinc-300"
-        }
-      `}
-    >
-
-      {
-        transaction.allocationStatus
-          ?.replaceAll(
-            "_",
-            " "
-          )
-      }
-
-    </span>
-
-  </div>
-
-</div>
-<div
-  className="
-    rounded-3xl
-    border
-    border-zinc-800
-    bg-zinc-900
-    p-6
-  "
->
-
-  <p
-    className="
-      text-sm
-      text-zinc-500
-    "
-  >
-    Cashbook Integrity
-  </p>
-
-  <div className="mt-4">
-
-    <span
-      className="
-        rounded-full
-        bg-green-500/20
-        px-3
-        py-1
-        text-xs
-        font-semibold
-        text-green-300
-      "
-    >
-      Balanced
-    </span>
-
-  </div>
-
-  <p
-    className="
-      mt-3
-      text-sm
-      text-zinc-300
-    "
-  >
-    Operational cashbook
-    continuity has been
-    validated successfully.
-  </p>
-
-</div>
         <div
           className="
             rounded-3xl
@@ -1019,23 +765,41 @@ const transactionLocked =
       </p>
 
       <button
-        type="button"
-        className="
-          mt-5
-          rounded-xl
-          border
-          border-zinc-700
-          px-4
-          py-2
-          text-sm
-          text-zinc-300
-          transition
-          hover:border-zinc-500
-          hover:text-white
-        "
-      >
-        Allocate Manually
-      </button>
+  type="button"
+  onClick={() => {
+
+    const updatedTransaction =
+      applyAllocation(
+        transaction,
+        {
+          category:
+            "Manual Allocation",
+
+          amount:
+            transaction.amount,
+        }
+      );
+
+    onUpdateTransaction(
+      updatedTransaction
+    );
+
+  }}
+  className="
+    mt-5
+    rounded-2xl
+    bg-orange-500/20
+    px-5
+    py-3
+    text-sm
+    font-semibold
+    text-orange-300
+    transition
+    hover:bg-orange-500/30
+  "
+>
+  Resolve Allocation
+</button>
 
     </div>
 
@@ -1144,6 +908,7 @@ const transactionLocked =
       transaction.assignedTo
     }
   </p>
+  </div>
   <div
   className="
     mt-6
@@ -1330,7 +1095,7 @@ const transactionLocked =
 
   )
 }
-</div>
+
 
           <p
             className="
@@ -1344,11 +1109,8 @@ const transactionLocked =
               transaction.allocationAction
             }
           </p>
-          </div>
 
-  <p className="text-sm text-zinc-500">
-    Workflow Actions
-  </p>
+ 
     {
   transactionLocked && (
 
@@ -1378,79 +1140,15 @@ const transactionLocked =
 
   )
 }
-  <div
-  className="
-    rounded-3xl
-    border
-    border-zinc-800
-    bg-zinc-900
-    p-6
-  "
->
-
-  <p className="text-sm text-zinc-500">
-    Activity Timeline
-  </p>
-
-  <div className="mt-6 space-y-6">
-
-   {
-  transaction.activity?.map(
-    (activity) => (
-
-      <div
-        key={activity.id}
-        className="flex gap-4"
-      >
-
-        <div
-          className="
-            mt-2
-            h-3
-            w-3
-            rounded-full
-            bg-blue-400
-          "
-        />
-
-        <div>
-
-          <p className="text-sm text-white">
-
-            {activity.label}
-
-          </p>
-
-          <p className="mt-1 text-xs text-zinc-500">
-
-            {activity.timestamp}
-
-          </p>
-
-        </div>
-
-      </div>
-
-    )
-  )
-}
-
-    
-
-  </div>
-
+  
 </div>
-
   <div
+  
   className="
   sticky
-  bottom-[-2rem]
-  left-0
-  right-0
-  mt-10
-  flex
-  flex-wrap
-  gap-4
+  bottom-0
+  z-50
+  mt-8
   border-t
   border-zinc-800
   bg-black
@@ -1458,6 +1156,7 @@ const transactionLocked =
   py-6
 "
 >
+  <div className="flex flex-wrap gap-4"> 
 <button
   onClick={onClose}
   className="
@@ -1562,55 +1261,7 @@ disabled:opacity-40
     
     )
 }
-{
-  canPostTransaction(
-    transaction
-  ) && (
 
-    <button
-      onClick={() => {
-
-        onUpdateTransaction({
-          ...transaction,
-
-          postingStatus:
-            "posted",
-
-          queue:
-            "posted",
-
-          activity: [
-            ...(transaction.activity || []),
-
-            {
-              id: crypto.randomUUID(),
-
-              label:
-                "Transaction posted",
-
-              timestamp:
-                new Date().toLocaleString(),
-            },
-          ],
-        });
-
-      }}
-      className="
-        rounded-2xl
-        bg-purple-500/20
-        px-5
-        py-3
-        text-sm
-        font-semibold
-        text-purple-300
-        transition
-        hover:bg-purple-500/30
-      "
-    >
-      Post Transaction
-    </button>
-  )
-}
 {
   canFinalizeTransaction(
     transaction
@@ -1785,13 +1436,13 @@ disabled:opacity-40
     </button>
     )
 }
-
+</div>
   </div>
 
 </div>
 
         </div>
- </div>
-
+ </div>   
+</div>
   );
 }

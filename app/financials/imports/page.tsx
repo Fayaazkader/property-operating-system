@@ -473,73 +473,7 @@ if (
 
   return (
   <>
-    <div className="flex flex-wrap gap-3">
-
-  {[
-    {
-      key: "all",
-      label: "All",
-    },
-    {
-      key: "matched",
-      label: "Matched",
-    },
-    {
-      key: "unmatched",
-      label: "Unmatched",
-    },
-    {
-      key: "highPriority",
-      label: "High Priority",
-    },
-    {
-      key: "escalated",
-      label: "Escalated",
-    },
-    {
-  key: "exceptions",
-  label: "Exceptions",
-},
-  ].map((filter) => (
-
-    <button
-      key={filter.key}
-      type="button"
-      onClick={() =>
-        setActiveFilter(
-          filter.key as
-            | "all"
-            | "matched"
-            | "unmatched"
-            | "highPriority"
-            | "escalated"
-            | "exceptions"
-        )
-      }
-      className={`
-        rounded-full
-        px-4
-        py-2
-        text-xs
-        font-semibold
-        transition
-
-        ${
-          activeFilter ===
-          filter.key
-            ? "bg-white text-black"
-            : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
-        }
-      `}
-    >
-
-      {filter.label}
-
-    </button>
-
-  ))}
-
-</div>
+    
     
   <div
   className="
@@ -568,7 +502,7 @@ if (
         <h1
           className="
             mt-3
-            text-5xl
+            text-3xl
             font-black
             tracking-tight
             text-white
@@ -615,7 +549,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
   className={`
     rounded-3xl
     border
-    p-6
+    p-4
 
     ${
       operationalHealth.severity ===
@@ -677,7 +611,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
         border
         border-green-500/20
         bg-green-500/[0.05]
-        p-6
+        p-4
       "
     >
 
@@ -706,7 +640,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
 
   )
 }
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
 
   <div
     className="
@@ -714,7 +648,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
       border
       border-green-500/20
       bg-green-500/10
-      p-6
+      p-4
     "
   >
 
@@ -725,7 +659,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
     <h2
       className="
         mt-3
-        text-5xl
+        text-3xl
         font-black
         text-white
       "
@@ -748,7 +682,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
       border
       border-orange-500/20
       bg-orange-500/10
-      p-6
+      p-4
     "
   >
 
@@ -759,7 +693,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
     <h2
       className="
         mt-3
-        text-5xl
+        text-3xl
         font-black
         text-white
       "
@@ -781,7 +715,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
       border
       border-red-500/20
       bg-red-500/10
-      p-6
+      p-4
     "
   >
 
@@ -792,7 +726,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
     <h2
       className="
         mt-3
-        text-5xl
+        text-3xl
         font-black
         text-white
       "
@@ -838,7 +772,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
     border
     border-zinc-800
     bg-zinc-900/70
-    p-6
+    p-4
     text-left
     transition
     hover:border-zinc-700
@@ -910,7 +844,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
     border
     border-red-500/20
     bg-red-500/[0.04]
-    p-6
+    p-4
     text-left
     transition
     hover:border-red-500/40
@@ -963,34 +897,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
 </p>
 
   </button>
-  <button
-  type="button"
-  onClick={() => {
-
-    setActiveQueue(
-      "posted"
-    );
-
-  }}
-  className={`
-    rounded-2xl
-    border
-    px-5
-    py-3
-    text-sm
-    font-semibold
-    transition
-
-    ${
-      activeQueue ===
-      "posted"
-        ? "border-green-500/30 bg-green-500/10 text-green-300"
-        : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-white"
-    }
-  `}
->
-  Posted
-</button>
+  
 
   <button
   type="button"
@@ -1010,7 +917,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
     border
     border-purple-500/20
     bg-purple-500/[0.04]
-    p-6
+    p-4
     text-left
     transition
     hover:border-purple-500/40
@@ -1066,214 +973,7 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
   </button>
 
 </div>
-<div
-  className="
-    mt-6
-    rounded-3xl
-    border
-    border-zinc-800
-    bg-zinc-900/60
-    p-6
-  "
->
 
-  <div
-    className="
-      flex
-      items-center
-      justify-between
-    "
-  >
-
-    <div>
-
-      <p
-        className="
-          text-xs
-          uppercase
-          tracking-[0.2em]
-          text-zinc-500
-        "
-      >
-        Operational Activity
-      </p>
-
-      <h3
-        className="
-          mt-3
-          text-3xl
-          font-black
-          text-white
-        "
-      >
-        Live Workflow Feed
-      </h3>
-
-    </div>
-
-  <div
-    className="
-      max-h-[420px]
-      overflow-y-auto
-      mt-8
-      space-y-4
-    "
-  >
-
-   {
-  operationalAuditEvents.map(
-    (event) => (
-
-      <div
-        key={event.id}
-        className="
-          rounded-2xl
-          border
-          border-zinc-800
-          bg-black/20
-          p-5
-        "
-      >
-
-        <div
-          className="
-            flex
-            items-center
-            justify-between
-          "
-        >
-
-          <p
-            className={`
-              text-sm
-              font-semibold
-
-              ${
-                event.severity ===
-                "critical"
-                  ? "text-red-300"
-                  : event.severity ===
-                    "warning"
-                  ? "text-orange-300"
-                  : "text-green-300"
-              }
-            `}
-          >
-            {event.action}
-          </p>
-
-          <p
-            className="
-              text-xs
-              text-zinc-500
-            "
-          >
-            {
-              event.createdAt
-            }
-          </p>
-
-        </div>
-
-      </div>
-
-        )
-      )
-    }
-
-  </div>
-</div>
-  <div
-    className="
-    max-h-[420px]
-overflow-y-auto
-      mt-8
-      space-y-4
-      
-    "
-  >
-
-    {operationalActivity.map(
-      (activity) => (
-
-        <div
-          key={activity.id}
-          className="
-            rounded-2xl
-            border
-            border-zinc-800
-            bg-black/20
-            p-5
-          "
-        >
-
-          <div
-            className="
-              flex
-              items-start
-              justify-between
-              gap-6
-            "
-          >
-
-            <div>
-
-              <p
-                className={`
-                  text-sm
-                  font-semibold
-
-                  ${
-                    activity.severity ===
-                    "critical"
-                      ? "text-red-300"
-                      : activity.severity ===
-                        "warning"
-                      ? "text-purple-300"
-                      : "text-green-300"
-                  }
-                `}
-              >
-                {activity.title}
-              </p>
-
-              <p
-                className="
-                  mt-2
-                  text-sm
-                  leading-7
-                  text-zinc-400
-                "
-              >
-                {
-                  activity.description
-                }
-              </p>
-
-            </div>
-
-            <p
-              className="
-                whitespace-nowrap
-                text-xs
-                text-zinc-500
-              "
-            >
-              {
-                activity.createdAt
-              }
-            </p>
-
-          </div>
-
-        </div>
-
-      )
-    )}
-
-  </div>
-
-</div>
 <div className="flex flex-wrap gap-3">
 
   {[
@@ -1340,7 +1040,7 @@ overflow-y-auto
       border
       border-blue-500/20
       bg-blue-500/10
-      p-6
+      p-4
     "
   >
 
@@ -1574,23 +1274,13 @@ disabled:opacity-40
     "
   >
 
-    <div className="border-b border-zinc-800 p-6">
+    <div className="border-b border-zinc-800 p-4">
 
-      <p
-        className="
-          text-sm
-          uppercase
-          tracking-[0.25em]
-          text-zinc-500
-        "
-      >
-        Parsed Transactions
-      </p>
 
       <h2
         className="
           mt-3
-          text-3xl
+          text-2xl
           font-black
           text-white
         "
@@ -1647,6 +1337,7 @@ disabled:opacity-40
   <table
   className="
     w-full
+  
   "
 >
 
@@ -1708,19 +1399,7 @@ disabled:opacity-40
             >
               Amount
             </th>
-            <th
-  className="
-  px-4
-  py-4
-  text-left
-  text-xs
-  uppercase
-  tracking-[0.2em]
-  text-zinc-500
-"
->
-  Status
-</th>
+            
 <th
   className="
   px-4
@@ -1734,23 +1413,10 @@ disabled:opacity-40
 >
   Queue
 </th>
-<th
-  className="
-    px-4
-    py-4
-    text-left
-    text-xs
-    uppercase
-    tracking-[0.2em]
-    text-zinc-500
-  "
->
-  Severity
-</th>
+
 <th
  className="
-  w-[180px]
-  px-4
+  px-8
   py-4
   text-left
   text-xs
@@ -1940,45 +1606,17 @@ py-4
                   }
                 </td>
 
-                <td
-                  className="
-  w-[160px]
-  px-4
-  py-4
-"
-                >
-                  R
-                  {transaction.amount.toLocaleString()}
-                </td>
-                <td
+        <td
   className="
+    w-[160px]
     px-4
-py-4
+    py-4
+    text-white
   "
 >
-
-  <span
-    className={`
-      rounded-full
-      px-3
-      py-1
-      text-xs
-      font-semibold
-
-      ${
-        transaction.status ===
-        "matched"
-          ? "bg-green-500/20 text-green-300"
-          : "bg-orange-500/20 text-orange-300"
-      }
-    `}
-  >
-
-    {transaction.status}
-
-  </span>
-
-</td>
+  R
+  {transaction.amount.toLocaleString()}
+</td>        
 <td
   className="
     px-4
@@ -2014,38 +1652,7 @@ py-4
   </span>
 
 </td>
-<td
-  className="
-    px-4
-    py-4
-  "
->
 
-  <span
-    className={`
-      rounded-full
-      px-3
-      py-1
-      text-xs
-      font-semibold
-
-      ${
-        severity ===
-        "critical"
-          ? "bg-red-500/20 text-red-300"
-          : severity ===
-            "warning"
-          ? "bg-orange-500/20 text-orange-300"
-          : "bg-blue-500/20 text-blue-300"
-      }
-    `}
-  >
-
-    {severity}
-
-  </span>
-
-</td>
 <td
   className="
   w-[180px]
@@ -2113,8 +1720,8 @@ py-4
       rounded-xl
       border
       border-zinc-700
-      px-4
-      py-2
+      px-8
+  py-4
       text-sm
       text-zinc-300
       transition
