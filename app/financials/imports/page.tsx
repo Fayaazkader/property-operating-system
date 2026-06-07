@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import ImportDropzone from "@/components/widgets/ImportDropzone";
 
@@ -42,6 +42,8 @@ import {
 import {
   getOperationalHealth,
 } from "@/lib/finance/operational-health";
+import "@/app/globals.css";
+import { supabase } from "@/lib/supabase";
 
 export default function BankingImportsPage() {
   const [
@@ -105,6 +107,34 @@ const [
   | "escalated"
   | "exceptions"
 >("all");
+ const [dataLoaded, setDataLoaded] = useState(false);
+
+// Load existing transactions from Supabase on mount
+useEffect(() => {
+  async function loadTransactions() {
+    const { data, error } = await supabase
+      .from("bank_transactions")
+      .select("*")
+      .order("imported_at", { ascending: false })
+      .limit(50);
+
+    if (data && data.length > 0) {
+      // Map DB columns to ImportedTransaction shape
+      const mapped = data.map((tx: any) => ({
+        ...tx,
+        amount: tx.transaction_amount || 0,
+        description: tx.transaction_description || "",
+        transactionDate: tx.transaction_date || "",
+        reference: tx.transaction_reference || "",
+        splitAllocations: tx.split_allocations || [],
+        allocationStatus: tx.allocation_status || "unallocated",
+      }));
+      setTransactions(mapped as ImportedTransaction[]);
+    }
+    setDataLoaded(true);
+  }
+  loadTransactions();
+}, []);
 const operationalActivity = [
   {
     id: "1",
@@ -182,7 +212,7 @@ function updateTransaction(
   );
 
 }
-function handleBulkPost() {
+async function handleBulkPost() {
 
   const selectedReadyTransactions =
 
@@ -330,18 +360,26 @@ return {
     )
   );
 
-  setSelectedTransactions(
-    []
-  );
+    setSelectedTransactions([]);
+  
+  // Persist status changes to Supabase
+  for (const tx of selectedReadyTransactions) {
+    await supabase
+      .from("bank_transactions")
+      .update({
+        allocation_status: "posted",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", tx.id);
+  }
+
   setPostingMessage(
-  `${selectedReadyTransactions.length} transactions successfully posted`
-);
+    `${selectedReadyTransactions.length} transactions successfully posted`
+  );
 
-setTimeout(() => {
-
-  setPostingMessage("");
-
-}, 4000);
+  setTimeout(() => {
+    setPostingMessage("");
+  }, 4000);
 }
 const filteredTransactions =
   transactions.filter(
@@ -441,35 +479,42 @@ const governanceBlockedCount =
   getOperationalHealth(
     transactions
   );
-  async function handleImport(
-    file: File
-  ) {
-    setLoading(true);
+  async function handleImport(file: File) {
+  setLoading(true);
+  setFileName(file.name);
 
-    setFileName(file.name);
-   
+  const result = await importBankTransactions(file);
 
-    const result =
-      await importBankTransactions(
-        file
-      );
+  console.log("IMPORT RESULT:", result);
 
-    console.log(
-  "IMPORT RESULT:",
-  result
-);
+  if (result.success && result.data) {
+    setTransactions(result.data);
 
-if (
-  result.success &&
-  result.data
-) {
-  setTransactions(
-    result.data
-  );
-}
+    // Persist each transaction to Supabase
+    for (const tx of result.data) {
+      const { error: insertError } = await supabase
+        .from("bank_transactions")
+        .upsert({
+          id: tx.id,
+          transaction_date: tx.transactionDate || null,
+          transaction_description: tx.description || null,
+          transaction_amount: tx.amount || 0,
+          transaction_reference: tx.reference || null,
+          bank_account_name: null,
+          bank_account_number: null,
+          allocation_status: tx.allocationStatus || "unallocated",
+          split_allocations: tx.splitAllocations || [],
+          imported_at: new Date().toISOString(),
+        });
 
-    setLoading(false);
+      if (insertError) {
+        console.error("Failed to save transaction:", tx.id, insertError);
+      }
+    }
   }
+
+  setLoading(false);
+}
 
   return (
   <>
@@ -1246,12 +1291,10 @@ disabled:opacity-40
           transition
           hover:bg-zinc-700
         "
-        onClick={() =>
-          setSelectedTransactions(
-            []
-          )
-        }
+        onClick={() => setSelectedTransactions([])}
+        
       >
+        
         Clear
       </button>
       )

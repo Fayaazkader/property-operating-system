@@ -25,6 +25,13 @@ export type SplitAllocation = {
   percentage?: number;
 
   glAccountCode?: string;
+  propertyId?: string;
+  leaseId?: string;
+  tenantId?: string;
+  vatTreatment?: "vat-inclusive" | "vat-exclusive" | "no-vat";
+  vatAmount?: number;
+  notes?: string;
+
 };
 export type AllocationInput = {
   category: string;

@@ -58,6 +58,7 @@ import {
 import {
   isValidEntityAllocation,
 } from "@/lib/governance/entity-validation";
+import { useRouter } from "next/navigation";
 
 export default function TransactionReviewPanel({
   transaction,
@@ -69,7 +70,7 @@ export default function TransactionReviewPanel({
   allocationAmount,
   setAllocationAmount,
 ] = useState("");
-
+const router = useRouter(); 
 const [
   allocationCategoryInput,
   setAllocationCategoryInput,
@@ -101,6 +102,7 @@ const transactionLocked =
   generateAllocationSuggestions(
     transaction
   );
+
 
   return (
 
@@ -349,8 +351,7 @@ const transactionLocked =
 }
 
 {
-  !transaction.isBalanced && (
-
+  true && (
     <div
       className="
         rounded-3xl
@@ -360,175 +361,41 @@ const transactionLocked =
         p-6
       "
     >
-
-      <p
-        className="
-          text-sm
-          text-orange-300
-        "
-      >
+      <p className="text-sm text-orange-300">
         Outstanding Allocation
       </p>
-
-      <p
-        className="
-          mt-3
-          text-2xl
-          font-black
-          text-white
-        "
-      >
-        R
-        {
-          transaction.outstandingBalance?.toLocaleString()
-        }
+      <p className="mt-3 text-2xl font-black text-white">
+        R{transaction.outstandingBalance?.toLocaleString()}
+      </p>
+      <p className="mt-3 text-sm text-zinc-300">
+        This transaction requires manual allocation before it can be posted.
       </p>
 
-      <p
-        className="
-          mt-3
-          text-sm
-          text-zinc-300
-        "
-      >
-        Additional allocation is
-        required before this
-        transaction can be posted.
-      </p>
-
-    </div>
-
-  )
-}
-{
-  !transaction.isBalanced && (
-
-    <div
-      className="
-        rounded-3xl
-        border
-        border-zinc-800
-        bg-zinc-900
-        p-6
-      "
-    >
-
-      <p
-        className="
-          text-sm
-          text-zinc-500
-        "
-      >
-        Resolve Allocation
-      </p>
-
-      <div
+      <button
+        type="button"
+        onClick={() => {
+          const data = encodeURIComponent(JSON.stringify(transaction));
+          router.push(`/financials/reconciliation/${transaction.id}?data=${data}`);
+        }}
         className="
           mt-5
-          grid
-          gap-4
+          w-full
+          rounded-2xl
+          bg-orange-500/20
+          px-5
+          py-4
+          text-sm
+          font-semibold
+          text-orange-300
+          transition
+          hover:bg-orange-500/30
         "
       >
-
-        <input
-          type="text"
-          placeholder="Allocation category"
-          value={
-            allocationCategoryInput
-          }
-          onChange={(e) =>
-            setAllocationCategoryInput(
-              e.target.value
-            )
-          }
-          className="
-            rounded-2xl
-            border
-            border-zinc-800
-            bg-black/40
-            px-4
-            py-3
-            text-sm
-            text-white
-            outline-none
-          "
-        />
-
-        <input
-          type="number"
-          placeholder="Allocation amount"
-          value={
-            allocationAmount
-          }
-          onChange={(e) =>
-            setAllocationAmount(
-              e.target.value
-            )
-          }
-          className="
-            rounded-2xl
-            border
-            border-zinc-800
-            bg-black/40
-            px-4
-            py-3
-            text-sm
-            text-white
-            outline-none
-          "
-        />
-
-        <button
-          onClick={() => {
-
-            const updatedTransaction =
-              applyAllocation(
-                transaction,
-                {
-                  category:
-                    allocationCategoryInput,
-
-                  amount:
-                    Number(
-                      allocationAmount
-                    ),
-                }
-              );
-
-            onUpdateTransaction(
-              updatedTransaction
-            );
-
-            setAllocationAmount(
-              ""
-            );
-
-            setAllocationCategoryInput(
-              ""
-            );
-          }}
-          className="
-            rounded-2xl
-            bg-blue-500/20
-            px-5
-            py-3
-            text-sm
-            font-semibold
-            text-blue-300
-            transition
-            hover:bg-blue-500/30
-          "
-        >
-          Apply Allocation
-        </button>
-
-      </div>
-
+        Open Reconciliation Workspace
+      </button>
     </div>
-
   )
 }
-
 <div
   className="
     rounded-3xl
@@ -726,85 +593,7 @@ const transactionLocked =
   >
     Routing Decision
   </p>
-  {
-  transaction.manualAllocation && (
-
-    <div
-      className="
-        mt-6
-        rounded-2xl
-        border
-        border-zinc-800
-        bg-zinc-900/60
-        p-5
-      "
-    >
-
-      <p
-        className="
-          text-xs
-          uppercase
-          tracking-[0.2em]
-          text-zinc-500
-        "
-      >
-        Manual Allocation
-      </p>
-
-      <p
-        className="
-          mt-3
-          text-sm
-          text-zinc-300
-        "
-      >
-        No automatic tenant
-        allocation was found.
-        This transaction requires
-        manual allocation review.
-      </p>
-
-      <button
-  type="button"
-  onClick={() => {
-
-    const updatedTransaction =
-      applyAllocation(
-        transaction,
-        {
-          category:
-            "Manual Allocation",
-
-          amount:
-            transaction.amount,
-        }
-      );
-
-    onUpdateTransaction(
-      updatedTransaction
-    );
-
-  }}
-  className="
-    mt-5
-    rounded-2xl
-    bg-orange-500/20
-    px-5
-    py-3
-    text-sm
-    font-semibold
-    text-orange-300
-    transition
-    hover:bg-orange-500/30
-  "
->
-  Resolve Allocation
-</button>
-
-    </div>
-
-  )
-}
+  
 
   <p
     className="
