@@ -15,6 +15,7 @@ interface Props {
   index: number;
   lookupData: LookupData;
   currency?: string;
+  remaining?: number;
   onSave: (line: SplitAllocation) => void;
   onCancel: () => void;
 }

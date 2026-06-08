@@ -112,6 +112,7 @@ const [
 // Load existing transactions from Supabase on mount
 useEffect(() => {
   async function loadTransactions() {
+      if (dataLoaded) return; // Prevent duplicate loads
     const { data, error } = await supabase
       .from("bank_transactions")
       .select("*")
@@ -121,20 +122,25 @@ useEffect(() => {
     if (data && data.length > 0) {
       // Map DB columns to ImportedTransaction shape
       const mapped = data.map((tx: any) => ({
-        ...tx,
-        amount: tx.transaction_amount || 0,
-        description: tx.transaction_description || "",
-        transactionDate: tx.transaction_date || "",
-        reference: tx.transaction_reference || "",
-        splitAllocations: tx.split_allocations || [],
-        allocationStatus: tx.allocation_status || "unallocated",
-      }));
+  ...tx,
+  amount: tx.transaction_amount || 0,
+  description: tx.transaction_description || "",
+  transactionDate: tx.transaction_date || "",
+  reference: tx.transaction_reference || "",
+  splitAllocations: tx.split_allocations || [],
+  allocationStatus: tx.allocation_status || "unallocated",
+  queue: tx.queue || (tx.allocation_status === "posted" ? "posted" : "ready"),
+  status: tx.allocation_status === "posted" ? "matched" : (tx.status || "matched"),
+  matchConfidence: tx.match_confidence || tx.matchConfidence || 90,
+  outstandingBalance: tx.outstanding_balance || tx.outstandingBalance || (tx.transaction_amount || 0),
+  isBalanced: tx.allocation_status === "fully_allocated" || tx.allocation_status === "posted",
+}));
       setTransactions(mapped as ImportedTransaction[]);
     }
     setDataLoaded(true);
-  }
+    }
   loadTransactions();
-}, []);
+}, [dataLoaded]);
 const operationalActivity = [
   {
     id: "1",
@@ -503,7 +509,8 @@ const governanceBlockedCount =
           bank_account_name: null,
           bank_account_number: null,
           allocation_status: tx.allocationStatus || "unallocated",
-          split_allocations: tx.splitAllocations || [],
+          queue: tx.queue || "ready",
+          split_allocations: tx.splitAllocations || [],   
           imported_at: new Date().toISOString(),
         });
 

@@ -42,7 +42,7 @@ export function ReconciliationWorkspace({ transaction, lookupData, currency = "Z
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const transactionAmount = transaction.transaction_amount || transaction.amount || 0;
+  const transactionAmount = (transaction as any).transaction_amount || (transaction as any).amount || 0;
   const transactionDescription = transaction.transaction_description || transaction.description || "";
   const transactionDate = transaction.transaction_date || transaction.transactionDate || "";
   const transactionRef = transaction.transaction_reference || "";
@@ -52,23 +52,31 @@ export function ReconciliationWorkspace({ transaction, lookupData, currency = "Z
   const isBalanced = Math.abs(remaining) < 0.01;
 
   // Open first line automatically if empty
-  useEffect(() => {
-    requestAnimationFrame(() => {
-      setMounted(true);
-      if (allocations.length === 0) {
-        const newLine: SplitAllocation = {
-          id: `draft-${Date.now()}`,
-          category: "",
-          amount: transactionAmount,
-          vatTreatment: "vat-inclusive",
-          vatAmount: 0,
-          notes: "",
-        };
-        setAllocations([newLine]);
-        setEditingLineId(newLine.id);
-      }
-    });
-  }, []);
+ useEffect(() => {
+  const timer = setTimeout(() => {
+    setMounted(true);
+    
+    let currentAllocations = allocations;
+    
+    // If no allocations exist, create the first one
+    if (currentAllocations.length === 0) {
+      const newLine: SplitAllocation = {
+        id: `draft-${Date.now()}`,
+        category: "",
+         amount: 0,
+        vatTreatment: "vat-inclusive",
+        vatAmount: 0,
+        notes: "",
+      };
+      currentAllocations = [newLine];
+      setAllocations(currentAllocations);
+    }
+    
+    // Always open the first line in edit mode
+    setEditingLineId(currentAllocations[0].id);
+  }, 50);
+  return () => clearTimeout(timer);
+}, []);
 
   const handleAddLine = useCallback(() => {
     const newLine: SplitAllocation = {
@@ -100,7 +108,8 @@ export function ReconciliationWorkspace({ transaction, lookupData, currency = "Z
     .from("bank_transactions")
     .update({
       split_allocations: allocations,
-      allocation_status: isBalanced ? "fully_allocated" : "partially_allocated",
+       allocation_status: "posted",
+       queue: "posted",
       updated_at: new Date().toISOString(),
     })
     .eq("id", transaction.id);
@@ -118,7 +127,7 @@ export function ReconciliationWorkspace({ transaction, lookupData, currency = "Z
       currency,
     }).format(value);
   };
-
+console.log("DEBUG:", { transactionAmount, allocatedTotal, remaining, isBalanced });
   return (
     <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm">
       <div

@@ -16,10 +16,12 @@ interface Props {
   allocatedTotal: number;
   isBalanced: boolean;
   currency?: string;
+  remaining?: number;
   onEditLine: (id: string | null) => void;
   onUpdateLine: (line: SplitAllocation) => void;
   onRemoveLine: (id: string) => void;
   onAddLine: () => void;
+  
 }
 
 export function AllocationBuilder({
@@ -29,6 +31,7 @@ export function AllocationBuilder({
   transactionTotal,
   allocatedTotal,
   isBalanced,
+  currency = "ZAR",
   onEditLine,
   onUpdateLine,
   onRemoveLine,
@@ -73,16 +76,18 @@ export function AllocationBuilder({
         <div className="space-y-3">
           {allocations.map((line, index) => (
             <AllocationLineCard
-              key={line.id}
-              line={line}
-              index={index}
-              isEditing={editingLineId === line.id}
-              lookupData={lookupData}
-              onEdit={() => onEditLine(line.id)}
-              onCancel={() => onEditLine(null)}
-              onUpdate={onUpdateLine}
-              onRemove={() => onRemoveLine(line.id)}
-            />
+  key={line.id}
+  line={line}
+  index={index}
+  isEditing={editingLineId === line.id}
+  lookupData={lookupData}
+  currency={currency}
+  remaining={remaining}
+  onEdit={() => onEditLine(line.id)}
+  onCancel={() => onEditLine(null)}
+  onUpdate={onUpdateLine}
+  onRemove={() => onRemoveLine(line.id)}
+/>
           ))}
         </div>
       )}

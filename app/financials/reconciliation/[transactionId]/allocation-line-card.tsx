@@ -14,6 +14,7 @@ interface Props {
   isEditing: boolean;
   lookupData: LookupData;
   currency?: string;
+  remaining?: number;
   onEdit: () => void;
   onCancel: () => void;
   onUpdate: (line: SplitAllocation) => void;
@@ -26,6 +27,7 @@ export function AllocationLineCard({
   isEditing,
   lookupData,
   currency = "ZAR",
+  remaining,
   onEdit,
   onCancel,
   onUpdate,
@@ -58,6 +60,7 @@ export function AllocationLineCard({
         index={index}
         lookupData={lookupData}
         currency={currency}
+        remaining={remaining}
         onSave={(updatedLine) => {
           onUpdate(updatedLine);
           onCancel();
