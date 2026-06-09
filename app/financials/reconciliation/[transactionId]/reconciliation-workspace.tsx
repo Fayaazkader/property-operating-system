@@ -116,7 +116,7 @@ export function ReconciliationWorkspace({ transaction, lookupData, currency = "Z
   
   // Small delay before navigation
   setTimeout(() => {
-    window.location.href = '/financials/imports';
+    window.location.href = '/financials/cash-book'
   }, 100);
   
   setIsSaving(false);
@@ -157,7 +157,7 @@ console.log("DEBUG:", { transactionAmount, allocatedTotal, remaining, isBalanced
               </div>
             </div>
             <button
-              onClick={() => window.location.href = '/financials/imports'}
+              onClick={() => window.location.href = '/financials/cash-book'}
               className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-900 rounded-xl transition-colors flex-shrink-0"
             >
               <X className="w-5 h-5" />
@@ -221,7 +221,7 @@ console.log("DEBUG:", { transactionAmount, allocatedTotal, remaining, isBalanced
         <div className="flex-shrink-0 border-t border-zinc-800 bg-black px-8 py-5">
           <div className="flex items-center justify-end gap-3">
             <button
-              onClick={() => window.location.href = '/financials/imports'}
+              onClick={() => window.location.href = '/financials/cash-book'}
               className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 transition hover:border-zinc-500 hover:text-white"
             >
               Cancel

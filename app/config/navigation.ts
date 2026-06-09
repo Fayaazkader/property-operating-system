@@ -64,6 +64,25 @@ export const navigation = [
       "finance",
     ],
   },
+   {
+    label: "Bank Imports",
+    href: "/financials/imports",
+    roles: [
+      "executive",
+      "enterprise",
+      "finance",
+    ],
+  },
+
+  {
+    label: "Cash Book",
+    href: "/financials/cash-book",
+    roles: [
+      "executive",
+      "enterprise",
+      "finance",
+    ],
+  },
 
   {
     label: "Reports",

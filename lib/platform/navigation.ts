@@ -129,21 +129,26 @@ export const navigation:
 
     icon: "operations",
   },
+    {
+    label: "Bank Imports",
+    href: "/financials/imports",
+    workspace: "finance",
+    roles: [
+      "executive",
+      "admin",
+      "finance",
+    ],
+    icon: "financials",
+  },
   {
-  label: "Bank Imports",
-
-  href:
-    "/financials/imports",
-
-  workspace:
-    "finance",
-
-  roles: [
-    "executive",
-    "admin",
-    "finance",
-  ],
-
-  icon: "financials",
-},
+    label: "Cash Book",
+    href: "/financials/cash-book",
+    workspace: "finance",
+    roles: [
+      "executive",
+      "admin",
+      "finance",
+    ],
+    icon: "financials",
+  },
 ];
