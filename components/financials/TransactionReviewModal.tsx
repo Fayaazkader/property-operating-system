@@ -226,6 +226,7 @@ useEffect(() => {
       allocation_status: status === "posted" ? "posted" : status === "escalated" ? "escalated" : "review",
       queue: status === "posted" ? "posted" : status === "escalated" ? "escalated" : "review",
       matched_tenant_id: allocationType === "tenant" ? selectedTenant || null : null,
+      property_id: selectedProperty || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -348,7 +349,7 @@ useEffect(() => {
                     }}
                     onFocus={() => setShowTenantDropdown(true)}
                     placeholder="Search..."
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 pl-10 pr-4 py-3 text-sm text-white outline-none focus:border-zinc-600"
+                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 pl-10 pr-4 py-2.5 text-sm text-white outline-none focus:border-zinc-600"
                   />
                 </div>
                                 <div className="relative" ref={tenantFilterRef}>

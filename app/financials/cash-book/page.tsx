@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { TransactionReviewModal } from "@/components/financials/TransactionReviewModal";
@@ -26,15 +26,41 @@ export default function CashBookPage() {
   const [activeFilter, setActiveFilter] = useState<"all" | "deposits" | "payments">("all");
   const [reviewTransaction, setReviewTransaction] = useState<any>(null);
 const [reviewModalOpen, setReviewModalOpen] = useState(false);
+const [entities, setEntities] = useState<{ id: string; entity_code: string; entity_name: string }[]>([]);
+const [selectedEntity, setSelectedEntity] = useState("");
+const [showEntityDropdown, setShowEntityDropdown] = useState(false);
+const entityFilterRef = useRef<HTMLDivElement>(null);
+const [sortBy, setSortBy] = useState<"date" | "amount" | "system_id" | "description" | "type">("date");
+const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+const [searchTerm, setSearchTerm] = useState("");
 
   // Load cash book entries
-  const loadEntries = async () => {
+const loadEntries = async () => {
     setLoading(true);
-    const { data } = await supabase
+    
+    let query = supabase
       .from("bank_transactions")
       .select("*")
       .order("transaction_date", { ascending: false })
       .limit(200);
+    
+    if (selectedEntity) {
+      const { data: entityProperties } = await supabase
+        .from("properties")
+        .select("id")
+        .eq("entity_id", selectedEntity);
+      
+      if (entityProperties && entityProperties.length > 0) {
+        const propertyIds = entityProperties.map((p: any) => p.id);
+        query = query.in("property_id", propertyIds);
+      } else {
+        setEntries([]);
+        setLoading(false);
+        return;
+      }
+    }
+
+    const { data } = await query;
 
     if (data) {
       const mapped = data.map((tx: any) => ({
@@ -58,6 +84,35 @@ const [reviewModalOpen, setReviewModalOpen] = useState(false);
   useEffect(() => {
     loadEntries();
   }, []);
+  useEffect(() => {
+  async function loadEntities() {
+    const { data } = await supabase
+      .from("entities")
+      .select("id, entity_code, entity_name")
+      .order("entity_name");
+    if (data && data.length > 0) {
+      setEntities(data);
+      setSelectedEntity(data[0].id);
+    }
+  }
+  loadEntities();
+}, []);
+useEffect(() => {
+  if (selectedEntity) {
+    loadEntries();
+  }
+}, [selectedEntity]);
+
+useEffect(() => {
+  function handleClickOutside(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (entityFilterRef.current && !entityFilterRef.current.contains(target)) {
+      setShowEntityDropdown(false);
+    }
+  }
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
 
   // Filter logic
   const filteredEntries = entries.filter((entry) => {
@@ -75,6 +130,35 @@ const [reviewModalOpen, setReviewModalOpen] = useState(false);
 
     return true;
   });
+  // Sort filtered entries
+const sortedEntries = [...filteredEntries].sort((a, b) => {
+  const direction = sortOrder === "desc" ? -1 : 1;
+  switch (sortBy) {
+    case "date":
+      return direction * a.transaction_date.localeCompare(b.transaction_date);
+    case "amount":
+      return direction * (a.transaction_amount - b.transaction_amount);
+    case "system_id":
+      return direction * (a.system_id || "").localeCompare(b.system_id || "");
+    case "description":
+      return direction * (a.transaction_description || "").localeCompare(b.transaction_description || "");
+    case "type":
+      return direction * (a.transaction_type || "").localeCompare(b.transaction_type || "");
+    default:
+      return 0;
+  }
+});
+
+// Search filter
+const searchedEntries = sortedEntries.filter((entry) => {
+  if (!searchTerm) return true;
+  const term = searchTerm.toLowerCase();
+  return (
+    (entry.transaction_description || "").toLowerCase().includes(term) ||
+    (entry.system_id || "").toLowerCase().includes(term) ||
+    (entry.matched_invoice_id || "").toLowerCase().includes(term)
+  );
+});
 
   const unreconciledCount = entries.filter(
     (e) => e.allocation_status !== "posted" && e.queue !== "posted"
@@ -85,7 +169,7 @@ const [reviewModalOpen, setReviewModalOpen] = useState(false);
 
   // Calculate running balance for display
   let runningBalance = 0;
-  const entriesWithBalance = filteredEntries.map((entry) => {
+  const entriesWithBalance = searchedEntries.map((entry) => {
     runningBalance += entry.transaction_amount;
     return { ...entry, balance: runningBalance };
   });
@@ -108,44 +192,67 @@ const [reviewModalOpen, setReviewModalOpen] = useState(false);
         <div className="flex items-center gap-3">
           
         </div>
+        
       </div>
-
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-4">
-          <p className="text-sm text-zinc-500">Unreconciled</p>
-          <p className="mt-2 text-3xl font-black text-amber-400">{unreconciledCount}</p>
+     <div className="flex items-center gap-4 mt-4">
+  <div className="flex items-center gap-2">
+    <span className="text-xs text-zinc-500">Entity:</span>
+    <div className="relative" ref={entityFilterRef}>
+      <button
+        type="button"
+        onClick={() => setShowEntityDropdown(!showEntityDropdown)}
+        className="rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 flex items-center gap-2"
+      >
+        {entities.find(e => e.id === selectedEntity)?.entity_name || "Select Entity"}
+        <span className="text-zinc-500 text-xs">▼</span>
+      </button>
+      {showEntityDropdown && (
+        <div className="absolute left-0 z-40 mt-1 rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden min-w-[200px]">
+          {entities.map((e) => (
+            <button
+              key={e.id}
+              type="button"
+              onClick={() => {
+                setSelectedEntity(e.id);
+                setShowEntityDropdown(false);
+              }}
+              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                selectedEntity === e.id
+                  ? "bg-white text-black font-medium"
+                  : "text-zinc-300 hover:bg-zinc-800"
+              }`}
+            >
+              {e.entity_name}
+              <span className="text-xs text-zinc-500 ml-2">({e.entity_code})</span>
+            </button>
+          ))}
         </div>
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-4">
-          <p className="text-sm text-zinc-500">Reconciled</p>
-          <p className="mt-2 text-3xl font-black text-emerald-400">{reconciledCount}</p>
-        </div>
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-4">
-          <p className="text-sm text-zinc-500">Total Transactions</p>
-          <p className="mt-2 text-3xl font-black text-white">{entries.length}</p>
-        </div>
-      </div>
+      )}
+    </div>
+  </div>
+  
+</div>
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-3">
-        {(["unreconciled", "reconciled", "all"] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`rounded-2xl px-5 py-3 text-sm font-semibold capitalize transition ${
-              activeTab === tab
-                ? "bg-white text-black"
-                : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
-            }`}
-          >
-            {tab}
-            {tab === "unreconciled" && ` (${unreconciledCount})`}
-            {tab === "reconciled" && ` (${reconciledCount})`}
-            {tab === "all" && ` (${entries.length})`}
-          </button>
-        ))}
-      </div>
+  {(["unreconciled", "reconciled", "all"] as const).map((tab) => (
+    <button
+      key={tab}
+      type="button"
+      onClick={() => setActiveTab(tab)}
+      className={`rounded-2xl px-5 py-3 text-sm font-semibold capitalize transition ${
+        activeTab === tab
+          ? "bg-white text-black"
+          : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+      }`}
+    >
+      {tab}
+      <span className="ml-1.5 text-xs opacity-50">
+        {tab === "unreconciled" ? unreconciledCount : tab === "reconciled" ? reconciledCount : entries.length}
+      </span>
+    </button>
+  ))}
+</div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
@@ -164,13 +271,14 @@ const [reviewModalOpen, setReviewModalOpen] = useState(false);
           </button>
         ))}
       </div>
+     
 
       {/* Table */}
       {loading ? (
         <div className="text-center py-20">
           <p className="text-zinc-500">Loading cash book...</p>
         </div>
-      ) : filteredEntries.length === 0 ? (
+      ) : searchedEntries.length === 0 ? (
         <div className="text-center py-20 rounded-3xl border border-zinc-800 bg-zinc-900">
           <p className="text-lg font-semibold text-white">No transactions found</p>
           <p className="mt-3 text-sm text-zinc-500">
@@ -182,26 +290,49 @@ const [reviewModalOpen, setReviewModalOpen] = useState(false);
       ) : (
         <div className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900">
           <table className="w-full">
-            <thead className="border-b border-zinc-800 bg-black/30">
-              <tr>
-                <th className="px-4 py-4 text-left text-xs uppercase tracking-[0.2em] text-zinc-500">Date</th>
-                <th className="px-4 py-4 text-left text-xs uppercase tracking-[0.2em] text-zinc-500">System ID</th>
-                <th className="px-4 py-4 text-left text-xs uppercase tracking-[0.2em] text-zinc-500">Description</th>
-                <th className="px-4 py-4 text-left text-xs uppercase tracking-[0.2em] text-zinc-500">Type</th>
-                <th className="px-4 py-4 text-right text-xs uppercase tracking-[0.2em] text-zinc-500">Amount</th>
-                <th className="px-4 py-4 text-right text-xs uppercase tracking-[0.2em] text-zinc-500">Balance</th>
-                <th className="px-4 py-4 text-left text-xs uppercase tracking-[0.2em] text-zinc-500">Status</th>
-                <th className="px-4 py-4 text-left text-xs uppercase tracking-[0.2em] text-zinc-500">Posted To</th>
-                <th className="px-4 py-4 text-left text-xs uppercase tracking-[0.2em] text-zinc-500">Actions</th>
-              </tr>
-            </thead>
+           <thead className="border-b border-zinc-800 bg-black/30">
+  <tr>
+    <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-zinc-500 w-10">#</th>
+    <th
+      onClick={() => { setSortBy("date"); setSortOrder(sortBy === "date" && sortOrder === "asc" ? "desc" : "asc"); }}
+      className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-zinc-500 cursor-pointer hover:text-white select-none"
+    >
+      Date {sortBy === "date" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
+    </th>
+    <th
+      onClick={() => { setSortBy("system_id"); setSortOrder(sortBy === "system_id" && sortOrder === "asc" ? "desc" : "asc"); }}
+      className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-zinc-500 cursor-pointer hover:text-white select-none"
+    >
+      System ID {sortBy === "system_id" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
+    </th>
+    <th
+      onClick={() => { setSortBy("description"); setSortOrder(sortBy === "description" && sortOrder === "asc" ? "desc" : "asc"); }}
+      className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-zinc-500 cursor-pointer hover:text-white select-none"
+    >
+      Description {sortBy === "description" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
+    </th>
+    <th
+      onClick={() => { setSortBy("type"); setSortOrder(sortBy === "type" && sortOrder === "asc" ? "desc" : "asc"); }}
+      className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-zinc-500 cursor-pointer hover:text-white select-none"
+    >
+      Type {sortBy === "type" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
+    </th>
+    <th
+      onClick={() => { setSortBy("amount"); setSortOrder(sortBy === "amount" && sortOrder === "desc" ? "asc" : "desc"); }}
+      className="px-4 py-3 text-right text-xs uppercase tracking-[0.2em] text-zinc-500 cursor-pointer hover:text-white select-none"
+    >
+      Amount {sortBy === "amount" ? (sortOrder === "desc" ? "▼" : "▲") : ""}
+    </th>
+    <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-zinc-500">Status</th>
+    <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-zinc-500">Posted To</th>
+    <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-zinc-500">Actions</th>
+  </tr>
+</thead>
             <tbody>
-              {entriesWithBalance.map((entry) => (
-                <tr
-                  key={entry.id}
-                  className="border-b border-zinc-800 transition hover:bg-white/[0.03]"
-                >
-                  <td className="px-4 py-4 text-sm text-zinc-300">{entry.transaction_date}</td>
+              {searchedEntries.map((entry, idx) => (
+  <tr key={entry.id} className="...">
+    <td className="px-4 py-4 text-xs text-zinc-600 font-mono w-10">{idx + 1}</td>
+    <td className="px-4 py-4 text-sm text-zinc-300">{entry.transaction_date}</td>
                   <td className="px-4 py-4 text-sm text-zinc-400 font-mono text-xs">{entry.system_id}</td>
                   <td className="px-4 py-4 text-sm text-white">{entry.transaction_description}</td>
                   <td className="px-4 py-4">
@@ -215,9 +346,6 @@ const [reviewModalOpen, setReviewModalOpen] = useState(false);
                   </td>
                   <td className="px-4 py-4 text-sm text-white text-right tabular-nums">
                     R{Math.abs(entry.transaction_amount).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-4 text-sm text-zinc-400 text-right tabular-nums">
-                    R{entry.balance.toLocaleString()}
                   </td>
                   <td className="px-4 py-4">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${

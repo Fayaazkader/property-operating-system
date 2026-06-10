@@ -29,7 +29,7 @@ export default function NewLeasePage() {
       .insert([
         {
           lease_id: leaseId,
-          client_id: "C001",
+          entity_code: "SPH",
 
           tenant_name: tenantName,
           property_name: propertyName,
