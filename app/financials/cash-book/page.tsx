@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { QuickReceiptModal } from "@/components/financials/QuickReceiptModal";
-import { QuickPaymentModal } from "@/components/financials/QuickPaymentModal";
+import { TransactionReviewModal } from "@/components/financials/TransactionReviewModal";
 type CashBookEntry = {
   id: string;
   transaction_date: string;
@@ -25,8 +24,8 @@ export default function CashBookPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"unreconciled" | "reconciled" | "all">("unreconciled");
   const [activeFilter, setActiveFilter] = useState<"all" | "deposits" | "payments">("all");
-  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [reviewTransaction, setReviewTransaction] = useState<any>(null);
+const [reviewModalOpen, setReviewModalOpen] = useState(false);
 
   // Load cash book entries
   const loadEntries = async () => {
@@ -107,18 +106,7 @@ export default function CashBookPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setReceiptModalOpen(true)}
-            className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500"
-          >
-            + Manual Receipt
-          </button>
-          <button
-            onClick={() => setPaymentModalOpen(true)}
-            className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-500"
-          >
-            + Manual Payment
-          </button>
+          
         </div>
       </div>
 
@@ -257,9 +245,9 @@ export default function CashBookPage() {
                   <td className="px-4 py-4">
                     <button
                       onClick={() => {
-                        const data = encodeURIComponent(JSON.stringify(entry));
-                        router.push(`/financials/reconciliation/${entry.id}?data=${data}`);
-                      }}
+  setReviewTransaction(entry);
+  setReviewModalOpen(true);
+}}
                       className="rounded-xl border border-zinc-700 px-4 py-2 text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-white"
                     >
                       {entry.allocation_status === "posted" || entry.queue === "posted"
@@ -275,16 +263,12 @@ export default function CashBookPage() {
       )}
 
       {/* Modals */}
-      <QuickReceiptModal
-        open={receiptModalOpen}
-        onClose={() => setReceiptModalOpen(false)}
-        onReceiptIssued={() => loadEntries()}
-      />
-      <QuickPaymentModal
-        open={paymentModalOpen}
-        onClose={() => setPaymentModalOpen(false)}
-        onPaymentRecorded={() => loadEntries()}
-      />
+      <TransactionReviewModal
+  open={reviewModalOpen}
+  transaction={reviewTransaction}
+  onClose={() => setReviewModalOpen(false)}
+  onPosted={() => loadEntries()}
+/>
     </div>
   );
 }
