@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import ImportDropzone from "@/components/widgets/ImportDropzone";
 
@@ -44,6 +44,7 @@ import {
 } from "@/lib/finance/operational-health";
 import "@/app/globals.css";
 import { supabase } from "@/lib/supabase";
+import { BankImportPresets } from "@/components/financials/BankImportPresets";
 
 export default function BankingImportsPage() {
   const [
@@ -108,6 +109,10 @@ const [
   | "exceptions"
 >("all");
  const [dataLoaded, setDataLoaded] = useState(false);
+ const [presetsOpen, setPresetsOpen] = useState(false);
+ const [activePreset, setActivePreset] = useState<any>(null);
+ const presetDropdownRef = useRef<HTMLDivElement>(null);
+const [showPresetDropdown, setShowPresetDropdown] = useState(false);
 
 // Load existing transactions from Supabase on mount
 useEffect(() => {
@@ -134,6 +139,32 @@ useEffect(() => {
     setDataLoaded(true);
   }
   loadTransactions();
+}, []);
+const [presets, setPresets] = useState<any[]>([]);
+
+useEffect(() => {
+  async function loadPresets() {
+    const { data } = await supabase
+      .from("bank_import_presets")
+      .select("*")
+      .order("is_default", { ascending: false })
+      .order("preset_name");
+    if (data && data.length > 0) {
+      setPresets(data);
+      setActivePreset(data[0]);
+    }
+  }
+  loadPresets();
+}, []);
+useEffect(() => {
+  function handleClickOutside(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (presetDropdownRef.current && !presetDropdownRef.current.contains(target)) {
+      setShowPresetDropdown(false);
+    }
+  }
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
 }, []);
 const operationalActivity = [
   {
@@ -590,6 +621,58 @@ Upload banking CSV files to begin transaction normalization and reconciliation w
           handleImport
         }
       />
+      <div className="space-y-2">
+  <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Bank Import Presets</p>
+  <div className="flex items-center gap-3">
+    <div className="relative flex-1">
+      <div className="relative flex-1" ref={presetDropdownRef}>
+  <button
+    type="button"
+    onClick={() => setShowPresetDropdown(!showPresetDropdown)}
+    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 flex items-center justify-between"
+  >
+    <span className={activePreset ? "text-white" : "text-zinc-500"}>
+      {activePreset ? `${activePreset.preset_name} ${activePreset.bank_name ? `(${activePreset.bank_name})` : ""}` : "Select a preset..."}
+    </span>
+    <span className="text-zinc-500 text-xs">▼</span>
+  </button>
+  {showPresetDropdown && (
+    <div className="absolute left-0 right-0 z-40 mt-1 rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
+      <button
+        type="button"
+        onClick={() => { setActivePreset(null); setShowPresetDropdown(false); }}
+        className="w-full text-left px-4 py-2.5 text-sm text-zinc-500 hover:bg-zinc-800"
+      >
+        None
+      </button>
+      {presets.map((p: any) => (
+        <button
+          key={p.id}
+          type="button"
+          onClick={() => { setActivePreset(p); setShowPresetDropdown(false); }}
+          className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+            activePreset?.id === p.id
+              ? "bg-white text-black font-medium"
+              : "text-zinc-300 hover:bg-zinc-800"
+          }`}
+        >
+          {p.preset_name}
+          {p.bank_name && <span className="text-xs text-zinc-500 ml-1">({p.bank_name})</span>}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+    </div>
+    <button
+      onClick={() => setPresetsOpen(true)}
+      className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white whitespace-nowrap"
+    >
+      Edit Presets
+    </button>
+  </div>
+  
+</div>
       <div
   className={`
     rounded-3xl
@@ -1828,6 +1911,14 @@ disabled:opacity-40
   }
 }
 />
+      <BankImportPresets
+        open={presetsOpen}
+        onClose={() => setPresetsOpen(false)}
+        onPresetSelected={(preset) => {
+          console.log("Selected preset:", preset);
+          setPresetsOpen(false);
+        }}
+      />
     </div>
   </>
   );
