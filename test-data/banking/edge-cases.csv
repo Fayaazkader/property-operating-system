@@ -1,0 +1,8 @@
+Date,Reference,Description,Amount
+2026-06-01,,No Reference Payment,5000.00
+2026-06-02,VERYLONGREFERENCE123456789,Very Long Reference Name Test,1500.00
+2026-06-03,SHORT,Short,25000.00
+2026-06-04,NEG-001,Negative Amount Test,-10000.00
+2026-06-05,ZERO-001,Zero Amount Test,0.00
+2026-06-06,DUPLICATE,Dup Test 1,5000.00
+2026-06-06,DUPLICATE,Dup Test 2,5000.00

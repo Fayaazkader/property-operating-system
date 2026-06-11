@@ -6,7 +6,7 @@ import { importBankTransactions } from "@/lib/services/banking";
 import { supabase } from "@/lib/supabase";
 import { BankImportPresets } from "@/components/financials/BankImportPresets";
 import { validateBankImport } from "@/lib/banking/import-validation";
-
+import { runReconciliationEngine } from "@/lib/banking/reconciliation-engine";
 
 export default function BankingImportsPage() {
   const [loading, setLoading] = useState(false);
@@ -82,9 +82,9 @@ const [message, setMessage] = useState<{ type: "success" | "error"; text: string
   const batchRef = await hashContent(text);
 
   // Run validation
-  const validation = await validateBankImport(file);
+  const validation = await validateBankImport(file, activePreset);
 
-    if (!validation.valid) {
+  if (!validation.valid) {
     setMessage({ type: "error", text: validation.errors.join(" · ") });
     setLoading(false);
     return;
@@ -97,14 +97,14 @@ const [message, setMessage] = useState<{ type: "success" | "error"; text: string
     .eq("imported_batch_reference", batchRef)
     .limit(1);
 
-    if (existing && existing.length > 0) {
+  if (existing && existing.length > 0) {
     setMessage({ type: "error", text: "This bank statement has already been imported. Duplicate detected." });
     setLoading(false);
     return;
   }
 
   // Proceed with import
-  const result = await importBankTransactions(file);
+  const result = await importBankTransactions(file, activePreset);
 
   if (result.success && result.data) {
     for (const tx of result.data) {
@@ -122,7 +122,22 @@ const [message, setMessage] = useState<{ type: "success" | "error"; text: string
         imported_batch_reference: batchRef,
         imported_at: new Date().toISOString(),
       });
-    } setMessage({ type: "success", text: `${result.data.length} transactions imported and posted to Cash Book.` });
+    }
+
+    const importedCount = result.data.length;
+
+    // Run auto-reconciliation
+    const recon = await runReconciliationEngine();
+
+    if (recon.total > 0) {
+      setMessage({
+        type: "success",
+        text: `${importedCount} imported. ${recon.autoAllocated} auto-allocated, ${recon.partiallyAllocated} flagged for review, ${recon.unallocated} need manual allocation.`
+      });
+    } else {
+      setMessage({ type: "success", text: `${importedCount} transactions imported and posted to Cash Book.` });
+    }
+
     setLoading(false);
     return;
   }

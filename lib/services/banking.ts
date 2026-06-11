@@ -1,269 +1,127 @@
-import {
-  ImportedTransaction,
-} from "@/app/types/finance";
+import { ImportedTransaction } from "@/app/types/finance";
+import { ServiceResponse } from "@/app/types/service";
 
-import {
-  ServiceResponse,
-} from "@/app/types/service";
-import {
-  determineWorkflowOwner,
-} from "@/lib/workflows/routing";
-import {
-  classifyTransaction,
-} from "@/lib/finance/classification";
-import {
-  determineAllocationStatus,
-} from "@/lib/finance/allocation-resolution";
-import {
-  isAllocationBalanced,
-} from "@/lib/finance/allocation-integrity";
-import {
-  calculateOutstandingBalance,
-} from "@/lib/finance/outstanding-balance";
-import {
-  isPeriodLocked,
-} from "@/lib/finance/period-governance";
-import {
-  generateAutomaticAllocations,
-} from "@/lib/finance/allocation-automation";
+type PresetMapping = {
+  column_mapping: Record<string, number>;
+  amount_type: "single" | "dual";
+  date_format: string;
+  skip_rows: number;
+};
 
 export async function importBankTransactions(
-  file: File
-): Promise<
-  ServiceResponse<
-    ImportedTransaction[]
-  >
-> {
+  file: File,
+  preset?: PresetMapping | null
+): Promise<ServiceResponse<ImportedTransaction[]>> {
   try {
-    const text =
-      await file.text();
+    const text = await file.text();
+    const rows = text.split("\n").filter((line) => line.trim().length > 0);
 
-    const rows =
-      text.split("\n");
+    if (rows.length < 2) {
+      return {
+        success: false,
+        error: "File contains no transaction data.",
+      };
+    }
 
-    const transactions =
-      rows
-        .slice(1)
-        .map(
-          (
-            row
-          ): ImportedTransaction => {
-            const columns =
-              row.split(",");
+    // Use preset mapping or default to FNB format
+    const mapping = preset?.column_mapping || {
+      date: 1,
+      description: 3,
+      amount: 4,
+      reference: 2,
+    };
+    const skipRows = preset?.skip_rows || 0;
+    const dateFormat = preset?.date_format || "DD/MM/YYYY";
 
-            const amount =
-              Number(
-                columns[2]
-                  ?.replace(
-                    /"/g,
-                    ""
-                  )
-                  .trim()
-              );
+    const transactions: ImportedTransaction[] = [];
+    const dataRows = rows.slice(skipRows + 1); // Skip header + extra rows
 
-            const description =
-  columns[1]?.trim() || "";
+    for (const row of dataRows) {
+      const columns = row.split(",").map((col) => col.replace(/"/g, "").trim());
 
-const matchedTenant =
-  description
-    .toLowerCase()
-    .includes("abc")
-    ? "ABC Traders"
-    : description
-        .toLowerCase()
-        .includes("lake")
-    ? "Lake Foods"
-    : undefined;
-    const matchedLease =
-  matchedTenant ===
-  "ABC Traders"
-    ? "LSE-2026-001"
-    : matchedTenant ===
-      "Lake Foods"
-    ? "LSE-2026-014"
-    : undefined;
-    const matchReasons =
+      if (columns.length < 3) continue;
 
-  matchedTenant
-    ? [
-        "Tenant keyword matched",
-        "Lease association identified",
-        "Historical allocation pattern detected",
-      ]
-    : [
-        "No confident tenant match detected",
-      ];
-const allocationAction =
-  matchedLease
-    ? `Allocate to ${matchedLease}`
-    : "Manual review required";
-    const allocationCategory =
-  classifyTransaction(
-    description
-  );
-  const isSuspense =
+      // Extract values using column mapping (1-based to 0-based)
+      const dateIdx = (mapping.date || 1) - 1;
+      const descIdx = (mapping.description || 3) - 1;
+      const amountIdx = (mapping.amount || 4) - 1;
+      const refIdx = (mapping.reference || 2) - 1;
 
-  allocationCategory ===
-  "Suspense Receipt";
-  const automaticAllocations =
-  generateAutomaticAllocations({
-    amount,
-    matchedTenant,
-  } as ImportedTransaction);
+      const rawDate = columns[dateIdx] || "";
+      const description = columns[descIdx] || "";
+      const reference = columns[refIdx] || "";
+      
+      // Parse amount
+      let amount = parseFloat(columns[amountIdx]?.replace(/[^0-9.\-]/g, "") || "0");
+      if (isNaN(amount)) amount = 0;
 
-const splitAllocations =
+      // Parse date
+      let transactionDate = rawDate;
+      try {
+        const parsed = parseDate(rawDate, dateFormat);
+        if (parsed) {
+          transactionDate = parsed;
+        }
+      } catch {
+        // Keep raw date if parsing fails
+      }
 
-  automaticAllocations.length > 0
-
-    ? automaticAllocations
-
-    : [
-        {
+      if (description && !isNaN(amount)) {
+        transactions.push({
           id: crypto.randomUUID(),
-
-          category:
-            allocationCategory,
-
+          transactionDate,
+          description,
           amount,
-
-          percentage: 100,
-        },
-      ];
-      const allocationStatus =
-  determineAllocationStatus({
-    amount,
-    splitAllocations,
-    isSuspense,
-  } as ImportedTransaction);
-  const isBalanced =
-  isAllocationBalanced({
-    amount,
-    splitAllocations,
-  } as ImportedTransaction);
-  const outstandingBalance =
-  calculateOutstandingBalance({
-    amount,
-    splitAllocations,
-  } as ImportedTransaction);
-  const periodLocked =
-  isPeriodLocked(
-    columns[0]?.trim() || ""
-  );
-    const manualAllocation =
-
-  !matchedTenant;
-    const reviewPriority =
-
-  amount >= 100000
-    ? "high"
-    : amount >= 25000
-    ? "medium"
-    : "low";
-    
-    const requiresEscalation =
-  !matchedTenant &&
-  amount >= 50000;
-  const assignedTo =
-  determineWorkflowOwner({
-    requiresEscalation,
-    manualAllocation,
-    slaStatus:
-
-      requiresEscalation
-        ? "attention_required"
-        : "within_sla",
-  } as ImportedTransaction);
-  const queue =
-
-  requiresEscalation
-    ? "escalated"
-    : matchedTenant
-    ? "ready"
-    : "review";
-const activity = [
-  {
-    id: crypto.randomUUID(),
-
-    label:
-      "Transaction imported",
-
-    timestamp:
-      new Date().toLocaleString(),
-  },
-];
-return {
-  id: crypto.randomUUID(),
-  transactionDate:
-    columns[0]?.trim() ||
-    "",
-
-  description,
-
-  amount,
-
-  status:
-    matchedTenant
-      ? "matched"
-      : "unmatched",
-
-  matchConfidence:
-    matchedTenant
-      ? 92
-      : 38,
-
-  matchedTenant,
-  matchedLease,
-  matchReasons,
-  allocationAction,
-  allocationCategory,
-  splitAllocations,
-  allocationStatus,
-  isBalanced,
-  outstandingBalance,
-  periodLocked,
-  isSuspense,
-  manualAllocation,
-  reviewPriority,
-  assignedTo,
-  requiresEscalation,
-  queue,
- workflowStatus:
-
-  isSuspense
-    ? "in_review"
-    : requiresEscalation
-    ? "escalated"
-    : matchedTenant
-    ? "assigned"
-    : "unassigned",
-    postingStatus:
-  "pending",
-  activity,
-};
-          }
-        )
-        .filter(
-          (
-            transaction
-          ) =>
-            transaction.transactionDate &&
-            transaction.description &&
-            !isNaN(
-              transaction.amount
-            )
-        );
+          reference: reference || undefined,
+          status: "unmatched",
+          queue: "ready",
+          allocationStatus: "unallocated",
+          isBalanced: false,
+          splitAllocations: [],
+        });
+      }
+    }
 
     return {
       success: true,
-
       data: transactions,
     };
-  } catch (error) {
+  } catch (error: any) {
     return {
       success: false,
-
-      error:
-        "Failed to import bank transactions.",
+      error: error.message || "Failed to import bank transactions.",
     };
   }
+}
+
+function parseDate(dateStr: string, format: string): string | null {
+  if (!dateStr) return null;
+
+  const parts = dateStr.split(/[\/\-\.]/);
+  if (parts.length !== 3) return dateStr;
+
+  let day: number, month: number, year: number;
+
+  if (format === "DD/MM/YYYY") {
+    day = parseInt(parts[0]);
+    month = parseInt(parts[1]);
+    year = parseInt(parts[2]);
+  } else if (format === "MM/DD/YYYY") {
+    month = parseInt(parts[0]);
+    day = parseInt(parts[1]);
+    year = parseInt(parts[2]);
+  } else if (format === "YYYY-MM-DD") {
+    year = parseInt(parts[0]);
+    month = parseInt(parts[1]);
+    day = parseInt(parts[2]);
+  } else {
+    return dateStr;
+  }
+
+  if (isNaN(day) || isNaN(month) || isNaN(year)) return dateStr;
+
+  // Fix two-digit years
+  if (year < 100) year += 2000;
+
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
