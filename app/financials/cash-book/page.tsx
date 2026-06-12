@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { TransactionReviewModal } from "@/components/financials/TransactionReviewModal";
+import { PageHeader } from "@/app/components/layout/PageHeader";
 type CashBookEntry = {
   id: string;
   transaction_date: string;
@@ -176,25 +177,13 @@ const searchedEntries = sortedEntries.filter((entry) => {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 pt-8 pb-12">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm uppercase tracking-[0.25em] text-zinc-500">
-            Financial Operations
-          </p>
-          <h1 className="mt-3 text-3xl font-black tracking-tight text-white">
-            Cash Book
-          </h1>
-          <p className="mt-4 max-w-3xl text-lg leading-8 text-zinc-400">
-            Reconcile transactions, issue receipts, and balance to your bank statement monthly.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          
-        </div>
-        
-      </div>
-     <div className="flex items-center gap-4 mt-4">
+  <PageHeader
+    title="Cash Book"
+    subtitle="Reconcile transactions, allocate receipts, and balance to your bank statement monthly."
+    context={entities.find(e => e.id === selectedEntity)?.entity_name}
+  />
+
+  {/* Entity Selector */}
   <div className="flex items-center gap-2">
     <span className="text-xs text-zinc-500">Entity:</span>
     <div className="relative" ref={entityFilterRef}>
@@ -230,8 +219,6 @@ const searchedEntries = sortedEntries.filter((entry) => {
       )}
     </div>
   </div>
-  
-</div>
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-3">

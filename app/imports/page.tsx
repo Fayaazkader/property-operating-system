@@ -1,3 +1,10 @@
+import { PageHeader } from "@/app/components/layout/PageHeader";
+
+// Replace header with:
+<PageHeader
+  title="Banking Imports"
+  subtitle="Upload bank statements to populate the Cash Book."
+/>
 export default function ImportsPage() {
 
   return (
