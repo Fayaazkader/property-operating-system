@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
-
+import { extractRulesFromLease } from "@/lib/revenue/rule-extractor";
 export default function NewLeasePage() {
 
   const router = useRouter();
@@ -23,40 +23,38 @@ export default function NewLeasePage() {
   const [depositAmount, setDepositAmount] = useState("");
 
   async function handleCreateLease() {
+  const { data, error } = await supabase
+    .from("leases")
+    .insert([
+      {
+        lease_id: leaseId,
+        entity_code: "SPH",
+        tenant_name: tenantName,
+        property_name: propertyName,
+        company_registration: companyRegistration,
+        vat_number: vatNumber,
+        commencement_date: commencementDate,
+        expiry_date: expiryDate,
+        escalation_percent: escalationPercent,
+        deposit_amount: depositAmount,
+        monthly_rental: monthlyRental,
+        renewal_stage: renewalStage,
+        vacancy_risk: vacancyRisk,
+      },
+    ])
+    .select("id")
+    .single();
 
-    const { error } = await supabase
-      .from("leases")
-      .insert([
-        {
-          lease_id: leaseId,
-          entity_code: "SPH",
-
-          tenant_name: tenantName,
-          property_name: propertyName,
-
-          company_registration: companyRegistration,
-          vat_number: vatNumber,
-
-          commencement_date: commencementDate,
-          expiry_date: expiryDate,
-
-          escalation_percent: escalationPercent,
-          deposit_amount: depositAmount,
-
-          monthly_rental: monthlyRental,
-          renewal_stage: renewalStage,
-          vacancy_risk: vacancyRisk,
-        },
-      ]);
-
-    if (error) {
-      console.error(error);
-      alert("Error creating lease");
-    } else {
-      alert("Lease created successfully");
-      router.push("/leases");
-    }
+  if (error) {
+    console.error(error);
+    alert("Error creating lease");
+  } else if (data) {
+    // Auto-extract billing rules from the new lease
+    await extractRulesFromLease(data.id);
+    alert("Lease created successfully");
+    router.push("/leases");
   }
+}
 
   return (
     <main className="min-h-screen bg-gray-100 p-10 text-black">

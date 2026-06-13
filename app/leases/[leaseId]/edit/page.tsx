@@ -8,7 +8,7 @@ import React, {
 import { useRouter } from "next/navigation";
 
 import { supabase } from "../../../../lib/supabase";
-
+import { extractRulesFromLease } from "@/lib/revenue/rule-extractor";
 export default function EditLeasePage({
   params,
 }: {
@@ -138,56 +138,50 @@ export default function EditLeasePage({
   }, [resolvedParams.leaseId]);
 
   async function handleUpdateLease() {
+  const { error } = await supabase
+    .from("leases")
+    .update({
+      tenant_name: tenantName,
+      property_name: propertyName,
+      monthly_rental: monthlyRental || null,
+      renewal_stage: renewalStage,
+      vacancy_risk: vacancyRisk,
+      company_registration: companyRegistration,
+      vat_number: vatNumber,
+      commencement_date: commencementDate,
+      expiry_date: expiryDate,
+      escalation_percent: escalationPercent || null,
+      deposit_amount: depositAmount || null,
+    })
+    .eq("lease_id", resolvedParams.leaseId);
 
-    const { error } = await supabase
+  if (error) {
+    console.error(error);
+    alert(error.message);
+  } else {
+    // Re-extract billing rules after lease update
+    const { data: lease } = await supabase
       .from("leases")
-      .update({
-
-        tenant_name: tenantName,
-
-        property_name: propertyName,
-
-        monthly_rental:
-  monthlyRental || null,
-
-        renewal_stage: renewalStage,
-
-        vacancy_risk: vacancyRisk,
-
-        company_registration:
-          companyRegistration,
-
-        vat_number: vatNumber,
-
-        commencement_date:
-          commencementDate,
-
-        expiry_date: expiryDate,
-
-        escalation_percent:
-  escalationPercent || null,
-
-        deposit_amount:
-  depositAmount || null,
-      })
-      .eq(
-        "lease_id",
-        resolvedParams.leaseId
-      );
-
-    if (error) {
-
-  console.error(error);
-
-  alert(error.message);
-
-} else {
-
-      alert("Lease updated successfully");
-
-      router.push("/leases");
+      .select("id")
+      .eq("lease_id", resolvedParams.leaseId)
+      .single();
+    
+    if (lease) {
+      // Mark old rules as superseded
+      await supabase
+        .from("billing_rules")
+        .update({ status: "superseded", updated_at: new Date().toISOString() })
+        .eq("lease_id", lease.id)
+        .eq("status", "active");
+      
+      // Extract new rules
+      await extractRulesFromLease(lease.id);
     }
+
+    alert("Lease updated successfully");
+    router.push("/leases");
   }
+}
 
   return (
 
