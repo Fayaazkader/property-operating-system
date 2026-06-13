@@ -1,5 +1,4 @@
 import Link from "next/link";
-import SearchBar from "../components/SearchBar";
 
 import { supabase } from "../../lib/supabase";
 
@@ -241,7 +240,6 @@ export default async function LeasesPage() {
 
   <div className="flex items-center gap-4 w-96">
 
-    <SearchBar />
 
     <Link
       href="/leases/new"

@@ -3,7 +3,6 @@ import "./globals.css";
 import Sidebar from "./components/Sidebar";
 import Navbar from "./components/Navbar";
 
-import CommandPalette from "./components/command/CommandPalette";
 import { PlatformProvider } from "./context/PlatformContext";
 
 
@@ -25,7 +24,6 @@ export default function RootLayout({
       <body className="bg-black text-white">
         <PlatformProvider>
 
-        <CommandPalette />
 
         <div className="flex h-screen overflow-hidden bg-black">
 

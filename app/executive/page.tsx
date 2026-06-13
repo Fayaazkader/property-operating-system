@@ -1,8 +1,7 @@
 import { supabase } from "../../lib/supabase";
 import PageShell from "../components/layout/PageShell";
-import PageHeader from "../components/layout/PageHeader";
+import { PageHeader } from "../components/layout/PageHeader";
 import Toolbar from "../components/layout/Toolbar";
-import SearchInput from "../components/layout/SearchInput";
 import ToolbarButton from "../components/layout/ToolbarButton";
 import KpiCard from "../components/dashboard/KpiCard";
 import ExecutiveCommandBanner from "../components/executive/ExecutiveCommandBanner";
