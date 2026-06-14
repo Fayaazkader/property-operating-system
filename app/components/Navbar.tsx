@@ -25,7 +25,7 @@ export default function Navbar() {
       <div className="flex items-center gap-6">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-white">
-            Property OS
+            AssetFlow
           </h1>
           <p className="text-sm text-zinc-400 mt-1">
             Enterprise Property Operating Platform
@@ -51,22 +51,13 @@ export default function Navbar() {
               hover:border-zinc-500
             "
           >
-            🔍 Search portfolio, leases, tenants...
+            🔍 Ask AssetFlow anything...
           </button>
         </div>
       </div>
 
       <div className="flex items-center gap-5">
-        <div className="hidden md:flex items-center gap-2 rounded-full bg-green-500/10 px-4 py-2">
-          <div className="h-2 w-2 rounded-full bg-green-500" />
-          <span className="text-xs font-bold uppercase tracking-[0.2em] text-green-400">
-            Live Environment
-          </span>
-        </div>
-
-        <button className="flex h-11 w-11 items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-800 text-lg transition hover:bg-zinc-700">
-          🔔
-        </button>
+        
 
         <div className="flex items-center gap-4 rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-sm font-bold text-black">
