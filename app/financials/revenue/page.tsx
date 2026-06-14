@@ -31,15 +31,15 @@ function CustomDropdown({ value, options, onChange, placeholder, disabled }: {
   return (
     <div className="relative" ref={ref}>
       <button type="button" onClick={() => !disabled && setOpen(!open)}
-        className={`w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm outline-none focus:border-zinc-600 flex items-center justify-between ${disabled ? "opacity-30 cursor-not-allowed" : ""}`}>
-        <span className={selected ? "text-white" : "text-zinc-500"}>{selected ? selected.label : placeholder}</span>
-        <span className="text-zinc-500 text-xs">▼</span>
+        className={`w-full rounded-2xl border border-[var(--border-default)] bg-black/40 px-4 py-3 text-sm outline-none focus:border-[var(--border-hover)] flex items-center justify-between ${disabled ? "opacity-30 cursor-not-allowed" : ""}`}>
+        <span className={selected ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}>{selected ? selected.label : placeholder}</span>
+        <span className="text-[var(--text-muted)] text-xs">▼</span>
       </button>
       {open && (
-        <div className="absolute left-0 right-0 z-40 mt-1 rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
+        <div className="absolute left-0 right-0 z-40 mt-1 rounded-2xl border border-[var(--border-hover)] bg-[var(--bg-secondary)] shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
           {options.map(opt => (
             <button key={opt.id} type="button" onClick={() => { onChange(opt.id); setOpen(false); }}
-              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${value === opt.id ? "bg-white text-black font-medium" : "text-zinc-300 hover:bg-zinc-800"}`}>{opt.label}</button>
+              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${value === opt.id ? "bg-white text-black font-medium" : "text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]"}`}>{opt.label}</button>
           ))}
         </div>
       )}
@@ -307,13 +307,13 @@ triggerCommunication({
     <div className="mt-2 space-y-1">
       {escalationsDue.map((esc, i) => (
         <div key={i} className="flex items-center justify-between text-sm">
-          <span className="text-zinc-300">{esc.tenant_name} — {esc.rule_type}</span>
+          <span className="text-[var(--text-primary)]">{esc.tenant_name} — {esc.rule_type}</span>
           <div className="flex items-center gap-3">
-            <span className="text-zinc-500">R{esc.current_amount?.toLocaleString()} →</span>
-            <span className="text-white font-medium">R{esc.new_amount?.toLocaleString()}</span>
+            <span className="text-[var(--text-muted)]">R{esc.current_amount?.toLocaleString()} →</span>
+            <span className="text-[var(--text-primary)] font-medium">R{esc.new_amount?.toLocaleString()}</span>
             <span className="text-blue-400">({esc.escalation_percent}%)</span>
             <button className="text-xs text-emerald-400 hover:text-emerald-300 ml-2">Apply</button>
-            <button className="text-xs text-zinc-500 hover:text-zinc-300">Skip</button>
+            <button className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]">Skip</button>
           </div>
         </div>
       ))}
@@ -321,28 +321,28 @@ triggerCommunication({
   </div>
 )}
       {messageHealth && (
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
-          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-4">Message Health — Today</p>
+        <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-6">
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] mb-4">Message Health — Today</p>
           <div className="grid grid-cols-5 gap-4">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
-              <p className="text-2xl font-bold text-white">{messageHealth.today_total}</p>
-              <p className="text-xs text-zinc-500">Sent</p>
+            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-3 text-center">
+              <p className="text-2xl font-bold text-[var(--text-primary)]">{messageHealth.today_total}</p>
+              <p className="text-xs text-[var(--text-muted)]">Sent</p>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
+            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-3 text-center">
               <p className="text-2xl font-bold text-blue-400">{messageHealth.delivered}</p>
-              <p className="text-xs text-zinc-500">Delivered</p>
+              <p className="text-xs text-[var(--text-muted)]">Delivered</p>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
+            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-3 text-center">
               <p className="text-2xl font-bold text-emerald-400">{messageHealth.read}</p>
-              <p className="text-xs text-zinc-500">Read</p>
+              <p className="text-xs text-[var(--text-muted)]">Read</p>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
+            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-3 text-center">
               <p className="text-2xl font-bold text-red-400">{messageHealth.failed}</p>
-              <p className="text-xs text-zinc-500">Failed</p>
+              <p className="text-xs text-[var(--text-muted)]">Failed</p>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
+            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-3 text-center">
               <p className="text-2xl font-bold text-amber-400">{messageHealth.pending_retries}</p>
-              <p className="text-xs text-zinc-500">Retrying</p>
+              <p className="text-xs text-[var(--text-muted)]">Retrying</p>
             </div>
           </div>
         </div>
@@ -358,9 +358,9 @@ triggerCommunication({
       )}
 
             {/* Billing Progress KPI Bar */}
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+      <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-6">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Billing Progress — {CURRENT_STATEMENT_PERIOD}</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Billing Progress — {CURRENT_STATEMENT_PERIOD}</p>
           <div className="flex items-center gap-3">
             <div className="w-48">
               <CustomDropdown
@@ -399,25 +399,25 @@ triggerCommunication({
 
         <div className="grid grid-cols-4 gap-4">
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-            <p className="text-2xl font-bold text-white">{billingStats.totalTenants}</p>
-            <p className="text-xs text-zinc-500 mt-1">Total Tenants</p>
+            <p className="text-2xl font-bold text-[var(--text-primary)]">{billingStats.totalTenants}</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">Total Tenants</p>
           </div>
           <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
             <p className="text-2xl font-bold text-blue-300">{billingStats.billed}</p>
-            <p className="text-xs text-zinc-500 mt-1">Billed</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">Billed</p>
           </div>
           <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
             <p className="text-2xl font-bold text-amber-300">{billingStats.outstanding}</p>
-            <p className="text-xs text-zinc-500 mt-1">Outstanding</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">Outstanding</p>
           </div>
           <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
             <p className="text-2xl font-bold text-red-300">{billingStats.blocked}</p>
-            <p className="text-xs text-zinc-500 mt-1">Blocked</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">Blocked</p>
           </div>
         </div>
 
         {/* Distribution description */}
-        <p className="text-xs text-zinc-500 mt-4">
+        <p className="text-xs text-[var(--text-muted)] mt-4">
           {filterType === "all" && "Distributing to all tenants across all properties."}
           {filterType === "property" && (filterValue ? `Distributing to ${properties.find(p => p.id === filterValue)?.property_name || "selected property"}.` : "Select a property to distribute.")}
           {filterType === "tenant" && (filterValue ? `Distributing to ${allTenants.find(t => t.id === filterValue)?.tenant_name || "selected tenant"}.` : "Select a tenant to distribute.")}
@@ -425,7 +425,7 @@ triggerCommunication({
         {filterValue && filterType !== "all" && (
   <button
     onClick={() => setShowFullPreview(true)}
-    className="mt-3 w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-zinc-300 hover:border-zinc-500 hover:text-white transition-colors"
+    className="mt-3 w-full rounded-xl border border-[var(--border-hover)] bg-[var(--bg-elevated)] px-4 py-3 text-sm text-[var(--text-primary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)] transition-colors"
   >
     📋 Preview Distribution Report
   </button>
@@ -441,46 +441,46 @@ triggerCommunication({
         <div className="flex gap-3 mt-4">
           {!distributionStarted ? (
             <button onClick={handleDistribute} disabled={!filterValue && filterType !== "all"}
-              className="flex-1 rounded-2xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-40">
+              className="flex-1 rounded-2xl bg-amber-600 px-6 py-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-amber-500 disabled:opacity-40">
               Distribute {filterType === "all" ? CURRENT_STATEMENT_PERIOD : filterType === "property" ? "Property" : "Tenant"} Statements
             </button>
           ) : billingStats.outstanding === 0 ? (
-            <button onClick={handleClosePeriod} className="flex-1 rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-500">
+            <button onClick={handleClosePeriod} className="flex-1 rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-emerald-500">
               Close {CURRENT_STATEMENT_PERIOD} Period — Re-enable Receipting
             </button>
             
           ) : (
             <button onClick={handleDistribute} disabled={!filterValue && filterType !== "all"}
-              className="flex-1 rounded-2xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-40">
+              className="flex-1 rounded-2xl bg-amber-600 px-6 py-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-amber-500 disabled:opacity-40">
               Distribute More Statements
             </button>
           )}
         </div>
         {distributionStarted && (
-          <p className="text-xs text-zinc-600 mt-2 text-center">Receipting locked. Close period to re-enable.</p>
+          <p className="text-xs text-[var(--text-muted)] mt-2 text-center">Receipting locked. Close period to re-enable.</p>
         )}
       </div>
 
       {/* New Manual Charge */}
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
-        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-4">New Manual Charge</p>
+      <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-6">
+        <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] mb-4">New Manual Charge</p>
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div>
-            <label className="block text-xs text-zinc-500 mb-1.5">Property</label>
+            <label className="block text-xs text-[var(--text-muted)] mb-1.5">Property</label>
             <CustomDropdown value={selectedProperty} options={propertyOptions} onChange={(id) => { setSelectedProperty(id); setSelectedTenant(""); }} placeholder="Select property..." />
           </div>
           <div>
-            <label className="block text-xs text-zinc-500 mb-1.5">Tenant</label>
+            <label className="block text-xs text-[var(--text-muted)] mb-1.5">Tenant</label>
             <CustomDropdown value={selectedTenant} options={tenantOptions} onChange={setSelectedTenant} placeholder="Select tenant..." disabled={!selectedProperty} />
           </div>
           <div>
-            <label className="block text-xs text-zinc-500 mb-1.5">Billing Period</label>
+            <label className="block text-xs text-[var(--text-muted)] mb-1.5">Billing Period</label>
             <CustomDropdown value={selectedPeriod} options={periodOptions} onChange={setSelectedPeriod} placeholder="Select period..." />
-            <p className="text-xs text-zinc-600 mt-1">Financial period: {CURRENT_FINANCIAL_PERIOD}</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">Financial period: {CURRENT_FINANCIAL_PERIOD}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mb-2 text-xs text-zinc-500 uppercase tracking-[0.15em]">
+        <div className="flex items-center gap-2 mb-2 text-xs text-[var(--text-muted)] uppercase tracking-[0.15em]">
           <span className="w-40">Code</span><span className="flex-1">Description</span>
           <span className="w-24 text-right">Excl. VAT</span><span className="w-24 text-right">VAT</span><span className="w-24 text-right">Incl. VAT</span><span className="w-6"></span>
         </div>
@@ -490,48 +490,48 @@ triggerCommunication({
             <div key={line.id} className="flex items-center gap-2">
               <div className="relative w-40" ref={codeRef}>
                 <button type="button" onClick={() => setShowCodeDropdown(showCodeDropdown === line.id ? null : line.id)}
-                  className="w-full rounded-xl border border-zinc-800 bg-black/40 px-3 py-2.5 text-xs text-left outline-none focus:border-zinc-600">
-                  {line.billing_code ? <span className="text-white font-mono">{line.billing_code}</span> : <span className="text-zinc-500">Add code...</span>}
+                  className="w-full rounded-xl border border-[var(--border-default)] bg-black/40 px-3 py-2.5 text-xs text-left outline-none focus:border-[var(--border-hover)]">
+                  {line.billing_code ? <span className="text-[var(--text-primary)] font-mono">{line.billing_code}</span> : <span className="text-[var(--text-muted)]">Add code...</span>}
                 </button>
                 {showCodeDropdown === line.id && (
-                  <div className="absolute left-0 right-0 z-40 mt-1 rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden max-h-56 overflow-y-auto">
+                  <div className="absolute left-0 right-0 z-40 mt-1 rounded-2xl border border-[var(--border-hover)] bg-[var(--bg-secondary)] shadow-2xl overflow-hidden max-h-56 overflow-y-auto">
                     <div className="p-2">
                       <input type="text" value={codeSearch} onChange={(e) => setCodeSearch(e.target.value)} placeholder="Search code or description..." autoFocus
-                        className="w-full rounded-xl border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-zinc-600" />
+                        className="w-full rounded-xl border border-[var(--border-default)] bg-black/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]" />
                     </div>
                     {filteredCodes.map(bc => (
                       <button key={bc.id} type="button" onClick={() => selectBillingCode(line.id, bc)}
-                        className={`w-full text-left px-4 py-2.5 text-xs transition-colors ${line.billing_code === bc.code ? "bg-white text-black font-medium" : "text-zinc-300 hover:bg-zinc-800"}`}>
-                        <span className="font-mono">{bc.code}</span><span className="text-zinc-500 ml-2">— {bc.description}</span>
+                        className={`w-full text-left px-4 py-2.5 text-xs transition-colors ${line.billing_code === bc.code ? "bg-white text-black font-medium" : "text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]"}`}>
+                        <span className="font-mono">{bc.code}</span><span className="text-[var(--text-muted)] ml-2">— {bc.description}</span>
                       </button>
                     ))}
                   </div>
                 )}
               </div>
               <input type="text" value={line.description} onChange={(e) => updateManualDescription(line.id, e.target.value)} placeholder="Add description..."
-                className="flex-1 rounded-xl border border-zinc-800 bg-black/40 px-3 py-2.5 text-xs text-white outline-none focus:border-zinc-600 placeholder:text-zinc-600" />
+                className="flex-1 rounded-xl border border-[var(--border-default)] bg-black/40 px-3 py-2.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] placeholder:text-[var(--text-muted)]" />
               <input type="number" step="0.01" value={line.amount_excl || ""} onChange={(e) => updateManualAmount(line.id, "excl", parseFloat(e.target.value) || 0)}
-                className="w-24 rounded-xl border border-zinc-800 bg-black/40 px-3 py-2.5 text-xs text-white outline-none focus:border-zinc-600 tabular-nums text-right" placeholder="0.00" />
+                className="w-24 rounded-xl border border-[var(--border-default)] bg-black/40 px-3 py-2.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] tabular-nums text-right" placeholder="0.00" />
               <input type="number" step="0.01" value={line.vat_amount || ""} onChange={(e) => updateManualAmount(line.id, "vat", parseFloat(e.target.value) || 0)}
-                className="w-24 rounded-xl border border-zinc-800 bg-black/40 px-3 py-2.5 text-xs text-white outline-none focus:border-zinc-600 tabular-nums text-right" placeholder="0.00" />
+                className="w-24 rounded-xl border border-[var(--border-default)] bg-black/40 px-3 py-2.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] tabular-nums text-right" placeholder="0.00" />
               <input type="number" step="0.01" value={line.amount_incl || ""} onChange={(e) => updateManualAmount(line.id, "incl", parseFloat(e.target.value) || 0)}
-                className="w-24 rounded-xl border border-zinc-800 bg-black/40 px-3 py-2.5 text-xs text-white outline-none focus:border-zinc-600 tabular-nums text-right" placeholder="0.00" />
-              <button onClick={() => removeManualLine(line.id)} disabled={manualLines.length <= 1} className="p-2 text-zinc-500 hover:text-red-400 disabled:opacity-30 text-xs">✕</button>
+                className="w-24 rounded-xl border border-[var(--border-default)] bg-black/40 px-3 py-2.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] tabular-nums text-right" placeholder="0.00" />
+              <button onClick={() => removeManualLine(line.id)} disabled={manualLines.length <= 1} className="p-2 text-[var(--text-muted)] hover:text-red-400 disabled:opacity-30 text-xs">✕</button>
             </div>
           ))}
         </div>
 
         <div className="flex items-center justify-between">
           <button onClick={addManualLine} className="text-xs text-blue-400 hover:text-blue-300">+ Add Row</button>
-          <div className="text-xs text-zinc-500 tabular-nums">Excl: R{manualTotalExcl.toLocaleString()} · VAT: R{manualTotalVat.toLocaleString()} · Incl: R{manualTotalIncl.toLocaleString()}</div>
+          <div className="text-xs text-[var(--text-muted)] tabular-nums">Excl: R{manualTotalExcl.toLocaleString()} · VAT: R{manualTotalVat.toLocaleString()} · Incl: R{manualTotalIncl.toLocaleString()}</div>
         </div>
 
         <div className="flex gap-3 mt-4">
           <button onClick={() => handleSave("pending_review")} disabled={!selectedTenant || manualTotalExcl === 0 || loading}
-            className="flex-1 rounded-2xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-40">Save for Review</button>
+            className="flex-1 rounded-2xl bg-amber-600 px-6 py-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-amber-500 disabled:opacity-40">Save for Review</button>
           {canPostDirectly && (
             <button onClick={() => handleSave("posted")} disabled={!selectedTenant || manualTotalExcl === 0 || loading}
-              className="flex-1 rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-40">Post Immediately</button>
+              className="flex-1 rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-emerald-500 disabled:opacity-40">Post Immediately</button>
           )}
         </div>
       </div>
@@ -541,11 +541,11 @@ triggerCommunication({
         <div className="rounded-3xl border border-amber-500/20 bg-amber-500/5 p-6">
           <p className="text-xs uppercase tracking-[0.2em] text-amber-300 mb-4">Pending Review — {pendingCharges.length} charges</p>
           {pendingCharges.map((charge) => (
-            <div key={charge.id} className="flex items-center justify-between py-2 border-b border-zinc-800/50 text-sm">
-              <div><span className="text-white">{charge.description}</span><span className="text-zinc-500 text-xs ml-2 font-mono">({charge.gl_code})</span><span className="text-zinc-600 text-xs ml-2">{new Date(charge.created_at).toLocaleDateString()}</span></div>
+            <div key={charge.id} className="flex items-center justify-between py-2 border-b border-[var(--border-default)]/50 text-sm">
+              <div><span className="text-[var(--text-primary)]">{charge.description}</span><span className="text-[var(--text-muted)] text-xs ml-2 font-mono">({charge.gl_code})</span><span className="text-[var(--text-muted)] text-xs ml-2">{new Date(charge.created_at).toLocaleDateString()}</span></div>
               <div className="flex items-center gap-4">
-                <span className="text-white tabular-nums font-medium">R{charge.amount_incl_vat?.toLocaleString()}</span>
-                <button onClick={() => handleApprovePending(charge.id)} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500">Approve & Post</button>
+                <span className="text-[var(--text-primary)] tabular-nums font-medium">R{charge.amount_incl_vat?.toLocaleString()}</span>
+                <button onClick={() => handleApprovePending(charge.id)} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-emerald-500">Approve & Post</button>
               </div>
             </div>
           ))}
@@ -554,28 +554,28 @@ triggerCommunication({
 
       {/* Billing Worksheet */}
       {selectedTenant && worksheet.length > 0 && (
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
-          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-4">Billing Worksheet — {tenants.find(t => t.id === selectedTenant)?.tenant_name}</p>
+        <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-6">
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] mb-4">Billing Worksheet — {tenants.find(t => t.id === selectedTenant)?.tenant_name}</p>
           <div className="space-y-1 mb-4">
             {worksheet.map((item) => (
-              <div key={item.id} className="flex items-center justify-between text-sm py-2 border-b border-zinc-800/50">
+              <div key={item.id} className="flex items-center justify-between text-sm py-2 border-b border-[var(--border-default)]/50">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500">{item.charge_type === "adhoc" ? "Manual" : "Auto"}</span>
-                  <span className="text-zinc-300">{item.description}</span><span className="text-zinc-600 text-xs font-mono">({item.gl_code})</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text-muted)]">{item.charge_type === "adhoc" ? "Manual" : "Auto"}</span>
+                  <span className="text-[var(--text-primary)]">{item.description}</span><span className="text-[var(--text-muted)] text-xs font-mono">({item.gl_code})</span>
                 </div>
                 <div className="flex items-center gap-6 tabular-nums">
-                  <span className="text-zinc-400 w-24 text-right">R{(item.amount_incl_vat / 1.15).toLocaleString()}</span>
-                  <span className="text-zinc-500 w-20 text-right">R{(item.amount_incl_vat - item.amount_incl_vat / 1.15).toLocaleString()}</span>
-                  <span className="text-white w-24 text-right font-medium">R{item.amount_incl_vat?.toLocaleString()}</span>
+                  <span className="text-[var(--text-secondary)] w-24 text-right">R{(item.amount_incl_vat / 1.15).toLocaleString()}</span>
+                  <span className="text-[var(--text-muted)] w-20 text-right">R{(item.amount_incl_vat - item.amount_incl_vat / 1.15).toLocaleString()}</span>
+                  <span className="text-[var(--text-primary)] w-24 text-right font-medium">R{item.amount_incl_vat?.toLocaleString()}</span>
                 </div>
               </div>
             ))}
           </div>
-          <div className="flex justify-end border-t border-zinc-700 pt-3 text-sm tabular-nums">
+          <div className="flex justify-end border-t border-[var(--border-hover)] pt-3 text-sm tabular-nums">
             <div className="flex items-center gap-6">
-              <span className="text-zinc-400">Subtotal: <span className="text-white">R{wsExcl.toLocaleString()}</span></span>
-              <span className="text-zinc-400">VAT: <span className="text-white">R{wsVat.toLocaleString()}</span></span>
-              <span className="text-zinc-400">Total: <span className="text-white font-bold text-lg">R{wsIncl.toLocaleString()}</span></span>
+              <span className="text-[var(--text-secondary)]">Subtotal: <span className="text-[var(--text-primary)]">R{wsExcl.toLocaleString()}</span></span>
+              <span className="text-[var(--text-secondary)]">VAT: <span className="text-[var(--text-primary)]">R{wsVat.toLocaleString()}</span></span>
+              <span className="text-[var(--text-secondary)]">Total: <span className="text-[var(--text-primary)] font-bold text-lg">R{wsIncl.toLocaleString()}</span></span>
             </div>
           </div>
         </div>
@@ -584,22 +584,22 @@ triggerCommunication({
       {/* Distribute Confirmation Modal */}
       {showDistributeConfirm && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowDistributeConfirm(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="bg-black border border-zinc-800 rounded-3xl w-full max-w-md mx-4 shadow-2xl p-6">
-            <p className="text-sm font-semibold text-white mb-2">Distribute {CURRENT_STATEMENT_PERIOD} Statements?</p>
-            <p className="text-xs text-zinc-500 mb-4">Pre-distribution checks:</p>
+          <div onClick={(e) => e.stopPropagation()} className="bg-black border border-[var(--border-default)] rounded-3xl w-full max-w-md mx-4 shadow-2xl p-6">
+            <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">Distribute {CURRENT_STATEMENT_PERIOD} Statements?</p>
+            <p className="text-xs text-[var(--text-muted)] mb-4">Pre-distribution checks:</p>
             <div className="space-y-2 mb-4">
               {[{ label: "Unallocated receipts", ok: true }, { label: "Draft charges", ok: true }, { label: "Pending utility imports", ok: false, detail: "1 pending" }].map((check, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
                   <span>{check.ok ? "✅" : "⚠️"}</span>
-                  <span className={check.ok ? "text-zinc-300" : "text-amber-400"}>{check.label}</span>
-                  {check.detail && <span className="text-xs text-zinc-500">({check.detail})</span>}
+                  <span className={check.ok ? "text-[var(--text-primary)]" : "text-amber-400"}>{check.label}</span>
+                  {check.detail && <span className="text-xs text-[var(--text-muted)]">({check.detail})</span>}
                 </div>
               ))}
             </div>
-            <p className="text-sm text-zinc-400 mb-4">Receipting will be paused until the period is closed. You may continue adding charges and regenerating statements.</p>
+            <p className="text-sm text-[var(--text-secondary)] mb-4">Receipting will be paused until the period is closed. You may continue adding charges and regenerating statements.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowDistributeConfirm(false)} className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white">Cancel</button>
-              <button onClick={confirmDistribute} className="rounded-2xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white hover:bg-amber-500">Distribute Statements</button>
+              <button onClick={() => setShowDistributeConfirm(false)} className="rounded-2xl border border-[var(--border-hover)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]">Cancel</button>
+              <button onClick={confirmDistribute} className="rounded-2xl bg-amber-600 px-6 py-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-amber-500">Distribute Statements</button>
             </div>
           </div>
         </div>
@@ -608,13 +608,13 @@ triggerCommunication({
       {/* Close Period Confirmation Modal */}
       {showClosePeriodConfirm && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowClosePeriodConfirm(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="bg-black border border-zinc-800 rounded-3xl w-full max-w-md mx-4 shadow-2xl p-6">
-            <p className="text-sm font-semibold text-white mb-2">Close {CURRENT_STATEMENT_PERIOD} Statement Period?</p>
-            <p className="text-sm text-zinc-400 mb-4">This will finalize all {CURRENT_STATEMENT_PERIOD} invoices, open the next period, and re-enable receipting.</p>
+          <div onClick={(e) => e.stopPropagation()} className="bg-black border border-[var(--border-default)] rounded-3xl w-full max-w-md mx-4 shadow-2xl p-6">
+            <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">Close {CURRENT_STATEMENT_PERIOD} Statement Period?</p>
+            <p className="text-sm text-[var(--text-secondary)] mb-4">This will finalize all {CURRENT_STATEMENT_PERIOD} invoices, open the next period, and re-enable receipting.</p>
             <p className="text-xs text-amber-400 mb-4">⚠️ This cannot be undone. Invoices become immutable.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowClosePeriodConfirm(false)} className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white">Cancel</button>
-              <button onClick={confirmClosePeriod} className="rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-500">Close Period & Re-enable Receipting</button>
+              <button onClick={() => setShowClosePeriodConfirm(false)} className="rounded-2xl border border-[var(--border-hover)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]">Cancel</button>
+              <button onClick={confirmClosePeriod} className="rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-emerald-500">Close Period & Re-enable Receipting</button>
             </div>
           </div>
         </div>
@@ -622,30 +622,30 @@ triggerCommunication({
       {/* Full Distribution Preview Modal */}
 {showFullPreview && (
   <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowFullPreview(false)}>
-    <div onClick={(e) => e.stopPropagation()} className="bg-black border border-zinc-800 rounded-3xl w-full max-w-3xl mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+    <div onClick={(e) => e.stopPropagation()} className="bg-black border border-[var(--border-default)] rounded-3xl w-full max-w-3xl mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
       
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 sticky top-0 bg-black z-10">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-default)] sticky top-0 bg-black z-10">
         <div>
-          <p className="text-sm uppercase tracking-[0.25em] text-zinc-500">Distribution Preview</p>
-          <p className="text-xs text-zinc-600 mt-0.5">
+          <p className="text-sm uppercase tracking-[0.25em] text-[var(--text-muted)]">Distribution Preview</p>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5">
             {filterType === "property" ? properties.find(p => p.id === filterValue)?.property_name : allTenants.find(t => t.id === filterValue)?.tenant_name} — {CURRENT_STATEMENT_PERIOD}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => window.print()} className="rounded-2xl border border-zinc-700 px-4 py-2 text-xs font-medium text-zinc-300 hover:border-zinc-500 hover:text-white">
+          <button onClick={() => window.print()} className="rounded-2xl border border-[var(--border-hover)] px-4 py-2 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]">
             🖨️ Print
           </button>
-          <button className="rounded-2xl border border-zinc-700 px-4 py-2 text-xs font-medium text-zinc-300 hover:border-zinc-500 hover:text-white">
+          <button className="rounded-2xl border border-[var(--border-hover)] px-4 py-2 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]">
             📥 Export PDF
           </button>
-          <button onClick={() => setShowFullPreview(false)} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-900 rounded-xl">✕</button>
+          <button onClick={() => setShowFullPreview(false)} className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded-xl">✕</button>
         </div>
       </div>
 
       {/* Consolidated Summary */}
-      <div className="px-6 py-4 border-b border-zinc-800 bg-zinc-950">
-        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-3">Billing Summary — {CURRENT_STATEMENT_PERIOD}</p>
+      <div className="px-6 py-4 border-b border-[var(--border-default)] bg-[var(--bg-elevated)]">
+        <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] mb-3">Billing Summary — {CURRENT_STATEMENT_PERIOD}</p>
         <div className="grid grid-cols-4 gap-3">
           {[
             { label: "Rental Income", excl: 192000, vat: 28800, incl: 220800 },
@@ -653,25 +653,25 @@ triggerCommunication({
             { label: "Electricity Recovery", excl: 8000, vat: 1200, incl: 9200 },
             { label: "Water Recovery", excl: 3000, vat: 450, incl: 3450 },
           ].map((row, i) => (
-            <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900 p-3">
-              <p className="text-xs text-zinc-500">{row.label}</p>
-              <p className="text-lg font-bold text-white mt-1 tabular-nums">R{row.incl.toLocaleString()}</p>
-              <p className="text-xs text-zinc-500 mt-0.5">Excl: R{row.excl.toLocaleString()} · VAT: R{row.vat.toLocaleString()}</p>
+            <div key={i} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3">
+              <p className="text-xs text-[var(--text-muted)]">{row.label}</p>
+              <p className="text-lg font-bold text-[var(--text-primary)] mt-1 tabular-nums">R{row.incl.toLocaleString()}</p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">Excl: R{row.excl.toLocaleString()} · VAT: R{row.vat.toLocaleString()}</p>
             </div>
           ))}
         </div>
-        <div className="flex justify-end mt-4 pt-3 border-t border-zinc-800">
+        <div className="flex justify-end mt-4 pt-3 border-t border-[var(--border-default)]">
           <div className="text-right">
-            <p className="text-xs text-zinc-500 mb-1">Grand Total</p>
-            <p className="text-3xl font-bold text-white tabular-nums">R240,350</p>
-            <p className="text-xs text-zinc-500 mt-1">Excl VAT: R209,000 &nbsp;·&nbsp; VAT: R31,350 &nbsp;·&nbsp; Incl VAT: R240,350</p>
+            <p className="text-xs text-[var(--text-muted)] mb-1">Grand Total</p>
+            <p className="text-3xl font-bold text-[var(--text-primary)] tabular-nums">R240,350</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">Excl VAT: R209,000 &nbsp;·&nbsp; VAT: R31,350 &nbsp;·&nbsp; Incl VAT: R240,350</p>
           </div>
         </div>
       </div>
 
       {/* Tenant-by-Tenant Breakdown */}
       <div className="px-6 py-5 space-y-6">
-        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Tenant Breakdown</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Tenant Breakdown</p>
         {[
           { name: "Shoprite SA", lease: "LEASE-012", charges: [
             { desc: "Monthly Rental", code: "4100-001", excl: 85000, vat: 12750, incl: 97750 },
@@ -694,26 +694,26 @@ triggerCommunication({
             <div key={ti}>
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <p className="text-sm font-semibold text-white">{tenant.name}</p>
-                  <p className="text-xs text-zinc-500">{tenant.lease}</p>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">{tenant.name}</p>
+                  <p className="text-xs text-[var(--text-muted)]">{tenant.lease}</p>
                 </div>
                 <div className="flex items-center gap-4 text-xs tabular-nums">
-                  <span className="text-zinc-500">Excl: <span className="text-zinc-300">R{tExcl.toLocaleString()}</span></span>
-                  <span className="text-zinc-500">VAT: <span className="text-zinc-300">R{tVat.toLocaleString()}</span></span>
-                  <span className="text-white font-medium">R{tIncl.toLocaleString()}</span>
+                  <span className="text-[var(--text-muted)]">Excl: <span className="text-[var(--text-primary)]">R{tExcl.toLocaleString()}</span></span>
+                  <span className="text-[var(--text-muted)]">VAT: <span className="text-[var(--text-primary)]">R{tVat.toLocaleString()}</span></span>
+                  <span className="text-[var(--text-primary)] font-medium">R{tIncl.toLocaleString()}</span>
                 </div>
               </div>
               <div className="space-y-1">
                 {tenant.charges.map((c, ci) => (
-                  <div key={ci} className="flex items-center justify-between text-xs py-1.5 border-b border-zinc-800/30">
+                  <div key={ci} className="flex items-center justify-between text-xs py-1.5 border-b border-[var(--border-default)]/30">
                     <div>
-                      <span className="text-zinc-400">{c.desc}</span>
-                      <span className="text-zinc-600 font-mono ml-2">{c.code}</span>
+                      <span className="text-[var(--text-secondary)]">{c.desc}</span>
+                      <span className="text-[var(--text-muted)] font-mono ml-2">{c.code}</span>
                     </div>
                     <div className="flex items-center gap-4 tabular-nums">
-                      <span className="text-zinc-500 w-20 text-right">R{c.excl.toLocaleString()}</span>
-                      <span className="text-zinc-500 w-20 text-right">R{c.vat.toLocaleString()}</span>
-                      <span className="text-zinc-300 w-24 text-right">R{c.incl.toLocaleString()}</span>
+                      <span className="text-[var(--text-muted)] w-20 text-right">R{c.excl.toLocaleString()}</span>
+                      <span className="text-[var(--text-muted)] w-20 text-right">R{c.vat.toLocaleString()}</span>
+                      <span className="text-[var(--text-primary)] w-24 text-right">R{c.incl.toLocaleString()}</span>
                     </div>
                   </div>
                 ))}
@@ -724,9 +724,9 @@ triggerCommunication({
       </div>
 
       {/* Footer */}
-      <div className="px-6 py-4 border-t border-zinc-800 bg-zinc-950 sticky bottom-0 flex justify-between items-center">
-        <p className="text-xs text-zinc-500">This preview will be saved and can be accessed from the billing history.</p>
-        <button onClick={() => setShowFullPreview(false)} className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white">Close</button>
+      <div className="px-6 py-4 border-t border-[var(--border-default)] bg-[var(--bg-elevated)] sticky bottom-0 flex justify-between items-center">
+        <p className="text-xs text-[var(--text-muted)]">This preview will be saved and can be accessed from the billing history.</p>
+        <button onClick={() => setShowFullPreview(false)} className="rounded-2xl border border-[var(--border-hover)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]">Close</button>
       </div>
     </div>
   </div>
@@ -734,13 +734,13 @@ triggerCommunication({
       {/* Invoice Detail Modal */}
 {previewTenant && (
   <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setPreviewTenant(null)}>
-    <div onClick={(e) => e.stopPropagation()} className="bg-black border border-zinc-800 rounded-3xl w-full max-w-lg mx-4 shadow-2xl max-h-[85vh] overflow-y-auto">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 sticky top-0 bg-black z-10">
+    <div onClick={(e) => e.stopPropagation()} className="bg-black border border-[var(--border-default)] rounded-3xl w-full max-w-lg mx-4 shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-default)] sticky top-0 bg-black z-10">
         <div>
-          <p className="text-sm uppercase tracking-[0.25em] text-zinc-500">Invoice Preview</p>
-          <p className="text-xs text-zinc-600 mt-0.5">{CURRENT_STATEMENT_PERIOD} — {previewTenant.name}</p>
+          <p className="text-sm uppercase tracking-[0.25em] text-[var(--text-muted)]">Invoice Preview</p>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5">{CURRENT_STATEMENT_PERIOD} — {previewTenant.name}</p>
         </div>
-        <button onClick={() => setPreviewTenant(null)} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-900 rounded-xl">✕</button>
+        <button onClick={() => setPreviewTenant(null)} className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded-xl">✕</button>
       </div>
 
       <div className="px-6 py-5 space-y-3">
@@ -749,30 +749,30 @@ triggerCommunication({
           { code: "4200-001", desc: "Parking (4 bays)", excl: 4000, vat: 600, incl: 4600 },
           { code: "4300-001", desc: "Utility Recovery — Electricity", excl: 8000, vat: 1200, incl: 9200 },
         ].map((line, i) => (
-          <div key={i} className="flex items-center justify-between text-sm py-2 border-b border-zinc-800/50">
+          <div key={i} className="flex items-center justify-between text-sm py-2 border-b border-[var(--border-default)]/50">
             <div>
-              <span className="text-zinc-300">{line.desc}</span>
-              <span className="text-zinc-600 text-xs font-mono ml-2">{line.code}</span>
+              <span className="text-[var(--text-primary)]">{line.desc}</span>
+              <span className="text-[var(--text-muted)] text-xs font-mono ml-2">{line.code}</span>
             </div>
             <div className="flex items-center gap-4 tabular-nums text-xs">
-              <span className="text-zinc-500 w-20 text-right">R{line.excl.toLocaleString()}</span>
-              <span className="text-zinc-500 w-20 text-right">R{line.vat.toLocaleString()}</span>
-              <span className="text-white w-24 text-right font-medium">R{line.incl.toLocaleString()}</span>
+              <span className="text-[var(--text-muted)] w-20 text-right">R{line.excl.toLocaleString()}</span>
+              <span className="text-[var(--text-muted)] w-20 text-right">R{line.vat.toLocaleString()}</span>
+              <span className="text-[var(--text-primary)] w-24 text-right font-medium">R{line.incl.toLocaleString()}</span>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="px-6 py-4 border-t border-zinc-800 bg-zinc-950">
+      <div className="px-6 py-4 border-t border-[var(--border-default)] bg-[var(--bg-elevated)]">
         <div className="flex justify-end text-sm tabular-nums space-x-6">
-          <span className="text-zinc-400">Subtotal: <span className="text-white">R{previewTenant.excl?.toLocaleString()}</span></span>
-          <span className="text-zinc-400">VAT: <span className="text-white">R{previewTenant.vat?.toLocaleString()}</span></span>
-          <span className="text-zinc-400">Total: <span className="text-white font-bold text-lg">R{previewTenant.incl?.toLocaleString()}</span></span>
+          <span className="text-[var(--text-secondary)]">Subtotal: <span className="text-[var(--text-primary)]">R{previewTenant.excl?.toLocaleString()}</span></span>
+          <span className="text-[var(--text-secondary)]">VAT: <span className="text-[var(--text-primary)]">R{previewTenant.vat?.toLocaleString()}</span></span>
+          <span className="text-[var(--text-secondary)]">Total: <span className="text-[var(--text-primary)] font-bold text-lg">R{previewTenant.incl?.toLocaleString()}</span></span>
         </div>
       </div>
 
-      <div className="px-6 py-4 border-t border-zinc-800 flex justify-end">
-        <button onClick={() => setPreviewTenant(null)} className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white">Close</button>
+      <div className="px-6 py-4 border-t border-[var(--border-default)] flex justify-end">
+        <button onClick={() => setPreviewTenant(null)} className="rounded-2xl border border-[var(--border-hover)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]">Close</button>
       </div>
     </div>
   </div>
@@ -780,15 +780,15 @@ triggerCommunication({
 {/* Bulk Send Modal */}
 {showBulkSend && (
   <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowBulkSend(false)}>
-    <div onClick={(e) => e.stopPropagation()} className="bg-black border border-zinc-800 rounded-3xl w-full max-w-md mx-4 shadow-2xl p-6">
-      <p className="text-sm font-semibold text-white mb-2">Bulk Communication</p>
-      <p className="text-xs text-zinc-500 mb-4">Send arrears reminders to all tenants with outstanding balances.</p>
+    <div onClick={(e) => e.stopPropagation()} className="bg-black border border-[var(--border-default)] rounded-3xl w-full max-w-md mx-4 shadow-2xl p-6">
+      <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">Bulk Communication</p>
+      <p className="text-xs text-[var(--text-muted)] mb-4">Send arrears reminders to all tenants with outstanding balances.</p>
       
       <div className="space-y-3 mb-4">
         <div>
-          <label className="block text-xs text-zinc-500 mb-1.5">Event Type</label>
+          <label className="block text-xs text-[var(--text-muted)] mb-1.5">Event Type</label>
           <select value={bulkEventType} onChange={(e) => setBulkEventType(e.target.value)}
-            className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600">
+            className="w-full rounded-2xl border border-[var(--border-default)] bg-black/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]">
             <option value="payment_overdue">Arrears Reminder</option>
             <option value="lease_expiring">Lease Expiry Warning</option>
             <option value="statement_available">Statement Available</option>
@@ -796,13 +796,13 @@ triggerCommunication({
         </div>
       </div>
 
-      <p className="text-xs text-zinc-500 mb-4">
+      <p className="text-xs text-[var(--text-muted)] mb-4">
         This will send messages to all tenants with {bulkEventType === "payment_overdue" ? "outstanding balances" : "active leases"}. 
         Only tenants with WhatsApp enabled will receive messages.
       </p>
 
       <div className="flex gap-3 justify-end">
-        <button onClick={() => setShowBulkSend(false)} className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white">
+        <button onClick={() => setShowBulkSend(false)} className="rounded-2xl border border-[var(--border-hover)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]">
           Cancel
         </button>
         <button
@@ -838,7 +838,7 @@ triggerCommunication({
             setShowBulkSend(false);
           }}
           disabled={bulkSending}
-          className="rounded-2xl bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-40"
+          className="rounded-2xl bg-red-600 px-6 py-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-red-500 disabled:opacity-40"
         >
           {bulkSending ? "Sending..." : "Send to All"}
         </button>

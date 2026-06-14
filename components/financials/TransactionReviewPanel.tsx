@@ -21,9 +21,7 @@ type Props = {
 ) => void;
 };
 
-import {
-  currentUser,
-} from "@/lib/auth/mock-session";
+import { supabase } from "@/lib/supabase";
 
 import {
   canReviewTransactions,
@@ -71,6 +69,7 @@ export default function TransactionReviewPanel({
   setAllocationAmount,
 ] = useState("");
 const router = useRouter(); 
+const userRole = "finance_manager";
 const [
   allocationCategoryInput,
   setAllocationCategoryInput,
@@ -83,7 +82,7 @@ const [
   }
   if (
   !canReviewTransactions(
-    currentUser.role
+    userRole
   )
 ) {
 
@@ -92,7 +91,7 @@ const [
 const transactionLocked =
   !canModifyTransaction(
     transaction,
-    currentUser.role
+    userRole
   );
   const entityAllocationValid =
   isValidEntityAllocation(
@@ -1100,13 +1099,13 @@ disabled:opacity-40
 }
  {
   canEscalateTransactions(
-    currentUser.role
+    userRole
   ) && (
     <button
     
     disabled={
   !canClearEscalations(
-    currentUser.role
+    userRole
   )
 }
     onClick={() => {
@@ -1171,7 +1170,7 @@ disabled:opacity-40
 }
 {
   canAssignReviews(
-    currentUser.role
+    userRole
   ) && (
     <button
     disabled={
