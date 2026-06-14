@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Plus, Minus, Search } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { triggerCommunication } from "@/lib/communications/communication-service";
 
 type Property = {
   id: string;
@@ -198,6 +199,26 @@ export function TransactionReviewModal({ open, transaction, onClose, onPosted }:
     };
     const { error } = await supabase.from("bank_transactions").update(updateData).eq("id", transaction.id);
     if (error) { console.error("Save error:", error); } else { onPosted(); onClose(); }
+        // Trigger receipt communication if posted
+    if (status === "posted" && selectedTenant) {
+      const { data: tenant } = await supabase
+        .from("tenants")
+        .select("tenant_name")
+        .eq("id", selectedTenant)
+        .single();
+
+      triggerCommunication({
+        tenant_id: selectedTenant,
+        event_type: "receipt_issued",
+        source_type: "receipt",
+        source_id: transaction?.id || "",
+        merge_data: {
+          tenant_name: tenant?.tenant_name || "Tenant",
+          amount: Math.abs(transactionAmount).toLocaleString(),
+          reference: `SYS-${transaction?.id?.slice(0, 8) || "unknown"}`,
+        },
+      });
+    }
     setIsSaving(false);
   };
 
