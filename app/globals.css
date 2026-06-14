@@ -1,26 +1,178 @@
 @import "tailwindcss";
 
+/* ===== ASSETFLOW DESIGN SYSTEM ===== */
+/* Philosophy: Institutional-grade software wrapped in quiet luxury */
+/* Inspired by: Bloomberg Terminal, Linear, Notion, Apple, Porsche Dashboard */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Light Theme — Clean, professional */
+  --bg-primary: #FAFAFA;
+  --bg-secondary: #FFFFFF;
+  --bg-elevated: #F5F5F5;
+  --border-default: #E5E5E5;
+  --border-hover: #D4D4D4;
+  --text-primary: #0F1115;
+  --text-secondary: #64748B;
+  --text-muted: #94A3B8;
+  --accent: #D4AF37;
+  --accent-hover: #C4A030;
+  --success: #059669;
+  --warning: #D97706;
+  --danger: #DC2626;
+  --info: #3B82F6;
+  --radius-sm: 0.625rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
+/* ===== MIDNIGHT THEME (Default) ===== */
+.dark, .theme-midnight {
+  --bg-primary: #0F1115;
+  --bg-secondary: #171A21;
+  --bg-elevated: #1E232D;
+  --border-default: #2A313D;
+  --border-hover: #3A4252;
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --accent: #D4AF37;
+  --accent-hover: #E5C158;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --info: #3B82F6;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ===== EXECUTIVE THEME ===== */
+.theme-executive {
+  --bg-primary: #0A0E14;
+  --bg-secondary: #111620;
+  --bg-elevated: #181E2A;
+  --border-default: #1E2840;
+  --border-hover: #2A3550;
+  --text-primary: #F0F4FA;
+  --text-secondary: #8899B4;
+  --text-muted: #5A6A84;
+  --accent: #C9A84C;
+  --accent-hover: #D4B966;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --info: #3B82F6;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* ===== LIGHT THEME ===== */
+.theme-light {
+  --bg-primary: #FAFAFA;
+  --bg-secondary: #FFFFFF;
+  --bg-elevated: #F5F5F5;
+  --border-default: #E5E5E5;
+  --border-hover: #D4D4D4;
+  --text-primary: #0F1115;
+  --text-secondary: #64748B;
+  --text-muted: #94A3B8;
+  --accent: #B8942E;
+  --accent-hover: #A08020;
+  --success: #059669;
+  --warning: #D97706;
+  --danger: #DC2626;
+  --info: #2563EB;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+/* ===== TAILWIND INTEGRATION ===== */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-border-default: var(--border-default);
+  --color-border-hover: var(--border-hover);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ===== BASE STYLES ===== */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+  line-height: 1.6;
+}
+
+/* ===== PREMIUM SCROLLBAR ===== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+/* ===== SMOOTH TRANSITIONS ===== */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, opacity, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== FOCUS RING — SUBTLE ===== */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ===== TYPOGRAPHY REFINEMENTS ===== */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+
+/* ===== TABLE REFINEMENTS ===== */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* ===== PREMIUM CARD HOVER ===== */
+.hover-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
+}
+
+/* ===== GOLD ACCENT — SPARINGLY ===== */
+.accent-gold {
+  color: var(--accent);
+}
+
+/* ===== REDUCE MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+  }
 }
