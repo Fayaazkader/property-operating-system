@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { generateChargesForPeriod } from "@/lib/revenue/charge-generator";
 import { PageHeader } from "@/app/components/layout/PageHeader";
 
 type GLCodes = { id: string; code: string; description: string; category: string };
@@ -89,6 +90,22 @@ const [showFullPreview, setShowFullPreview] = useState(false);
     }
     load();
   }, []);
+    useEffect(() => {
+    async function autoGenerateCharges() {
+      const { data: existingCharges } = await supabase
+        .from("charges")
+        .select("id")
+        .eq("billing_period", CURRENT_STATEMENT_PERIOD)
+        .limit(1);
+
+      if (!existingCharges || existingCharges.length === 0) {
+        const periodStart = "2026-07-01";
+        const periodEnd = "2026-07-31";
+        await generateChargesForPeriod(periodStart, periodEnd);
+      }
+    }
+    autoGenerateCharges();
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -102,6 +119,16 @@ const [showFullPreview, setShowFullPreview] = useState(false);
     }
     load();
   }, [selectedProperty]);
+  const [escalationsDue, setEscalationsDue] = useState<any[]>([]);
+
+useEffect(() => {
+  async function checkEscalations() {
+    const { detectEscalationsDue } = await import("@/lib/revenue/escalation-engine");
+    const due = await detectEscalationsDue();
+    setEscalationsDue(due);
+  }
+  checkEscalations();
+}, []);
 
   async function loadCharges() {
     if (!selectedTenant) { setWorksheet([]); setPendingCharges([]); return; }
@@ -239,7 +266,27 @@ const [showFullPreview, setShowFullPreview] = useState(false);
       )}
 
       <PageHeader title="Revenue Operations" subtitle="Billing worksheets, manual charges, and statement distribution." />
-
+{escalationsDue.length > 0 && (
+  <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 px-5 py-4">
+    <p className="text-xs uppercase tracking-[0.2em] text-blue-300 font-semibold">
+      ⚡ {escalationsDue.length} Escalations Due — {new Date().toLocaleDateString("en-ZA", { month: "long", year: "numeric" })}
+    </p>
+    <div className="mt-2 space-y-1">
+      {escalationsDue.map((esc, i) => (
+        <div key={i} className="flex items-center justify-between text-sm">
+          <span className="text-zinc-300">{esc.tenant_name} — {esc.rule_type}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-zinc-500">R{esc.current_amount?.toLocaleString()} →</span>
+            <span className="text-white font-medium">R{esc.new_amount?.toLocaleString()}</span>
+            <span className="text-blue-400">({esc.escalation_percent}%)</span>
+            <button className="text-xs text-emerald-400 hover:text-emerald-300 ml-2">Apply</button>
+            <button className="text-xs text-zinc-500 hover:text-zinc-300">Skip</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
       {/* Receipting Locked Banner */}
       {distributionStarted && (
         <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4">

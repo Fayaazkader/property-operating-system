@@ -1,81 +1,114 @@
 import { supabase } from "../supabase";
 
-export async function generateChargesForLease(leaseId: string): Promise<number> {
+type BillingRule = {
+  id: string;
+  lease_id: string;
+  rule_type: string;
+  description: string;
+  base_amount: number;
+  vat_rate: number;
+  gl_code: string;
+  recovery_method: string;
+  frequency: string;
+  escalation_percent: number | null;
+  escalation_month: number | null;
+  effective_from: string;
+  effective_to: string | null;
+  status: string;
+};
+
+export async function generateChargesFromRules(
+  leaseId: string,
+  periodStart: string,
+  periodEnd: string
+): Promise<number> {
+  // Get active billing rules for this lease
+  const { data: rules } = await supabase
+    .from("billing_rules")
+    .select("*")
+    .eq("lease_id", leaseId)
+    .eq("status", "active");
+
+  if (!rules || rules.length === 0) return 0;
+
+  // Get lease for property/entity context
   const { data: lease } = await supabase
     .from("leases")
-    .select("id, lease_id, property_id, tenant_id, tenant_name, monthly_rental, escalation_percent, lease_start_date, lease_end_date")
+    .select("property_id, tenant_id")
     .eq("id", leaseId)
     .single();
-
-  if (!lease || !lease.monthly_rental || lease.monthly_rental <= 0) return 0;
 
   const { data: property } = await supabase
     .from("properties")
     .select("entity_id")
-    .eq("id", lease.property_id)
+    .eq("id", lease?.property_id)
     .single();
 
   const entityId = property?.entity_id || null;
-  const startDate = lease.lease_start_date || new Date().toISOString().split("T")[0];
-  const endDate = lease.lease_end_date || undefined;
+  const periodName = new Date(periodStart).toLocaleDateString("en-ZA", { month: "long", year: "numeric" });
   let created = 0;
 
-  // Monthly Rental
-  const { data: existingRent } = await supabase
-    .from("charges")
-    .select("id")
-    .eq("lease_id", lease.id)
-    .eq("charge_type", "rent")
-    .eq("is_active", true);
+  for (const rule of rules as BillingRule[]) {
+    // Skip utility_recovery — those come from meter imports
+    if (rule.rule_type === "utility_recovery") continue;
 
-  if (!existingRent || existingRent.length === 0) {
-    const vatAmount = (lease.monthly_rental * 15) / 100;
+    // Skip rules not yet effective
+    if (new Date(rule.effective_from) > new Date(periodEnd)) continue;
+
+    // Skip expired rules
+    if (rule.effective_to && new Date(rule.effective_to) < new Date(periodStart)) continue;
+
+    // Check if charge already exists for this rule + period
+    const chargeDesc = `${rule.description} — ${periodName}`;
+    const { data: existing } = await supabase
+      .from("charges")
+      .select("id")
+      .eq("lease_id", leaseId)
+      .eq("charge_type", rule.rule_type)
+      .eq("description", chargeDesc);
+
+    if (existing && existing.length > 0) continue;
+
+    // Apply escalation if applicable
+    let amount = rule.base_amount;
+    if (rule.escalation_percent && rule.escalation_month) {
+      const currentMonth = new Date(periodStart).getMonth() + 1;
+      const ruleStartMonth = new Date(rule.effective_from).getMonth() + 1;
+      const ruleStartYear = new Date(rule.effective_from).getFullYear();
+      const currentYear = new Date(periodStart).getFullYear();
+      
+      // Calculate how many escalations should have been applied
+      const monthsSinceStart = (currentYear - ruleStartYear) * 12 + (currentMonth - ruleStartMonth);
+      const escalationCount = Math.floor(monthsSinceStart / 12);
+      
+      if (escalationCount > 0) {
+        for (let i = 0; i < escalationCount; i++) {
+          amount = amount * (1 + (rule.escalation_percent / 100));
+        }
+      }
+    }
+
+    const vatAmount = (amount * rule.vat_rate) / 100;
+    const amountIncl = amount + vatAmount;
+
     await supabase.from("charges").insert({
-      lease_id: lease.id,
-      tenant_id: lease.tenant_id,
-      property_id: lease.property_id,
+      lease_id: leaseId,
+      tenant_id: lease?.tenant_id,
+      property_id: lease?.property_id,
       entity_id: entityId,
-      charge_type: "rent",
-      description: "Monthly Rental",
-      amount_excl_vat: lease.monthly_rental,
-      vat_rate: 15,
-      vat_amount: vatAmount,
-      amount_incl_vat: lease.monthly_rental + vatAmount,
-      recurrence_rule: { frequency: "monthly", day: 1, start: startDate, end: endDate },
-      escalation_rule: lease.escalation_percent && lease.escalation_percent > 0
-        ? { percentage: lease.escalation_percent, frequency: "annual", month: new Date(startDate).getMonth() + 1 }
-        : {},
-      recovery_method: "fixed",
-      gl_code: "4100-001",
+      charge_type: rule.rule_type,
+      description: chargeDesc,
+      amount_excl_vat: Math.round(amount * 100) / 100,
+      vat_rate: rule.vat_rate,
+      vat_amount: Math.round(vatAmount * 100) / 100,
+      amount_incl_vat: Math.round(amountIncl * 100) / 100,
+      recurrence_rule: { frequency: rule.frequency, period: periodName },
+      recovery_method: rule.recovery_method || "fixed",
+      gl_code: rule.gl_code,
       is_active: true,
-    });
-    created++;
-  }
-
-  // Utility Recovery placeholder
-  const { data: existingUtility } = await supabase
-    .from("charges")
-    .select("id")
-    .eq("lease_id", lease.id)
-    .eq("charge_type", "utility_recovery")
-    .eq("is_active", true);
-
-  if (!existingUtility || existingUtility.length === 0) {
-    await supabase.from("charges").insert({
-      lease_id: lease.id,
-      tenant_id: lease.tenant_id,
-      property_id: lease.property_id,
-      entity_id: entityId,
-      charge_type: "utility_recovery",
-      description: "Utility Recovery",
-      amount_excl_vat: 0,
-      vat_rate: 15,
-      vat_amount: 0,
-      amount_incl_vat: 0,
-      recurrence_rule: { frequency: "monthly", day: 1, start: startDate, end: endDate },
-      recovery_method: "variable",
-      gl_code: "4200-001",
-      is_active: true,
+      status: "posted",
+      billing_period: periodName,
+      financial_period: periodName,
     });
     created++;
   }
@@ -83,7 +116,11 @@ export async function generateChargesForLease(leaseId: string): Promise<number> 
   return created;
 }
 
-export async function generateChargesForAllLeases(): Promise<{ total: number; created: number }> {
+export async function generateChargesForPeriod(
+  periodStart: string,
+  periodEnd: string
+): Promise<{ total: number; created: number }> {
+  // Get all active leases
   const { data: leases } = await supabase
     .from("leases")
     .select("id")
@@ -94,7 +131,7 @@ export async function generateChargesForAllLeases(): Promise<{ total: number; cr
 
   let totalCreated = 0;
   for (const lease of leases) {
-    totalCreated += await generateChargesForLease(lease.id);
+    totalCreated += await generateChargesFromRules(lease.id, periodStart, periodEnd);
   }
 
   return { total: leases.length, created: totalCreated };

@@ -42,6 +42,7 @@ const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   return () => document.removeEventListener("keydown", handleKeyDown);
 }, []);
 
+
   function NavItem({ item, showLabel }: { item: any; showLabel: boolean }) {
     const isActive = pathname === item.href;
     const icons: Record<string, string> = {

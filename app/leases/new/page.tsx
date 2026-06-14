@@ -4,237 +4,121 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { extractRulesFromLease } from "@/lib/revenue/rule-extractor";
-export default function NewLeasePage() {
+import { PageHeader } from "../../components/layout/PageHeader";
 
+export default function NewLeasePage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
   const [leaseId, setLeaseId] = useState("");
   const [tenantName, setTenantName] = useState("");
   const [propertyName, setPropertyName] = useState("");
   const [monthlyRental, setMonthlyRental] = useState("");
-  const [renewalStage, setRenewalStage] = useState("");
-  const [vacancyRisk, setVacancyRisk] = useState("");
-
-  const [companyRegistration, setCompanyRegistration] = useState("");
-  const [vatNumber, setVatNumber] = useState("");
-  const [commencementDate, setCommencementDate] = useState("");
-  const [expiryDate, setExpiryDate] = useState("");
   const [escalationPercent, setEscalationPercent] = useState("");
   const [depositAmount, setDepositAmount] = useState("");
+  const [parkingBays, setParkingBays] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
-  async function handleCreateLease() {
-  const { data, error } = await supabase
-    .from("leases")
-    .insert([
-      {
+  async function handleCreate() {
+    if (!leaseId || !tenantName) {
+      alert("Lease ID and Tenant Name are required.");
+      return;
+    }
+
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("leases")
+      .insert({
+         client_id: "C001", 
         lease_id: leaseId,
-        entity_code: "SPH",
         tenant_name: tenantName,
-        property_name: propertyName,
-        company_registration: companyRegistration,
-        vat_number: vatNumber,
-        commencement_date: commencementDate,
-        expiry_date: expiryDate,
-        escalation_percent: escalationPercent,
-        deposit_amount: depositAmount,
-        monthly_rental: monthlyRental,
-        renewal_stage: renewalStage,
-        vacancy_risk: vacancyRisk,
-      },
-    ])
-    .select("id")
-    .single();
+        property_name: propertyName || null,
+        monthly_rental: monthlyRental ? parseFloat(monthlyRental) : null,
+        escalation_percent: escalationPercent ? parseFloat(escalationPercent) : null,
+        deposit_amount: depositAmount ? parseFloat(depositAmount) : null,
+        parking_bays: parkingBays ? parseInt(parkingBays) : null,
+        lease_start_date: startDate || null,
+        lease_end_date: endDate || null,
+        lease_status: "Active",
+      })
+      .select("id")
+      .single();
 
-  if (error) {
-    console.error(error);
-    alert("Error creating lease");
-  } else if (data) {
-    // Auto-extract billing rules from the new lease
-    await extractRulesFromLease(data.id);
-    alert("Lease created successfully");
-    router.push("/leases");
+    if (error) {
+      console.error(error);
+      alert("Error creating lease: " + error.message);
+    } else if (data) {
+      await extractRulesFromLease(data.id);
+      alert("Lease created successfully. Billing rules extracted.");
+      router.push("/leases");
+    }
+
+    setLoading(false);
   }
-}
 
   return (
-    <main className="min-h-screen bg-gray-100 p-10 text-black">
+    <div className="mx-auto max-w-3xl space-y-8 px-6 pt-8 pb-12">
+      <PageHeader title="New Lease" subtitle="Create a new lease. Billing rules will be extracted automatically." />
 
-      <h1 className="text-4xl font-bold mb-8">
-        Create New Lease
-      </h1>
-
-      <div className="bg-white rounded-xl shadow p-8 max-w-4xl space-y-6">
-
-        <div className="grid grid-cols-2 gap-6">
-
+      <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6 space-y-5">
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block mb-2 font-semibold">
-              Lease ID
-            </label>
-
-            <input
-              type="text"
-              value={leaseId}
-              onChange={(e) => setLeaseId(e.target.value)}
-              className="w-full border rounded-lg p-3"
-              placeholder="L002"
-            />
+            <label className="block text-xs text-zinc-500 mb-1.5">Lease ID *</label>
+            <input type="text" value={leaseId} onChange={(e) => setLeaseId(e.target.value)}
+              className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" placeholder="e.g. L004" />
           </div>
-
           <div>
-            <label className="block mb-2 font-semibold">
-              Tenant Name
-            </label>
-
-            <input
-              type="text"
-              value={tenantName}
-              onChange={(e) => setTenantName(e.target.value)}
-              className="w-full border rounded-lg p-3"
-            />
+            <label className="block text-xs text-zinc-500 mb-1.5">Tenant Name *</label>
+            <input type="text" value={tenantName} onChange={(e) => setTenantName(e.target.value)}
+              className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" placeholder="e.g. Shoprite SA" />
           </div>
-
           <div>
-            <label className="block mb-2 font-semibold">
-              Property Name
-            </label>
-
-            <input
-              type="text"
-              value={propertyName}
-              onChange={(e) => setPropertyName(e.target.value)}
-              className="w-full border rounded-lg p-3"
-            />
+            <label className="block text-xs text-zinc-500 mb-1.5">Property Name</label>
+            <input type="text" value={propertyName} onChange={(e) => setPropertyName(e.target.value)}
+              className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" placeholder="e.g. Sandton Mall" />
           </div>
-
           <div>
-            <label className="block mb-2 font-semibold">
-              Monthly Rental
-            </label>
-
-            <input
-              type="number"
-              value={monthlyRental}
-              onChange={(e) => setMonthlyRental(e.target.value)}
-              className="w-full border rounded-lg p-3"
-            />
+            <label className="block text-xs text-zinc-500 mb-1.5">Monthly Rental</label>
+            <input type="number" value={monthlyRental} onChange={(e) => setMonthlyRental(e.target.value)}
+              className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 tabular-nums" placeholder="0.00" />
           </div>
-
           <div>
-            <label className="block mb-2 font-semibold">
-              Renewal Stage
-            </label>
-
-            <input
-              type="text"
-              value={renewalStage}
-              onChange={(e) => setRenewalStage(e.target.value)}
-              className="w-full border rounded-lg p-3"
-            />
+            <label className="block text-xs text-zinc-500 mb-1.5">Escalation %</label>
+            <input type="number" value={escalationPercent} onChange={(e) => setEscalationPercent(e.target.value)}
+              className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" placeholder="7" />
           </div>
-
           <div>
-            <label className="block mb-2 font-semibold">
-              Vacancy Risk
-            </label>
-
-            <input
-              type="text"
-              value={vacancyRisk}
-              onChange={(e) => setVacancyRisk(e.target.value)}
-              className="w-full border rounded-lg p-3"
-            />
+            <label className="block text-xs text-zinc-500 mb-1.5">Deposit Amount</label>
+            <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)}
+              className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 tabular-nums" placeholder="0.00" />
           </div>
-
           <div>
-            <label className="block mb-2 font-semibold">
-              Company Registration
-            </label>
-
-            <input
-              type="text"
-              value={companyRegistration}
-              onChange={(e) => setCompanyRegistration(e.target.value)}
-              className="w-full border rounded-lg p-3"
-            />
+            <label className="block text-xs text-zinc-500 mb-1.5">Parking Bays</label>
+            <input type="number" value={parkingBays} onChange={(e) => setParkingBays(e.target.value)}
+              className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" placeholder="0" />
           </div>
-
           <div>
-            <label className="block mb-2 font-semibold">
-              VAT Number
-            </label>
-
-            <input
-              type="text"
-              value={vatNumber}
-              onChange={(e) => setVatNumber(e.target.value)}
-              className="w-full border rounded-lg p-3"
-            />
+            <label className="block text-xs text-zinc-500 mb-1.5">Start Date</label>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+              className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" />
           </div>
-
           <div>
-            <label className="block mb-2 font-semibold">
-              Commencement Date
-            </label>
-
-            <input
-              type="date"
-              value={commencementDate}
-              onChange={(e) => setCommencementDate(e.target.value)}
-              className="w-full border rounded-lg p-3"
-            />
+            <label className="block text-xs text-zinc-500 mb-1.5">End Date</label>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+              className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" />
           </div>
-
-          <div>
-            <label className="block mb-2 font-semibold">
-              Expiry Date
-            </label>
-
-            <input
-              type="date"
-              value={expiryDate}
-              onChange={(e) => setExpiryDate(e.target.value)}
-              className="w-full border rounded-lg p-3"
-            />
-          </div>
-
-          <div>
-            <label className="block mb-2 font-semibold">
-              Escalation %
-            </label>
-
-            <input
-              type="number"
-              value={escalationPercent}
-              onChange={(e) => setEscalationPercent(e.target.value)}
-              className="w-full border rounded-lg p-3"
-            />
-          </div>
-
-          <div>
-            <label className="block mb-2 font-semibold">
-              Deposit Amount
-            </label>
-
-            <input
-              type="number"
-              value={depositAmount}
-              onChange={(e) => setDepositAmount(e.target.value)}
-              className="w-full border rounded-lg p-3"
-            />
-          </div>
-
         </div>
 
         <button
-          onClick={handleCreateLease}
-          className="bg-black text-white px-6 py-3 rounded-lg"
+          onClick={handleCreate}
+          disabled={loading}
+          className="w-full rounded-2xl bg-white text-black px-6 py-3 text-sm font-semibold hover:bg-zinc-200 disabled:opacity-40"
         >
-          Create Lease
+          {loading ? "Creating..." : "Create Lease"}
         </button>
-
       </div>
-
-    </main>
+    </div>
   );
 }
