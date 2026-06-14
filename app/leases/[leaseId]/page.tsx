@@ -42,6 +42,8 @@ export default function LeaseDetailPage() {
   const [activeTab, setActiveTab] = useState<"details" | "billing" | "communications">("details");
   const [loading, setLoading] = useState(true);
   const [timeline, setTimeline] = useState<any[]>([]);
+  const [prefs, setPrefs] = useState<any[]>([]);
+const [savingPrefs, setSavingPrefs] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -85,6 +87,17 @@ export default function LeaseDetailPage() {
     }
   }
   loadTimeline();
+}, [lease]);
+useEffect(() => {
+  async function loadPrefs() {
+    if (!lease?.tenant_id) return;
+    const { data } = await supabase
+      .from("tenant_communication_prefs")
+      .select("*")
+      .eq("tenant_id", lease.tenant_id);
+    if (data) setPrefs(data);
+  }
+  loadPrefs();
 }, [lease]);
 
   if (loading) {
@@ -283,7 +296,58 @@ export default function LeaseDetailPage() {
             </div>
             <span className="text-xs text-zinc-500">{timeline.length} messages</span>
           </div>
-
+<div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+  <div className="flex items-center justify-between mb-3">
+    <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Communication Preferences</p>
+  </div>
+  <div className="grid grid-cols-2 gap-2">
+    {["receipt_issued", "invoice_distributed", "statement_available", "lease_expiring", "payment_overdue", "maintenance_scheduled"].map(event => {
+      const whatsappPref = prefs.find(p => p.event_type === event && p.channel === "whatsapp");
+      const isEnabled = whatsappPref ? whatsappPref.is_enabled : true;
+      
+      return (
+        <div key={event} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-black/40 px-3 py-2">
+          <span className="text-xs text-zinc-400">{event.replace(/_/g, " ")}</span>
+          <button
+            onClick={async () => {
+              if (!lease?.tenant_id) return;
+              setSavingPrefs(true);
+              
+              if (whatsappPref) {
+                await supabase
+                  .from("tenant_communication_prefs")
+                  .update({ is_enabled: !isEnabled })
+                  .eq("id", whatsappPref.id);
+              } else {
+                await supabase
+                  .from("tenant_communication_prefs")
+                  .insert({
+                    tenant_id: lease.tenant_id,
+                    event_type: event,
+                    channel: "whatsapp",
+                    is_enabled: false,
+                  });
+              }
+              
+              const { data } = await supabase
+                .from("tenant_communication_prefs")
+                .select("*")
+                .eq("tenant_id", lease.tenant_id);
+              if (data) setPrefs(data);
+              setSavingPrefs(false);
+            }}
+            disabled={savingPrefs}
+            className={`text-xs px-2 py-1 rounded-lg transition-colors ${
+              isEnabled ? "bg-emerald-500/10 text-emerald-300" : "bg-zinc-800 text-zinc-500"
+            }`}
+          >
+            {isEnabled ? "WhatsApp ON" : "WhatsApp OFF"}
+          </button>
+        </div>
+      );
+    })}
+  </div>
+</div>
           {timeline.length === 0 ? (
             <p className="text-zinc-500 text-sm py-4">No communications yet.</p>
           ) : (

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { PageHeader } from "@/app/components/layout/PageHeader";
+
 import { triggerCommunication } from "@/lib/communications/communication-service";
 type BillingStats = {
   totalTenants: number;
@@ -138,6 +139,17 @@ if (!mounted) return null;
     setNextStatementPeriod("August 2026");
     setShowCloseStatementConfirm(false);
     showToast("success", "July Statement Period closed. August period opened. Receipting re-enabled.");
+    triggerCommunication({
+  tenant_id: "00000000-0000-0000-0000-000000000011",
+  event_type: "statement_available",
+  source_type: "statement",
+  source_id: "STM-2026-07",
+  merge_data: {
+    tenant_name: "Shoprite SA",
+    period: "July 2026",
+    link: "https://assetflow.app/statements/STM-2026-07",
+  },
+});
     // Notify tenants that statements are available
 triggerCommunication({
   tenant_id: "00000000-0000-0000-0000-000000000011",

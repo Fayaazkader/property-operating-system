@@ -76,6 +76,9 @@ const [messageHealth, setMessageHealth] = useState<any>(null);
   const [distributionStarted, setDistributionStarted] = useState(false);
   const [showDistributeConfirm, setShowDistributeConfirm] = useState(false);
   const [showClosePeriodConfirm, setShowClosePeriodConfirm] = useState(false);
+  const [showBulkSend, setShowBulkSend] = useState(false);
+const [bulkEventType, setBulkEventType] = useState("payment_overdue");
+const [bulkSending, setBulkSending] = useState(false);
   const [billingStats] = useState({ totalTenants: 214, billed: 0, outstanding: 214, blocked: 0, blockedReasons: [] as { reason: string; count: number }[] });
 
   const userRole = "finance_manager";
@@ -166,7 +169,13 @@ useEffect(() => {
     setMessageHealth(health);
   }
   loadHealth();
-}, [distributionStarted]);
+}, [distributionStarted, loading]);
+useEffect(() => {
+  getMessageHealth().then(data => {
+    console.log("Message health data:", data);
+    setMessageHealth(data);
+  });
+}, []);
 
   function showToast(type: "success" | "error", text: string) {
     setToast({ type, text });
@@ -293,33 +302,8 @@ triggerCommunication({
     <p className="text-xs uppercase tracking-[0.2em] text-blue-300 font-semibold">
       ⚡ {escalationsDue.length} Escalations Due — {new Date().toLocaleDateString("en-ZA", { month: "long", year: "numeric" })}
     </p>
-    {messageHealth && messageHealth.today_total > 0 && (
-  <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
-    <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-4">Message Health — Today</p>
-    <div className="grid grid-cols-5 gap-4">
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
-        <p className="text-2xl font-bold text-white">{messageHealth.today_total}</p>
-        <p className="text-xs text-zinc-500">Sent</p>
-      </div>
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
-        <p className="text-2xl font-bold text-blue-400">{messageHealth.delivered}</p>
-        <p className="text-xs text-zinc-500">Delivered</p>
-      </div>
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
-        <p className="text-2xl font-bold text-emerald-400">{messageHealth.read}</p>
-        <p className="text-xs text-zinc-500">Read</p>
-      </div>
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
-        <p className="text-2xl font-bold text-red-400">{messageHealth.failed}</p>
-        <p className="text-xs text-zinc-500">Failed</p>
-      </div>
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
-        <p className="text-2xl font-bold text-amber-400">{messageHealth.pending_retries}</p>
-        <p className="text-xs text-zinc-500">Retrying</p>
-      </div>
-    </div>
-  </div>
-)}
+    
+
     <div className="mt-2 space-y-1">
       {escalationsDue.map((esc, i) => (
         <div key={i} className="flex items-center justify-between text-sm">
@@ -336,6 +320,35 @@ triggerCommunication({
     </div>
   </div>
 )}
+      {messageHealth && (
+        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-4">Message Health — Today</p>
+          <div className="grid grid-cols-5 gap-4">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
+              <p className="text-2xl font-bold text-white">{messageHealth.today_total}</p>
+              <p className="text-xs text-zinc-500">Sent</p>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
+              <p className="text-2xl font-bold text-blue-400">{messageHealth.delivered}</p>
+              <p className="text-xs text-zinc-500">Delivered</p>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
+              <p className="text-2xl font-bold text-emerald-400">{messageHealth.read}</p>
+              <p className="text-xs text-zinc-500">Read</p>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
+              <p className="text-2xl font-bold text-red-400">{messageHealth.failed}</p>
+              <p className="text-xs text-zinc-500">Failed</p>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
+              <p className="text-2xl font-bold text-amber-400">{messageHealth.pending_retries}</p>
+              <p className="text-xs text-zinc-500">Retrying</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipting Locked Banner */}
       {/* Receipting Locked Banner */}
       {distributionStarted && (
         <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4">
@@ -417,7 +430,12 @@ triggerCommunication({
     📋 Preview Distribution Report
   </button>
 )}
-
+<button
+  onClick={() => setShowBulkSend(true)}
+  className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-3 text-sm font-semibold text-red-300 hover:bg-red-500/20"
+>
+  Bulk Arrears Reminder
+</button>
       
         {/* Actions */}
         <div className="flex gap-3 mt-4">
@@ -430,6 +448,7 @@ triggerCommunication({
             <button onClick={handleClosePeriod} className="flex-1 rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-500">
               Close {CURRENT_STATEMENT_PERIOD} Period — Re-enable Receipting
             </button>
+            
           ) : (
             <button onClick={handleDistribute} disabled={!filterValue && filterType !== "all"}
               className="flex-1 rounded-2xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-40">
@@ -754,6 +773,75 @@ triggerCommunication({
 
       <div className="px-6 py-4 border-t border-zinc-800 flex justify-end">
         <button onClick={() => setPreviewTenant(null)} className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white">Close</button>
+      </div>
+    </div>
+  </div>
+)}
+{/* Bulk Send Modal */}
+{showBulkSend && (
+  <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowBulkSend(false)}>
+    <div onClick={(e) => e.stopPropagation()} className="bg-black border border-zinc-800 rounded-3xl w-full max-w-md mx-4 shadow-2xl p-6">
+      <p className="text-sm font-semibold text-white mb-2">Bulk Communication</p>
+      <p className="text-xs text-zinc-500 mb-4">Send arrears reminders to all tenants with outstanding balances.</p>
+      
+      <div className="space-y-3 mb-4">
+        <div>
+          <label className="block text-xs text-zinc-500 mb-1.5">Event Type</label>
+          <select value={bulkEventType} onChange={(e) => setBulkEventType(e.target.value)}
+            className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600">
+            <option value="payment_overdue">Arrears Reminder</option>
+            <option value="lease_expiring">Lease Expiry Warning</option>
+            <option value="statement_available">Statement Available</option>
+          </select>
+        </div>
+      </div>
+
+      <p className="text-xs text-zinc-500 mb-4">
+        This will send messages to all tenants with {bulkEventType === "payment_overdue" ? "outstanding balances" : "active leases"}. 
+        Only tenants with WhatsApp enabled will receive messages.
+      </p>
+
+      <div className="flex gap-3 justify-end">
+        <button onClick={() => setShowBulkSend(false)} className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white">
+          Cancel
+        </button>
+        <button
+          onClick={async () => {
+            setBulkSending(true);
+            const { data: tenants } = await supabase
+              .from("tenants")
+              .select("id, tenant_name")
+              .eq("whatsapp_enabled", true);
+            
+            let sent = 0;
+            if (tenants) {
+              for (const tenant of tenants) {
+                await triggerCommunication({
+                  tenant_id: tenant.id,
+                  event_type: bulkEventType,
+                  source_type: "bulk",
+                  source_id: `BULK-${Date.now()}`,
+                  merge_data: {
+                    tenant_name: tenant.tenant_name,
+                    amount: "outstanding",
+                    period: "current",
+                    link: "https://assetflow.app/statements",
+                    lease_ref: "your lease",
+                    expiry_date: "soon",
+                  },
+                });
+                sent++;
+              }
+            }
+            showToast("success", `Sent to ${sent} tenants.`);
+            setBulkSending(false);
+            setShowBulkSend(false);
+          }}
+          disabled={bulkSending}
+          className="rounded-2xl bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-40"
+        >
+          {bulkSending ? "Sending..." : "Send to All"}
+        </button>
       </div>
     </div>
   </div>
