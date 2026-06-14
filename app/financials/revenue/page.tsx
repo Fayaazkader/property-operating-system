@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { triggerCommunication } from "@/lib/communications/communication-service";
 import { generateChargesForPeriod } from "@/lib/revenue/charge-generator";
 import { PageHeader } from "@/app/components/layout/PageHeader";
-
+import { getMessageHealth } from "@/lib/communications/communication-service";
 type GLCodes = { id: string; code: string; description: string; category: string };
 type BillingCode = { id: string; code: string; description: string; vat_rate: number; gl_code: string; is_recoverable: boolean };
 type ManualLine = {
@@ -70,6 +71,7 @@ const [allTenants, setAllTenants] = useState<any[]>([]);
 const allTenantOptions = allTenants.map(t => ({ id: t.id, label: t.tenant_name }));
 const [previewTenant, setPreviewTenant] = useState<any>(null);
 const [showFullPreview, setShowFullPreview] = useState(false);
+const [messageHealth, setMessageHealth] = useState<any>(null);
   // Distribution state
   const [distributionStarted, setDistributionStarted] = useState(false);
   const [showDistributeConfirm, setShowDistributeConfirm] = useState(false);
@@ -158,6 +160,13 @@ useEffect(() => {
     }
     loadAllTenants();
   }, []);
+  useEffect(() => {
+  async function loadHealth() {
+    const health = await getMessageHealth();
+    setMessageHealth(health);
+  }
+  loadHealth();
+}, [distributionStarted]);
 
   function showToast(type: "success" | "error", text: string) {
     setToast({ type, text });
@@ -233,6 +242,19 @@ useEffect(() => {
     setDistributionStarted(true);
     setShowDistributeConfirm(false);
     showToast("success", "Statements distributed. Receipting paused until period closes. You may continue adding charges and regenerating statements.");
+    // Trigger communications for distributed invoices
+triggerCommunication({
+  tenant_id: "00000000-0000-0000-0000-000000000011", // Shoprite
+  event_type: "invoice_distributed",
+  source_type: "invoice",
+  source_id: "INV-2026-045",
+  merge_data: {
+    tenant_name: "Shoprite SA",
+    period: "July 2026",
+    total: "97,500",
+    link: "https://assetflow.app/invoices/INV-2026-045",
+  },
+}).then(id => console.log("Communication sent:", id));
   }
 
   function handleClosePeriod() {
@@ -271,6 +293,33 @@ useEffect(() => {
     <p className="text-xs uppercase tracking-[0.2em] text-blue-300 font-semibold">
       ⚡ {escalationsDue.length} Escalations Due — {new Date().toLocaleDateString("en-ZA", { month: "long", year: "numeric" })}
     </p>
+    {messageHealth && messageHealth.today_total > 0 && (
+  <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+    <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-4">Message Health — Today</p>
+    <div className="grid grid-cols-5 gap-4">
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
+        <p className="text-2xl font-bold text-white">{messageHealth.today_total}</p>
+        <p className="text-xs text-zinc-500">Sent</p>
+      </div>
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
+        <p className="text-2xl font-bold text-blue-400">{messageHealth.delivered}</p>
+        <p className="text-xs text-zinc-500">Delivered</p>
+      </div>
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
+        <p className="text-2xl font-bold text-emerald-400">{messageHealth.read}</p>
+        <p className="text-xs text-zinc-500">Read</p>
+      </div>
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
+        <p className="text-2xl font-bold text-red-400">{messageHealth.failed}</p>
+        <p className="text-xs text-zinc-500">Failed</p>
+      </div>
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-center">
+        <p className="text-2xl font-bold text-amber-400">{messageHealth.pending_retries}</p>
+        <p className="text-xs text-zinc-500">Retrying</p>
+      </div>
+    </div>
+  </div>
+)}
     <div className="mt-2 space-y-1">
       {escalationsDue.map((esc, i) => (
         <div key={i} className="flex items-center justify-between text-sm">

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { PageHeader } from "../../components/layout/PageHeader";
 import Link from "next/link";
+import { getTenantTimeline } from "@/lib/communications/communication-service";
 
 type BillingRule = {
   id: string;
@@ -38,8 +39,9 @@ export default function LeaseDetailPage() {
   const [lease, setLease] = useState<any>(null);
   const [rules, setRules] = useState<BillingRule[]>([]);
   const [charges, setCharges] = useState<Charge[]>([]);
-  const [activeTab, setActiveTab] = useState<"details" | "billing">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "billing" | "communications">("details");
   const [loading, setLoading] = useState(true);
+  const [timeline, setTimeline] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchData() {
@@ -75,6 +77,15 @@ export default function LeaseDetailPage() {
     }
     fetchData();
   }, [leaseId]);
+  useEffect(() => {
+  async function loadTimeline() {
+    if (lease?.tenant_id) {
+      const data = await getTenantTimeline(lease.tenant_id);
+      setTimeline(data);
+    }
+  }
+  loadTimeline();
+}, [lease]);
 
   if (loading) {
     return (
@@ -104,7 +115,7 @@ export default function LeaseDetailPage() {
 
       {/* Tabs */}
       <div className="flex gap-3">
-        {(["details", "billing"] as const).map(tab => (
+        {(["details", "billing", "communications"] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -114,7 +125,7 @@ export default function LeaseDetailPage() {
                 : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
             }`}
           >
-            {tab === "billing" ? "Billing Rules" : "Details"}
+                      {tab === "billing" ? "Billing Rules" : tab === "communications" ? "Messages" : "Details"}
           </button>
         ))}
         <Link
@@ -261,6 +272,57 @@ export default function LeaseDetailPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+            {activeTab === "communications" && (
+        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Communication Timeline</p>
+              <p className="text-sm text-zinc-400 mt-1">All messages across all channels</p>
+            </div>
+            <span className="text-xs text-zinc-500">{timeline.length} messages</span>
+          </div>
+
+          {timeline.length === 0 ? (
+            <p className="text-zinc-500 text-sm py-4">No communications yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {timeline.map((msg) => (
+                <div key={msg.id} className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        msg.channel === "whatsapp" ? "bg-emerald-500/10 text-emerald-300" :
+                        msg.channel === "email" ? "bg-blue-500/10 text-blue-300" : "bg-zinc-800 text-zinc-400"
+                      }`}>{msg.channel}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        msg.severity === "CRITICAL" ? "bg-red-500/10 text-red-300" :
+                        msg.severity === "ACTION_REQUIRED" ? "bg-amber-500/10 text-amber-300" : "bg-zinc-800 text-zinc-400"
+                      }`}>{msg.severity}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        msg.status === "read" ? "bg-emerald-500/10 text-emerald-300" :
+                        msg.status === "delivered" ? "bg-blue-500/10 text-blue-300" :
+                        msg.status === "failed" ? "bg-red-500/10 text-red-300" : "bg-zinc-800 text-zinc-400"
+                      }`}>{msg.status}</span>
+                    </div>
+                    <span className="text-xs text-zinc-500">{new Date(msg.created_at).toLocaleString()}</span>
+                  </div>
+                  <p className="text-sm text-zinc-300">{msg.message_body}</p>
+                  {msg.reply_text && (
+                    <div className="mt-2 rounded-xl border border-zinc-700 bg-zinc-900 p-3">
+                      <p className="text-xs text-zinc-500 mb-1">Reply</p>
+                      <p className="text-sm text-zinc-400">{msg.reply_text}</p>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 mt-2 text-xs text-zinc-600">
+                    {msg.source_type && <span>Source: {msg.source_type} · {msg.source_id}</span>}
+                    {msg.retry_count > 0 && <span className="text-amber-400">Retries: {msg.retry_count}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
