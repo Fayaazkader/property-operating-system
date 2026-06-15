@@ -21,23 +21,24 @@ export default async function HomePage() {
     return diff <= 14;
   });
 
-  // Revenue at risk from expiring leases
   const revenueAtRisk = criticalLeases.reduce((sum, l) => sum + ((l.monthly_rental || 0) * 12), 0);
-
   const { data: unallocated } = await supabase.from("bank_transactions").select("transaction_amount").neq("allocation_status", "posted");
   const unallocatedTotal = unallocated?.reduce((s, t) => s + Math.abs(t.transaction_amount || 0), 0) || 0;
-
-  // Vacancy cost — properties with units
   const { data: vacantUnits } = await supabase.from("units").select("gla_sqm, current_rental_rate").eq("occupancy_status", "Vacant");
   const vacancyCost = vacantUnits?.reduce((s, u) => s + ((u.current_rental_rate || 0) || (u.gla_sqm || 0) * 100), 0) || 65000;
 
-  // Revenue Leakage
-  const potentialLeakage = leases?.reduce((sum, l) => {
+  // Revenue Leakage Detection — real
+  const leakageItems: { text: string; amount: number }[] = [];
+  leases?.forEach(l => {
     if ((l.parking_bays || 0) > 0 && (!l.parking_rate || l.parking_rate === 0)) {
-      return sum + (l.parking_bays || 0) * 1000;
+      leakageItems.push({ text: `${l.tenant_name || "Unknown"} — ${l.parking_bays} parking bays with no rate`, amount: (l.parking_bays || 0) * 1000 });
     }
-    return sum;
-  }, 0) || 47500;
+  });
+  const { data: inactiveRules } = await supabase.from("billing_rules").select("*, leases!inner(tenant_name, lease_status)").eq("status", "inactive").eq("leases.lease_status", "Active");
+  inactiveRules?.forEach((r: any) => {
+    leakageItems.push({ text: `${r.leases?.tenant_name || "Unknown"} — ${r.description} (inactive)`, amount: r.base_amount || 0 });
+  });
+  const totalLeakage = leakageItems.reduce((s, i) => s + i.amount, 0);
 
   // Period Status
   const { data: stmtPeriod } = await supabase.from("statement_periods").select("status, period_name").eq("status", "open").order("period_start", { ascending: false }).limit(1).single();
@@ -46,26 +47,13 @@ export default async function HomePage() {
   // Activity Feed
   const activityFeed: { type: string; text: string; amount?: number; date: string }[] = [];
   transactions?.slice(0, 3).forEach(tx => {
-    activityFeed.push({
-      type: tx.transaction_amount >= 0 ? "receipt" : "payment",
-      text: tx.transaction_description || "Transaction",
-      amount: tx.transaction_amount,
-      date: tx.created_at || tx.transaction_date || "",
-    });
+    activityFeed.push({ type: tx.transaction_amount >= 0 ? "receipt" : "payment", text: tx.transaction_description || "Transaction", amount: tx.transaction_amount, date: tx.created_at || tx.transaction_date || "" });
   });
   recentLeases?.slice(0, 2).forEach(l => {
-    activityFeed.push({
-      type: "lease",
-      text: `Lease created: ${l.tenant_name || "Unknown"}`,
-      date: l.created_at || "",
-    });
+    activityFeed.push({ type: "lease", text: `Lease created: ${l.tenant_name || "Unknown"}`, date: l.created_at || "" });
   });
   communications?.slice(0, 2).forEach(c => {
-    activityFeed.push({
-      type: "communication",
-      text: `${c.event_type?.replace(/_/g, " ")} sent to tenant`,
-      date: c.created_at || "",
-    });
+    activityFeed.push({ type: "communication", text: `${c.event_type?.replace(/_/g, " ")} sent to tenant`, date: c.created_at || "" });
   });
   activityFeed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -95,18 +83,26 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-10 px-6 pt-12 pb-20">
-      {/* Greeting */}
       <div className="space-y-2">
         <p className="text-sm tracking-[0.2em] uppercase text-[var(--text-muted)]">Morning Brief</p>
-        <h1 className="text-4xl font-semibold tracking-tight text-[var(--text-primary)]">
-          {greeting}
-        </h1>
+        <h1 className="text-4xl font-semibold tracking-tight text-[var(--text-primary)]">{greeting}</h1>
         <p className="text-lg text-[var(--text-secondary)] leading-relaxed">
-          {portfolioHealthy
-            ? "Your portfolio is healthy. A few items need attention."
-            : `${attentionItems.length} items require attention. ${criticalLeases.length} ${criticalLeases.length === 1 ? "is" : "are"} critical.`}
+          {portfolioHealthy ? "Your portfolio is healthy. A few items need attention." : `${attentionItems.length} items require attention. ${criticalLeases.length} ${criticalLeases.length === 1 ? "is" : "are"} critical.`}
         </p>
       </div>
+
+      {/* Don't Forget */}
+      {attentionItems.length > 0 && (
+        <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
+          <p className="text-xs tracking-[0.2em] uppercase text-blue-300 mb-1">Don't Forget</p>
+          <p className="text-sm text-[var(--text-primary)]">{attentionItems.length} thing{attentionItems.length !== 1 ? 's' : ''} need attention this week</p>
+          <div className="mt-2 space-y-1">
+            {attentionItems.slice(0, 5).map((item, i) => (
+              <p key={i} className="text-xs text-blue-400/70">• {item.text}</p>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Period Status */}
       <div className="flex gap-3">
@@ -130,8 +126,7 @@ export default async function HomePage() {
           <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)]">What Needs Attention</p>
           <div className="space-y-3">
             {attentionItems.map((item, i) => (
-              <Link key={i} href={item.href}
-                className="block rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5 hover:border-[var(--border-hover)] transition-all group">
+              <Link key={i} href={item.href} className="block rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5 hover:border-[var(--border-hover)] transition-all group">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1">
                     <span className={`text-[10px] tracking-[0.2em] uppercase font-semibold ${item.level === "CRITICAL" ? "text-[var(--danger)]" : item.level === "HIGH" ? "text-[var(--warning)]" : "text-[var(--text-muted)]"}`}>{item.level}</span>
@@ -148,24 +143,10 @@ export default async function HomePage() {
 
       {/* Portfolio Health */}
       <div className="grid grid-cols-4 gap-6">
-        <div className="space-y-1">
-          <p className="text-xs text-[var(--text-muted)]">Contracted Revenue</p>
-          <p className="text-2xl font-semibold text-[var(--text-primary)] tabular-nums">R{totalContractedRevenue.toLocaleString()}</p>
-          <p className="text-xs text-[var(--text-muted)]">Monthly</p>
-        </div>
-        <div className="space-y-1">
-          <p className="text-xs text-[var(--text-muted)]">Unallocated Receipts</p>
-          <p className={`text-2xl font-semibold tabular-nums ${unallocatedTotal > 0 ? "text-[var(--warning)]" : "text-[var(--text-primary)]"}`}>R{unallocatedTotal.toLocaleString()}</p>
-        </div>
-        <div className="space-y-1">
-          <p className="text-xs text-[var(--text-muted)]">Expiring Leases</p>
-          <p className={`text-2xl font-semibold tabular-nums ${expiringLeases.length > 0 ? "text-[var(--warning)]" : "text-[var(--text-primary)]"}`}>{expiringLeases.length}</p>
-          <p className="text-xs text-[var(--text-muted)]">{criticalLeases.length} Critical · {expiringLeases.length - criticalLeases.length} Within 30 Days</p>
-        </div>
-        <div className="space-y-1">
-          <p className="text-xs text-[var(--text-muted)]">Status</p>
-          <p className={`text-2xl font-semibold ${portfolioHealthy ? "text-[var(--accent)]" : "text-[var(--warning)]"}`}>{portfolioHealthy ? "Healthy" : "Needs Review"}</p>
-        </div>
+        <div className="space-y-1"><p className="text-xs text-[var(--text-muted)]">Contracted Revenue</p><p className="text-2xl font-semibold text-[var(--text-primary)] tabular-nums">R{totalContractedRevenue.toLocaleString()}</p><p className="text-xs text-[var(--text-muted)]">Monthly</p></div>
+        <div className="space-y-1"><p className="text-xs text-[var(--text-muted)]">Unallocated Receipts</p><p className={`text-2xl font-semibold tabular-nums ${unallocatedTotal > 0 ? "text-[var(--warning)]" : "text-[var(--text-primary)]"}`}>R{unallocatedTotal.toLocaleString()}</p></div>
+        <div className="space-y-1"><p className="text-xs text-[var(--text-muted)]">Expiring Leases</p><p className={`text-2xl font-semibold tabular-nums ${expiringLeases.length > 0 ? "text-[var(--warning)]" : "text-[var(--text-primary)]"}`}>{expiringLeases.length}</p><p className="text-xs text-[var(--text-muted)]">{criticalLeases.length} Critical · {expiringLeases.length - criticalLeases.length} Within 30 Days</p></div>
+        <div className="space-y-1"><p className="text-xs text-[var(--text-muted)]">Status</p><p className={`text-2xl font-semibold ${portfolioHealthy ? "text-[var(--accent)]" : "text-[var(--warning)]"}`}>{portfolioHealthy ? "Healthy" : "Needs Review"}</p></div>
       </div>
 
       {/* Revenue At Risk + Vacancy Cost + My Work + Leakage */}
@@ -192,12 +173,23 @@ export default async function HomePage() {
             <div className="flex justify-between text-sm"><span className="text-[var(--text-primary)]">Lease Reviews</span><span className="text-[var(--text-primary)] font-medium">1</span></div>
           </div>
         </div>
-        {potentialLeakage > 0 && (
+        {totalLeakage > 0 ? (
           <Link href="/financials/revenue" className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 hover:border-amber-500/40 transition-all">
             <p className="text-xs tracking-[0.2em] uppercase text-amber-300 mb-1">Revenue Leakage</p>
-            <p className="text-2xl font-bold text-amber-300 tabular-nums">R{potentialLeakage.toLocaleString()}</p>
-            <p className="text-xs text-amber-400/70 mt-2">Potential loss detected · Click to review</p>
+            <p className="text-2xl font-bold text-amber-300 tabular-nums">R{totalLeakage.toLocaleString()}</p>
+            <div className="mt-2 space-y-1">
+              {leakageItems.slice(0, 3).map((item, i) => (
+                <p key={i} className="text-xs text-amber-400/70">{item.text} · R{item.amount.toLocaleString()}</p>
+              ))}
+              {leakageItems.length > 3 && <p className="text-xs text-amber-400/50">+{leakageItems.length - 3} more</p>}
+            </div>
           </Link>
+        ) : (
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
+            <p className="text-xs tracking-[0.2em] uppercase text-emerald-300 mb-1">Revenue Leakage</p>
+            <p className="text-2xl font-bold text-emerald-300">R0</p>
+            <p className="text-xs text-emerald-400/70 mt-2">No leakage detected ✅</p>
+          </div>
         )}
       </div>
 
@@ -222,7 +214,6 @@ export default async function HomePage() {
         </div>
       )}
 
-      {/* Quick Actions */}
       <div className="space-y-3">
         <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)]">Actions</p>
         <div className="flex flex-wrap gap-2">
