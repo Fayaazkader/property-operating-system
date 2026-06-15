@@ -17,12 +17,18 @@ export default function NewLeasePage() {
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState<any>(null);
+  const [createdLeaseId, setCreatedLeaseId] = useState("");
+  
 
   // Dropdown data
   const [entities, setEntities] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [tenants, setTenants] = useState<any[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<any[]>([]);
+  const [companyType, setCompanyType] = useState("Pty Ltd");
+  const [filteredUnits, setFilteredUnits] = useState<any[]>([]);
+const [selectedUnit, setSelectedUnit] = useState("");
+
 
   // Section 1: Lease Information
   const leaseNumber = `LSE-${Date.now().toString().slice(-8)}`;
@@ -34,6 +40,7 @@ export default function NewLeasePage() {
   const [industry, setIndustry] = useState("");
   const [externalReference, setExternalReference] = useState("");
   const [leaseType, setLeaseType] = useState("Retail");
+  const COMPANY_TYPES = ["Pty Ltd", "CC", "Sole Proprietor", "Partnership", "Trust", "NPC", "Other"];
 
   // Section 2: Contacts & Legal (now arrays)
   const [contacts, setContacts] = useState<{ name: string; role: string; email: string; mobile: string }[]>([]);
@@ -77,6 +84,7 @@ export default function NewLeasePage() {
     async function load() {
       const { data: ent } = await supabase.from("entities").select("id, entity_name").order("entity_name");
       const { data: props } = await supabase.from("properties").select("id, property_name, entity_id").order("property_name");
+            console.log("Properties loaded:", props?.length);
       const { data: tens } = await supabase.from("tenants").select("id, tenant_name, vat_number, company_registration, industry").order("tenant_name");
       if (ent) setEntities(ent);
       if (props) setProperties(props);
@@ -85,14 +93,27 @@ export default function NewLeasePage() {
     load();
   }, []);
 
-  // Filter properties by entity
+   // Filter properties by entity
   useEffect(() => {
     if (selectedEntity) {
       setFilteredProperties(properties.filter(p => p.entity_id === selectedEntity));
     } else {
-      setFilteredProperties([]);
+      setFilteredProperties(properties);
     }
   }, [selectedEntity, properties]);
+  useEffect(() => {
+  async function loadUnits() {
+    if (!selectedProperty) { setFilteredUnits([]); return; }
+    const { data } = await supabase
+      .from("units")
+      .select("*")
+      .eq("property_id", selectedProperty)
+      .eq("occupancy_status", "Vacant")
+      .order("unit_number");
+    if (data) setFilteredUnits(data);
+  }
+  loadUnits();
+}, [selectedProperty]);
 
 
   // Readiness calculation
@@ -204,6 +225,7 @@ export default function NewLeasePage() {
       setLoading(false);
     } else if (data) {
       await extractRulesFromLease(data.id);
+            setCreatedLeaseId(data.id);
             await logAudit({
         action: "create",
         resource_type: "lease",
@@ -212,46 +234,29 @@ export default function NewLeasePage() {
         new_values: { tenant_name: selectedTenant, property_name: propertyData?.property_name, monthly_rental: parseFloat(baseRental) },
       });
       setSuccessData({
-        leaseNumber,
-        monthlyRental: parseFloat(baseRental),
-        annualRevenue,
-        revenueStreams: revenueStreams.length,
-        nextEscalation: escalationPercent ? `${new Date(new Date().getFullYear(), escalationMonth - 1).toLocaleDateString("en-ZA", { month: "long" })} ${new Date().getFullYear() + 1}` : "N/A",
-      });
+  leaseId: data.id,
+  leaseNumber,
+  monthlyRental: parseFloat(baseRental),
+  annualRevenue,
+  revenueStreams: revenueStreams.length,
+  nextEscalation: escalationPercent ? `...` : "N/A",
+});
       setShowSuccess(true);
       setLoading(false);
     }
   }
 
-  if (showSuccess && successData) {
+   if (showSuccess && successData) {
     return (
       <div className="mx-auto max-w-2xl space-y-8 px-6 pt-20 pb-12 text-center">
         <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-10">
           <p className="text-5xl mb-4">✅</p>
           <h1 className="text-3xl font-black text-white mb-2">Lease Created</h1>
           <p className="text-zinc-400 mb-2 font-mono">{successData.leaseNumber}</p>
-          <div className="grid grid-cols-2 gap-4 mb-8">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-              <p className="text-xs text-zinc-500">Monthly Revenue</p>
-              <p className="text-2xl font-bold text-white">R{successData.monthlyRental.toLocaleString()}</p>
-            </div>
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-              <p className="text-xs text-zinc-500">Annual Revenue</p>
-              <p className="text-2xl font-bold text-white">R{successData.annualRevenue.toLocaleString()}</p>
-            </div>
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-              <p className="text-xs text-zinc-500">Revenue Streams</p>
-              <p className="text-2xl font-bold text-white">{successData.revenueStreams}</p>
-            </div>
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-              <p className="text-xs text-zinc-500">Next Escalation</p>
-              <p className="text-2xl font-bold text-white">{successData.nextEscalation}</p>
-            </div>
-          </div>
-          <div className="flex gap-3 justify-center">
-            <button onClick={() => router.push(`/leases/${successData.leaseNumber}`)} className="rounded-2xl bg-white text-black px-6 py-3 text-sm font-semibold hover:bg-zinc-200">View Lease</button>
-            <button onClick={() => router.push("/leases/new")} className="rounded-2xl border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white">Create Another</button>
-          </div>
+          <p className="text-zinc-400 mb-8">Monthly Revenue: R{successData.monthlyRental?.toLocaleString()}</p>
+          <a href={`/leases/${successData.leaseId}`} className="inline-block rounded-2xl bg-white text-black px-6 py-3 text-sm font-semibold hover:bg-zinc-200 mb-3">View Lease</a>
+          <br />
+          <a href="/leases/new" className="inline-block rounded-2xl border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white">Create Another</a>
         </div>
       </div>
     );
@@ -292,14 +297,14 @@ export default function NewLeasePage() {
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Lease Type *</label>
                   <select value={leaseType} onChange={(e) => setLeaseType(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600">
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none">
                     {LEASE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Entity *</label>
                   <select value={selectedEntity} onChange={(e) => { setSelectedEntity(e.target.value); setSelectedProperty(""); }}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600">
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none">
                     <option value="">Select entity...</option>
                     {entities.map(e => <option key={e.id} value={e.id}>{e.entity_name}</option>)}
                   </select>
@@ -307,33 +312,40 @@ export default function NewLeasePage() {
                <div>
   <label className="block text-xs text-zinc-500 mb-1.5">Tenant Name *</label>
   <input type="text" value={selectedTenant} onChange={(e) => setSelectedTenant(e.target.value)}
-    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600"
+    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none"
     placeholder="Enter new tenant name" />
 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Registration Number</label>
                   <input type="text" value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">VAT Number</label>
                   <input type="text" value={vatNumber} onChange={(e) => setVatNumber(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Tax Number</label>
                   <input type="text" value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Industry</label>
                   <input type="text" value={industry} onChange={(e) => setIndustry(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                 </div>
+                <div>
+  <label className="block text-xs text-zinc-500 mb-1.5">Company Type</label>
+  <select value={companyType} onChange={(e) => setCompanyType(e.target.value)}
+        className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none">
+    {COMPANY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+  </select>
+</div>
                 <div className="col-span-2">
                   <label className="block text-xs text-zinc-500 mb-1.5">External Reference</label>
                   <input type="text" value={externalReference} onChange={(e) => setExternalReference(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" placeholder="e.g. Attorney file number, legacy system reference" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" placeholder="e.g. Attorney file number, legacy system reference" />
                 </div>
               </div>
             </div>
@@ -352,13 +364,23 @@ export default function NewLeasePage() {
                 {contacts.map((c, i) => (
                   <div key={i} className="grid grid-cols-4 gap-2">
                     <input placeholder="Name" value={c.name} onChange={(e) => { const n = [...contacts]; n[i].name = e.target.value; setContacts(n); }}
-                      className="rounded-xl border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-zinc-600" />
-                    <input placeholder="Role" value={c.role} onChange={(e) => { const n = [...contacts]; n[i].role = e.target.value; setContacts(n); }}
-                      className="rounded-xl border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-zinc-600" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
+                                        <select value={c.role} onChange={(e) => { const n = [...contacts]; n[i].role = e.target.value; setContacts(n); }}
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none">
+                      <option value="">Position</option>
+                      <option value="Accounts Payable">Accounts Payable</option>
+                      <option value="Branch Manager">Branch Manager</option>
+                      <option value="Property Contact">Property Contact</option>
+                      <option value="Legal Contact">Legal Contact</option>
+                      <option value="CFO">CFO</option>
+                      <option value="Director">Director</option>
+                      <option value="Operations Manager">Operations Manager</option>
+                      <option value="Other">Other</option>
+                    </select>
                     <input placeholder="Email" value={c.email} onChange={(e) => { const n = [...contacts]; n[i].email = e.target.value; setContacts(n); }}
-                      className="rounded-xl border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-zinc-600" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
                     <input placeholder="Mobile" value={c.mobile} onChange={(e) => { const n = [...contacts]; n[i].mobile = e.target.value; setContacts(n); }}
-                      className="rounded-xl border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-zinc-600" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
                   </div>
                 ))}
               </div>
@@ -371,11 +393,11 @@ export default function NewLeasePage() {
                 {signatories.map((s, i) => (
                   <div key={i} className="grid grid-cols-3 gap-2">
                     <input placeholder="Name" value={s.name} onChange={(e) => { const n = [...signatories]; n[i].name = e.target.value; setSignatories(n); }}
-                      className="rounded-xl border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-zinc-600" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                     <input placeholder="ID Number" value={s.idNumber} onChange={(e) => { const n = [...signatories]; n[i].idNumber = e.target.value; setSignatories(n); }}
-                      className="rounded-xl border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-zinc-600" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
                     <input placeholder="Capacity" value={s.capacity} onChange={(e) => { const n = [...signatories]; n[i].capacity = e.target.value; setSignatories(n); }}
-                      className="rounded-xl border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-zinc-600" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
                   </div>
                 ))}
               </div>
@@ -388,9 +410,9 @@ export default function NewLeasePage() {
                 {sureties.map((s, i) => (
                   <div key={i} className="grid grid-cols-2 gap-2">
                     <input placeholder="Name" value={s.name} onChange={(e) => { const n = [...sureties]; n[i].name = e.target.value; setSureties(n); }}
-                      className="rounded-xl border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-zinc-600" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                     <input placeholder="ID Number" value={s.idNumber} onChange={(e) => { const n = [...sureties]; n[i].idNumber = e.target.value; setSureties(n); }}
-                      className="rounded-xl border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-zinc-600" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
                   </div>
                 ))}
               </div>
@@ -403,9 +425,9 @@ export default function NewLeasePage() {
                 {resolutions.map((r, i) => (
                   <div key={i} className="grid grid-cols-2 gap-2">
                     <input type="date" value={r.date} onChange={(e) => { const n = [...resolutions]; n[i].date = e.target.value; setResolutions(n); }}
-                      className="rounded-xl border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-zinc-600" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                     <input placeholder="Resolution Number" value={r.number} onChange={(e) => { const n = [...resolutions]; n[i].number = e.target.value; setResolutions(n); }}
-                      className="rounded-xl border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-zinc-600" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
                   </div>
                 ))}
               </div>
@@ -417,43 +439,64 @@ export default function NewLeasePage() {
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-4">Premises</p>
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                                <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Property *</label>
                   <select value={selectedProperty} onChange={(e) => setSelectedProperty(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600">
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none">
                     <option value="">Select property...</option>
                     {filteredProperties.map(p => <option key={p.id} value={p.id}>{p.property_name}</option>)}
                   </select>
                 </div>
                 <div>
+                  <label className="block text-xs text-zinc-500 mb-1.5">Unit *</label>
+                  <select value={selectedUnit} onChange={(e) => {
+                    setSelectedUnit(e.target.value);
+                    const unit = filteredUnits.find(u => u.id === e.target.value);
+                    if (unit) {
+                      setGla(unit.gla_sqm?.toString() || "");
+                      setUnitNumber(unit.unit_number || "");
+                      setParkingBays(unit.parking_bays?.toString() || "");
+                    }
+                  }}
+                    disabled={!selectedProperty}
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none disabled:opacity-30">
+                    <option value="">Select unit...</option>
+                    {filteredUnits.map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.unit_number || u.unit_name} — {u.gla_sqm} sqm {u.unit_type ? `(${u.unit_type})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Unit Number</label>
                   <input type="text" value={unitNumber} onChange={(e) => setUnitNumber(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">GLA (sqm)</label>
                   <input type="number" value={gla} onChange={(e) => setGla(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 tabular-nums" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none tabular-nums" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Storage Area (sqm)</label>
                   <input type="number" value={storageArea} onChange={(e) => setStorageArea(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 tabular-nums" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none tabular-nums" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Parking Bays</label>
                   <input type="number" value={parkingBays} onChange={(e) => setParkingBays(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 tabular-nums" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none tabular-nums" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Parking Rate (R/bay)</label>
                   <input type="number" value={parkingRate} onChange={(e) => setParkingRate(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 tabular-nums" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none tabular-nums" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Floor</label>
                   <input type="text" value={floor} onChange={(e) => setFloor(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                 </div>
               </div>
             </div>
@@ -467,17 +510,17 @@ export default function NewLeasePage() {
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Base Rental (R) *</label>
                   <input type="number" value={baseRental} onChange={(e) => setBaseRental(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 tabular-nums" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none tabular-nums" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Escalation %</label>
                   <input type="number" value={escalationPercent} onChange={(e) => setEscalationPercent(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 tabular-nums" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]  appearance-none tabular-nums" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Escalation Month</label>
                   <select value={escalationMonth} onChange={(e) => setEscalationMonth(parseInt(e.target.value))}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600">
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]  appearance-none">
                     {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => (
                       <option key={m} value={i+1}>{m}</option>
                     ))}
@@ -486,22 +529,22 @@ export default function NewLeasePage() {
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Deposit (R)</label>
                   <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 tabular-nums" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none tabular-nums" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Bank Guarantee (R)</label>
                   <input type="number" value={bankGuarantee} onChange={(e) => setBankGuarantee(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 tabular-nums" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none tabular-nums" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Marketing Levy (R)</label>
                   <input type="number" value={marketingLevy} onChange={(e) => setMarketingLevy(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 tabular-nums" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]  appearance-none tabular-nums" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Security Levy (R)</label>
                   <input type="number" value={securityLevy} onChange={(e) => setSecurityLevy(e.target.value)}
-                    className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 tabular-nums" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none tabular-nums" />
                 </div>
               </div>
               
@@ -516,12 +559,12 @@ export default function NewLeasePage() {
                       <div>
                         <label className="block text-xs text-zinc-500 mb-1">Turnover %</label>
                         <input type="number" value={turnoverPercent} onChange={(e) => setTurnoverPercent(e.target.value)}
-                          className="w-full rounded-xl border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-zinc-600 tabular-nums" />
+                          className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none tabular-nums" />
                       </div>
                       <div>
                         <label className="block text-xs text-zinc-500 mb-1">Breakpoint (R)</label>
                         <input type="number" value={turnoverBreakpoint} onChange={(e) => setTurnoverBreakpoint(e.target.value)}
-                          className="w-full rounded-xl border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-zinc-600 tabular-nums" />
+                          className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none tabular-nums" />
                       </div>
                     </div>
                   )}
@@ -551,12 +594,12 @@ export default function NewLeasePage() {
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-4">Dates & Occupation</p>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs text-zinc-500 mb-1.5">Lease Start *</label><input type="date" value={leaseStart} onChange={(e) => setLeaseStart(e.target.value)} className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" /></div>
-                <div><label className="block text-xs text-zinc-500 mb-1.5">Lease End *</label><input type="date" value={leaseEnd} onChange={(e) => setLeaseEnd(e.target.value)} className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" /></div>
-                <div><label className="block text-xs text-zinc-500 mb-1.5">BO Start</label><input type="date" value={boStart} onChange={(e) => setBoStart(e.target.value)} className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" /></div>
-                <div><label className="block text-xs text-zinc-500 mb-1.5">BO End</label><input type="date" value={boEnd} onChange={(e) => setBoEnd(e.target.value)} className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" /></div>
-                <div><label className="block text-xs text-zinc-500 mb-1.5">Rental Commencement</label><input type="date" value={rentalCommencement} onChange={(e) => setRentalCommencement(e.target.value)} className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600" /></div>
-                <div><label className="block text-xs text-zinc-500 mb-1.5">Notice Period (Days)</label><input type="number" value={noticePeriod} onChange={(e) => setNoticePeriod(e.target.value)} className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 tabular-nums" /></div>
+                <div><label className="block text-xs text-zinc-500 mb-1.5">Lease Start *</label><input type="date" value={leaseStart} onChange={(e) => setLeaseStart(e.target.value)} className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" /></div>
+                <div><label className="block text-xs text-zinc-500 mb-1.5">Lease End *</label><input type="date" value={leaseEnd} onChange={(e) => setLeaseEnd(e.target.value)} className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" /></div>
+                <div><label className="block text-xs text-zinc-500 mb-1.5">BO Start</label><input type="date" value={boStart} onChange={(e) => setBoStart(e.target.value)} className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" /></div>
+                <div><label className="block text-xs text-zinc-500 mb-1.5">BO End</label><input type="date" value={boEnd} onChange={(e) => setBoEnd(e.target.value)} className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" /></div>
+                <div><label className="block text-xs text-zinc-500 mb-1.5">Rental Commencement</label><input type="date" value={rentalCommencement} onChange={(e) => setRentalCommencement(e.target.value)} className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" /></div>
+                <div><label className="block text-xs text-zinc-500 mb-1.5">Notice Period (Days)</label><input type="number" value={noticePeriod} onChange={(e) => setNoticePeriod(e.target.value)} className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none tabular-nums" /></div>
               </div>
               <label className="flex items-center gap-3 mt-2"><input type="checkbox" checked={renewalOption} onChange={(e) => setRenewalOption(e.target.checked)} className="rounded" /><span className="text-sm text-white">Renewal Option Available</span></label>
             </div>
