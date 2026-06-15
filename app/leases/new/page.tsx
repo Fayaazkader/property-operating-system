@@ -255,7 +255,7 @@ console.log("RULES CREATED:", rulesCreated);
           <h1 className="text-3xl font-black text-white mb-2">Lease Created</h1>
           <p className="text-zinc-400 mb-2 font-mono">{successData.leaseNumber}</p>
           <p className="text-zinc-400 mb-8">Monthly Revenue: R{successData.monthlyRental?.toLocaleString()}</p>
-          <a href={`/leases/${successData.leaseId}`} className="inline-block rounded-2xl bg-white text-black px-6 py-3 text-sm font-semibold hover:bg-zinc-200 mb-3">View Lease</a>
+          <a href={`/leases/${successData.leaseNumber}`}className="inline-block rounded-2xl bg-white text-black px-6 py-3 text-sm font-semibold hover:bg-zinc-200 mb-3">View Lease</a>
           <br />
           <a href="/leases/new" className="inline-block rounded-2xl border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white">Create Another</a>
         </div>

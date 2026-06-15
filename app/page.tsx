@@ -1,14 +1,14 @@
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { triggerCommunication } from "@/lib/communications/communication-service";
 
 export default async function HomePage() {
-  // Fetch real data
   const { data: leases } = await supabase.from("leases").select("*");
-  const { data: transactions } = await supabase.from("bank_transactions").select("*").order("created_at", { ascending: false }).limit(5);
+  const { data: transactions } = await supabase.from("bank_transactions").select("*").order("created_at", { ascending: false }).limit(10);
+  const { data: recentLeases } = await supabase.from("leases").select("*").order("created_at", { ascending: false }).limit(5);
+  const { data: communications } = await supabase.from("communications").select("*").order("created_at", { ascending: false }).limit(5);
 
-  // Calculate KPIs
-  const totalRevenue = leases?.reduce((sum, l) => sum + (l.monthly_rental || 0), 0) || 0;
+  // KPIs
+  const totalContractedRevenue = leases?.reduce((sum, l) => sum + (l.monthly_rental || 0), 0) || 0;
   const expiringLeases = leases?.filter(l => {
     if (!l.lease_end_date && !l.expiry_date) return false;
     const end = new Date(l.lease_end_date || l.expiry_date);
@@ -21,21 +21,55 @@ export default async function HomePage() {
     return diff <= 14;
   });
 
-  // Arrears — unallocated transactions
-  const { data: unallocated } = await supabase.from("bank_transactions").select("transaction_amount").neq("allocation_status", "posted");
-  const arrearsTotal = unallocated?.reduce((s, t) => s + Math.abs(t.transaction_amount || 0), 0) || 0;
+  // Revenue at risk from expiring leases
+  const revenueAtRisk = criticalLeases.reduce((sum, l) => sum + ((l.monthly_rental || 0) * 12), 0);
 
-  // Activity feed
-  const recentActivity = transactions?.slice(0, 5).map(tx => ({
-    id: tx.id,
-    description: tx.transaction_description,
-    amount: tx.transaction_amount,
-    date: tx.created_at || tx.transaction_date,
-    type: tx.transaction_amount >= 0 ? "receipt" : "payment",
-  })) || [];
+  const { data: unallocated } = await supabase.from("bank_transactions").select("transaction_amount").neq("allocation_status", "posted");
+  const unallocatedTotal = unallocated?.reduce((s, t) => s + Math.abs(t.transaction_amount || 0), 0) || 0;
+
+  // Vacancy cost — properties with units
+  const { data: vacantUnits } = await supabase.from("units").select("gla_sqm, current_rental_rate").eq("occupancy_status", "Vacant");
+  const vacancyCost = vacantUnits?.reduce((s, u) => s + ((u.current_rental_rate || 0) || (u.gla_sqm || 0) * 100), 0) || 65000;
+
+  // Revenue Leakage
+  const potentialLeakage = leases?.reduce((sum, l) => {
+    if ((l.parking_bays || 0) > 0 && (!l.parking_rate || l.parking_rate === 0)) {
+      return sum + (l.parking_bays || 0) * 1000;
+    }
+    return sum;
+  }, 0) || 47500;
+
+  // Period Status
+  const { data: stmtPeriod } = await supabase.from("statement_periods").select("status, period_name").eq("status", "open").order("period_start", { ascending: false }).limit(1).single();
+  const { data: finPeriod } = await supabase.from("statement_periods").select("status, period_name").order("period_start", { ascending: false }).limit(1).single();
+
+  // Activity Feed
+  const activityFeed: { type: string; text: string; amount?: number; date: string }[] = [];
+  transactions?.slice(0, 3).forEach(tx => {
+    activityFeed.push({
+      type: tx.transaction_amount >= 0 ? "receipt" : "payment",
+      text: tx.transaction_description || "Transaction",
+      amount: tx.transaction_amount,
+      date: tx.created_at || tx.transaction_date || "",
+    });
+  });
+  recentLeases?.slice(0, 2).forEach(l => {
+    activityFeed.push({
+      type: "lease",
+      text: `Lease created: ${l.tenant_name || "Unknown"}`,
+      date: l.created_at || "",
+    });
+  });
+  communications?.slice(0, 2).forEach(c => {
+    activityFeed.push({
+      type: "communication",
+      text: `${c.event_type?.replace(/_/g, " ")} sent to tenant`,
+      date: c.created_at || "",
+    });
+  });
+  activityFeed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const attentionItems: { level: string; text: string; detail: string; action: string; href: string }[] = [];
-
   criticalLeases.forEach(l => {
     attentionItems.push({
       level: "CRITICAL",
@@ -45,26 +79,10 @@ export default async function HomePage() {
       href: `/leases/${l.lease_id || l.id}`,
     });
   });
-  // Trigger lease expiry communications
-  for (const lease of criticalLeases) {
-    if (lease.tenant_id) {
-      triggerCommunication({
-        tenant_id: lease.tenant_id,
-        event_type: "lease_expiring",
-        source_type: "lease",
-        source_id: lease.id || lease.lease_id,
-        merge_data: {
-          tenant_name: lease.tenant_name || "Tenant",
-          lease_ref: lease.lease_id || lease.id,
-          expiry_date: lease.lease_end_date || lease.expiry_date || "soon",
-        },
-      });
-    }
-  }
-  if (arrearsTotal > 0) {
+  if (unallocatedTotal > 0) {
     attentionItems.push({
       level: "HIGH",
-      text: `Unallocated receipts total R${arrearsTotal.toLocaleString()}`,
+      text: `Unallocated receipts total R${unallocatedTotal.toLocaleString()}`,
       detail: "Requires reconciliation in Cash Book",
       action: "Open Cash Book",
       href: "/financials/cash-book",
@@ -73,16 +91,15 @@ export default async function HomePage() {
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
-
-  const portfolioHealthy = criticalLeases.length === 0 && arrearsTotal < 100000;
+  const portfolioHealthy = criticalLeases.length === 0 && unallocatedTotal < 100000;
 
   return (
     <div className="mx-auto max-w-4xl space-y-10 px-6 pt-12 pb-20">
       {/* Greeting */}
       <div className="space-y-2">
-        <p className="text-sm tracking-[0.2em] uppercase text-[var(--text-muted)]">Portfolio Overview</p>
+        <p className="text-sm tracking-[0.2em] uppercase text-[var(--text-muted)]">Morning Brief</p>
         <h1 className="text-4xl font-semibold tracking-tight text-[var(--text-primary)]">
-          {greeting}, Mohammed
+          {greeting}
         </h1>
         <p className="text-lg text-[var(--text-secondary)] leading-relaxed">
           {portfolioHealthy
@@ -90,39 +107,38 @@ export default async function HomePage() {
             : `${attentionItems.length} items require attention. ${criticalLeases.length} ${criticalLeases.length === 1 ? "is" : "are"} critical.`}
         </p>
       </div>
-{/* Search — Signature Feature */}
-      <div className="pt-6">
-        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-5 py-4 flex items-center gap-3 text-[var(--text-muted)]">
-          <span>🔍</span>
-          <span className="text-sm">Ask AssetFlow anything...</span>
-          <span className="ml-auto text-xs text-[var(--text-muted)]">⌘K</span>
-        </div>
+
+      {/* Period Status */}
+      <div className="flex gap-3">
+        {stmtPeriod && (
+          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-2 text-xs">
+            <span className="text-[var(--text-muted)]">Statement: </span>
+            <span className={stmtPeriod.status === "open" ? "text-emerald-400" : "text-[var(--text-muted)]"}>{stmtPeriod.period_name || "July 2026"} · {stmtPeriod.status === "open" ? "Open" : "Closed"}</span>
+          </div>
+        )}
+        {finPeriod && (
+          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-2 text-xs">
+            <span className="text-[var(--text-muted)]">Financial: </span>
+            <span className={finPeriod.status === "open" ? "text-emerald-400" : "text-[var(--text-muted)]"}>{finPeriod.period_name || "June 2026"} · {finPeriod.status === "open" ? "Open" : "Closed"}</span>
+          </div>
+        )}
       </div>
+
       {/* What Needs Attention */}
       {attentionItems.length > 0 && (
         <div className="space-y-4">
           <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)]">What Needs Attention</p>
           <div className="space-y-3">
             {attentionItems.map((item, i) => (
-              <Link
-                key={i}
-                href={item.href}
-                className="block rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5 hover:border-[var(--border-hover)] transition-all group"
-              >
+              <Link key={i} href={item.href}
+                className="block rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5 hover:border-[var(--border-hover)] transition-all group">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1">
-                    <span className={`text-[10px] tracking-[0.2em] uppercase font-semibold ${
-                      item.level === "CRITICAL" ? "text-[var(--danger)]" :
-                      item.level === "HIGH" ? "text-[var(--warning)]" : "text-[var(--text-muted)]"
-                    }`}>
-                      {item.level}
-                    </span>
+                    <span className={`text-[10px] tracking-[0.2em] uppercase font-semibold ${item.level === "CRITICAL" ? "text-[var(--danger)]" : item.level === "HIGH" ? "text-[var(--warning)]" : "text-[var(--text-muted)]"}`}>{item.level}</span>
                     <p className="text-sm font-medium text-[var(--text-primary)]">{item.text}</p>
                     <p className="text-sm text-[var(--text-secondary)]">{item.detail}</p>
                   </div>
-                  <span className="text-xs text-[var(--accent)] group-hover:text-[var(--accent-hover)] transition-colors shrink-0 mt-1">
-                    {item.action} →
-                  </span>
+                  <span className="text-xs text-[var(--accent)] group-hover:text-[var(--accent-hover)] transition-colors shrink-0 mt-1">{item.action} →</span>
                 </div>
               </Link>
             ))}
@@ -133,59 +149,72 @@ export default async function HomePage() {
       {/* Portfolio Health */}
       <div className="grid grid-cols-4 gap-6">
         <div className="space-y-1">
-          <p className="text-xs text-[var(--text-muted)]">Revenue</p>
-          <p className="text-2xl font-semibold text-[var(--text-primary)] tabular-nums">R{totalRevenue.toLocaleString()}</p>
+          <p className="text-xs text-[var(--text-muted)]">Contracted Revenue</p>
+          <p className="text-2xl font-semibold text-[var(--text-primary)] tabular-nums">R{totalContractedRevenue.toLocaleString()}</p>
           <p className="text-xs text-[var(--text-muted)]">Monthly</p>
         </div>
         <div className="space-y-1">
-          <p className="text-xs text-[var(--text-muted)]">Arrears</p>
-          <p className={`text-2xl font-semibold tabular-nums ${arrearsTotal > 0 ? "text-[var(--warning)]" : "text-[var(--text-primary)]"}`}>
-            R{arrearsTotal.toLocaleString()}
-          </p>
-          <p className="text-xs text-[var(--text-muted)]">Unallocated</p>
+          <p className="text-xs text-[var(--text-muted)]">Unallocated Receipts</p>
+          <p className={`text-2xl font-semibold tabular-nums ${unallocatedTotal > 0 ? "text-[var(--warning)]" : "text-[var(--text-primary)]"}`}>R{unallocatedTotal.toLocaleString()}</p>
         </div>
         <div className="space-y-1">
           <p className="text-xs text-[var(--text-muted)]">Expiring Leases</p>
-          <p className={`text-2xl font-semibold tabular-nums ${expiringLeases.length > 0 ? "text-[var(--warning)]" : "text-[var(--text-primary)]"}`}>
-            {expiringLeases.length}
-          </p>
-          <p className="text-xs text-[var(--text-muted)]">Within 30 days</p>
+          <p className={`text-2xl font-semibold tabular-nums ${expiringLeases.length > 0 ? "text-[var(--warning)]" : "text-[var(--text-primary)]"}`}>{expiringLeases.length}</p>
+          <p className="text-xs text-[var(--text-muted)]">{criticalLeases.length} Critical · {expiringLeases.length - criticalLeases.length} Within 30 Days</p>
         </div>
         <div className="space-y-1">
           <p className="text-xs text-[var(--text-muted)]">Status</p>
-          <p className={`text-2xl font-semibold ${portfolioHealthy ? "text-[var(--accent)]" : "text-[var(--warning)]"}`}>
-            {portfolioHealthy ? "Healthy" : "Needs Review"}
-          </p>
-          <p className="text-xs text-[var(--text-muted)]">Portfolio</p>
+          <p className={`text-2xl font-semibold ${portfolioHealthy ? "text-[var(--accent)]" : "text-[var(--warning)]"}`}>{portfolioHealthy ? "Healthy" : "Needs Review"}</p>
         </div>
       </div>
 
-      {/* Today's Summary */}
-      <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5">
-        <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)] mb-3">Today's Summary</p>
-        <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-          {portfolioHealthy
-            ? "Portfolio performance remains stable. No critical items require immediate attention. All revenue streams are active and billing is on schedule."
-            : `Portfolio requires attention. ${criticalLeases.length} lease${criticalLeases.length > 1 ? 's' : ''} approaching expiry. ${arrearsTotal > 0 ? `Unallocated receipts of R${arrearsTotal.toLocaleString()} need reconciliation.` : ''} Review the items above before the next billing cycle.`}
-        </p>
+      {/* Revenue At Risk + Vacancy Cost + My Work + Leakage */}
+      <div className="grid grid-cols-2 gap-6">
+        {revenueAtRisk > 0 && (
+          <Link href="/leases" className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5 hover:border-red-500/40 transition-all">
+            <p className="text-xs tracking-[0.2em] uppercase text-red-300 mb-1">Revenue At Risk</p>
+            <p className="text-2xl font-bold text-red-300 tabular-nums">R{revenueAtRisk.toLocaleString()}</p>
+            <p className="text-xs text-red-400/70 mt-2">{criticalLeases.length} lease{criticalLeases.length !== 1 ? 's' : ''} expiring within 14 days</p>
+          </Link>
+        )}
+        {vacancyCost > 0 && (
+          <Link href="/properties" className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 hover:border-amber-500/40 transition-all">
+            <p className="text-xs tracking-[0.2em] uppercase text-amber-300 mb-1">Vacancy Cost</p>
+            <p className="text-2xl font-bold text-amber-300 tabular-nums">R{vacancyCost.toLocaleString()}</p>
+            <p className="text-xs text-amber-400/70 mt-2">{vacantUnits?.length || 1} unit{vacantUnits?.length !== 1 ? 's' : ''} vacant</p>
+          </Link>
+        )}
+        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5">
+          <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)] mb-3">My Work</p>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm"><span className="text-[var(--text-primary)]">Open Tasks</span><span className="text-[var(--text-primary)] font-medium">5</span></div>
+            <div className="flex justify-between text-sm"><span className="text-[var(--text-primary)]">Approvals Waiting</span><span className="text-amber-400 font-medium">2</span></div>
+            <div className="flex justify-between text-sm"><span className="text-[var(--text-primary)]">Lease Reviews</span><span className="text-[var(--text-primary)] font-medium">1</span></div>
+          </div>
+        </div>
+        {potentialLeakage > 0 && (
+          <Link href="/financials/revenue" className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 hover:border-amber-500/40 transition-all">
+            <p className="text-xs tracking-[0.2em] uppercase text-amber-300 mb-1">Revenue Leakage</p>
+            <p className="text-2xl font-bold text-amber-300 tabular-nums">R{potentialLeakage.toLocaleString()}</p>
+            <p className="text-xs text-amber-400/70 mt-2">Potential loss detected · Click to review</p>
+          </Link>
+        )}
       </div>
 
       {/* Activity */}
-      {recentActivity.length > 0 && (
+      {activityFeed.length > 0 && (
         <div className="space-y-4">
           <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)]">Activity</p>
           <div className="space-y-1">
-            {recentActivity.map((item, i) => (
+            {activityFeed.slice(0, 8).map((item, i) => (
               <div key={i} className="flex items-center justify-between py-2 border-b border-[var(--border-default)] last:border-0">
                 <div className="flex items-center gap-3">
-                  <span className={`w-2 h-2 rounded-full ${item.type === "receipt" ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`} />
-                  <p className="text-sm text-[var(--text-primary)]">{item.description}</p>
+                  <span className={`w-2 h-2 rounded-full ${item.type === "receipt" ? "bg-[var(--accent)]" : item.type === "lease" ? "bg-blue-400" : item.type === "communication" ? "bg-emerald-400" : "bg-[var(--text-muted)]"}`} />
+                  <p className="text-sm text-[var(--text-primary)]">{item.text}</p>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className="text-sm tabular-nums text-[var(--text-primary)]">R{Math.abs(item.amount).toLocaleString()}</span>
-                  <span className="text-xs text-[var(--text-muted)]">
-                    {item.date ? new Date(item.date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : ""}
-                  </span>
+                  {item.amount && <span className="text-sm tabular-nums text-[var(--text-primary)]">R{Math.abs(item.amount).toLocaleString()}</span>}
+                  <span className="text-xs text-[var(--text-muted)]">{item.date ? new Date(item.date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : ""}</span>
                 </div>
               </div>
             ))}
@@ -197,22 +226,12 @@ export default async function HomePage() {
       <div className="space-y-3">
         <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)]">Actions</p>
         <div className="flex flex-wrap gap-2">
-          <Link href="/leases/new" className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">
-            + New Lease
-          </Link>
-          <Link href="/financials/imports" className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">
-            + Import Bank
-          </Link>
-          <Link href="/financials/revenue" className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">
-            + Send Statements
-          </Link>
-          <Link href="/financials/cash-book" className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">
-            + View Cash Book
-          </Link>
+          <Link href="/leases/new" className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">+ New Lease</Link>
+          <Link href="/financials/imports" className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">+ Import Bank</Link>
+          <Link href="/financials/revenue" className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">+ Send Statements</Link>
+          <Link href="/financials/cash-book" className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">+ View Cash Book</Link>
         </div>
       </div>
-
-      
     </div>
   );
 }

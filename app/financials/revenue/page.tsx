@@ -147,6 +147,7 @@ useEffect(() => {
       setPendingCharges(charges.filter((c: any) => c.status === "pending_review" || c.status === "pending_approval"));
     }
   }
+   
 
     async function ensureChargesExist() {
   if (!selectedTenant || !selectedProperty) return;
@@ -174,6 +175,10 @@ useEffect(() => {
   
   if (totalGenerated > 0) await loadCharges();
 }
+ useEffect(() => {
+    if (selectedTenant && selectedProperty) setTimeout(() => ensureChargesExist(), 100);
+    else loadCharges();
+  }, [selectedTenant, selectedProperty]);
 
     useEffect(() => {
     function handleClickOutside(e: MouseEvent) { if (codeRef.current && !codeRef.current.contains(e.target as Node)) setShowCodeDropdown(null); }
@@ -431,6 +436,7 @@ triggerCommunication({
             )}
           </div>
         </div>
+        
 
         <div className="grid grid-cols-4 gap-4">
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">

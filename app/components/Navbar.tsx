@@ -6,70 +6,51 @@ import { CommandPalette } from "./layout/CommandPalette";
 
 export default function Navbar() {
   const [email, setEmail] = useState("");
+  const [userName, setUserName] = useState("");
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   useEffect(() => {
     async function getUser() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (user?.email) {
         setEmail(user.email);
+        setUserName(user.email.split("@")[0]);
       }
     }
     getUser();
   }, []);
 
   return (
-    <div className="bg-zinc-900 border-b border-zinc-800 px-8 py-5 flex items-center justify-between">
+    <div className="bg-black border-b border-[var(--border-default)] px-6 py-3 flex items-center justify-between">
+      {/* Left: Brand */}
       <div className="flex items-center gap-6">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-white">
-            AssetFlow
-          </h1>
-          <p className="text-sm text-zinc-400 mt-1">
-            Enterprise Property Operating Platform
-          </p>
-        </div>
-
-        <div className="hidden xl:flex items-center">
-          <button
-            onClick={() => setCommandPaletteOpen(true)}
-            className="
-              w-[320px]
-              rounded-2xl
-              border
-              border-zinc-700
-              bg-zinc-800
-              px-5
-              py-3
-              text-sm
-              text-zinc-500
-              text-left
-              outline-none
-              transition
-              hover:border-zinc-500
-            "
-          >
-            🔍 Ask AssetFlow anything...
-          </button>
-        </div>
+        <h1 className="text-lg font-bold tracking-tight text-[var(--text-primary)]">AssetFlow</h1>
       </div>
 
-      <div className="flex items-center gap-5">
-        
+      {/* Center: Global Search */}
+      <div className="flex-1 max-w-xl mx-6">
+        <button
+          onClick={() => setCommandPaletteOpen(true)}
+          className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-2 text-sm text-[var(--text-muted)] text-left hover:border-[var(--border-hover)] transition-colors flex items-center gap-3"
+        >
+          <span>🔍</span>
+          <span className="flex-1">Ask AssetFlow anything...</span>
+          <span className="text-xs text-[var(--text-muted)]">⌘K</span>
+        </button>
+      </div>
 
-        <div className="flex items-center gap-4 rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-sm font-bold text-black">
+      {/* Right: User */}
+      <div className="flex items-center gap-4">
+        <button className="w-9 h-9 rounded-full border border-[var(--border-default)] bg-[var(--bg-secondary)] flex items-center justify-center text-sm text-[var(--text-muted)] hover:border-[var(--border-hover)] transition-colors">
+          🔔
+        </button>
+
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-[var(--text-primary)] flex items-center justify-center text-xs font-bold text-black">
             {email ? email.charAt(0).toUpperCase() : "U"}
           </div>
-          <div className="hidden lg:block">
-            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-1">
-              Logged In User
-            </p>
-            <p className="text-sm font-semibold text-white">
-              {email}
-            </p>
+          <div className="hidden md:block">
+            <p className="text-xs text-[var(--text-muted)]">{email || "Signed in"}</p>
           </div>
         </div>
       </div>
