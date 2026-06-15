@@ -224,7 +224,8 @@ const [selectedUnit, setSelectedUnit] = useState("");
       alert("Error creating lease: " + error.message);
       setLoading(false);
     } else if (data) {
-      await extractRulesFromLease(data.id);
+      const rulesCreated = await extractRulesFromLease(data.id);
+console.log("RULES CREATED:", rulesCreated);
             setCreatedLeaseId(data.id);
             await logAudit({
         action: "create",

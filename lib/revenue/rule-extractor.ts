@@ -3,11 +3,12 @@ import { supabase } from "../supabase";
 export async function extractRulesFromLease(leaseId: string): Promise<number> {
   const { data: lease } = await supabase
     .from("leases")
-    .select("id, lease_id, property_id, tenant_id, tenant_name, monthly_rental, escalation_percent, lease_start_date, lease_end_date, parking_bays, parking_rate, deposit_amount, security_levy, marketing_levy, storage_fee")
+    .select("id, lease_id, property_id, tenant_id, tenant_name, monthly_rental, escalation_percent, lease_start_date, lease_end_date, parking_bays, parking_rate, deposit_amount, security_levy, marketing_levy")
     .eq("id", leaseId)
     .single();
 
   if (!lease) return 0;
+  console.log("LEASE DATA:", lease.id, lease.monthly_rental, lease.tenant_name);
 
   const startDate = lease.lease_start_date || new Date().toISOString().split("T")[0];
   const endDate = lease.lease_end_date || null;
@@ -93,19 +94,7 @@ export async function extractRulesFromLease(leaseId: string): Promise<number> {
   }
 
   // 5. Storage Rule
-  if (lease.storage_fee && lease.storage_fee > 0) {
-    rules.push({
-      rule_type: "storage",
-      description: "Storage Fee",
-      base_amount: lease.storage_fee,
-      vat_rate: 15,
-      gl_code: "4200-002",
-      recovery_method: "fixed",
-      frequency: "monthly",
-      effective_from: startDate,
-      effective_to: endDate,
-    });
-  }
+  
 
   // 6. Deposit Rule (one-time)
   if (lease.deposit_amount && lease.deposit_amount > 0) {

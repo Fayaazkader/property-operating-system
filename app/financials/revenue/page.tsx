@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { triggerCommunication } from "@/lib/communications/communication-service";
 import { generateChargesForPeriod } from "@/lib/revenue/charge-generator";
+import { generateChargesFromRules } from "@/lib/revenue/charge-generator";
 import { PageHeader } from "@/app/components/layout/PageHeader";
 import { getMessageHealth } from "@/lib/communications/communication-service";
 import { logAudit } from "@/lib/audit/audit-log";
@@ -84,7 +85,9 @@ const [bulkSending, setBulkSending] = useState(false);
 
   const userRole = "finance_manager";
   const canPostDirectly = ["finance_manager", "portfolio_manager"].includes(userRole);
-
+const [stmtYear, stmtMonth] = CURRENT_STATEMENT_PERIOD.split("-").map(Number);
+const STMT_START = `${CURRENT_STATEMENT_PERIOD}-01`;
+const STMT_END = new Date(stmtYear, stmtMonth, 0).toISOString().split("T")[0];
   useEffect(() => {
     async function load() {
       const { data: gl } = await supabase.from("gl_codes").select("*").eq("is_active", true).order("code");
@@ -105,8 +108,8 @@ const [bulkSending, setBulkSending] = useState(false);
         .limit(1);
 
       if (!existingCharges || existingCharges.length === 0) {
-        const periodStart = "2026-07-01";
-        const periodEnd = "2026-07-31";
+        const periodStart = "STMT_START";
+        const periodEnd = "STMT_END";
         await generateChargesForPeriod(periodStart, periodEnd);
       }
     }
@@ -145,7 +148,32 @@ useEffect(() => {
     }
   }
 
-  useEffect(() => { loadCharges(); }, [selectedTenant]);
+    async function ensureChargesExist() {
+  if (!selectedTenant || !selectedProperty) return;
+  
+  const { data: leases } = await supabase
+    .from("leases")
+    .select("id")
+    .eq("tenant_id", selectedTenant)
+    .eq("property_id", selectedProperty);
+
+  if (!leases || leases.length === 0) return;
+
+  let totalGenerated = 0;
+  for (const lease of leases) {
+    const { count } = await supabase
+      .from("charges")
+      .select("id", { count: "exact", head: true })
+      .eq("lease_id", lease.id)
+      .eq("billing_period", CURRENT_STATEMENT_PERIOD);
+
+    if (count === 0) {
+      totalGenerated += await generateChargesFromRules(lease.id, STMT_START, STMT_END);
+    }
+  }
+  
+  if (totalGenerated > 0) await loadCharges();
+}
 
     useEffect(() => {
     function handleClickOutside(e: MouseEvent) { if (codeRef.current && !codeRef.current.contains(e.target as Node)) setShowCodeDropdown(null); }

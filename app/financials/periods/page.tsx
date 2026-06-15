@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { PageHeader } from "@/app/components/layout/PageHeader";
+import { generateChargesForNewPeriod } from "@/lib/revenue/period-generator";
 
 import { triggerCommunication } from "@/lib/communications/communication-service";
 type BillingStats = {
@@ -162,6 +163,12 @@ triggerCommunication({
     link: "https://assetflow.app/statements/STM-2026-07",
   },
 });
+    // Generate charges for the new period
+    const nextPeriodStart = "2026-08-01";
+    const nextPeriodEnd = "2026-08-31";
+    const { generateChargesForNewPeriod } = await import("@/lib/revenue/period-generator");
+    const result = await generateChargesForNewPeriod(nextPeriodStart, nextPeriodEnd, "August 2026");
+    console.log(`Generated ${result.generated} charges for ${result.total} leases in the new period.`);
     setLoading(false);
   }
 
