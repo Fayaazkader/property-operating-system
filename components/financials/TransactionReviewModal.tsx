@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { X, Plus, Minus, Search } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { triggerCommunication } from "@/lib/communications/communication-service";
+import { logAudit } from "@/lib/audit/audit-log";
 
 type Property = {
   id: string;
@@ -198,7 +199,19 @@ export function TransactionReviewModal({ open, transaction, onClose, onPosted }:
       updated_at: new Date().toISOString(),
     };
     const { error } = await supabase.from("bank_transactions").update(updateData).eq("id", transaction.id);
-    if (error) { console.error("Save error:", error); } else { onPosted(); onClose(); }
+   if (error) { 
+  console.error("Save error:", error); 
+} else { 
+  await logAudit({
+    action: "approve",
+    resource_type: "transaction",
+    resource_id: transaction?.id || "",
+    resource_label: `SYS-${transaction?.id?.slice(0, 8) || "unknown"}`,
+    new_values: { status, amount: Math.abs(transactionAmount) },
+  });
+  onPosted(); 
+  onClose(); 
+}
         // Trigger receipt communication if posted
     if (status === "posted" && selectedTenant) {
       const { data: tenant } = await supabase

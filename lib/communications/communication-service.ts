@@ -64,7 +64,7 @@ export async function triggerCommunication(payload: CommunicationPayload): Promi
     if (rule.channel === "whatsapp" && !tenant?.whatsapp_number) continue;
 
     // Build message from template
-    const messageBody = buildMessage(rule.template_name, payload.merge_data);
+    const messageBody = await buildMessage(rule.template_name, rule.channel, payload.merge_data);
 
     // Create communication record
     const { data: comm } = await supabase
@@ -85,9 +85,8 @@ export async function triggerCommunication(payload: CommunicationPayload): Promi
       .select("id")
       .single();
 
-    if (comm) {
-      // Simulate sending (real API call goes here)
-      await simulateSend(comm.id, rule.channel, messageBody);
+       if (comm) {
+      await sendMessage(comm.id, rule.channel, tenant?.whatsapp_number || "", rule.template_name, messageBody);
       lastMessageId = comm.id;
     }
   }
@@ -95,7 +94,27 @@ export async function triggerCommunication(payload: CommunicationPayload): Promi
   return lastMessageId;
 }
 
-function buildMessage(template: string, data: Record<string, string>): string {
+async function buildMessage(templateName: string, channel: string, data: Record<string, string>): Promise<string> {
+  // Fetch latest active template version from DB
+  const { data: template } = await supabase
+    .from("communication_templates")
+    .select("message_body, version")
+    .eq("template_name", templateName)
+    .eq("channel", channel)
+    .eq("is_active", true)
+    .order("version", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (template) {
+    let message = template.message_body;
+    for (const [key, value] of Object.entries(data)) {
+      message = message.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
+    }
+    return message;
+  }
+
+  // Fallback to hardcoded templates
   const templates: Record<string, string> = {
     receipt_confirmation: `Thank you ${data.tenant_name}. Your payment of R${data.amount} has been received. Reference: ${data.reference}.`,
     invoice_ready: `Dear ${data.tenant_name}, your invoice for ${data.period} is ready. Total: R${data.total}. View: ${data.link}`,
@@ -107,9 +126,45 @@ function buildMessage(template: string, data: Record<string, string>): string {
     task_assigned_notification: `A new task "${data.task_title}" has been assigned. Due: ${data.due_date}.`,
   };
 
-  return templates[template] || `Message for ${data.tenant_name}: ${template}`;
+  return templates[templateName] || `Message for ${data.tenant_name}: ${templateName}`;
 }
+async function sendMessage(commId: string, channel: string, phoneNumber: string, templateName: string, body: string): Promise<void> {
+  if (channel !== "whatsapp") {
+    await supabase
+      .from("communications")
+      .update({ status: "sent", external_message_id: `MSG-${Date.now()}`, sent_at: new Date().toISOString() })
+      .eq("id", commId);
+    return;
+  }
 
+  const { watiProvider } = await import("./providers/wati");
+  
+  if (watiProvider.isEnabled()) {
+    const result = await watiProvider.send({
+      phoneNumber,
+      templateName,
+      bodyParams: [{ name: "body", value: body }],
+    });
+
+    if (result.status === "sent") {
+      await supabase
+        .from("communications")
+        .update({ status: "sent", external_message_id: result.id, sent_at: new Date().toISOString() })
+        .eq("id", commId);
+
+      setTimeout(async () => {
+        await supabase
+          .from("communications")
+          .update({ status: "delivered", delivered_at: new Date().toISOString() })
+          .eq("id", commId);
+      }, 3000);
+    } else {
+      await handleRetry(commId);
+    }
+  } else {
+    await simulateSend(commId, channel, body);
+  }
+}
 async function simulateSend(commId: string, channel: string, body: string): Promise<void> {
   // Simulate sending delay
   await new Promise(resolve => setTimeout(resolve, 200));

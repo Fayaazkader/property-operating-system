@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { triggerCommunication } from "@/lib/communications/communication-service";
 
 export default async function HomePage() {
   // Fetch real data
@@ -44,7 +45,22 @@ export default async function HomePage() {
       href: `/leases/${l.lease_id || l.id}`,
     });
   });
-
+  // Trigger lease expiry communications
+  for (const lease of criticalLeases) {
+    if (lease.tenant_id) {
+      triggerCommunication({
+        tenant_id: lease.tenant_id,
+        event_type: "lease_expiring",
+        source_type: "lease",
+        source_id: lease.id || lease.lease_id,
+        merge_data: {
+          tenant_name: lease.tenant_name || "Tenant",
+          lease_ref: lease.lease_id || lease.id,
+          expiry_date: lease.lease_end_date || lease.expiry_date || "soon",
+        },
+      });
+    }
+  }
   if (arrearsTotal > 0) {
     attentionItems.push({
       level: "HIGH",

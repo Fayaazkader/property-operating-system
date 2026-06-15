@@ -38,13 +38,15 @@ export async function generateChargesFromRules(
     .eq("id", leaseId)
     .single();
 
-  const { data: property } = await supabase
+    const { data: property } = await supabase
     .from("properties")
-    .select("entity_id")
+    .select("entity_id, owner_entity_id, managing_entity_id")
     .eq("id", lease?.property_id)
     .single();
 
   const entityId = property?.entity_id || null;
+  const ownerEntityId = property?.owner_entity_id || null;
+  const managingEntityId = property?.managing_entity_id || null;
   const periodName = new Date(periodStart).toLocaleDateString("en-ZA", { month: "long", year: "numeric" });
   let created = 0;
 
@@ -96,6 +98,8 @@ export async function generateChargesFromRules(
       tenant_id: lease?.tenant_id,
       property_id: lease?.property_id,
       entity_id: entityId,
+       owner_entity_id: ownerEntityId,
+      managing_entity_id: managingEntityId,
       charge_type: rule.rule_type,
       description: chargeDesc,
       amount_excl_vat: Math.round(amount * 100) / 100,

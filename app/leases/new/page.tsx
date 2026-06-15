@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { extractRulesFromLease } from "@/lib/revenue/rule-extractor";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { logAudit } from "@/lib/audit/audit-log";
 
 const LEASE_TYPES = ["Retail", "Office", "Industrial", "Storage", "Residential", "Advertising", "Telecommunications"];
 const RECOVERY_TYPES = ["Rates", "Insurance", "CID", "Generator", "Aircon", "Municipal", "Other"];
@@ -161,7 +162,12 @@ export default function NewLeasePage() {
       setLoading(false);
       return;
     }
-
+    // Get property entity relationships
+    const { data: propertyData } = await supabase
+      .from("properties")
+      .select("owner_entity_id, managing_entity_id, entity_id, property_name")
+      .eq("id", selectedProperty)
+      .single();
     const { data, error } = await supabase
       .from("leases")
       .insert({
@@ -169,8 +175,10 @@ export default function NewLeasePage() {
         lease_id: leaseNumber,
         tenant_id: newTenant.id,
         property_id: selectedProperty,
+        owner_entity_id: propertyData?.owner_entity_id || null,
+        managing_entity_id: propertyData?.managing_entity_id || null,
         tenant_name: selectedTenant,
-        property_name: properties.find(p => p.id === selectedProperty)?.property_name,
+                property_name: propertyData?.property_name,
         monthly_rental: parseFloat(baseRental),
         escalation_percent: escalationPercent ? parseFloat(escalationPercent) : null,
         deposit_amount: depositAmount ? parseFloat(depositAmount) : null,
@@ -196,6 +204,13 @@ export default function NewLeasePage() {
       setLoading(false);
     } else if (data) {
       await extractRulesFromLease(data.id);
+            await logAudit({
+        action: "create",
+        resource_type: "lease",
+        resource_id: data.id,
+        resource_label: leaseNumber,
+        new_values: { tenant_name: selectedTenant, property_name: propertyData?.property_name, monthly_rental: parseFloat(baseRental) },
+      });
       setSuccessData({
         leaseNumber,
         monthlyRental: parseFloat(baseRental),

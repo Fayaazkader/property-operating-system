@@ -6,6 +6,7 @@ import { triggerCommunication } from "@/lib/communications/communication-service
 import { generateChargesForPeriod } from "@/lib/revenue/charge-generator";
 import { PageHeader } from "@/app/components/layout/PageHeader";
 import { getMessageHealth } from "@/lib/communications/communication-service";
+import { logAudit } from "@/lib/audit/audit-log";
 type GLCodes = { id: string; code: string; description: string; category: string };
 type BillingCode = { id: string; code: string; description: string; vat_rate: number; gl_code: string; is_recoverable: boolean };
 type ManualLine = {
@@ -247,10 +248,16 @@ useEffect(() => {
     setShowDistributeConfirm(true);
   }
 
-  function confirmDistribute() {
+  async function confirmDistribute() {
     setDistributionStarted(true);
     setShowDistributeConfirm(false);
     showToast("success", "Statements distributed. Receipting paused until period closes. You may continue adding charges and regenerating statements.");
+    await logAudit({
+  action: "export",
+  resource_type: "statement",
+  resource_label: CURRENT_STATEMENT_PERIOD,
+  new_values: { action: "distributed", period: CURRENT_STATEMENT_PERIOD },
+});
     // Trigger communications for distributed invoices
 triggerCommunication({
   tenant_id: "00000000-0000-0000-0000-000000000011", // Shoprite
