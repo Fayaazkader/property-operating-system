@@ -24,8 +24,27 @@ export default async function HomePage() {
   const revenueAtRisk = criticalLeases.reduce((sum, l) => sum + ((l.monthly_rental || 0) * 12), 0);
   const { data: unallocated } = await supabase.from("bank_transactions").select("transaction_amount").neq("allocation_status", "posted");
   const unallocatedTotal = unallocated?.reduce((s, t) => s + Math.abs(t.transaction_amount || 0), 0) || 0;
-  const { data: vacantUnits } = await supabase.from("units").select("gla_sqm, current_rental_rate").eq("occupancy_status", "Vacant");
-  const vacancyCost = vacantUnits?.reduce((s, u) => s + ((u.current_rental_rate || 0) || (u.gla_sqm || 0) * 100), 0) || 65000;
+  const { data: vacantUnits } = await supabase.from("units").select("id, unit_number, gla_sqm, current_rental_rate, occupancy_status").eq("occupancy_status", "Vacant");
+  const vacancyCost = vacantUnits?.reduce((s, u) => s + ((u.current_rental_rate || 0) || (u.gla_sqm || 0) * 100), 0) || 0;
+  const vacancyCount = vacantUnits?.length || 0;
+
+  // Lease Expiry Heat Map data
+  const expiryBuckets = [
+    { label: "0-30d", min: 0, max: 30, color: "bg-red-500", count: 0 },
+    { label: "30-60d", min: 30, max: 60, color: "bg-amber-500", count: 0 },
+    { label: "60-90d", min: 60, max: 90, color: "bg-amber-400", count: 0 },
+    { label: "90-180d", min: 90, max: 180, color: "bg-emerald-400", count: 0 },
+    { label: "180d+", min: 180, max: Infinity, color: "bg-emerald-500", count: 0 },
+  ];
+  leases?.forEach(l => {
+    if (!l.lease_end_date && !l.expiry_date) return;
+    const end = new Date(l.lease_end_date || l.expiry_date);
+    const diff = Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    for (const bucket of expiryBuckets) {
+      if (diff > bucket.min && diff <= bucket.max) { bucket.count++; break; }
+    }
+  });
+  const maxBucketCount = Math.max(...expiryBuckets.map(b => b.count), 1);
 
   // Revenue Leakage Detection — real
   const leakageItems: { text: string; amount: number }[] = [];
@@ -38,6 +57,16 @@ export default async function HomePage() {
   inactiveRules?.forEach((r: any) => {
     leakageItems.push({ text: `${r.leases?.tenant_name || "Unknown"} — ${r.description} (inactive)`, amount: r.base_amount || 0 });
   });
+  // Missing utility charges for active leases (placeholder — real utility imports not built yet)
+  const { data: activeLeases } = await supabase.from("leases").select("id, tenant_name").eq("lease_status", "Active");
+  if (activeLeases) {
+    for (const lease of activeLeases) {
+      const { count: utilityCount } = await supabase.from("charges").select("id", { count: "exact", head: true }).eq("lease_id", lease.id).eq("charge_type", "utility_recovery").eq("is_active", true);
+      if (utilityCount === 0) {
+        leakageItems.push({ text: `${lease.tenant_name || "Unknown"} — No utility recovery charges`, amount: 5000 });
+      }
+    }
+  }
   const totalLeakage = leakageItems.reduce((s, i) => s + i.amount, 0);
 
   // Period Status
@@ -153,18 +182,16 @@ export default async function HomePage() {
       <div className="grid grid-cols-2 gap-6">
         {revenueAtRisk > 0 && (
           <Link href="/leases" className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5 hover:border-red-500/40 transition-all">
-            <p className="text-xs tracking-[0.2em] uppercase text-red-300 mb-1">Revenue At Risk</p>
+            <p className="text-xs tracking-[0.2em] uppercase text-red-300 mb-1">Revenue at Risk</p>
             <p className="text-2xl font-bold text-red-300 tabular-nums">R{revenueAtRisk.toLocaleString()}</p>
             <p className="text-xs text-red-400/70 mt-2">{criticalLeases.length} lease{criticalLeases.length !== 1 ? 's' : ''} expiring within 14 days</p>
           </Link>
         )}
-        {vacancyCost > 0 && (
-          <Link href="/properties" className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 hover:border-amber-500/40 transition-all">
-            <p className="text-xs tracking-[0.2em] uppercase text-amber-300 mb-1">Vacancy Cost</p>
-            <p className="text-2xl font-bold text-amber-300 tabular-nums">R{vacancyCost.toLocaleString()}</p>
-            <p className="text-xs text-amber-400/70 mt-2">{vacantUnits?.length || 1} unit{vacantUnits?.length !== 1 ? 's' : ''} vacant</p>
-          </Link>
-        )}
+        <Link href="/properties" className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 hover:border-amber-500/40 transition-all">
+          <p className="text-xs tracking-[0.2em] uppercase text-amber-300 mb-1">Vacancy Cost Clock</p>
+          <p className="text-2xl font-bold text-amber-300 tabular-nums">R{vacancyCost.toLocaleString()}</p>
+          <p className="text-xs text-amber-400/70 mt-2">{vacancyCount} unit{vacancyCount !== 1 ? 's' : ''} vacant · Estimated daily loss: R{Math.round(vacancyCost / 30).toLocaleString()}</p>
+        </Link>
         <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5">
           <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)] mb-3">My Work</p>
           <div className="space-y-2">
@@ -191,6 +218,26 @@ export default async function HomePage() {
             <p className="text-xs text-emerald-400/70 mt-2">No leakage detected ✅</p>
           </div>
         )}
+      </div>
+
+      {/* Lease Expiry Heat Map */}
+      <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5">
+        <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)] mb-4">Lease Expiry Heat Map</p>
+        <div className="space-y-2">
+          {expiryBuckets.map((bucket) => (
+            <div key={bucket.label} className="flex items-center gap-3">
+              <span className="text-xs text-[var(--text-muted)] w-16">{bucket.label}</span>
+              <div className="flex-1 h-6 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
+                <div
+                  className={`h-full ${bucket.color} rounded-full transition-all`}
+                  style={{ width: `${(bucket.count / maxBucketCount) * 100}%`, minWidth: bucket.count > 0 ? "8px" : "0" }}
+                />
+              </div>
+              <span className="text-xs text-[var(--text-primary)] w-8 text-right tabular-nums">{bucket.count}</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-[var(--text-muted)] mt-3">{leases?.length || 0} total leases · {expiringLeases.length} expiring within 90 days</p>
       </div>
 
       {/* Activity */}
