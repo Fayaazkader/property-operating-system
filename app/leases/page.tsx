@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { PageHeader } from "../components/layout/PageHeader";
+import { exportToCSV } from "../../lib/utils";
 
 type Lease = {
   id: string;
@@ -97,6 +98,9 @@ export default function LeasesPage() {
         <Link href="/leases/new" className="rounded-2xl bg-[var(--text-primary)] text-black px-5 py-3 text-sm font-semibold hover:opacity-90">
           + New Lease
         </Link>
+        <button onClick={() => exportToCSV(filtered, "leases")} className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)] ml-3">
+  📥 Export
+</button>
       </div>
 
       {/* Lease Health */}

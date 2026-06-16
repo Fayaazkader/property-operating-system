@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { PageHeader } from "@/app/components/layout/PageHeader";
+import { exportToCSV } from "@/lib/utils";
 
 type Transaction = {
   id: string;
@@ -155,11 +156,31 @@ async function handlePostAllReady() {
           </button>
         ))}
         {activeQueue === "ready" && queueCounts.ready > 0 && (
-          <button onClick={handlePostAllReady} disabled={loading}
+          <button onClick={async () => {
+  const readyTxs = transactions.filter(tx => 
+    tx.allocation_status !== "posted" && 
+    tx.allocation_status !== "fully_allocated" && 
+    tx.queue !== "posted" && 
+    (tx.confidence >= 75 || tx.matched_tenant_id)
+  );
+  if (readyTxs.length === 0) return;
+  setLoading(true);
+  for (const tx of readyTxs) {
+    await supabase.from("bank_transactions").update({
+      allocation_status: "fully_allocated",
+      queue: "posted",
+      updated_at: new Date().toISOString(),
+    }).eq("id", tx.id);
+  }
+  window.location.reload();
+}} disabled={loading}
   className="ml-auto rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-40">
   {loading ? "Posting..." : `Post All Ready (${queueCounts.ready})`}
 </button>
         )}
+        <button onClick={() => exportToCSV(filteredTxs, `cashbook-${accountId}`)} className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)] ml-auto">
+  📥 Export
+</button>
       </div>
 
       {/* Transaction List */}
