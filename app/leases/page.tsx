@@ -1,758 +1,265 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
-
 import { supabase } from "../../lib/supabase";
+import { PageHeader } from "../components/layout/PageHeader";
 
-export default async function LeasesPage() {
+type Lease = {
+  id: string;
+  lease_id: string;
+  tenant_name: string;
+  property_name: string;
+  monthly_rental: number;
+  escalation_percent: number;
+  deposit_amount: number;
+  lease_start_date: string;
+  lease_end_date: string;
+  lease_status: string;
+  lease_type: string;
+  parking_bays: number;
+  gla_sqm: number;
+};
 
-  const { data: leases } =
-    await supabase
-      .from("leases")
-      .select("*");
+export default function LeasesPage() {
+  const [leases, setLeases] = useState<Lease[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState<"all" | "active" | "expiring" | "expired" | "renewals">("all");
+  const [selectedLease, setSelectedLease] = useState<Lease | null>(null);
 
-  const totalLeases =
-    leases?.length || 0;
-
-  const totalMonthlyRental =
-    leases?.reduce(
-      (sum, lease) =>
-        sum +
-        (lease.monthly_rental || 0),
-      0
-    ) || 0;
-
-  const highRiskLeases =
-    leases?.filter(
-      (lease) =>
-        lease.vacancy_risk === "High" ||
-        lease.vacancy_risk === "Critical"
-    ).length || 0;
-
-  const expiringSoon =
-    leases?.filter((lease) => {
-
-      if (!lease.expiry_date)
-        return false;
-
-      const expiry =
-        new Date(lease.expiry_date);
-
-      const today =
-        new Date();
-
-      const diffDays =
-        (expiry.getTime() -
-          today.getTime()) /
-        (1000 * 60 * 60 * 24);
-
-      return diffDays <= 90;
-
-    }).length || 0;
-
-  const alerts: {
-    type: string;
-    message: string;
-  }[] = [];
-
-  leases?.forEach((lease) => {
-
-    if (!lease.expiry_date)
-      return;
-
-    const expiry =
-      new Date(lease.expiry_date);
-
-    const today =
-      new Date();
-
-    const diffDays =
-      Math.ceil(
-        (expiry.getTime() -
-          today.getTime()) /
-        (1000 * 60 * 60 * 24)
-      );
-
-    if (diffDays <= 30) {
-
-      alerts.push({
-        type: "critical",
-        message:
-          `${lease.tenant_name} expires in ${diffDays} days`,
-      });
-
-    } else if (diffDays <= 90) {
-
-      alerts.push({
-        type: "warning",
-        message:
-          `${lease.tenant_name} renewal required soon`,
-      });
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from("leases").select("*").order("created_at", { ascending: false });
+      if (data) setLeases(data as Lease[]);
+      setLoading(false);
     }
+    load();
+  }, []);
 
-    if (
-      lease.vacancy_risk === "High" ||
-      lease.vacancy_risk === "Critical"
-    ) {
-
-      alerts.push({
-        type: "risk",
-        message:
-          `${lease.tenant_name} marked as high vacancy risk`,
-      });
-    }
+  // Filter by search
+  const searched = leases.filter(l => {
+    if (!searchTerm) return true;
+    const s = searchTerm.toLowerCase();
+    return (
+      (l.lease_id || "").toLowerCase().includes(s) ||
+      (l.tenant_name || "").toLowerCase().includes(s) ||
+      (l.property_name || "").toLowerCase().includes(s)
+    );
   });
 
-  let stableCount = 0;
-  let monitorCount = 0;
-  let renewalPendingCount = 0;
-  let criticalCount = 0;
+  // Filter by tab
+  const filtered = searched.filter(l => {
+    const now = new Date();
+    const end = new Date(l.lease_end_date);
+    const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-  leases?.forEach((lease) => {
-
-    if (!lease.expiry_date) {
-
-      stableCount++;
-      return;
-    }
-
-    const expiry =
-      new Date(lease.expiry_date);
-
-    const today =
-      new Date();
-
-    const diffDays =
-      Math.ceil(
-        (expiry.getTime() -
-          today.getTime()) /
-        (1000 * 60 * 60 * 24)
-      );
-
-    if (diffDays <= 30) {
-
-      criticalCount++;
-
-    } else if (diffDays <= 90) {
-
-      renewalPendingCount++;
-
-    } else if (diffDays <= 180) {
-
-      monitorCount++;
-
-    } else {
-
-      stableCount++;
-    }
+    if (activeTab === "active") return l.lease_status === "Active" && diff > 90;
+    if (activeTab === "expiring") return l.lease_status === "Active" && diff <= 90 && diff > 0;
+    if (activeTab === "expired") return diff <= 0 || l.lease_status === "Expired";
+    if (activeTab === "renewals") return l.lease_status === "Active" && diff <= 180 && diff > 0;
+    return true;
   });
 
-  const aiInsights: string[] = [];
+  // Lease Health KPIs
+  const activeCount = leases.filter(l => l.lease_status === "Active").length;
+  const expiringCount = leases.filter(l => {
+    if (l.lease_status !== "Active" || !l.lease_end_date) return false;
+    const diff = Math.ceil((new Date(l.lease_end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return diff <= 90 && diff > 0;
+  }).length;
+  const expiredCount = leases.filter(l => {
+    if (!l.lease_end_date) return false;
+    return new Date(l.lease_end_date) < new Date() || l.lease_status === "Expired";
+  }).length;
+  const revenueDueForRenewal = leases
+    .filter(l => {
+      if (l.lease_status !== "Active" || !l.lease_end_date) return false;
+      const diff = Math.ceil((new Date(l.lease_end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      return diff <= 90 && diff > 0;
+    })
+    .reduce((s, l) => s + (l.monthly_rental || 0) * 12, 0);
 
-  if (criticalCount >= 3) {
-
-    aiInsights.push(
-      "Portfolio has elevated critical lease exposure."
-    );
+  function getHealth(lease: Lease): { label: string; color: string } {
+    if (!lease.lease_end_date) return { label: "Unknown", color: "text-[var(--text-muted)]" };
+    const diff = Math.ceil((new Date(lease.lease_end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (diff <= 0 || lease.lease_status === "Expired") return { label: "Expired", color: "text-[var(--danger)]" };
+    if (diff <= 30) return { label: "Critical", color: "text-[var(--danger)]" };
+    if (diff <= 90) return { label: "Expiring Soon", color: "text-[var(--warning)]" };
+    if (!lease.deposit_amount) return { label: "Missing Deposit", color: "text-[var(--warning)]" };
+    return { label: "Healthy", color: "text-emerald-400" };
   }
-
-  if (highRiskLeases >= 3) {
-
-    aiInsights.push(
-      "High vacancy risk concentration detected."
-    );
-  }
-
-  if (expiringSoon >= 5) {
-
-    aiInsights.push(
-      "Significant lease rollover concentration approaching."
-    );
-  }
-
-  if (totalMonthlyRental > 1000000) {
-
-    aiInsights.push(
-      "Portfolio revenue exposure exceeds enterprise threshold."
-    );
-  }
-
-  if (aiInsights.length === 0) {
-
-    aiInsights.push(
-      "Portfolio operational health currently stable."
-    );
-  }
-
-  let expiry3Months = 0;
-  let expiry6Months = 0;
-  let expiry12Months = 0;
-
-  leases?.forEach((lease) => {
-
-    if (!lease.expiry_date)
-      return;
-
-    const expiry =
-      new Date(lease.expiry_date);
-
-    const today =
-      new Date();
-
-    const diffDays =
-      Math.ceil(
-        (expiry.getTime() -
-          today.getTime()) /
-        (1000 * 60 * 60 * 24)
-      );
-
-    if (diffDays <= 90) {
-
-      expiry3Months++;
-    }
-
-    if (diffDays <= 180) {
-
-      expiry6Months++;
-    }
-
-    if (diffDays <= 365) {
-
-      expiry12Months++;
-    }
-  });
 
   return (
-
-    <main className="p-10 text-black">
-
-     <div className="flex justify-between items-center gap-6 mb-10">
-
-  <div>
-
-    <h1 className="text-5xl font-black mb-3">
-      Lease Dashboard
-    </h1>
-
-    <p className="text-gray-500 text-lg">
-      Enterprise lease operations and portfolio intelligence.
-    </p>
-
-  </div>
-
-  <div className="flex items-center gap-4 w-96">
-
-
-    <Link
-      href="/leases/new"
-      className="bg-black text-white px-6 py-4 rounded-2xl font-semibold shadow-lg hover:opacity-90 transition-all whitespace-nowrap"
-    >
-      Create Lease
-    </Link>
-
-  </div>
-
-</div>
-
-      <div className="grid grid-cols-4 gap-6 mb-10">
-
-        <div className="bg-linear-to-br from-black to-gray-800 text-white rounded-2xl shadow-lg p-8">
-
-          <p className="text-gray-300 text-sm uppercase tracking-widest mb-3">
-            Total Leases
-          </p>
-
-          <h2 className="text-5xl font-black mb-2">
-            {totalLeases}
-          </h2>
-
-          <p className="text-gray-400 text-sm">
-            Active portfolio agreements
-          </p>
-
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
-
-          <p className="text-gray-500 text-sm uppercase tracking-widest mb-3">
-            Monthly Revenue
-          </p>
-
-          <h2 className="text-5xl font-black mb-2 text-green-600">
-            R {totalMonthlyRental.toLocaleString()}
-          </h2>
-
-          <p className="text-gray-400 text-sm">
-            Current monthly portfolio income
-          </p>
-
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
-
-          <p className="text-gray-500 text-sm uppercase tracking-widest mb-3">
-            High Risk Exposure
-          </p>
-
-          <h2 className="text-5xl font-black mb-2 text-red-600">
-            {highRiskLeases}
-          </h2>
-
-          <p className="text-gray-400 text-sm">
-            Critical vacancy monitoring
-          </p>
-
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
-
-          <p className="text-gray-500 text-sm uppercase tracking-widest mb-3">
-            Expiring Soon
-          </p>
-
-          <h2 className="text-5xl font-black mb-2 text-orange-500">
-            {expiringSoon}
-          </h2>
-
-          <p className="text-gray-400 text-sm">
-            Renewals within 90 days
-          </p>
-
-        </div>
-
+    <div className="mx-auto max-w-7xl space-y-8 px-6 pt-8 pb-12">
+      <div className="flex items-center justify-between">
+        <PageHeader title="Leases" subtitle="Manage your lease portfolio" />
+        <Link href="/leases/new" className="rounded-2xl bg-[var(--text-primary)] text-black px-5 py-3 text-sm font-semibold hover:opacity-90">
+          + New Lease
+        </Link>
       </div>
 
-      <div className="bg-black text-white rounded-2xl shadow-lg p-8 mb-10">
-
-        <div className="flex justify-between items-center mb-6">
-
-          <h2 className="text-3xl font-black">
-            AI Portfolio Insights
-          </h2>
-
-          <span className="bg-white text-black px-4 py-2 rounded-full text-xs uppercase tracking-widest font-bold">
-            Intelligence Engine
-          </span>
-
+      {/* Lease Health */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4">
+          <p className="text-2xl font-bold text-[var(--text-primary)]">{activeCount}</p>
+          <p className="text-xs text-[var(--text-muted)] mt-1">Active Leases</p>
         </div>
+        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+          <p className="text-2xl font-bold text-amber-400">{expiringCount}</p>
+          <p className="text-xs text-[var(--text-muted)] mt-1">Expiring in 90 Days</p>
+        </div>
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
+          <p className="text-2xl font-bold text-red-400">{expiredCount}</p>
+          <p className="text-xs text-[var(--text-muted)] mt-1">Expired</p>
+        </div>
+        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+          <p className="text-2xl font-bold text-amber-400">R{revenueDueForRenewal.toLocaleString()}</p>
+          <p className="text-xs text-[var(--text-muted)] mt-1">Revenue Due for Renewal</p>
+        </div>
+      </div>
 
-        <div className="space-y-4">
+      {/* Search + Tabs */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Find a lease, tenant, property, or lease ID..."
+          className="flex-1 min-w-[300px] rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] placeholder:text-[var(--text-muted)]"
+        />
+        <div className="flex gap-2">
+          {(["all", "active", "expiring", "expired", "renewals"] as const).map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)}
+              className={`rounded-xl px-4 py-2 text-xs font-semibold capitalize transition ${
+                activeTab === tab ? "bg-white text-black" : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+              }`}>
+              {tab}
+            </button>
+          ))}
+        </div>
+      </div>
 
-          {aiInsights.map(
-            (insight, index) => (
+      {/* Table */}
+      {loading ? (
+        <div className="text-center py-20"><p className="text-[var(--text-muted)]">Loading leases...</p></div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-20 rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)]">
+          <p className="text-[var(--text-muted)]">No leases found.</p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)]">
+          <table className="w-full">
+            <thead className="border-b border-[var(--border-default)] bg-[var(--bg-elevated)]">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Lease</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Tenant</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Property</th>
+                <th className="px-4 py-3 text-right text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Monthly Rent</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Status</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Expiry</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Health</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((lease) => {
+                const health = getHealth(lease);
+                return (
+                  <tr
+                    key={lease.id}
+                    onClick={() => setSelectedLease(lease)}
+                    className="border-b border-[var(--border-default)] hover:bg-[var(--bg-elevated)] cursor-pointer transition-colors"
+                  >
+                    <td className="px-4 py-3 text-sm text-[var(--text-primary)] font-mono">{lease.lease_id}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-primary)]">{lease.tenant_name || "—"}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{lease.property_name || "—"}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-primary)] text-right tabular-nums">R{(lease.monthly_rental || 0).toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        lease.lease_status === "Active" ? "bg-emerald-500/10 text-emerald-300" : "bg-[var(--bg-elevated)] text-[var(--text-muted)]"
+                      }`}>{lease.lease_status || "Unknown"}</span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{lease.lease_end_date || "—"}</td>
+                    <td className="px-4 py-3 text-sm font-medium">
+                      <span className={health.color}>{health.label}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-              <div
-                key={index}
-                className="bg-gray-900 border border-gray-800 rounded-2xl p-5"
-              >
-
-                <p className="text-lg">
-                  {insight}
-                </p>
-
+      {/* Side Panel — Lease Intelligence */}
+      {selectedLease && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-end" onClick={() => setSelectedLease(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-black border-l border-[var(--border-default)] h-full overflow-y-auto shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-default)]">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Lease Intelligence</p>
+                <p className="text-sm font-mono text-[var(--text-primary)] mt-0.5">{selectedLease.lease_id}</p>
               </div>
-
-            )
-          )}
-
-        </div>
-
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-lg p-8 mb-10">
-
-        <h2 className="text-3xl font-black mb-8">
-          Portfolio Forecasting
-        </h2>
-
-        <div className="grid grid-cols-3 gap-6">
-
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
-
-            <p className="text-red-700 text-sm uppercase tracking-wide mb-3 font-bold">
-              Expiring in 3 Months
-            </p>
-
-            <h3 className="text-5xl font-black text-red-800">
-              {expiry3Months}
-            </h3>
-
-          </div>
-
-          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
-
-            <p className="text-orange-700 text-sm uppercase tracking-wide mb-3 font-bold">
-              Expiring in 6 Months
-            </p>
-
-            <h3 className="text-5xl font-black text-orange-800">
-              {expiry6Months}
-            </h3>
-
-          </div>
-
-          <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6">
-
-            <p className="text-yellow-700 text-sm uppercase tracking-wide mb-3 font-bold">
-              Expiring in 12 Months
-            </p>
-
-            <h3 className="text-5xl font-black text-yellow-800">
-              {expiry12Months}
-            </h3>
-
-          </div>
-
-        </div>
-
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-lg p-8 mb-10">
-
-        <div className="flex justify-between items-center mb-6">
-
-          <h2 className="text-3xl font-black">
-            Operational Alerts
-          </h2>
-
-          <span className="bg-red-100 text-red-700 px-4 py-2 rounded-full font-bold text-sm">
-            {alerts.length} Active
-          </span>
-
-        </div>
-
-        <div className="space-y-4">
-
-          {alerts.length === 0 && (
-
-            <p className="text-gray-500">
-              No active operational alerts.
-            </p>
-
-          )}
-
-          {alerts.map(
-            (alert, index) => (
-
-              <div
-                key={index}
-                className={`border-l-4 rounded-2xl p-5 ${
-                  alert.type === "critical"
-                    ? "bg-red-50 border-red-500"
-                    : alert.type === "warning"
-                    ? "bg-orange-50 border-orange-500"
-                    : "bg-yellow-50 border-yellow-500"
-                }`}
-              >
-
-                <p className="font-semibold text-lg">
-                  {alert.message}
-                </p>
-
+              <button onClick={() => setSelectedLease(null)} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-xl">✕</button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <p className="text-xs text-[var(--text-muted)]">Tenant</p>
+                <p className="text-lg font-semibold text-[var(--text-primary)]">{selectedLease.tenant_name || "—"}</p>
               </div>
-
-            )
-          )}
-
+              <div>
+                <p className="text-xs text-[var(--text-muted)]">Property</p>
+                <p className="text-sm text-[var(--text-primary)]">{selectedLease.property_name || "—"}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-[var(--text-muted)]">Monthly Rent</p>
+                  <p className="text-sm font-semibold text-[var(--text-primary)] tabular-nums">R{(selectedLease.monthly_rental || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-muted)]">Escalation</p>
+                  <p className="text-sm text-[var(--text-primary)]">{selectedLease.escalation_percent || 0}%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-muted)]">Deposit</p>
+                  <p className="text-sm text-[var(--text-primary)] tabular-nums">R{(selectedLease.deposit_amount || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-muted)]">Expiry</p>
+                  <p className="text-sm text-[var(--text-primary)]">{selectedLease.lease_end_date || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-muted)]">Parking Bays</p>
+                  <p className="text-sm text-[var(--text-primary)]">{selectedLease.parking_bays || 0}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-muted)]">GLA</p>
+                  <p className="text-sm text-[var(--text-primary)]">{selectedLease.gla_sqm || "—"} sqm</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-muted)]">Outstanding Balance</p>
+                  <p className="text-sm text-[var(--text-muted)]">—</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-muted)]">Next Escalation</p>
+                  <p className="text-sm text-[var(--text-muted)]">
+                    {selectedLease.escalation_percent && selectedLease.lease_start_date
+                      ? new Date(new Date(selectedLease.lease_start_date).setFullYear(new Date().getFullYear())).toLocaleDateString("en-ZA", { month: "long", year: "numeric" })
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-4 border-t border-[var(--border-default)]">
+                <Link href={`/leases/${selectedLease.lease_id}`} className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)]">View</Link>
+                <Link href={`/leases/${selectedLease.lease_id}/edit`} className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)]">Edit</Link>
+                <button className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)]">Documents</button>
+                <button className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)]">Billing Rules</button>
+                <button className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)]">Communications</button>
+              </div>
+            </div>
+          </div>
         </div>
-
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-lg p-8 mb-10">
-
-        <h2 className="text-3xl font-black mb-8">
-          Portfolio Risk Distribution
-        </h2>
-
-        <div className="grid grid-cols-4 gap-6">
-
-          <div className="bg-green-50 border border-green-200 rounded-2xl p-6">
-
-            <p className="text-green-700 text-sm uppercase tracking-wide mb-3 font-bold">
-              Stable
-            </p>
-
-            <h3 className="text-5xl font-black text-green-800">
-              {stableCount}
-            </h3>
-
-          </div>
-
-          <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6">
-
-            <p className="text-yellow-700 text-sm uppercase tracking-wide mb-3 font-bold">
-              Monitor
-            </p>
-
-            <h3 className="text-5xl font-black text-yellow-800">
-              {monitorCount}
-            </h3>
-
-          </div>
-
-          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
-
-            <p className="text-orange-700 text-sm uppercase tracking-wide mb-3 font-bold">
-              Renewal Pending
-            </p>
-
-            <h3 className="text-5xl font-black text-orange-800">
-              {renewalPendingCount}
-            </h3>
-
-          </div>
-
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
-
-            <p className="text-red-700 text-sm uppercase tracking-wide mb-3 font-bold">
-              Critical
-            </p>
-
-            <h3 className="text-5xl font-black text-red-800">
-              {criticalCount}
-            </h3>
-
-          </div>
-
-        </div>
-
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-lg p-8 overflow-auto">
-
-        <h2 className="text-3xl font-black mb-8">
-          Lease Portfolio
-        </h2>
-
-        <table className="w-full">
-
-          <thead>
-
-            <tr className="border-b border-gray-200 text-left">
-
-              <th className="p-4 text-sm uppercase tracking-wide text-gray-500">
-                Lease ID
-              </th>
-
-              <th className="p-4 text-sm uppercase tracking-wide text-gray-500">
-                Tenant
-              </th>
-
-              <th className="p-4 text-sm uppercase tracking-wide text-gray-500">
-                Property
-              </th>
-
-              <th className="p-4 text-sm uppercase tracking-wide text-gray-500">
-                Monthly Rental
-              </th>
-
-              <th className="p-4 text-sm uppercase tracking-wide text-gray-500">
-                Vacancy Risk
-              </th>
-
-              <th className="p-4 text-sm uppercase tracking-wide text-gray-500">
-                Workflow Status
-              </th>
-
-              <th className="p-4 text-sm uppercase tracking-wide text-gray-500">
-                Lease Health
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody>
-
-            {leases?.map((lease) => {
-
-              let workflowStatus =
-                "Stable";
-
-              let workflowClass =
-                "bg-green-100 text-green-700";
-
-              if (lease.expiry_date) {
-
-                const expiry =
-                  new Date(lease.expiry_date);
-
-                const today =
-                  new Date();
-
-                const diffDays =
-                  Math.ceil(
-                    (expiry.getTime() -
-                      today.getTime()) /
-                    (1000 * 60 * 60 * 24)
-                  );
-
-                if (diffDays <= 30) {
-
-                  workflowStatus =
-                    "Critical Action";
-
-                  workflowClass =
-                    "bg-red-100 text-red-700";
-
-                } else if (diffDays <= 90) {
-
-                  workflowStatus =
-                    "Renewal Pending";
-
-                  workflowClass =
-                    "bg-orange-100 text-orange-700";
-
-                } else if (diffDays <= 180) {
-
-                  workflowStatus =
-                    "Monitor";
-
-                  workflowClass =
-                    "bg-yellow-100 text-yellow-700";
-                }
-              }
-
-              let leaseHealth = 100;
-
-              if (
-                lease.vacancy_risk === "High"
-              ) {
-
-                leaseHealth -= 35;
-              }
-
-              if (
-                lease.vacancy_risk === "Critical"
-              ) {
-
-                leaseHealth -= 50;
-              }
-
-              if (lease.expiry_date) {
-
-                const expiry =
-                  new Date(lease.expiry_date);
-
-                const today =
-                  new Date();
-
-                const diffDays =
-                  Math.ceil(
-                    (expiry.getTime() -
-                      today.getTime()) /
-                    (1000 * 60 * 60 * 24)
-                  );
-
-                if (diffDays <= 30) {
-
-                  leaseHealth -= 40;
-
-                } else if (diffDays <= 90) {
-
-                  leaseHealth -= 25;
-
-                } else if (diffDays <= 180) {
-
-                  leaseHealth -= 10;
-                }
-              }
-
-              return (
-
-                <tr
-                  key={lease.lease_id}
-                  className="border-b border-gray-100 hover:bg-gray-50 transition-all"
-                >
-
-                  <td className="p-4">
-
-                    <Link
-                      href={`/leases/${lease.lease_id}`}
-                      className="font-bold underline"
-                    >
-                      {lease.lease_id}
-                    </Link>
-
-                  </td>
-
-                  <td className="p-4">
-
-                    <div>
-
-                      <p className="font-bold text-gray-900">
-                        {lease.tenant_name}
-                      </p>
-
-                      <p className="text-xs text-gray-400 mt-1">
-                        Enterprise Tenant
-                      </p>
-
-                    </div>
-
-                  </td>
-
-                  <td className="p-4">
-
-                    <div>
-
-                      <p className="font-semibold text-gray-800">
-                        {lease.property_name}
-                      </p>
-
-                      <p className="text-xs text-gray-400 mt-1">
-                        Managed Asset
-                      </p>
-
-                    </div>
-
-                  </td>
-
-                  <td className="p-4 font-semibold">
-                    R {lease.monthly_rental}
-                  </td>
-
-                  <td className="p-4">
-                    {lease.vacancy_risk}
-                  </td>
-
-                  <td className="p-4">
-
-                    <span
-                      className={`${workflowClass} px-4 py-2 rounded-full text-xs uppercase tracking-wide font-bold shadow-sm`}
-                    >
-                      {workflowStatus}
-                    </span>
-
-                  </td>
-
-                  <td className="p-4">
-
-                    <span
-                      className={`px-4 py-2 rounded-full text-xs uppercase tracking-wide font-bold shadow-sm ${
-                        leaseHealth >= 90
-                          ? "bg-green-100 text-green-700"
-                          : leaseHealth >= 70
-                          ? "bg-blue-100 text-blue-700"
-                          : leaseHealth >= 50
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {leaseHealth}%
-                    </span>
-
-                  </td>
-
-                </tr>
-
-              );
-            })}
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-    </main>
+      )}
+    </div>
   );
 }

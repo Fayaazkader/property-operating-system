@@ -7,6 +7,7 @@ import { generateChargesFromRules } from "@/lib/revenue/charge-generator";
 import { triggerCommunication } from "@/lib/communications/communication-service";
 import { getMessageHealth } from "@/lib/communications/communication-service";
 import { logAudit } from "@/lib/audit/audit-log";
+import { getCurrentStatementPeriod, getCurrentFinancialPeriod } from "@/lib/revenue/period-utils";
 
 type BillingCode = { id: string; code: string; description: string; vat_rate: number; gl_code: string; is_recoverable: boolean };
 type ManualLine = {
@@ -14,12 +15,6 @@ type ManualLine = {
 };
 type Charge = { id: string; description: string; amount_incl_vat: number; gl_code: string; status: string; charge_type: string; created_at: string };
 
-const CURRENT_FINANCIAL_PERIOD = "2026-06";
-const CURRENT_STATEMENT_PERIOD = "2026-07";
-const ALLOWED_PERIODS = [CURRENT_FINANCIAL_PERIOD, CURRENT_STATEMENT_PERIOD];
-const [stmtYear, stmtMonth] = CURRENT_STATEMENT_PERIOD.split("-").map(Number);
-const STMT_START = `${CURRENT_STATEMENT_PERIOD}-01`;
-const STMT_END = new Date(stmtYear, stmtMonth, 0).toISOString().split("T")[0];
 
 function CustomDropdown({ value, options, onChange, placeholder, disabled }: {
   value: string; options: { id: string; label: string }[]; onChange: (id: string) => void; placeholder: string; disabled?: boolean;
@@ -61,7 +56,7 @@ export default function RevenueOperationsPage() {
   const [allTenants, setAllTenants] = useState<any[]>([]);
   const [selectedProperty, setSelectedProperty] = useState("");
   const [selectedTenant, setSelectedTenant] = useState("");
-  const [selectedPeriod, setSelectedPeriod] = useState(CURRENT_STATEMENT_PERIOD);
+  
   const [manualLines, setManualLines] = useState<ManualLine[]>([
     { id: "1", billing_code: "", description: "", amount_excl: 0, vat_rate: 15, vat_amount: 0, amount_incl: 0, gl_code: "", recoverable: false, editField: "excl" },
   ]);
@@ -80,13 +75,20 @@ export default function RevenueOperationsPage() {
   const [billingHealth, setBillingHealth] = useState({ totalTenants: 0, ready: 0, needReview: 0, exceptions: 0 });
   const [statementHistory, setStatementHistory] = useState<any[]>([]);
   const [transactionHistory, setTransactionHistory] = useState<any[]>([]);
-
+const [currentStmtPeriod, setCurrentStmtPeriod] = useState("July 2026");
+const [currentFinPeriod, setCurrentFinPeriod] = useState("June 2026");
+const [stmtStart, setStmtStart] = useState("2026-07-01");
+const [stmtEnd, setStmtEnd] = useState("2026-07-31");
+const [allowedPeriods, setAllowedPeriods] = useState<string[]>([]);
+const [selectedPeriod, setSelectedPeriod] = useState(currentStmtPeriod);
   const userRole = "finance_manager";
   const canPostDirectly = true;
   const propertyOptions = properties.map(p => ({ id: p.id, label: p.property_name }));
   const tenantOptions = tenants.map(t => ({ id: t.id, label: t.tenant_name }));
-  const periodOptions = ALLOWED_PERIODS.map(p => ({ id: p, label: p }));
+  const periodOptions = allowedPeriods.map(p => ({ id: p, label: p }));
   const allTenantOptions = allTenants.map(t => ({ id: t.id, label: t.tenant_name }));
+  const [previewCharges, setPreviewCharges] = useState<any[]>([]);
+const [previewLoading, setPreviewLoading] = useState(false);
 
   // Centralized data loading — one function, no competing useEffect hooks
   async function loadBillingData() {
@@ -114,10 +116,10 @@ export default function RevenueOperationsPage() {
       .from("charges")
       .select("id", { count: "exact", head: true })
       .eq("lease_id", lease.id)
-      .eq("billing_period", CURRENT_STATEMENT_PERIOD);
+      .eq("billing_period", currentStmtPeriod);
 
     if (count === 0) {
-      await generateChargesFromRules(lease.id, STMT_START, STMT_END);
+      await generateChargesFromRules(lease.id, stmtStart, stmtEnd);
     }
 
     // Load charges
@@ -203,14 +205,121 @@ export default function RevenueOperationsPage() {
   useEffect(() => { getMessageHealth().then(setMessageHealth); }, []);
 useEffect(() => {
   async function loadBillingHealth() {
-    const { count: total } = await supabase.from("leases").select("id", { count: "exact", head: true }).not("property_id", "is", null).not("tenant_id", "is", null);
-    const { count: ready } = await supabase.from("charges").select("id", { count: "exact", head: true }).eq("billing_period", CURRENT_STATEMENT_PERIOD).eq("status", "posted");
-    const { count: review } = await supabase.from("charges").select("id", { count: "exact", head: true }).eq("billing_period", CURRENT_STATEMENT_PERIOD).in("status", ["pending_review", "pending_approval"]);
-    const { count: exceptions } = await supabase.from("charges").select("id", { count: "exact", head: true }).eq("billing_period", CURRENT_STATEMENT_PERIOD).eq("status", "draft");
-    setBillingHealth({ totalTenants: total || 0, ready: ready || 0, needReview: review || 0, exceptions: exceptions || 0 });
+    // Get all active leases
+    const { data: leases, error } = await supabase
+      .from("leases")
+      .select("id, tenant_name")
+      .not("property_id", "is", null)
+      .not("tenant_id", "is", null);
+
+    if (!leases) {
+      setBillingHealth({ totalTenants: 0, ready: 0, needReview: 0, exceptions: 0 });
+      return;
+    }
+
+    const totalTenants = leases.length;
+    let ready = 0;
+    let needReview = 0;
+    let exceptions = 0;
+
+    for (const lease of leases) {
+      // Check if this lease has posted charges for the current statement period
+      const { count: postedCount } = await supabase
+        .from("charges")
+        .select("id", { count: "exact", head: true })
+        .eq("lease_id", lease.id)
+        .eq("billing_period", currentStmtPeriod)
+        .eq("status", "posted");
+
+      // Check for pending or draft charges
+      const { count: pendingCount } = await supabase
+        .from("charges")
+        .select("id", { count: "exact", head: true })
+        .eq("lease_id", lease.id)
+        .eq("billing_period", currentStmtPeriod)
+        .in("status", ["pending_review", "pending_approval"]);
+
+      const { count: draftCount } = await supabase
+        .from("charges")
+        .select("id", { count: "exact", head: true })
+        .eq("lease_id", lease.id)
+        .eq("billing_period", currentStmtPeriod)
+        .eq("status", "draft");
+
+      if (postedCount && postedCount > 0 && !pendingCount && !draftCount) {
+        ready++;
+      } else if (pendingCount || draftCount) {
+        needReview++;
+      } else if (!postedCount && !pendingCount && !draftCount) {
+        // No charges at all — exception
+        exceptions++;
+      }
+    }
+
+    setBillingHealth({ totalTenants, ready, needReview, exceptions });
   }
   loadBillingHealth();
+}, [currentStmtPeriod]);
+useEffect(() => {
+  async function loadPeriods() {
+    const stmt = await getCurrentStatementPeriod();
+    const fin = await getCurrentFinancialPeriod();
+    setCurrentStmtPeriod(stmt.name);
+    setCurrentFinPeriod(fin.name);
+    setStmtStart(stmt.start);
+    setStmtEnd(stmt.end);
+    // Remove duplicates in case financial and statement periods overlap
+const periods = [...new Set([fin.name, stmt.name])];
+setAllowedPeriods(periods);
+  }
+  loadPeriods();
 }, []);
+useEffect(() => {
+  async function loadPreview() {
+    if (!filterValue) { setPreviewCharges([]); return; }
+    setPreviewLoading(true);
+
+    if (filterType === "tenant") {
+      const { data: lease } = await supabase
+        .from("leases")
+        .select("id")
+        .eq("tenant_id", filterValue)
+        .limit(1)
+        .single();
+      if (lease) {
+        const { data: charges } = await supabase
+          .from("charges")
+          .select("*")
+          .eq("lease_id", lease.id)
+          .eq("is_active", true)
+          .eq("status", "posted");
+        setPreviewCharges(charges || []);
+      } else {
+        setPreviewCharges([]);
+      }
+    } else if (filterType === "property") {
+      const { data: leases } = await supabase
+        .from("leases")
+        .select("id")
+        .eq("property_id", filterValue);
+      if (leases && leases.length > 0) {
+        const leaseIds = leases.map(l => l.id);
+        const { data: charges } = await supabase
+          .from("charges")
+          .select("*")
+          .in("lease_id", leaseIds)
+          .eq("is_active", true)
+          .eq("status", "posted");
+        setPreviewCharges(charges || []);
+      } else {
+        setPreviewCharges([]);
+      }
+    }
+    setPreviewLoading(false);
+  }
+  loadPreview();
+}, [filterValue, filterType]);
+
   function showToast(type: "success" | "error", text: string) {
     setToast({ type, text });
     setTimeout(() => setToast(null), 3000);
@@ -250,7 +359,7 @@ useEffect(() => {
         charge_type: "adhoc", description: line.description || "Manual Charge",
         amount_excl_vat: line.amount_excl, vat_rate: line.vat_rate, vat_amount: line.vat_amount, amount_incl_vat: line.amount_incl,
         recurrence_rule: {}, recovery_method: line.recoverable ? "fixed" : null, gl_code: line.gl_code,
-        is_active: true, status, billing_period: selectedPeriod, financial_period: CURRENT_FINANCIAL_PERIOD,
+        is_active: true, status, billing_period: selectedPeriod, financial_period: currentFinPeriod,
       });
       saved++;
     }
@@ -272,7 +381,7 @@ useEffect(() => {
     setDistributionStarted(true);
     setShowDistributeConfirm(false);
     showToast("success", "Statements distributed. Receipting paused.");
-    await logAudit({ action: "export", resource_type: "statement", resource_label: CURRENT_STATEMENT_PERIOD, new_values: { action: "distributed", period: CURRENT_STATEMENT_PERIOD } });
+    await logAudit({ action: "export", resource_type: "statement", resource_label: currentStmtPeriod, new_values: { action: "distributed", period: currentStmtPeriod } });
 
     // Send to selected tenant or all tenants of selected property
     if (filterType === "tenant" && filterValue) {
@@ -282,8 +391,8 @@ useEffect(() => {
           tenant_id: filterValue,
           event_type: "invoice_distributed",
           source_type: "invoice",
-          source_id: `INV-${CURRENT_STATEMENT_PERIOD}`,
-          merge_data: { tenant_name: tenant.tenant_name, period: CURRENT_STATEMENT_PERIOD, total: "See invoice", link: "https://assetflow.app/invoices" },
+          source_id: `INV-${currentStmtPeriod}`,
+          merge_data: { tenant_name: tenant.tenant_name, period: currentStmtPeriod, total: "See invoice", link: "https://assetflow.app/invoices" },
         });
       }
     } else if (filterType === "property" && filterValue) {
@@ -295,8 +404,8 @@ useEffect(() => {
               tenant_id: l.tenant_id,
               event_type: "invoice_distributed",
               source_type: "invoice",
-              source_id: `INV-${CURRENT_STATEMENT_PERIOD}`,
-              merge_data: { tenant_name: l.tenant_name || "Tenant", period: CURRENT_STATEMENT_PERIOD, total: "See invoice", link: "https://assetflow.app/invoices" },
+              source_id: `INV-${currentStmtPeriod}`,
+              merge_data: { tenant_name: l.tenant_name || "Tenant", period: currentStmtPeriod, total: "See invoice", link: "https://assetflow.app/invoices" },
             });
           }
         }
@@ -345,7 +454,7 @@ useEffect(() => {
         <div className="space-y-8">
           {/* Billing Health */}
           <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-6">
-            <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] mb-4">Billing Health — {CURRENT_STATEMENT_PERIOD}</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] mb-4">Billing Health — {currentStmtPeriod}</p>
             <div className="grid grid-cols-4 gap-4">
               <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
                 <p className="text-2xl font-bold text-[var(--text-primary)]">{billingHealth.totalTenants}</p>
@@ -566,7 +675,25 @@ useEffect(() => {
               </div>
             </div>
           )}
-
+            {/* Statement Period Status */}
+            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4 mb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-[var(--text-muted)]">Statement Period</p>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">{currentStmtPeriod}</p>
+                </div>
+                <div className="text-right">
+                  <span className={`text-xs px-2 py-1 rounded-full ${distributionStarted ? "bg-amber-500/10 text-amber-300" : "bg-emerald-500/10 text-emerald-300"}`}>
+                    {distributionStarted ? "In Progress" : "Open"}
+                  </span>
+                  {distributionStarted && (
+                    <p className="text-xs text-[var(--text-muted)] mt-1">
+                      {billingHealth.ready} of {billingHealth.totalTenants} ready
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
           {distributionStarted && (
             <div className="rounded-2xl border border-amber-500/40 bg-amber-500/20 px-5 py-4">
               <p className="text-xs uppercase tracking-[0.2em] text-amber-300 font-semibold">July statements distributed · Receipting paused</p>
@@ -596,31 +723,71 @@ useEffect(() => {
               {filterType === "tenant" && (filterValue ? `Distributing to ${allTenants.find(t => t.id === filterValue)?.tenant_name || "selected tenant"}.` : "Select a tenant to distribute.")}
             </p>
                         {/* Invoice Preview — shows when a tenant is selected */}
-            {filterType === "tenant" && filterValue && (
-              <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4 mb-4">
-                <p className="text-xs text-[var(--text-muted)] mb-2">Invoice Preview — {allTenants.find(t => t.id === filterValue)?.tenant_name}</p>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between"><span className="text-[var(--text-primary)]">Rental</span><span className="text-[var(--text-primary)] tabular-nums">R85,000</span></div>
-                  <div className="flex justify-between"><span className="text-[var(--text-primary)]">Parking</span><span className="text-[var(--text-primary)] tabular-nums">R4,000</span></div>
-                  <div className="flex justify-between"><span className="text-[var(--text-primary)]">Utilities</span><span className="text-[var(--text-primary)] tabular-nums">R8,000</span></div>
-                  <div className="flex justify-between text-sm pt-2 border-t border-[var(--border-default)] font-semibold">
-                    <span className="text-[var(--text-primary)]">Total Due</span>
-                    <span className="text-[var(--text-primary)] tabular-nums">R97,000</span>
-                  </div>
-                </div>
-              </div>
-            )}
-            {filterValue && filterType !== "all" && (
-              <button onClick={() => setShowFullPreview(true)} className="mt-3 w-full rounded-xl border border-[var(--border-hover)] bg-[var(--bg-elevated)] px-4 py-3 text-sm text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">📋 Preview Distribution Report</button>
-            )}
-                        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4 mb-4">
-              <p className="text-xs text-[var(--text-muted)] mb-2">Distribution Readiness</p>
-              <div className="space-y-1 text-sm">
-                <div className="flex items-center gap-2"><span>{billingHealth.totalTenants > 0 ? "✅" : "⚠️"}</span><span className="text-[var(--text-primary)]">Charges generated for {billingHealth.totalTenants} tenants</span></div>
-                <div className="flex items-center gap-2"><span>{billingHealth.exceptions === 0 ? "✅" : "⚠️"}</span><span className="text-[var(--text-primary)]">No exceptions ({billingHealth.exceptions} found)</span></div>
-                <div className="flex items-center gap-2"><span>{billingHealth.needReview === 0 ? "✅" : "⚠️"}</span><span className="text-[var(--text-primary)]">No pending approvals ({billingHealth.needReview} pending)</span></div>
-              </div>
+            {filterValue && (
+  <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4 mb-4">
+    <p className="text-xs text-[var(--text-muted)] mb-2">
+      Invoice Preview — {filterType === "tenant" ? allTenants.find(t => t.id === filterValue)?.tenant_name : properties.find(p => p.id === filterValue)?.property_name}
+    </p>
+    {previewLoading ? (
+      <p className="text-sm text-[var(--text-muted)]">Loading...</p>
+    ) : filterType === "property" ? (
+      <div className="space-y-1 text-sm">
+        <div className="flex justify-between">
+          <span className="text-[var(--text-primary)]">{previewCharges.length} charges across tenants</span>
+          <span className="text-[var(--text-primary)] tabular-nums font-semibold">
+            R{previewCharges.reduce((s: number, c: any) => s + (c.amount_incl_vat || 0), 0).toLocaleString()}
+          </span>
+        </div>
+      </div>
+    ) : previewCharges.length === 0 ? (
+      <p className="text-sm text-[var(--text-muted)]">No charges found for this tenant.</p>
+    ) : (
+      <>
+        <div className="space-y-1 text-sm">
+          {previewCharges.map((c: any) => (
+            <div key={c.id} className="flex justify-between">
+              <span className="text-[var(--text-primary)]">{c.description}</span>
+              <span className="text-[var(--text-primary)] tabular-nums">R{(c.amount_incl_vat || 0).toLocaleString()}</span>
             </div>
+          ))}
+        </div>
+        <div className="flex justify-between text-sm pt-2 border-t border-[var(--border-default)] font-semibold">
+          <span className="text-[var(--text-primary)]">Total Due</span>
+          <span className="text-[var(--text-primary)] tabular-nums">
+            R{previewCharges.reduce((s: number, c: any) => s + (c.amount_incl_vat || 0), 0).toLocaleString()}
+          </span>
+        </div>
+      </>
+    )}
+  </div>
+)}
+            {filterType === "tenant" && filterValue && (
+  <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4 mb-4">
+    <p className="text-xs text-[var(--text-muted)] mb-2">Invoice Preview — {allTenants.find(t => t.id === filterValue)?.tenant_name}</p>
+    {previewLoading ? (
+      <p className="text-sm text-[var(--text-muted)]">Loading...</p>
+    ) : previewCharges.length === 0 ? (
+      <p className="text-sm text-[var(--text-muted)]">No charges found for this tenant.</p>
+    ) : (
+      <>
+        <div className="space-y-1 text-sm">
+          {previewCharges.map((c: any) => (
+            <div key={c.id} className="flex justify-between">
+              <span className="text-[var(--text-primary)]">{c.description}</span>
+              <span className="text-[var(--text-primary)] tabular-nums">R{(c.amount_incl_vat || 0).toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-between text-sm pt-2 border-t border-[var(--border-default)] font-semibold">
+          <span className="text-[var(--text-primary)]">Total Due</span>
+          <span className="text-[var(--text-primary)] tabular-nums">
+            R{previewCharges.reduce((s: number, c: any) => s + (c.amount_incl_vat || 0), 0).toLocaleString()}
+          </span>
+        </div>
+      </>
+    )}
+  </div>
+)}
             <div className="flex gap-3 mt-4">
               {!distributionStarted ? (
                 <button onClick={handleDistribute} disabled={!filterValue && filterType !== "all"}
@@ -637,7 +804,7 @@ useEffect(() => {
       {showDistributeConfirm && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowDistributeConfirm(false)}>
           <div onClick={(e) => e.stopPropagation()} className="bg-black border border-[var(--border-default)] rounded-3xl w-full max-w-md mx-4 shadow-2xl p-6">
-            <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">Distribute {CURRENT_STATEMENT_PERIOD} Statements?</p>
+            <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">Distribute {currentStmtPeriod} Statements?</p>
             <p className="text-xs text-[var(--text-muted)] mb-4">Receipting will be paused until the period is closed.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setShowDistributeConfirm(false)} className="rounded-2xl border border-[var(--border-hover)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]">Cancel</button>
@@ -650,7 +817,7 @@ useEffect(() => {
       {showClosePeriodConfirm && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowClosePeriodConfirm(false)}>
           <div onClick={(e) => e.stopPropagation()} className="bg-black border border-[var(--border-default)] rounded-3xl w-full max-w-md mx-4 shadow-2xl p-6">
-            <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">Close {CURRENT_STATEMENT_PERIOD} Statement Period?</p>
+            <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">Close {currentStmtPeriod} Statement Period?</p>
             <p className="text-sm text-[var(--text-secondary)] mb-4">This will finalize all invoices and re-enable receipting.</p>
             <p className="text-xs text-amber-400 mb-4">⚠️ This cannot be undone.</p>
             <div className="flex gap-3 justify-end">
@@ -665,7 +832,7 @@ useEffect(() => {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowFullPreview(false)}>
           <div onClick={(e) => e.stopPropagation()} className="bg-black border border-[var(--border-default)] rounded-3xl w-full max-w-3xl mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-default)] sticky top-0 bg-black z-10">
-              <div><p className="text-sm uppercase tracking-[0.25em] text-[var(--text-muted)]">Distribution Preview</p><p className="text-xs text-[var(--text-muted)] mt-0.5">{CURRENT_STATEMENT_PERIOD}</p></div>
+              <div><p className="text-sm uppercase tracking-[0.25em] text-[var(--text-muted)]">Distribution Preview</p><p className="text-xs text-[var(--text-muted)] mt-0.5">{currentStmtPeriod}</p></div>
               <div className="flex items-center gap-2">
                 <button onClick={() => window.print()} className="rounded-2xl border border-[var(--border-hover)] px-4 py-2 text-xs font-medium text-[var(--text-primary)]">🖨️ Print</button>
                 <button className="rounded-2xl border border-[var(--border-hover)] px-4 py-2 text-xs font-medium text-[var(--text-primary)]">📥 Export PDF</button>
@@ -673,7 +840,7 @@ useEffect(() => {
               </div>
             </div>
             <div className="px-6 py-4 border-b border-[var(--border-default)] bg-[var(--bg-elevated)]">
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] mb-3">Billing Summary — {CURRENT_STATEMENT_PERIOD}</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] mb-3">Billing Summary — {currentStmtPeriod}</p>
               <div className="grid grid-cols-4 gap-3">
                 {[{ label: "Rental Income", excl: 192000, vat: 28800, incl: 220800 }, { label: "Parking", excl: 6000, vat: 900, incl: 6900 }, { label: "Electricity Recovery", excl: 8000, vat: 1200, incl: 9200 }, { label: "Water Recovery", excl: 3000, vat: 450, incl: 3450 }].map((row, i) => (
                   <div key={i} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3">

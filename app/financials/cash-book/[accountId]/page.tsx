@@ -73,7 +73,45 @@ export default function AccountWorkspacePage() {
 
   if (loading) return <div className="mx-auto max-w-7xl px-6 pt-8 pb-12"><p className="text-[var(--text-muted)]">Loading...</p></div>;
   if (!account) return <div className="mx-auto max-w-7xl px-6 pt-8 pb-12"><p className="text-[var(--text-muted)]">Account not found.</p></div>;
+async function handlePostAllReady() {
+  const readyTxs = transactions.filter(tx => 
+    tx.allocation_status !== "posted" && 
+    tx.allocation_status !== "fully_allocated" && 
+    tx.queue !== "posted" && 
+    (tx.confidence >= 75 || tx.matched_tenant_id)
+  );
 
+  if (readyTxs.length === 0) return;
+
+  setLoading(true);
+  for (const tx of readyTxs) {
+    await supabase
+      .from("bank_transactions")
+      .update({
+        allocation_status: "fully_allocated",
+        queue: "posted",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", tx.id);
+  }
+  
+  // Refresh the data
+  const { data: txs } = await supabase
+    .from("bank_transactions")
+    .select("*")
+    .eq("bank_account_id", accountId)
+    .order("transaction_date", { ascending: false })
+    .limit(200);
+
+  if (txs) {
+    const enriched = txs.map((tx: any) => ({
+      ...tx,
+      confidence: tx.matched_tenant_id ? (tx.matched_invoice_id ? 97 : 80) : Math.floor(Math.random() * 40) + 10,
+    }));
+    setTransactions(enriched);
+  }
+  setLoading(false);
+}
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 pt-8 pb-12">
       <PageHeader title={`${account.bank_name} — ${account.account_name}`} subtitle={account.account_number} />
@@ -117,9 +155,10 @@ export default function AccountWorkspacePage() {
           </button>
         ))}
         {activeQueue === "ready" && queueCounts.ready > 0 && (
-          <button className="ml-auto rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-500">
-            Post All Ready ({queueCounts.ready})
-          </button>
+          <button onClick={handlePostAllReady} disabled={loading}
+  className="ml-auto rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-40">
+  {loading ? "Posting..." : `Post All Ready (${queueCounts.ready})`}
+</button>
         )}
       </div>
 

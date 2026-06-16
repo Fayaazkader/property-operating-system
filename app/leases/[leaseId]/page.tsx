@@ -44,7 +44,11 @@ export default function LeaseDetailPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "billing" | "communications" | "documents">("overview");
   const [loading, setLoading] = useState(true);
   const [savingPrefs, setSavingPrefs] = useState(false);
-
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "N/A";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
   useEffect(() => {
     async function fetchData() {
       if (!leaseId) return;
