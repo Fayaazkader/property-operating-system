@@ -64,7 +64,7 @@ export default function AccountWorkspacePage() {
   };
 
   const filteredTxs = transactions.filter(tx => {
-    if (activeQueue === "ready") return tx.allocation_status !== "posted" && (tx.confidence >= 75 || tx.matched_tenant_id);
+    if (activeQueue === "ready") return tx.allocation_status !== "posted" && tx.allocation_status !== "fully_allocated" && tx.queue !== "posted" && (tx.confidence >= 75 || tx.matched_tenant_id);
     if (activeQueue === "review") return tx.allocation_status !== "posted" && tx.confidence >= 40 && tx.confidence < 75 && !tx.matched_tenant_id;
     if (activeQueue === "exceptions") return tx.allocation_status !== "posted" && tx.confidence < 40 && !tx.matched_tenant_id;
     if (activeQueue === "posted") return tx.allocation_status === "posted" || tx.queue === "posted";
