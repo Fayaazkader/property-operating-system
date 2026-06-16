@@ -1,3 +1,4 @@
+"use client";
 import { PageHeader } from "@/app/components/layout/PageHeader";
 
 export default function ImportPage() {
