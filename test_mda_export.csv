@@ -1,0 +1,6 @@
+Lease No,Property Name,Tenant,Unit,Sqm,Monthly Rent,Commencement,Expiry,Status
+MDA-001,Sandton Mall,Woolworths,Level 1,1500,65000,2025-01-01,2028-12-31,Active
+MDA-002,Rosebank Square,Clicks,Suite 101,800,35000,2025-03-01,2027-02-28,Active
+MDA-003,Century City,Shoprite,Shop 12,1200,48000,2025-06-01,2028-05-31,Active
+MDA-004,Waterfall Estate,Pick n Pay,Anchorage,2000,85000,2025-02-01,2027-01-31,Active
+MDA-005,Melrose Arch,Massmart,Office Tower,600,28000,2025-04-01,2026-03-31,Active
