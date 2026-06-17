@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Papa from 'papaparse';
+import { PageHeader } from '@/app/components/layout/PageHeader';
 import { 
   SOURCE_SYSTEMS, 
   SYSTEM_PRESETS, 
@@ -65,14 +66,12 @@ export default function ImportPage() {
           setHeaders(cols);
           setRawData(data);
 
-          // Auto-detect system
           const detected = detectSystem(cols);
           setDetectedSystem(detected);
           if (detected && detected !== 'other') {
             setSourceSystem(detected);
           }
 
-          // Auto-map columns
           const autoMap: Record<string, string> = {};
           const unmapped: string[] = [];
           const dbColumns = getDbTargetForTarget(target);
@@ -155,7 +154,12 @@ export default function ImportPage() {
       });
       return mapped;
     }).filter((row) => Object.keys(row).length > 0);
-
+// ADD THESE DEBUG LINES:
+console.log('=== HANDLE IMPORT DEBUG ===');
+console.log('rawData length:', rawData.length);
+console.log('columnMap:', columnMap);
+console.log('mappedRows length:', mappedRows.length);
+console.log('mappedRows sample:', mappedRows[0]);
     try {
       const response = await fetch('/api/import', {
         method: 'POST',
@@ -195,29 +199,21 @@ export default function ImportPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-10">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-[var(--text-primary)] tracking-tight">
-          Data Migration Centre
-        </h1>
-        <p className="text-sm text-[var(--text-muted)] mt-1">
-          Upload your data and AssetFlow will map it automatically.
-          {detectedSystem && ` Detected: ${detectedSystem.toUpperCase()}`}
-        </p>
-      </div>
+    <div className="mx-auto max-w-4xl space-y-8 px-6 pt-8 pb-12">
+      <PageHeader title="Data Migration Centre" subtitle="Upload your data and AssetFlow will map it automatically." />
 
-      <div className="flex items-center gap-2 mb-8 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-        <span className={`${step === 'upload' ? 'text-[var(--text-primary)]' : ''}`}>1. Upload</span>
-        <span className="w-8 h-px bg-[var(--border-color)]" />
-        <span className={`${step === 'map' ? 'text-[var(--text-primary)]' : ''}`}>2. Review</span>
-        <span className="w-8 h-px bg-[var(--border-color)]" />
-        <span className={`${step === 'confirm' ? 'text-[var(--text-primary)]' : ''}`}>3. Confirm</span>
+      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+        <span className={step === 'upload' ? 'text-[var(--text-primary)]' : ''}>1. Upload</span>
+        <span className="w-8 h-px bg-[var(--border-default)]" />
+        <span className={step === 'map' ? 'text-[var(--text-primary)]' : ''}>2. Review</span>
+        <span className="w-8 h-px bg-[var(--border-default)]" />
+        <span className={step === 'confirm' ? 'text-[var(--text-primary)]' : ''}>3. Confirm</span>
       </div>
 
       {step === 'upload' && (
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
+            <label className="block text-xs text-[var(--text-muted)] mb-1.5 uppercase tracking-[0.2em]">
               What are you importing?
             </label>
             <div className="flex gap-2 flex-wrap">
@@ -225,10 +221,10 @@ export default function ImportPage() {
                 <button
                   key={t.value}
                   onClick={() => setTarget(t.value)}
-                  className={`px-4 py-2 rounded-2xl text-sm border transition-all ${
+                  className={`rounded-2xl px-5 py-3 text-sm font-semibold transition ${
                     target === t.value
-                      ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/10 text-[var(--accent-color)]'
-                      : 'border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--text-muted)]'
+                      ? 'bg-white text-black'
+                      : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   {t.label}
@@ -238,18 +234,16 @@ export default function ImportPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
+            <label className="block text-xs text-[var(--text-muted)] mb-1.5 uppercase tracking-[0.2em]">
               Source System
             </label>
             <select
               value={sourceSystem}
               onChange={(e) => setSourceSystem(e.target.value)}
-              className="w-full max-w-xs px-4 py-2.5 rounded-2xl border border-[var(--border-color)] bg-transparent text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--accent-color)]"
+              className="w-full max-w-xs rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]"
             >
               {SOURCE_SYSTEMS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
+                <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
             {detectedSystem && detectedSystem !== 'other' && (
@@ -259,7 +253,7 @@ export default function ImportPage() {
             )}
           </div>
 
-          <div className="border-2 border-dashed border-[var(--border-color)] rounded-3xl p-12 text-center hover:border-[var(--accent-color)] transition-colors">
+          <div className="border-2 border-dashed border-[var(--border-default)] rounded-3xl p-12 text-center hover:border-[var(--border-hover)] transition-colors">
             <input
               type="file"
               accept=".csv"
@@ -283,7 +277,7 @@ export default function ImportPage() {
 
       {step === 'map' && (
         <div className="space-y-6">
-          <div className="bg-[var(--bg-muted)] rounded-3xl p-4 text-sm">
+          <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4 text-sm">
             <p className="text-[var(--text-muted)]">
               File: <span className="text-[var(--text-primary)] font-mono">{fileName}</span> &nbsp;|&nbsp; 
               Rows: <span className="text-[var(--text-primary)] font-mono">{rawData.length}</span> &nbsp;|&nbsp;
@@ -294,7 +288,7 @@ export default function ImportPage() {
                 Source: <span className="text-[var(--text-primary)] font-mono uppercase">{sourceSystem}</span>
                 <button
                   onClick={() => applySystemPreset(sourceSystem)}
-                  className="ml-3 text-xs text-[var(--accent-color)] hover:underline"
+                  className="ml-3 text-xs text-[var(--accent)] hover:underline"
                 >
                   Apply preset
                 </button>
@@ -303,8 +297,8 @@ export default function ImportPage() {
           </div>
 
           {unmappedHeaders.length > 0 && (
-            <div className="rounded-3xl border border-yellow-500/30 bg-yellow-500/5 p-4">
-              <p className="text-xs font-medium text-yellow-400 uppercase tracking-[0.2em] mb-1">
+            <div className="rounded-3xl border border-amber-500/20 bg-amber-500/5 p-4">
+              <p className="text-xs font-medium text-amber-300 uppercase tracking-[0.2em] mb-1">
                 {unmappedHeaders.length} Column{unmappedHeaders.length > 1 ? 's' : ''} Need Review
               </p>
               <p className="text-sm text-[var(--text-muted)]">
@@ -316,16 +310,10 @@ export default function ImportPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[var(--border-color)]">
-                  <th className="text-left py-3 pr-4 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] font-normal">
-                    CSV Header
-                  </th>
-                  <th className="text-left py-3 pr-4 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] font-normal">
-                    Map to DB Column
-                  </th>
-                  <th className="text-left py-3 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] font-normal">
-                    Sample Value
-                  </th>
+                <tr className="border-b border-[var(--border-default)]">
+                  <th className="text-left py-3 pr-4 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] font-normal">CSV Header</th>
+                  <th className="text-left py-3 pr-4 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] font-normal">Map to DB Column</th>
+                  <th className="text-left py-3 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] font-normal">Sample Value</th>
                 </tr>
               </thead>
               <tbody>
@@ -336,23 +324,21 @@ export default function ImportPage() {
                   const dbColumns = getDbTargetForTarget(target);
                   
                   return (
-                    <tr key={header} className={`border-b border-[var(--border-color)]/50 ${!isMapped ? 'bg-yellow-500/5' : ''}`}>
+                    <tr key={header} className={`border-b border-[var(--border-default)]/50 ${!isMapped ? 'bg-amber-500/5' : ''}`}>
                       <td className="py-3 pr-4 font-mono text-[var(--text-primary)]">
                         {header}
-                        {isRequired && <span className="ml-2 text-[var(--accent-color)] text-xs">*</span>}
-                        {!isMapped && <span className="ml-2 text-yellow-400 text-xs">⚠</span>}
+                        {isRequired && <span className="ml-2 text-[var(--accent)] text-xs">*</span>}
+                        {!isMapped && <span className="ml-2 text-amber-400 text-xs">⚠</span>}
                       </td>
                       <td className="py-3 pr-4">
                         <select
                           value={columnMap[header] || ''}
                           onChange={(e) => updateMapping(header, e.target.value)}
-                          className="w-full max-w-[220px] px-3 py-1.5 rounded-2xl border border-[var(--border-color)] bg-transparent text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--accent-color)]"
+                          className="w-full max-w-[220px] rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]"
                         >
                           <option value="">— Ignore —</option>
                           {dbColumns.map((col) => (
-                            <option key={col} value={col}>
-                              {col}
-                            </option>
+                            <option key={col} value={col}>{col}</option>
                           ))}
                         </select>
                       </td>
@@ -369,17 +355,17 @@ export default function ImportPage() {
           <div className="flex justify-between pt-4">
             <button
               onClick={reset}
-              className="px-6 py-2.5 rounded-2xl border border-[var(--border-color)] text-[var(--text-muted)] text-sm hover:bg-[var(--bg-muted)] transition"
+              className="rounded-2xl border border-[var(--border-default)] px-6 py-3 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--border-hover)] transition"
             >
               ← Back
             </button>
             <button
               onClick={handleImport}
               disabled={!isMappingValid() || isImporting}
-              className={`px-8 py-2.5 rounded-2xl text-sm font-medium transition ${
+              className={`rounded-2xl px-8 py-3 text-sm font-semibold transition ${
                 isMappingValid() && !isImporting
-                  ? 'bg-[var(--accent-color)] text-white hover:opacity-90'
-                  : 'bg-[var(--border-color)] text-[var(--text-muted)] cursor-not-allowed'
+                  ? 'bg-[var(--text-primary)] text-black hover:opacity-90'
+                  : 'bg-[var(--bg-elevated)] text-[var(--text-muted)] cursor-not-allowed'
               }`}
             >
               {isImporting ? (
@@ -393,7 +379,7 @@ export default function ImportPage() {
             </button>
           </div>
           {!isMappingValid() && (
-            <p className="text-xs text-[var(--accent-color)] mt-2">
+            <p className="text-xs text-amber-400 mt-2">
               Please map all required fields (*) before importing.
             </p>
           )}
@@ -402,12 +388,12 @@ export default function ImportPage() {
 
       {step === 'confirm' && (
         <div className="space-y-6">
-          <div className={`rounded-3xl p-6 border ${
+          <div className={`rounded-3xl border p-6 ${
             progress.failed === 0 && progress.succeeded > 0
-              ? 'border-green-500/30 bg-green-500/5'
+              ? 'border-emerald-500/20 bg-emerald-500/5'
               : progress.failed > 0 && progress.succeeded > 0
-              ? 'border-yellow-500/30 bg-yellow-500/5'
-              : 'border-red-500/30 bg-red-500/5'
+              ? 'border-amber-500/20 bg-amber-500/5'
+              : 'border-red-500/20 bg-red-500/5'
           }`}>
             <div className="flex items-center gap-4 text-sm">
               <div className="text-2xl">
@@ -427,8 +413,8 @@ export default function ImportPage() {
           </div>
 
           {errorLog.length > 0 && (
-            <div className="rounded-3xl border border-red-500/30 bg-red-500/5 p-4 max-h-48 overflow-y-auto">
-              <p className="text-xs font-medium text-red-400 uppercase tracking-[0.2em] mb-2">Errors</p>
+            <div className="rounded-3xl border border-red-500/20 bg-red-500/5 p-4 max-h-48 overflow-y-auto">
+              <p className="text-xs font-medium text-red-300 uppercase tracking-[0.2em] mb-2">Errors</p>
               {errorLog.map((err, i) => (
                 <p key={i} className="text-xs text-[var(--text-muted)] font-mono py-0.5">
                   • {err}
@@ -440,13 +426,13 @@ export default function ImportPage() {
           <div className="flex justify-between pt-4">
             <button
               onClick={reset}
-              className="px-6 py-2.5 rounded-2xl border border-[var(--border-color)] text-[var(--text-muted)] text-sm hover:bg-[var(--bg-muted)] transition"
+              className="rounded-2xl border border-[var(--border-default)] px-6 py-3 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--border-hover)] transition"
             >
               ← Import Another
             </button>
             <button
               onClick={() => router.push('/')}
-              className="px-8 py-2.5 rounded-2xl bg-[var(--accent-color)] text-white text-sm font-medium hover:opacity-90 transition"
+              className="rounded-2xl bg-[var(--text-primary)] text-black px-8 py-3 text-sm font-semibold hover:opacity-90 transition"
             >
               Go to Dashboard
             </button>

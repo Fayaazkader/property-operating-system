@@ -3,10 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    // TEMPORARY: Hardcode for testing
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5dWFtcW5lZmV4dnZyaWRrZGpmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTI2MzA3OCwiZXhwIjoyMDk0ODM5MDc4fQ._hud3Ebxc69lfv2hrwQm9d_GoLcTqT6gdzcSJXEd_2c'  // <-- Quotes added
+);
     
     const { target, rows } = await req.json();
     
@@ -27,29 +28,32 @@ export async function POST(req: NextRequest) {
     const entityId = '00000000-0000-0000-0000-000000000101';
 
     let rowsWithEntity;
-    if (target === 'properties') {
-      rowsWithEntity = rows.map((row: any) => ({
-        property_name: row.name,
-        address_line_1: row.address,
-        city: row.city,
-        province: row.state,
-        postal_code: row.postal_code,
-        total_gla_sqm: row.gla_sqft ? parseFloat(row.gla_sqft) : null,
-        entity_id: entityId,
-      }));
-    } else if (target === 'tenants') {
-      rowsWithEntity = rows.map((row: any) => ({
-        tenant_name: row.name,
-        email: row.email,
-        phone: row.phone,
-        entity_id: entityId,
-      }));
-    } else if (target === 'leases') {
-      rowsWithEntity = rows.map((row: any) => ({
-        ...row,
-        entity_id: entityId,
-      }));
-    }
+if (target === 'properties') {
+  rowsWithEntity = rows.map((row: any) => ({
+    property_name: row.property_name,
+    address_line_1: row.address_line_1,
+    city: row.city,
+    province: row.province,
+    postal_code: row.postal_code,
+    total_gla_sqm: row.total_gla_sqm ? parseFloat(row.total_gla_sqm) : null,
+    entity_id: entityId,
+  }));
+} else if (target === 'tenants') {
+  rowsWithEntity = rows.map((row: any) => ({
+    tenant_name: row.tenant_name,
+    email: row.email,
+    phone: row.phone,
+    entity_id: entityId,
+  }));
+} else if (target === 'leases') {
+  rowsWithEntity = rows.map((row: any) => ({
+    ...row,
+    entity_id: entityId,
+  }));
+}
+
+    console.log('Rows with entity length:', rowsWithEntity.length);
+    console.log('First row with entity:', rowsWithEntity[0]);
 
     const BATCH_SIZE = 500;
     let succeeded = 0;
@@ -70,6 +74,7 @@ export async function POST(req: NextRequest) {
       });
 
       console.log(`Batch ${i / BATCH_SIZE + 1}: ${validBatch.length} valid rows`);
+      console.log('First valid row:', validBatch[0]);
 
       if (validBatch.length === 0) {
         failed += batch.length;
@@ -101,7 +106,7 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('Import error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message, stack: error.stack }, { status: 500 });
   }
 }
 
@@ -123,11 +128,18 @@ async function handleLeaseImport(supabase: any, rows: any[], entityId: string) {
     .eq('entity_id', entityId);
   const tenantMap = Object.fromEntries((tenants || []).map((t: any) => [t.tenant_name, t.id]));
 
+  console.log('=== LEASE IMPORT DEBUG ===');
+  console.log('Properties in DB:', Object.keys(propMap));
+  console.log('Tenants in DB:', Object.keys(tenantMap));
+  console.log('Rows received:', rows.length);
+
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
     const resolvedBatch: any[] = [];
 
     for (const row of batch) {
+      console.log('Processing row:', row);
+      
       const propertyId = propMap[row.property_name];
       const tenantId = tenantMap[row.tenant_name];
 
@@ -141,33 +153,46 @@ async function handleLeaseImport(supabase: any, rows: any[], entityId: string) {
         failed++;
         continue;
       }
-      if (!row.base_rent || !row.start_date) {
-        errors.push(`Row ${i + 1}: Missing base_rent or start_date. Skipped.`);
+      
+      // Check for required fields (handle both original and mapped column names)
+      const monthlyRental = row.base_rent || row.monthly_rental;
+      const commencementDate = row.start_date || row.commencement_date;
+      
+      if (!monthlyRental || !commencementDate) {
+        errors.push(`Row ${i + 1}: Missing monthly_rental or commencement_date. Skipped.`);
         failed++;
         continue;
       }
 
-      const leaseNumber = row.lease_number || `LS-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const leaseNumber = row.lease_number || row.lease_id || `LS-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+      // Get unit number (handle both column names)
+      const unitNumber = row.unit || row.unit_number || null;
+      
+      // Get GLA (handle both column names)
+      const gla = row.gla_sqft || row.gla_sqm || null;
 
       resolvedBatch.push({
-  client_id: tenantId,  // Use the tenant ID as client_id
-  lease_id: leaseNumber,
-  property_id: propertyId,
-  tenant_id: tenantId,
-  property_name: row.property_name,
-  tenant_name: row.tenant_name,
-  unit_number: row.unit || null,
-  gla_sqm: row.gla_sqft ? parseFloat(row.gla_sqft) : null,
-  monthly_rental: parseFloat(row.base_rent),
-  commencement_date: new Date(row.start_date).toISOString(),
-  expiry_date: row.end_date ? new Date(row.end_date).toISOString() : null,
-  lease_status: row.status || 'Active',
-  managing_entity_id: entityId,
-});
+        client_id: tenantId,
+        lease_id: leaseNumber,
+        property_id: propertyId,
+        tenant_id: tenantId,
+        property_name: row.property_name,
+        tenant_name: row.tenant_name,
+        unit_number: unitNumber,
+        gla_sqm: gla ? parseFloat(gla) : null,
+        monthly_rental: parseFloat(monthlyRental),
+        commencement_date: new Date(commencementDate).toISOString(),
+        expiry_date: row.end_date || row.expiry_date ? new Date(row.end_date || row.expiry_date).toISOString() : null,
+        lease_status: row.status || row.lease_status || 'Active',
+        managing_entity_id: entityId,
+      });
     }
 
     if (resolvedBatch.length === 0) continue;
 
+    console.log(`Batch ${i / BATCH_SIZE + 1}: Inserting ${resolvedBatch.length} leases`);
+    
     const { data, error } = await supabase
       .from('leases')
       .insert(resolvedBatch)
@@ -176,8 +201,10 @@ async function handleLeaseImport(supabase: any, rows: any[], entityId: string) {
     if (error) {
       errors.push(`Batch ${i / BATCH_SIZE + 1}: ${error.message}`);
       failed += resolvedBatch.length;
+      console.error('Insert error:', error);
     } else {
       succeeded += resolvedBatch.length;
+      console.log(`Inserted ${data?.length} leases`);
     }
   }
 

@@ -110,4 +110,12 @@ export const navigation: NavigationItem[] = [
     icon: "settings",
     zone: "tertiary",
   },
+    {
+    label: "Import Data",
+    href: "/settings/import",
+    workspace: "admin",
+    roles: ["executive", "admin", "finance"],
+    icon: "import",
+    zone: "tertiary",
+  },
 ];
