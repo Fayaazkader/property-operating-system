@@ -1,17 +1,22 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Papa from 'papaparse';
 import { PageHeader } from '@/app/components/layout/PageHeader';
+import { supabase } from '@/lib/supabase';
 import { 
   SOURCE_SYSTEMS, 
   SYSTEM_PRESETS, 
   detectSystem, 
   getDbColumnForHeader,
-  getDbTargetForTarget 
+  getDbTargetForTarget,
+  saveUserMapping,
+  fuzzyMatch   
 } from '@/lib/column-mapping';
 import { CustomDropdown } from '@/components/ui';
+
+
 
 type Target = 'properties' | 'tenants' | 'leases';
 type Step = 'upload' | 'map' | 'confirm';
@@ -28,7 +33,6 @@ const REQUIRED: Record<Target, string[]> = {
   leases: ['property_name', 'tenant_name', 'monthly_rental', 'commencement_date'],
 };
 
-// Type for progress state
 type ProgressState = {
   total: number;
   succeeded: number;
@@ -60,74 +64,152 @@ export default function ImportPage() {
   const [errorLog, setErrorLog] = useState<string[]>([]);
   const [fileName, setFileName] = useState('');
   const [detectedSystem, setDetectedSystem] = useState<string | null>(null);
+  const [preCheckData, setPreCheckData] = useState<{
+    duplicateIndices: number[];
+    duplicateCount: number;
+    existingValues: string[];
+    message: string;
+  } | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
+  const [entities, setEntities] = useState<any[]>([]);
+const [selectedEntity, setSelectedEntity] = useState('');
+  
 
-  const handleFileUpload = useCallback((file: File) => {
-    setFileName(file.name);
+ // ===== PRE-CHECK FUNCTION =====
+const handlePreCheck = useCallback(async (dataToCheck: any[]) => {
+  console.log('=== PRECHECK CALLED ===');
+  console.log('rawData length:', dataToCheck.length);
+  
+  if (dataToCheck.length === 0) {
+    console.log('No data, skipping precheck');
+    return;
+  }
+  
+  setIsChecking(true);
+  try {
+    console.log('Calling /api/import/precheck with target:', target);
+    const response = await fetch('/api/import/precheck', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        target,
+        rows: dataToCheck,
+        entityId: selectedEntity,
+      }),
+    });
+    
+    console.log('Response status:', response.status);
+    
+    const result = await response.json();
+    console.log('Precheck result:', result);
+    console.log('Duplicate indices:', result.duplicateIndices);
+    console.log('Duplicate count:', result.duplicateCount);
+    
+    setPreCheckData(result);
+  } catch (error: any) {
+    console.error('Precheck error:', error);
+  } finally {
+    setIsChecking(false);
+  }
+}, [target]);
+// Load user's entities
+useEffect(() => {
+  async function loadEntities() {
+    const { data: userEntities } = await supabase
+      .from('user_entities')
+      .select('entity_id, entities!inner(entity_name, entity_code)');
+    
+    if (userEntities && userEntities.length > 0) {
+      const entityList = userEntities.map((ue: any) => ({
+        id: ue.entity_id,
+        name: ue.entities?.entity_name || 'Unknown',
+        code: ue.entities?.entity_code || '',
+      }));
+      setEntities(entityList);
+      setSelectedEntity(entityList[0].id);
+    }
+  }
+  loadEntities();
+}, []);
+// ===== FILE UPLOAD FUNCTION =====
+const handleFileUpload = useCallback((file: File) => {
+  setFileName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const csvString = event.target?.result as string;
-      if (!csvString) {
-        alert('Failed to read file.');
-        return;
-      }
-
-      Papa.parse(csvString, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          const data = results.data as any[];
-          if (!data || data.length === 0 || Object.keys(data[0] || {}).length === 0) {
-            alert('File is empty or has no headers.');
-            return;
-          }
-          const cols = Object.keys(data[0]);
-          setHeaders(cols);
-          setRawData(data);
-
-          const detected = detectSystem(cols);
-          setDetectedSystem(detected);
-          if (detected && detected !== 'other') {
-            setSourceSystem(detected);
-          }
-
-          const autoMap: Record<string, string> = {};
-          const unmapped: string[] = [];
-          const dbColumns = getDbTargetForTarget(target);
-
-          cols.forEach((col) => {
-            const dbCol = getDbColumnForHeader(col);
-            if (dbCol && dbColumns.includes(dbCol)) {
-              autoMap[col] = dbCol;
-            } else {
-              unmapped.push(col);
-            }
-          });
-
-          setColumnMap(autoMap);
-          setUnmappedHeaders(unmapped);
-          setStep('map');
-        },
-        error: (err: any) => {
-          console.error('CSV Parse Error:', err);
-          alert(`Failed to parse CSV: ${err.message || 'Unknown error'}`);
-        },
-      });
-    };
-    reader.onerror = () => {
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const csvString = event.target?.result as string;
+    if (!csvString) {
       alert('Failed to read file.');
-    };
-    reader.readAsText(file);
-  }, [target]);
+      return;
+    }
+
+    Papa.parse(csvString, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const data = results.data as any[];
+        if (!data || data.length === 0 || Object.keys(data[0] || {}).length === 0) {
+          alert('File is empty or has no headers.');
+          return;
+        }
+        const cols = Object.keys(data[0]);
+        setHeaders(cols);
+        setRawData(data);
+
+        const detected = detectSystem(cols);
+        setDetectedSystem(detected);
+        if (detected && detected !== 'other') {
+          setSourceSystem(detected);
+        }
+
+        const autoMap: Record<string, string> = {};
+        const unmapped: string[] = [];
+        const dbColumns = getDbTargetForTarget(target);
+
+       cols.forEach((col) => {
+  const dbCol = getDbColumnForHeader(col, target);  // Pass target for fuzzy matching
+  if (dbCol && dbColumns.includes(dbCol)) {
+    autoMap[col] = dbCol;
+  } else {
+    unmapped.push(col);
+  }
+});
+
+        setColumnMap(autoMap);
+        setUnmappedHeaders(unmapped);
+        setStep('map');
+        
+        // DELAY AND PASS DATA DIRECTLY
+        setTimeout(() => {
+          handlePreCheck(data);
+        }, 100);
+      },
+      error: (err: any) => {
+        console.error('CSV Parse Error:', err);
+        alert(`Failed to parse CSV: ${err.message || 'Unknown error'}`);
+      },
+    });
+  };
+  reader.onerror = () => {
+    alert('Failed to read file.');
+  };
+  reader.readAsText(file);
+}, [target, handlePreCheck]);
 
   const updateMapping = (header: string, dbColumn: string) => {
-    setColumnMap((prev) => ({ ...prev, [header]: dbColumn }));
-    if (dbColumn) {
-      setUnmappedHeaders((prev) => prev.filter(h => h !== header));
-    } else {
-      setUnmappedHeaders((prev) => [...prev, header]);
-    }
-  };
+  setColumnMap((prev) => ({ ...prev, [header]: dbColumn }));
+  
+  // Save user mapping if they mapped it to a real column
+  if (dbColumn) {
+    saveUserMapping(header, dbColumn);
+  }
+  
+  if (dbColumn) {
+    setUnmappedHeaders((prev) => prev.filter(h => h !== header));
+  } else {
+    setUnmappedHeaders((prev) => [...prev, header]);
+  }
+};
 
   const applySystemPreset = (system: string) => {
     const preset = SYSTEM_PRESETS[system];
@@ -212,6 +294,7 @@ export default function ImportPage() {
     setFileName('');
     setDetectedSystem(null);
     setSourceSystem('other');
+    setPreCheckData(null);
   };
 
   return (
@@ -302,20 +385,58 @@ export default function ImportPage() {
             <label className="block text-xs text-[var(--text-muted)] mb-1.5 uppercase tracking-[0.2em]">
               Source System
             </label>
-           <CustomDropdown
-  value={sourceSystem}
-  onChange={setSourceSystem}
-  options={SOURCE_SYSTEMS}
-  placeholder="Select source system..."
-  className="w-full max-w-xs"
-/>
+            <CustomDropdown
+              value={sourceSystem}
+              onChange={setSourceSystem}
+              options={SOURCE_SYSTEMS}
+              placeholder="Select source system..."
+              className="w-full max-w-xs"
+            />
             {detectedSystem && detectedSystem !== 'other' && (
               <p className="text-xs text-[var(--text-muted)] mt-1.5">
                 💡 Detected: {detectedSystem.toUpperCase()} — we'll auto-map your columns
               </p>
             )}
           </div>
+{/* Source System Selector */}
+<div>
+  <label className="block text-xs text-[var(--text-muted)] mb-1.5 uppercase tracking-[0.2em]">
+    Source System
+  </label>
+  <CustomDropdown
+    value={sourceSystem}
+    onChange={setSourceSystem}
+    options={SOURCE_SYSTEMS}
+    placeholder="Select source system..."
+    className="w-full max-w-xs"
+  />
+  {detectedSystem && detectedSystem !== 'other' && (
+    <p className="text-xs text-[var(--text-muted)] mt-1.5">
+      💡 Detected: {detectedSystem.toUpperCase()} — we'll auto-map your columns
+    </p>
+  )}
+</div>
 
+{/* ==== ADD ENTITY SELECTOR HERE ==== */}
+<div>
+  <label className="block text-xs text-[var(--text-muted)] mb-1.5 uppercase tracking-[0.2em]">
+    Entity
+  </label>
+  {entities.length === 0 ? (
+    <p className="text-sm text-[var(--text-muted)]">Loading entities...</p>
+  ) : (
+    <CustomDropdown
+      value={selectedEntity}
+      onChange={setSelectedEntity}
+      options={entities.map(e => ({ 
+        value: e.id, 
+        label: `${e.name} (${e.code})` 
+      }))}
+      placeholder="Select entity..."
+      className="w-full max-w-xs"
+    />
+  )}
+</div>
           {/* Upload Area */}
           <div className="border-2 border-dashed border-[var(--border-default)] rounded-3xl p-12 text-center hover:border-[var(--border-hover)] transition-colors">
             <input
@@ -379,6 +500,7 @@ export default function ImportPage() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-[var(--text-primary)]">
                 👀 Preview Data
+                {isChecking && <span className="ml-2 text-xs text-[var(--text-muted)]">Checking duplicates...</span>}
               </h3>
               <span className="text-xs text-[var(--text-muted)]">
                 Showing {Math.min(5, rawData.length)} of {rawData.length} rows
@@ -410,19 +532,26 @@ export default function ImportPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rawData.slice(0, 5).map((row, rowIndex) => (
-                    <tr key={rowIndex} className="border-t border-[var(--border-default)]">
-                      <td className="px-4 py-2.5 text-xs text-[var(--text-muted)] font-mono">{rowIndex + 1}</td>
-                      {headers.slice(0, 6).map((header) => (
-                        <td key={header} className="px-4 py-2.5 text-xs text-[var(--text-primary)] font-mono max-w-[150px] truncate">
-                          {row[header] || <span className="text-[var(--text-muted)]/40">—</span>}
+                  {rawData.slice(0, 5).map((row, rowIndex) => {
+                    const isDuplicate = preCheckData?.duplicateIndices?.includes(rowIndex) || false;
+                    
+                    return (
+                      <tr key={rowIndex} className={`border-t border-[var(--border-default)] ${isDuplicate ? 'bg-amber-500/5' : ''}`}>
+                        <td className="px-4 py-2.5 text-xs text-[var(--text-muted)] font-mono">
+                          {rowIndex + 1}
+                          {isDuplicate && <span className="ml-1 text-amber-400 text-[10px]">⚠️</span>}
                         </td>
-                      ))}
-                      {headers.length > 6 && (
-                        <td className="px-4 py-2.5 text-xs text-[var(--text-muted)]">…</td>
-                      )}
-                    </tr>
-                  ))}
+                        {headers.slice(0, 6).map((header) => (
+                          <td key={header} className="px-4 py-2.5 text-xs text-[var(--text-primary)] font-mono max-w-[150px] truncate">
+                            {row[header] || <span className="text-[var(--text-muted)]/40">—</span>}
+                          </td>
+                        ))}
+                        {headers.length > 6 && (
+                          <td className="px-4 py-2.5 text-xs text-[var(--text-muted)]">…</td>
+                        )}
+                      </tr>
+                    );
+                  })}
                   {rawData.length > 5 && (
                     <tr className="border-t border-[var(--border-default)]">
                       <td className="px-4 py-2.5 text-xs text-[var(--text-muted)] font-mono text-center" colSpan={Math.min(7, headers.length + 1)}>
@@ -433,7 +562,21 @@ export default function ImportPage() {
                 </tbody>
               </table>
             </div>
-            <p className="text-xs text-[var(--text-muted)] mt-2">
+            <div className="flex gap-4 mt-2 text-xs text-[var(--text-muted)]">
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-amber-500/5 border border-amber-500/20"></span>
+                ⚠️ Already exists in database (will be skipped on import)
+              </span>
+              {preCheckData && preCheckData.duplicateCount > 0 && (
+                <span className="text-amber-400 font-medium">
+                  {preCheckData.duplicateCount} duplicate{preCheckData.duplicateCount > 1 ? 's' : ''} found
+                </span>
+              )}
+              {preCheckData && preCheckData.duplicateCount === 0 && (
+                <span className="text-emerald-400 font-medium">✅ No duplicates found</span>
+              )}
+            </div>
+            <p className="text-xs text-[var(--text-muted)] mt-1">
               🔍 Preview shows how your data will be mapped before import
             </p>
           </div>
@@ -463,17 +606,27 @@ export default function ImportPage() {
                         {!isMapped && <span className="ml-2 text-amber-400 text-xs">⚠</span>}
                       </td>
                       <td className="py-3 pr-4">
-                       <CustomDropdown
-  value={columnMap[header] || ''}
-  onChange={(value) => updateMapping(header, value)}
-  options={[
-    { value: '', label: '— Ignore —' },
-    ...dbColumns.map(col => ({ value: col, label: col }))
-  ]}
-  placeholder="Map to column..."
-  className="w-full max-w-[220px]"
-/>
-                      </td>
+  {(() => {
+    const dbColumns = getDbTargetForTarget(target);
+    const fuzzySuggestion = columnMap[header] ? null : fuzzyMatch(header, dbColumns);
+    
+    return (
+      <CustomDropdown
+        value={columnMap[header] || ''}
+        onChange={(value) => updateMapping(header, value)}
+        options={[
+          { value: '', label: '— Ignore —' },
+          ...dbColumns.map(col => ({ 
+            value: col, 
+            label: fuzzySuggestion?.bestMatch === col ? `${col} (suggested)` : col 
+          }))
+        ]}
+        placeholder={fuzzySuggestion?.bestMatch ? `Suggested: ${fuzzySuggestion.bestMatch}` : "Map to column..."}
+        className="w-full max-w-[220px]"
+      />
+    );
+  })()}
+</td>
                       <td className="py-3 text-[var(--text-muted)] truncate max-w-[150px]">
                         {String(sample).slice(0, 30)}
                       </td>

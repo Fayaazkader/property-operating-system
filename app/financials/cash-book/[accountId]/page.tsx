@@ -218,11 +218,13 @@ async function handlePostAllReady() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button onClick={() => router.push(`/financials/cash-book/${accountId}/allocate?txId=${tx.id}&amount=${tx.transaction_amount}&desc=${encodeURIComponent(tx.transaction_description)}&ref=${encodeURIComponent(tx.transaction_reference || "")}&date=${tx.transaction_date}`)}
-  className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">
-  {activeQueue === "posted" ? "View" : "Allocate"}
-</button>
-                  </td>
+  <button 
+    onClick={() => router.push(`/financials/cash-book/${accountId}/allocate?txId=${tx.id}&amount=${tx.transaction_amount}&desc=${encodeURIComponent(tx.transaction_description)}&ref=${encodeURIComponent(tx.transaction_reference || "")}&date=${tx.transaction_date}`)}
+    className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors"
+  >
+    {activeQueue === "posted" ? "View" : "Allocate"}
+  </button>
+</td>
                 </tr>
               ))}
             </tbody>

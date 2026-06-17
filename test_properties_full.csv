@@ -1,0 +1,8 @@
+name,address,city,state,postal_code,gla_sqft
+Sandton Mall,123 Rivonia Rd,Sandton,Gauteng,2196,45000
+Rosebank Square,56 Cradock Ave,Rosebank,Gauteng,2196,32000
+Century City,1 Century Blvd,Cape Town,Western Cape,7441,28000
+Waterfall Estate,1 Waterfall Dr,Midrand,Gauteng,1685,52000
+Melrose Arch,1 High St,Melrose,Gauteng,2076,18000
+Sandton Mall,123 Rivonia Rd,Sandton,Gauteng,2196,45000
+Missing City,,,Gauteng,2196,45000

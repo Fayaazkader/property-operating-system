@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export default function AllocationWorkspacePage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const params = useParams();
+  
+  const accountId = params?.accountId as string;
   const txId = searchParams.get("txId") || "";
   const txAmount = parseFloat(searchParams.get("amount") || "0");
   const txDesc = searchParams.get("desc") || "";
@@ -22,21 +25,56 @@ export default function AllocationWorkspacePage() {
 
   useEffect(() => {
     async function load() {
-      // Get open invoices sorted by amount match
+      // Get open invoices
       const { data: invs } = await supabase
         .from("invoices")
-        .select("id, invoice_number, tenant_id, total_amount, payment_status, leases!inner(tenant_name)")
+        .select("id, invoice_number, tenant_id, total_amount, payment_status, created_at, leases!inner(tenant_name)")
         .neq("payment_status", "paid")
         .order("total_amount");
 
       if (invs) {
-        const scored = invs.map((inv: any) => ({
-          ...inv,
-          tenant_name: inv.leases?.tenant_name || "Unknown",
-          confidence: Math.abs((inv.total_amount || 0) - Math.abs(txAmount)) < 1 ? 97 :
-                     Math.abs((inv.total_amount || 0) - Math.abs(txAmount)) < 1000 ? 85 :
-                     Math.abs((inv.total_amount || 0) - Math.abs(txAmount)) < 5000 ? 65 : 40,
-        }));
+        const scored = invs.map((inv: any) => {
+          let confidence = 0;
+          const reasons: string[] = [];
+          
+          // 1. Amount match (max 40 points)
+          const amountDiff = Math.abs((inv.total_amount || 0) - Math.abs(txAmount));
+          if (amountDiff < 1) { confidence += 40; reasons.push('✓ Exact amount match'); }
+          else if (amountDiff < 100) { confidence += 30; reasons.push('✓ Amount closely matches'); }
+          else if (amountDiff < 500) { confidence += 20; reasons.push('✓ Amount within range'); }
+          else if (amountDiff < 5000) { confidence += 10; reasons.push('✓ Approximate amount'); }
+          
+          // 2. Tenant name in description (max 25 points)
+          const tenantName = inv.leases?.tenant_name || '';
+          const descLower = txDesc.toLowerCase();
+          if (tenantName && descLower.includes(tenantName.toLowerCase())) {
+            confidence += 25;
+            reasons.push(`✓ Tenant "${tenantName}" found in description`);
+          } else if (tenantName && descLower.includes(tenantName.toLowerCase().split(' ')[0])) {
+            confidence += 15;
+            reasons.push(`✓ Partial tenant match`);
+          }
+          
+          // 3. Reference match (max 20 points)
+          if (txRef && inv.invoice_number && txRef.includes(inv.invoice_number)) {
+            confidence += 20;
+            reasons.push(`✓ Reference matches invoice ${inv.invoice_number}`);
+          }
+          
+          // 4. Invoice age (max 15 points)
+          const invoiceAge = new Date().getTime() - new Date(inv.created_at || 0).getTime();
+          const daysOld = invoiceAge / (1000 * 60 * 60 * 24);
+          if (daysOld < 30) { confidence += 15; reasons.push('✓ Recent invoice'); }
+          else if (daysOld < 90) { confidence += 10; reasons.push('✓ Invoice within 3 months'); }
+          else if (daysOld < 180) { confidence += 5; reasons.push('✓ Invoice within 6 months'); }
+          
+          return {
+            ...inv,
+            tenant_name: inv.leases?.tenant_name || 'Unknown',
+            confidence: Math.min(confidence, 100),
+            reasons,
+          };
+        });
         scored.sort((a: any, b: any) => b.confidence - a.confidence);
         setInvoices(scored);
       }
@@ -45,7 +83,7 @@ export default function AllocationWorkspacePage() {
       if (tens) setTenants(tens);
     }
     load();
-  }, [txAmount]);
+  }, [txAmount, txDesc, txRef]);
 
   async function handleAllocate() {
     if (!selectedInvoice && !selectedTenant) return;
@@ -56,8 +94,8 @@ export default function AllocationWorkspacePage() {
       .update({
         matched_invoice_id: selectedInvoice || null,
         matched_tenant_id: selectedTenant || null,
-        allocation_status: "fully_allocated",
-        queue: "posted",
+        allocation_status: "ready_to_post",
+        queue: "ready",
         updated_at: new Date().toISOString(),
       })
       .eq("id", txId);
@@ -71,8 +109,8 @@ export default function AllocationWorkspacePage() {
       <div className="mx-auto max-w-2xl space-y-8 px-6 pt-20 pb-12 text-center">
         <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-10">
           <p className="text-5xl mb-4">✅</p>
-          <h1 className="text-3xl font-black text-[var(--text-primary)] mb-2">Allocation Posted</h1>
-          <p className="text-[var(--text-secondary)] mb-2">Transaction has been allocated and posted.</p>
+          <h1 className="text-3xl font-black text-[var(--text-primary)] mb-2">Allocation Ready</h1>
+          <p className="text-[var(--text-secondary)] mb-2">Transaction has been allocated and is ready to post.</p>
           <button onClick={() => router.back()} className="rounded-2xl bg-[var(--text-primary)] text-black px-6 py-3 text-sm font-semibold hover:opacity-90">
             Back to Cash Book
           </button>
@@ -112,9 +150,9 @@ export default function AllocationWorkspacePage() {
           </div>
         </div>
 
-        {/* Right: Suggested Matches */}
+        {/* Right: Recommended Allocations */}
         <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-6">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] mb-4">Suggested Matches</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] mb-4">Recommended Allocations</p>
           
           {invoices.length === 0 ? (
             <p className="text-[var(--text-muted)] text-sm">No open invoices found.</p>
@@ -133,6 +171,16 @@ export default function AllocationWorkspacePage() {
                     <div>
                       <p className="text-sm font-medium text-[var(--text-primary)]">{inv.invoice_number}</p>
                       <p className="text-xs text-[var(--text-secondary)]">{inv.tenant_name}</p>
+                      {inv.reasons && inv.reasons.length > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                          {inv.reasons.slice(0, 2).map((reason: string, idx: number) => (
+                            <p key={idx} className="text-[10px] text-emerald-400/70">{reason}</p>
+                          ))}
+                          {inv.reasons.length > 2 && (
+                            <p className="text-[10px] text-[var(--text-muted)]">+{inv.reasons.length - 2} more matches</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-[var(--text-primary)] tabular-nums">R{inv.total_amount?.toLocaleString()}</p>
@@ -148,14 +196,16 @@ export default function AllocationWorkspacePage() {
             </div>
           )}
 
-          {/* Manual tenant selection */}
+          {/* Manual Allocation Button */}
           <div className="mt-4 pt-4 border-t border-[var(--border-default)]">
-            <p className="text-xs text-[var(--text-muted)] mb-2">Or select tenant manually</p>
-            <select value={selectedTenant} onChange={(e) => { setSelectedTenant(e.target.value); setSelectedInvoice(""); }}
-              className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]">
-              <option value="">Select tenant...</option>
-              {tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
-            </select>
+            <p className="text-xs text-[var(--text-muted)] mb-2">Don't see the right match?</p>
+            <button
+              onClick={() => router.push(`/financials/cash-book/${accountId}/allocate/${txId}`)}
+              className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-colors flex items-center justify-center gap-2"
+            >
+              ✏️ Manual Allocation
+              <span className="text-xs text-[var(--text-muted)]">(advanced)</span>
+            </button>
           </div>
         </div>
       </div>
@@ -167,7 +217,7 @@ export default function AllocationWorkspacePage() {
         </button>
         <button onClick={handleAllocate} disabled={(!selectedInvoice && !selectedTenant) || loading}
           className="rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-40">
-          {loading ? "Allocating..." : "Allocate & Post"}
+          {loading ? "Allocating..." : "Allocate → Ready To Post"}
         </button>
       </div>
     </div>

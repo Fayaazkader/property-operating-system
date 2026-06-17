@@ -1,0 +1,6 @@
+name,code,email,phone,company_type
+Woolworths,WWR001,finance@woolworths.co.za,+27123456789,Corporation
+New Tenant One,NT001,new1@test.com,+27123456789,Corporation
+New Tenant Two,NT002,new2@test.com,+27123456789,Corporation
+Woolworths,WWR001,finance@woolworths.co.za,+27123456789,Corporation
+Clicks,CLK001,accounts@clicks.co.za,+27876543210,Corporation
