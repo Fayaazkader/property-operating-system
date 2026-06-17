@@ -11,6 +11,7 @@ import {
   getDbColumnForHeader,
   getDbTargetForTarget 
 } from '@/lib/column-mapping';
+import { CustomDropdown } from '@/components/ui';
 
 type Target = 'properties' | 'tenants' | 'leases';
 type Step = 'upload' | 'map' | 'confirm';
@@ -27,6 +28,20 @@ const REQUIRED: Record<Target, string[]> = {
   leases: ['property_name', 'tenant_name', 'monthly_rental', 'commencement_date'],
 };
 
+// Type for progress state
+type ProgressState = {
+  total: number;
+  succeeded: number;
+  failed: number;
+  duplicates?: {
+    count: number;
+    items: any[];
+    errors: string[];
+    message: string;
+  };
+  errorRows?: any[];
+};
+
 export default function ImportPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('upload');
@@ -37,7 +52,11 @@ export default function ImportPage() {
   const [columnMap, setColumnMap] = useState<Record<string, string>>({});
   const [unmappedHeaders, setUnmappedHeaders] = useState<string[]>([]);
   const [isImporting, setIsImporting] = useState(false);
-  const [progress, setProgress] = useState({ total: 0, succeeded: 0, failed: 0 });
+  const [progress, setProgress] = useState<ProgressState>({ 
+    total: 0, 
+    succeeded: 0, 
+    failed: 0 
+  });
   const [errorLog, setErrorLog] = useState<string[]>([]);
   const [fileName, setFileName] = useState('');
   const [detectedSystem, setDetectedSystem] = useState<string | null>(null);
@@ -170,6 +189,8 @@ export default function ImportPage() {
         total: result.total || 0,
         succeeded: result.succeeded || 0,
         failed: result.failed || 0,
+        duplicates: result.duplicates || undefined,
+        errorRows: result.errorRows || undefined,
       });
       if (result.errors) setErrorLog(result.errors);
       setStep('confirm');
@@ -195,31 +216,20 @@ export default function ImportPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-6 pt-8 pb-12">
-      {/* Header with Download Template button on the far right */}
-      <div className="flex items-start justify-between">
-        <div>
-          <PageHeader 
-            title="Data Migration Centre" 
-            subtitle="Upload your data and AssetFlow will map it automatically." 
-          />
-          {detectedSystem && (
-            <p className="text-sm text-[var(--text-muted)] mt-1">
-              Detected: {detectedSystem.toUpperCase()}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={() => {
-            const url = `/api/import/template?target=${target}`;
-            window.open(url, '_blank');
-          }}
-          className="mt-1 px-4 py-2 rounded-2xl text-sm border border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)] transition-all flex items-center gap-2 whitespace-nowrap"
-        >
-          <span>📄</span>
-          Download Template
-        </button>
+      {/* Header */}
+      <div>
+        <PageHeader 
+          title="Data Migration Centre" 
+          subtitle="Upload your data and AssetFlow will map it automatically." 
+        />
+        {detectedSystem && (
+          <p className="text-sm text-[var(--text-muted)] mt-1">
+            Detected: {detectedSystem.toUpperCase()}
+          </p>
+        )}
       </div>
 
+      {/* Step Indicator */}
       <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
         <span className={step === 'upload' ? 'text-[var(--text-primary)]' : ''}>1. Upload</span>
         <span className="w-8 h-px bg-[var(--border-default)]" />
@@ -228,110 +238,111 @@ export default function ImportPage() {
         <span className={step === 'confirm' ? 'text-[var(--text-primary)]' : ''}>3. Confirm</span>
       </div>
 
+      {/* ==================== STEP 1: UPLOAD ==================== */}
       {step === 'upload' && (
-  <div className="space-y-6">
-    {/* Target Selector */}
-    <div>
-      <label className="block text-xs text-[var(--text-muted)] mb-1.5 uppercase tracking-[0.2em]">
-        What are you importing?
-      </label>
-      <div className="flex gap-2 flex-wrap">
-        {TARGETS.map((t) => (
-          <button
-            key={t.value}
-            onClick={() => setTarget(t.value)}
-            className={`rounded-2xl px-5 py-3 text-sm font-semibold transition ${
-              target === t.value
-                ? 'bg-white text-black'
-                : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-    </div>
+        <div className="space-y-6">
+          {/* Target Selector */}
+          <div>
+            <label className="block text-xs text-[var(--text-muted)] mb-1.5 uppercase tracking-[0.2em]">
+              What are you importing?
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              {TARGETS.map((t) => (
+                <button
+                  key={t.value}
+                  onClick={() => setTarget(t.value)}
+                  className={`rounded-2xl px-5 py-3 text-sm font-semibold transition ${
+                    target === t.value
+                      ? 'bg-white text-black'
+                      : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-    {/* ==== TEMPLATES SECTION — ADD THIS ==== */}
-    <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-elevated)]/40 p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <h3 className="text-sm font-medium text-[var(--text-primary)]">
-            📄 Need a template?
-          </h3>
-          <p className="text-sm text-[var(--text-muted)] mt-0.5">
-            Download a CSV template with the correct columns for <span className="font-medium text-[var(--text-primary)]">{target}</span>
-          </p>
+          {/* Templates Section */}
+          <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-elevated)]/40 p-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-[var(--text-primary)]">
+                  📄 Need a template?
+                </h3>
+                <p className="text-sm text-[var(--text-muted)] mt-0.5">
+                  Download a CSV template with the correct columns for <span className="font-medium text-[var(--text-primary)]">{target}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  const url = `/api/import/template?target=${target}`;
+                  window.open(url, '_blank');
+                }}
+                className="px-5 py-2.5 rounded-2xl text-sm font-medium bg-[var(--text-primary)] text-black hover:opacity-90 transition flex items-center gap-2 whitespace-nowrap"
+              >
+                <span>⬇️</span>
+                Download Template
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-secondary)] px-3 py-1 rounded-full">
+                {target === 'properties' ? 'name, address, city...' : 
+                 target === 'tenants' ? 'name, code, email...' : 
+                 'lease_number, property_name, tenant_name...'}
+              </span>
+              <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-secondary)] px-3 py-1 rounded-full">
+                .csv format
+              </span>
+            </div>
+          </div>
+
+          {/* Source System Selector */}
+          <div>
+            <label className="block text-xs text-[var(--text-muted)] mb-1.5 uppercase tracking-[0.2em]">
+              Source System
+            </label>
+           <CustomDropdown
+  value={sourceSystem}
+  onChange={setSourceSystem}
+  options={SOURCE_SYSTEMS}
+  placeholder="Select source system..."
+  className="w-full max-w-xs"
+/>
+            {detectedSystem && detectedSystem !== 'other' && (
+              <p className="text-xs text-[var(--text-muted)] mt-1.5">
+                💡 Detected: {detectedSystem.toUpperCase()} — we'll auto-map your columns
+              </p>
+            )}
+          </div>
+
+          {/* Upload Area */}
+          <div className="border-2 border-dashed border-[var(--border-default)] rounded-3xl p-12 text-center hover:border-[var(--border-hover)] transition-colors">
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file);
+              }}
+              className="hidden"
+              id="csv-upload"
+            />
+            <label htmlFor="csv-upload" className="cursor-pointer block">
+              <div className="text-4xl mb-3">📄</div>
+              <p className="text-[var(--text-primary)] font-medium">Drop your CSV here, or click to browse</p>
+              <p className="text-xs text-[var(--text-muted)] mt-2">
+                Supports .csv only. First row must contain headers.
+              </p>
+            </label>
+          </div>
         </div>
-        <button
-          onClick={() => {
-            const url = `/api/import/template?target=${target}`;
-            window.open(url, '_blank');
-          }}
-          className="px-5 py-2.5 rounded-2xl text-sm font-medium bg-[var(--text-primary)] text-black hover:opacity-90 transition flex items-center gap-2 whitespace-nowrap"
-        >
-          <span>⬇️</span>
-          Download Template
-        </button>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-secondary)] px-3 py-1 rounded-full">
-          {target === 'properties' ? 'name, address, city...' : 
-           target === 'tenants' ? 'name, code, email...' : 
-           'lease_number, property_name, tenant_name...'}
-        </span>
-        <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-secondary)] px-3 py-1 rounded-full">
-          .csv format
-        </span>
-      </div>
-    </div>
-
-    {/* Source System Selector */}
-    <div>
-      <label className="block text-xs text-[var(--text-muted)] mb-1.5 uppercase tracking-[0.2em]">
-        Source System
-      </label>
-      <select
-        value={sourceSystem}
-        onChange={(e) => setSourceSystem(e.target.value)}
-        className="w-full max-w-xs rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]"
-      >
-        {SOURCE_SYSTEMS.map((s) => (
-          <option key={s.value} value={s.value}>{s.label}</option>
-        ))}
-      </select>
-      {detectedSystem && detectedSystem !== 'other' && (
-        <p className="text-xs text-[var(--text-muted)] mt-1.5">
-          💡 Detected: {detectedSystem.toUpperCase()} — we'll auto-map your columns
-        </p>
       )}
-    </div>
 
-    {/* Upload Area */}
-    <div className="border-2 border-dashed border-[var(--border-default)] rounded-3xl p-12 text-center hover:border-[var(--border-hover)] transition-colors">
-      <input
-        type="file"
-        accept=".csv"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleFileUpload(file);
-        }}
-        className="hidden"
-        id="csv-upload"
-      />
-      <label htmlFor="csv-upload" className="cursor-pointer block">
-        <div className="text-4xl mb-3">📄</div>
-        <p className="text-[var(--text-primary)] font-medium">Drop your CSV here, or click to browse</p>
-        <p className="text-xs text-[var(--text-muted)] mt-2">
-          Supports .csv only. First row must contain headers.
-        </p>
-      </label>
-    </div>
-  </div>
-)}
-
+      {/* ==================== STEP 2: REVIEW ==================== */}
       {step === 'map' && (
         <div className="space-y-6">
+          {/* File Info */}
           <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4 text-sm">
             <p className="text-[var(--text-muted)]">
               File: <span className="text-[var(--text-primary)] font-mono">{fileName}</span> &nbsp;|&nbsp; 
@@ -351,6 +362,7 @@ export default function ImportPage() {
             )}
           </div>
 
+          {/* Unmapped Headers Warning */}
           {unmappedHeaders.length > 0 && (
             <div className="rounded-3xl border border-amber-500/20 bg-amber-500/5 p-4">
               <p className="text-xs font-medium text-amber-300 uppercase tracking-[0.2em] mb-1">
@@ -362,6 +374,71 @@ export default function ImportPage() {
             </div>
           )}
 
+          {/* Row Preview */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-[var(--text-primary)]">
+                👀 Preview Data
+              </h3>
+              <span className="text-xs text-[var(--text-muted)]">
+                Showing {Math.min(5, rawData.length)} of {rawData.length} rows
+              </span>
+            </div>
+            <div className="overflow-x-auto rounded-2xl border border-[var(--border-default)]">
+              <table className="w-full text-sm">
+                <thead className="bg-[var(--bg-secondary)]">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-[0.2em]">#</th>
+                    {headers.slice(0, 6).map((header) => {
+                      const dbCol = columnMap[header];
+                      return (
+                        <th key={header} className="px-4 py-2.5 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-[0.2em]">
+                          <div className="flex flex-col">
+                            <span>{dbCol || header}</span>
+                            {dbCol && dbCol !== header && (
+                              <span className="text-[10px] font-normal text-[var(--text-muted)]/60">
+                                ← {header}
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      );
+                    })}
+                    {headers.length > 6 && (
+                      <th className="px-4 py-2.5 text-left text-xs text-[var(--text-muted)]">+{headers.length - 6} more</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rawData.slice(0, 5).map((row, rowIndex) => (
+                    <tr key={rowIndex} className="border-t border-[var(--border-default)]">
+                      <td className="px-4 py-2.5 text-xs text-[var(--text-muted)] font-mono">{rowIndex + 1}</td>
+                      {headers.slice(0, 6).map((header) => (
+                        <td key={header} className="px-4 py-2.5 text-xs text-[var(--text-primary)] font-mono max-w-[150px] truncate">
+                          {row[header] || <span className="text-[var(--text-muted)]/40">—</span>}
+                        </td>
+                      ))}
+                      {headers.length > 6 && (
+                        <td className="px-4 py-2.5 text-xs text-[var(--text-muted)]">…</td>
+                      )}
+                    </tr>
+                  ))}
+                  {rawData.length > 5 && (
+                    <tr className="border-t border-[var(--border-default)]">
+                      <td className="px-4 py-2.5 text-xs text-[var(--text-muted)] font-mono text-center" colSpan={Math.min(7, headers.length + 1)}>
+                        + {rawData.length - 5} more rows
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-[var(--text-muted)] mt-2">
+              🔍 Preview shows how your data will be mapped before import
+            </p>
+          </div>
+
+          {/* Column Mapping Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -386,16 +463,16 @@ export default function ImportPage() {
                         {!isMapped && <span className="ml-2 text-amber-400 text-xs">⚠</span>}
                       </td>
                       <td className="py-3 pr-4">
-                        <select
-                          value={columnMap[header] || ''}
-                          onChange={(e) => updateMapping(header, e.target.value)}
-                          className="w-full max-w-[220px] rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]"
-                        >
-                          <option value="">— Ignore —</option>
-                          {dbColumns.map((col) => (
-                            <option key={col} value={col}>{col}</option>
-                          ))}
-                        </select>
+                       <CustomDropdown
+  value={columnMap[header] || ''}
+  onChange={(value) => updateMapping(header, value)}
+  options={[
+    { value: '', label: '— Ignore —' },
+    ...dbColumns.map(col => ({ value: col, label: col }))
+  ]}
+  placeholder="Map to column..."
+  className="w-full max-w-[220px]"
+/>
                       </td>
                       <td className="py-3 text-[var(--text-muted)] truncate max-w-[150px]">
                         {String(sample).slice(0, 30)}
@@ -407,6 +484,7 @@ export default function ImportPage() {
             </table>
           </div>
 
+          {/* Action Buttons */}
           <div className="flex justify-between pt-4">
             <button
               onClick={reset}
@@ -441,8 +519,10 @@ export default function ImportPage() {
         </div>
       )}
 
+      {/* ==================== STEP 3: CONFIRM ==================== */}
       {step === 'confirm' && (
         <div className="space-y-6">
+          {/* Results */}
           <div className={`rounded-3xl border p-6 ${
             progress.failed === 0 && progress.succeeded > 0
               ? 'border-emerald-500/20 bg-emerald-500/5'
@@ -463,10 +543,57 @@ export default function ImportPage() {
                 <p className="text-[var(--text-muted)] text-xs">
                   Total rows processed: {progress.total}
                 </p>
+                {progress.duplicates && progress.duplicates.count > 0 && (
+                  <p className="text-xs text-amber-400 mt-1">
+                    ⚠️ {progress.duplicates.count} duplicate(s) found and skipped
+                  </p>
+                )}
               </div>
             </div>
           </div>
 
+          {/* Error CSV Download */}
+          {progress.errorRows && progress.errorRows.length > 0 && (
+            <div className="rounded-3xl border border-red-500/20 bg-red-500/5 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-red-300">
+                    ❌ {progress.errorRows.length} rows failed
+                  </p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                    Download the failed rows to see what went wrong
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    const headers = Object.keys(progress.errorRows?.[0] || {});
+                    const csvContent = [
+                      headers.join(','),
+                      ...(progress.errorRows || []).map((row: any) => 
+                        headers.map(h => {
+                          const val = row[h] || '';
+                          return typeof val === 'string' && val.includes(',') ? `"${val}"` : val;
+                        }).join(',')
+                      )
+                    ].join('\n');
+                    
+                    const blob = new Blob([csvContent], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `failed_rows_${target}_${new Date().toISOString().slice(0,10)}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="px-4 py-2 rounded-2xl text-sm font-medium bg-red-500/20 text-red-300 hover:bg-red-500/30 transition whitespace-nowrap"
+                >
+                  ⬇️ Download Error CSV
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Errors list */}
           {errorLog.length > 0 && (
             <div className="rounded-3xl border border-red-500/20 bg-red-500/5 p-4 max-h-48 overflow-y-auto">
               <p className="text-xs font-medium text-red-300 uppercase tracking-[0.2em] mb-2">Errors</p>

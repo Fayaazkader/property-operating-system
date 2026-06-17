@@ -1,19 +1,20 @@
 export const COLUMN_ALIASES: Record<string, string[]> = {
   // Tenants
   tenant_name: ['tenant', 'tenant name', 'lessee', 'occupant', 'customer', 'company', 'company name', 'tenant company', 'client'],
+  tenant_code: ['tenant code', 'code', 'tenant id', 'tenant number', 'reference'],
+  company_type: ['company type', 'type', 'business type', 'industry', 'sector'],
+  email: ['tenant email', 'email address', 'e-mail', 'tenant email address'],
+  phone: ['tenant phone', 'phone number', 'contact number', 'telephone', 'mobile'],
+  vat_number: ['vat', 'vat number', 'vat no', 'tax number'],
+  industry: ['industry', 'sector'],
   
   // Properties
   property_name: ['property', 'property name', 'building', 'building name', 'asset', 'asset name', 'estate', 'site'],
-  
-  email: ['tenant email', 'email address', 'e-mail', 'tenant email address'],
-  phone: ['tenant phone', 'phone number', 'contact number', 'telephone', 'mobile'],
-  tenant_code: ['tenant code', 'code', 'tenant id', 'tenant number', 'reference'],
-
-  // Properties (continued)
   address_line_1: ['address', 'street address', 'address line 1', 'address1', 'property address'],
   city: ['city', 'suburb', 'town'],
   province: ['province', 'state', 'region', 'county'],
   postal_code: ['postal code', 'zip', 'zip code', 'postcode'],
+  total_gla_sqm: ['gla', 'gla sqm', 'area', 'size', 'square meters', 'sqm', 'total_gla_sqm'],
 
   // Leases
   lease_id: ['lease number', 'lease id', 'lease reference', 'lease no', 'agreement number', 'lease code'],
@@ -112,7 +113,7 @@ export function getDbColumnForHeader(header: string): string | null {
 export function getDbTargetForTarget(target: string): string[] {
   const mapping: Record<string, string[]> = {
     properties: ['property_name', 'address_line_1', 'city', 'province', 'postal_code', 'total_gla_sqm'],
-    tenants: ['tenant_name', 'email', 'phone', 'tenant_code'],
+    tenants: ['tenant_name', 'email', 'phone', 'tenant_code', 'company_type', 'vat_number', 'industry'],
     leases: ['lease_id', 'property_name', 'tenant_name', 'unit_number', 'gla_sqm', 'monthly_rental', 'commencement_date', 'expiry_date', 'lease_status'],
   };
   return mapping[target] || [];
