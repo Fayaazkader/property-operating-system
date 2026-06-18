@@ -18,16 +18,18 @@ import { CustomDropdown } from '@/components/ui';
 
 
 
-type Target = 'properties' | 'tenants' | 'leases';
+type Target = 'entities' | 'properties' | 'tenants' | 'leases';
 type Step = 'upload' | 'map' | 'confirm';
 
 const TARGETS: { value: Target; label: string }[] = [
+   { value: 'entities', label: 'Entities' },
   { value: 'properties', label: 'Properties' },
   { value: 'tenants', label: 'Tenants' },
   { value: 'leases', label: 'Leases' },
 ];
 
 const REQUIRED: Record<Target, string[]> = {
+  entities: ['entity_name'],
   properties: ['property_name'],
   tenants: ['tenant_name'],
   leases: ['property_name', 'tenant_name', 'monthly_rental', 'commencement_date'],
@@ -119,12 +121,16 @@ useEffect(() => {
       .from('user_entities')
       .select('entity_id, entities!inner(entity_name, entity_code)');
     
+    console.log('=== ENTITIES LOADED ===');
+    console.log('userEntities:', userEntities);
+    
     if (userEntities && userEntities.length > 0) {
       const entityList = userEntities.map((ue: any) => ({
         id: ue.entity_id,
         name: ue.entities?.entity_name || 'Unknown',
         code: ue.entities?.entity_code || '',
       }));
+      console.log('entityList:', entityList);
       setEntities(entityList);
       setSelectedEntity(entityList[0].id);
     }

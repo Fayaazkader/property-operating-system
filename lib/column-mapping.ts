@@ -1,4 +1,8 @@
 export const COLUMN_ALIASES: Record<string, string[]> = {
+  // Entities
+entity_name: ['entity name', 'entity', 'company', 'company name', 'portfolio', 'portfolio name', 'entity_name'],
+entity_code: ['entity code', 'code', 'entity_code', 'company code'],
+
   // Tenants
   tenant_name: ['tenant', 'tenant name', 'lessee', 'occupant', 'customer', 'company', 'company name', 'tenant company', 'client', 'tenant_name'],
   tenant_code: ['tenant code', 'code', 'tenant id', 'tenant number', 'reference', 'tenant_code'],
@@ -193,10 +197,10 @@ export function getDbColumnForHeader(header: string, target?: string): string | 
   
   return null;
 }
-
 export function getDbTargetForTarget(target: string): string[] {
   const mapping: Record<string, string[]> = {
-    properties: ['property_name', 'address_line_1', 'city', 'province', 'postal_code', 'total_gla_sqm', 'property_manager'],
+    entities: ['entity_name', 'entity_code'],
+    properties: ['property_name', 'address_line_1', 'city', 'province', 'postal_code', 'total_gla_sqm'],
     tenants: ['tenant_name', 'email', 'phone', 'tenant_code', 'company_type', 'vat_number', 'industry'],
     leases: ['lease_id', 'property_name', 'tenant_name', 'unit_number', 'gla_sqm', 'monthly_rental', 'commencement_date', 'expiry_date', 'lease_status'],
   };

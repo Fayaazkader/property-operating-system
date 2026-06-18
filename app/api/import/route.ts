@@ -24,13 +24,18 @@ export async function POST(req: NextRequest) {
     const entityIdToUse = entityId || '00000000-0000-0000-0000-000000000101';
     console.log('Using entity ID:', entityIdToUse);
 
-    const allowedTargets = ['properties', 'tenants', 'leases'];
+    const allowedTargets = ['entities', 'properties', 'tenants', 'leases'];
     if (!allowedTargets.includes(target)) {
       return NextResponse.json({ error: 'Invalid target' }, { status: 400 });
     }
 
     let rowsWithEntity;
-    if (target === 'properties') {
+    if (target === 'entities') {
+      rowsWithEntity = rows.map((row: any) => ({
+        entity_name: row.name || row.entity_name,
+        entity_code: row.code || row.entity_code || null,
+      }));
+    } else if (target === 'properties') {
       rowsWithEntity = rows.map((row: any) => ({
         property_name: row.name || row.property_name,
         address_line_1: row.address || row.address_line_1,
@@ -63,6 +68,7 @@ export async function POST(req: NextRequest) {
       const batch = rowsWithEntity.slice(i, i + BATCH_SIZE);
       
       const validBatch = batch.filter((row: any) => {
+        if (target === 'entities' && !row.entity_name) return false;
         if (target === 'properties' && !row.property_name) return false;
         if (target === 'tenants' && !row.tenant_name) return false;
         return true;
