@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { createClient } from '@supabase/supabase-js';
-import { PageHeader } from "../components/layout/PageHeader";
-import { exportToCSV } from "../../lib/utils";
 import { supabase } from "@/lib/supabase";
+import { PageHeader } from "@/app/components/layout/PageHeader";
+import { exportToCSV } from "@/lib/utils";
 
 type Lease = {
   id: string;
@@ -22,7 +21,6 @@ type Lease = {
   parking_bays: number;
   gla_sqm: number;
   managing_entity_id: string;
-  owner_entity_id: string;
 };
 
 export default function LeasesPage() {
@@ -35,20 +33,18 @@ export default function LeasesPage() {
   useEffect(() => {
     async function load() {
       try {
-        // Use service role key to bypass RLS
-        const serviceSupabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
+        const { data: { user } } = await supabase.auth.getUser();
 
-       // Get user first
-const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setLoading(false);
+          return;
+        }
 
-// Then get entities
-const { data: userEntities } = await supabase
-  .from('user_entities')
-  .select('entity_id')
-  .eq('user_id', user?.id);
+        const { data: userEntities } = await supabase
+          .from("user_entities")
+          .select("entity_id")
+          .eq("user_id", user.id);
+
         const entityIds = userEntities?.map(e => e.entity_id) || [];
 
         if (entityIds.length === 0) {
@@ -56,18 +52,20 @@ const { data: userEntities } = await supabase
           return;
         }
 
-        // Get leases using service role key (bypasses RLS)
-        const { data, error } = await serviceSupabase
+        const { data, error } = await supabase
           .from("leases")
           .select("*")
-          .in('managing_entity_id', entityIds)
+          .in("managing_entity_id", entityIds)
           .order("created_at", { ascending: false });
 
-        console.log('Leases found:', data?.length);
+        if (error) {
+          console.error("Error loading leases:", error);
+        }
+
         if (data) setLeases(data as Lease[]);
-        
+
       } catch (error) {
-        console.error('Error loading leases:', error);
+        console.error("Error loading leases:", error);
       } finally {
         setLoading(false);
       }
@@ -75,8 +73,6 @@ const { data: userEntities } = await supabase
     load();
   }, []);
 
-
-  // Filter by search
   const searched = leases.filter(l => {
     if (!searchTerm) return true;
     const s = searchTerm.toLowerCase();
@@ -87,7 +83,6 @@ const { data: userEntities } = await supabase
     );
   });
 
-  // Filter by tab
   const filtered = searched.filter(l => {
     const now = new Date();
     const end = new Date(l.lease_end_date);
@@ -100,7 +95,6 @@ const { data: userEntities } = await supabase
     return true;
   });
 
-  // Lease Health KPIs
   const activeCount = leases.filter(l => l.lease_status === "Active").length;
   const expiringCount = leases.filter(l => {
     if (l.lease_status !== "Active" || !l.lease_end_date) return false;
@@ -141,7 +135,6 @@ const { data: userEntities } = await supabase
         </button>
       </div>
 
-      {/* Lease Health */}
       <div className="grid grid-cols-4 gap-4">
         <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4">
           <p className="text-2xl font-bold text-[var(--text-primary)]">{activeCount}</p>
@@ -161,7 +154,6 @@ const { data: userEntities } = await supabase
         </div>
       </div>
 
-      {/* Search + Tabs */}
       <div className="flex items-center gap-4 flex-wrap">
         <input
           type="text"
@@ -182,7 +174,6 @@ const { data: userEntities } = await supabase
         </div>
       </div>
 
-      {/* Table */}
       {loading ? (
         <div className="text-center py-20"><p className="text-[var(--text-muted)]">Loading leases...</p></div>
       ) : filtered.length === 0 ? (
@@ -233,7 +224,6 @@ const { data: userEntities } = await supabase
         </div>
       )}
 
-      {/* Side Panel — Lease Intelligence */}
       {selectedLease && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-end" onClick={() => setSelectedLease(null)}>
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-black border-l border-[var(--border-default)] h-full overflow-y-auto shadow-2xl">

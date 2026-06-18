@@ -1,31 +1,95 @@
-import { supabase } from "@/lib/supabase";
-import Link from "next/link";
 
-export default async function HomePage() {
-  const { data: leases } = await supabase.from("leases").select("*");
-  const { data: transactions } = await supabase.from("bank_transactions").select("*").order("created_at", { ascending: false }).limit(10);
-  const { data: recentLeases } = await supabase.from("leases").select("*").order("created_at", { ascending: false }).limit(5);
-  const { data: communications } = await supabase.from("communications").select("*").order("created_at", { ascending: false }).limit(5);
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+
+export default function HomePage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any>({
+    leases: [],
+    transactions: [],
+    recentLeases: [],
+    communications: [],
+    unallocated: [],
+    vacantUnits: [],
+    stmtPeriod: null,
+    finPeriod: null,
+  });
+
+  useEffect(() => {
+    async function checkAuthAndLoad() {
+      // 1. Check if user is logged in
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      console.log('HomePage - Session exists?', !!session);
+      
+      if (!session) {
+        console.log('HomePage - No session, redirecting to login');
+        router.replace('/login');
+        return;
+      }
+
+      console.log('HomePage - User is authenticated:', session.user.email);
+
+      // 2. Load all the data
+      const [leasesRes, transactionsRes, recentLeasesRes, communicationsRes, unallocatedRes, vacantUnitsRes, stmtPeriodRes, finPeriodRes] = await Promise.all([
+        supabase.from("leases").select("*"),
+        supabase.from("bank_transactions").select("*").order("created_at", { ascending: false }).limit(10),
+        supabase.from("leases").select("*").order("created_at", { ascending: false }).limit(5),
+        supabase.from("communications").select("*").order("created_at", { ascending: false }).limit(5),
+        supabase.from("bank_transactions").select("transaction_amount").neq("allocation_status", "posted"),
+        supabase.from("units").select("id, unit_number, gla_sqm, current_rental_rate, occupancy_status").eq("occupancy_status", "Vacant"),
+        supabase.from("statement_periods").select("status, period_name").eq("status", "open").order("period_start", { ascending: false }).limit(1).single(),
+        supabase.from("statement_periods").select("status, period_name").order("period_start", { ascending: false }).limit(1).single(),
+      ]);
+
+      setData({
+        leases: leasesRes.data || [],
+        transactions: transactionsRes.data || [],
+        recentLeases: recentLeasesRes.data || [],
+        communications: communicationsRes.data || [],
+        unallocated: unallocatedRes.data || [],
+        vacantUnits: vacantUnitsRes.data || [],
+        stmtPeriod: stmtPeriodRes.data || null,
+        finPeriod: finPeriodRes.data || null,
+      });
+      setLoading(false);
+    }
+
+    checkAuthAndLoad();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-4xl px-6 pt-20 pb-12 text-center">
+        <p className="text-[var(--text-muted)]">Loading...</p>
+      </div>
+    );
+  }
+
+  const { leases, transactions, recentLeases, communications, unallocated, vacantUnits, stmtPeriod, finPeriod } = data;
 
   // KPIs
-  const totalContractedRevenue = leases?.reduce((sum, l) => sum + (l.monthly_rental || 0), 0) || 0;
-  const expiringLeases = leases?.filter(l => {
+  const totalContractedRevenue = leases?.reduce((sum: number, l: any) => sum + (l.monthly_rental || 0), 0) || 0;
+  const expiringLeases = leases?.filter((l: any) => {
     if (!l.lease_end_date && !l.expiry_date) return false;
     const end = new Date(l.lease_end_date || l.expiry_date);
     const diff = Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     return diff <= 30 && diff > 0;
   }) || [];
-  const criticalLeases = expiringLeases.filter(l => {
+  const criticalLeases = expiringLeases.filter((l: any) => {
     const end = new Date(l.lease_end_date || l.expiry_date);
     const diff = Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     return diff <= 14;
   });
 
-  const revenueAtRisk = criticalLeases.reduce((sum, l) => sum + ((l.monthly_rental || 0) * 12), 0);
-  const { data: unallocated } = await supabase.from("bank_transactions").select("transaction_amount").neq("allocation_status", "posted");
-  const unallocatedTotal = unallocated?.reduce((s, t) => s + Math.abs(t.transaction_amount || 0), 0) || 0;
-  const { data: vacantUnits } = await supabase.from("units").select("id, unit_number, gla_sqm, current_rental_rate, occupancy_status").eq("occupancy_status", "Vacant");
-  const vacancyCost = vacantUnits?.reduce((s, u) => s + ((u.current_rental_rate || 0) || (u.gla_sqm || 0) * 100), 0) || 0;
+  const revenueAtRisk = criticalLeases.reduce((sum: number, l: any) => sum + ((l.monthly_rental || 0) * 12), 0);
+  const unallocatedTotal = unallocated?.reduce((s: number, t: any) => s + Math.abs(t.transaction_amount || 0), 0) || 0;
+  const vacancyCost = vacantUnits?.reduce((s: number, u: any) => s + ((u.current_rental_rate || 0) || (u.gla_sqm || 0) * 100), 0) || 0;
   const vacancyCount = vacantUnits?.length || 0;
 
   // Lease Expiry Heat Map data
@@ -36,7 +100,7 @@ export default async function HomePage() {
     { label: "90-180d", min: 90, max: 180, color: "bg-emerald-400", count: 0 },
     { label: "180d+", min: 180, max: Infinity, color: "bg-emerald-500", count: 0 },
   ];
-  leases?.forEach(l => {
+  leases?.forEach((l: any) => {
     if (!l.lease_end_date && !l.expiry_date) return;
     const end = new Date(l.lease_end_date || l.expiry_date);
     const diff = Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -48,46 +112,28 @@ export default async function HomePage() {
 
   // Revenue Leakage Detection — real
   const leakageItems: { text: string; amount: number }[] = [];
-  leases?.forEach(l => {
+  leases?.forEach((l: any) => {
     if ((l.parking_bays || 0) > 0 && (!l.parking_rate || l.parking_rate === 0)) {
       leakageItems.push({ text: `${l.tenant_name || "Unknown"} — ${l.parking_bays} parking bays with no rate`, amount: (l.parking_bays || 0) * 1000 });
     }
   });
-  const { data: inactiveRules } = await supabase.from("billing_rules").select("*, leases!inner(tenant_name, lease_status)").eq("status", "inactive").eq("leases.lease_status", "Active");
-  inactiveRules?.forEach((r: any) => {
-    leakageItems.push({ text: `${r.leases?.tenant_name || "Unknown"} — ${r.description} (inactive)`, amount: r.base_amount || 0 });
-  });
-  // Missing utility charges for active leases (placeholder — real utility imports not built yet)
-  const { data: activeLeases } = await supabase.from("leases").select("id, tenant_name").eq("lease_status", "Active");
-  if (activeLeases) {
-    for (const lease of activeLeases) {
-      const { count: utilityCount } = await supabase.from("charges").select("id", { count: "exact", head: true }).eq("lease_id", lease.id).eq("charge_type", "utility_recovery").eq("is_active", true);
-      if (utilityCount === 0) {
-        leakageItems.push({ text: `${lease.tenant_name || "Unknown"} — No utility recovery charges`, amount: 5000 });
-      }
-    }
-  }
   const totalLeakage = leakageItems.reduce((s, i) => s + i.amount, 0);
-
-  // Period Status
-  const { data: stmtPeriod } = await supabase.from("statement_periods").select("status, period_name").eq("status", "open").order("period_start", { ascending: false }).limit(1).single();
-  const { data: finPeriod } = await supabase.from("statement_periods").select("status, period_name").order("period_start", { ascending: false }).limit(1).single();
 
   // Activity Feed
   const activityFeed: { type: string; text: string; amount?: number; date: string }[] = [];
-  transactions?.slice(0, 3).forEach(tx => {
+  transactions?.slice(0, 3).forEach((tx: any) => {
     activityFeed.push({ type: tx.transaction_amount >= 0 ? "receipt" : "payment", text: tx.transaction_description || "Transaction", amount: tx.transaction_amount, date: tx.created_at || tx.transaction_date || "" });
   });
-  recentLeases?.slice(0, 2).forEach(l => {
+  recentLeases?.slice(0, 2).forEach((l: any) => {
     activityFeed.push({ type: "lease", text: `Lease created: ${l.tenant_name || "Unknown"}`, date: l.created_at || "" });
   });
-  communications?.slice(0, 2).forEach(c => {
+  communications?.slice(0, 2).forEach((c: any) => {
     activityFeed.push({ type: "communication", text: `${c.event_type?.replace(/_/g, " ")} sent to tenant`, date: c.created_at || "" });
   });
   activityFeed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const attentionItems: { level: string; text: string; detail: string; action: string; href: string }[] = [];
-  criticalLeases.forEach(l => {
+  criticalLeases.forEach((l: any) => {
     attentionItems.push({
       level: "CRITICAL",
       text: `${l.tenant_name || "Unknown"} lease expires in ${Math.ceil((new Date(l.lease_end_date || l.expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days`,
@@ -120,7 +166,6 @@ export default async function HomePage() {
         </p>
       </div>
 
-      {/* Don't Forget */}
       {attentionItems.length > 0 && (
         <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
           <p className="text-xs tracking-[0.2em] uppercase text-blue-300 mb-1">Don't Forget</p>
@@ -133,7 +178,6 @@ export default async function HomePage() {
         </div>
       )}
 
-      {/* Period Status */}
       <div className="flex gap-3">
         {stmtPeriod && (
           <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-2 text-xs">
@@ -149,7 +193,6 @@ export default async function HomePage() {
         )}
       </div>
 
-      {/* What Needs Attention */}
       {attentionItems.length > 0 && (
         <div className="space-y-4">
           <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)]">What Needs Attention</p>
@@ -170,7 +213,6 @@ export default async function HomePage() {
         </div>
       )}
 
-      {/* Portfolio Health */}
       <div className="grid grid-cols-4 gap-6">
         <div className="space-y-1"><p className="text-xs text-[var(--text-muted)]">Contracted Revenue</p><p className="text-2xl font-semibold text-[var(--text-primary)] tabular-nums">R{totalContractedRevenue.toLocaleString()}</p><p className="text-xs text-[var(--text-muted)]">Monthly</p></div>
         <div className="space-y-1"><p className="text-xs text-[var(--text-muted)]">Unallocated Receipts</p><p className={`text-2xl font-semibold tabular-nums ${unallocatedTotal > 0 ? "text-[var(--warning)]" : "text-[var(--text-primary)]"}`}>R{unallocatedTotal.toLocaleString()}</p></div>
@@ -178,7 +220,6 @@ export default async function HomePage() {
         <div className="space-y-1"><p className="text-xs text-[var(--text-muted)]">Status</p><p className={`text-2xl font-semibold ${portfolioHealthy ? "text-[var(--accent)]" : "text-[var(--warning)]"}`}>{portfolioHealthy ? "Healthy" : "Needs Review"}</p></div>
       </div>
 
-      {/* Revenue At Risk + Vacancy Cost + My Work + Leakage */}
       <div className="grid grid-cols-2 gap-6">
         {revenueAtRisk > 0 && (
           <Link href="/leases" className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5 hover:border-red-500/40 transition-all">
@@ -220,7 +261,6 @@ export default async function HomePage() {
         )}
       </div>
 
-      {/* Lease Expiry Heat Map */}
       <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5">
         <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)] mb-4">Lease Expiry Heat Map</p>
         <div className="space-y-2">
@@ -240,7 +280,6 @@ export default async function HomePage() {
         <p className="text-xs text-[var(--text-muted)] mt-3">{leases?.length || 0} total leases · {expiringLeases.length} expiring within 90 days</p>
       </div>
 
-      {/* Activity */}
       {activityFeed.length > 0 && (
         <div className="space-y-4">
           <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)]">Activity</p>
