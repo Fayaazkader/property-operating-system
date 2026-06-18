@@ -258,13 +258,14 @@ const handleFileUpload = useCallback((file: File) => {
 
     try {
       const response = await fetch('/api/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          target,
-          rows: mappedRows,
-        }),
-      });
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    target,
+    rows: mappedRows,
+    entityId: selectedEntity, // <-- ADD THIS
+  }),
+});
 
       const result = await response.json();
       setProgress({
@@ -398,24 +399,6 @@ const handleFileUpload = useCallback((file: File) => {
               </p>
             )}
           </div>
-{/* Source System Selector */}
-<div>
-  <label className="block text-xs text-[var(--text-muted)] mb-1.5 uppercase tracking-[0.2em]">
-    Source System
-  </label>
-  <CustomDropdown
-    value={sourceSystem}
-    onChange={setSourceSystem}
-    options={SOURCE_SYSTEMS}
-    placeholder="Select source system..."
-    className="w-full max-w-xs"
-  />
-  {detectedSystem && detectedSystem !== 'other' && (
-    <p className="text-xs text-[var(--text-muted)] mt-1.5">
-      💡 Detected: {detectedSystem.toUpperCase()} — we'll auto-map your columns
-    </p>
-  )}
-</div>
 
 {/* ==== ADD ENTITY SELECTOR HERE ==== */}
 <div>
@@ -466,10 +449,13 @@ const handleFileUpload = useCallback((file: File) => {
           {/* File Info */}
           <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4 text-sm">
             <p className="text-[var(--text-muted)]">
-              File: <span className="text-[var(--text-primary)] font-mono">{fileName}</span> &nbsp;|&nbsp; 
-              Rows: <span className="text-[var(--text-primary)] font-mono">{rawData.length}</span> &nbsp;|&nbsp;
-              Target: <span className="text-[var(--text-primary)] font-mono">{target}</span>
-            </p>
+  File: <span className="text-[var(--text-primary)] font-mono">{fileName}</span> &nbsp;|&nbsp; 
+  Rows: <span className="text-[var(--text-primary)] font-mono">{rawData.length}</span> &nbsp;|&nbsp;
+  Target: <span className="text-[var(--text-primary)] font-mono">{target}</span> &nbsp;|&nbsp;
+  Entity: <span className="text-[var(--text-primary)] font-mono">
+    {entities.find(e => e.id === selectedEntity)?.name || selectedEntity}
+  </span>
+</p>
             {sourceSystem !== 'other' && (
               <p className="text-[var(--text-muted)] mt-1">
                 Source: <span className="text-[var(--text-primary)] font-mono uppercase">{sourceSystem}</span>

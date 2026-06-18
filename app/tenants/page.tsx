@@ -1,47 +1,86 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
+import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { supabase } from "../../lib/supabase";
 import { PageHeader } from "../components/layout/PageHeader";
 
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<any[]>([]);
+  const [entities, setEntities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    async function load() {
-      const { data } = await supabase.from("tenants").select("*").order("tenant_name");
-      if (data) setTenants(data);
-      setLoading(false);
+    async function loadData() {
+      try {
+        // 1. Get the current user
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+
+        // 2. Get the user's entities
+        const { data: userEntities } = await supabase
+          .from('user_entities')
+          .select('entity_id')
+          .eq('user_id', user.id);
+
+        const entityIds = userEntities?.map(e => e.entity_id) || [];
+
+        if (entityIds.length === 0) {
+          setLoading(false);
+          return;
+        }
+
+        // 3. Get tenants filtered by entity
+        const { data: tenantsData } = await supabase
+          .from("tenants")
+          .select("*")
+          .in('entity_id', entityIds)
+          .order("tenant_name");
+
+        setTenants(tenantsData || []);
+
+        // 4. Get entities
+        const { data: entitiesData } = await supabase
+          .from("entities")
+          .select("id, entity_name");
+
+        setEntities(entitiesData || []);
+      } catch (error) {
+        console.error('Error loading tenants:', error);
+      } finally {
+        setLoading(false);
+      }
     }
-    load();
+
+    loadData();
   }, []);
 
-  const filtered = tenants.filter(t => {
-    if (!searchTerm) return true;
-    const s = searchTerm.toLowerCase();
-    return (t.tenant_name || "").toLowerCase().includes(s) || (t.industry || "").toLowerCase().includes(s);
-  });
+  function getEntityName(entityId: string | null): string {
+    if (!entityId || !entities) return "—";
+    return entities.find(e => e.id === entityId)?.entity_name || "—";
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl space-y-8 px-6 pt-8 pb-12">
+        <PageHeader title="Tenants" subtitle="Manage your tenants" />
+        <p className="text-[var(--text-muted)]">Loading tenants...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 pt-8 pb-12">
-      <PageHeader title="Tenants" subtitle="Manage your tenant database" />
+      <PageHeader title="Tenants" subtitle="Manage your tenants" />
 
-      <input
-        type="text"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        placeholder="Search tenants..."
-        className="w-full max-w-md rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] placeholder:text-[var(--text-muted)]"
-      />
-
-      {loading ? (
-        <div className="text-center py-20"><p className="text-[var(--text-muted)]">Loading...</p></div>
-      ) : filtered.length === 0 ? (
+      {!tenants || tenants.length === 0 ? (
         <div className="text-center py-20 rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)]">
           <p className="text-[var(--text-muted)]">No tenants found.</p>
+          <Link href="/tenants/new" className="mt-4 inline-block rounded-xl bg-[var(--text-primary)] text-black px-5 py-3 text-sm font-semibold">+ Add Tenant</Link>
         </div>
       ) : (
         <div className="overflow-hidden rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)]">
@@ -49,20 +88,20 @@ export default function TenantsPage() {
             <thead className="border-b border-[var(--border-default)] bg-[var(--bg-elevated)]">
               <tr>
                 <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Tenant</th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Industry</th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Registration</th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">VAT</th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Contact</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Code</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Entity</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Email</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Phone</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((t) => (
+              {tenants.map((t: any) => (
                 <tr key={t.id} className="border-b border-[var(--border-default)] hover:bg-[var(--bg-elevated)] transition-colors">
                   <td className="px-4 py-3 text-sm text-[var(--text-primary)] font-medium">{t.tenant_name || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{t.industry || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-muted)] font-mono text-xs">{t.company_registration || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-muted)] font-mono text-xs">{t.vat_number || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{t.email || t.phone || "—"}</td>
+                  <td className="px-4 py-3 text-sm text-[var(--text-muted)] font-mono">{t.code || "—"}</td>
+                  <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{getEntityName(t.entity_id)}</td>
+                  <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{t.email || "—"}</td>
+                  <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{t.phone || "—"}</td>
                 </tr>
               ))}
             </tbody>

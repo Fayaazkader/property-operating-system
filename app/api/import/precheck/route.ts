@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
     
-    const { target, rows } = await req.json();
+    const { target, rows, entityId } = await req.json();
     
     console.log('Precheck - Target:', target);
     console.log('Precheck - Rows received:', rows?.length);
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Use hardcoded entity ID for testing
-    const entityId = '00000000-0000-0000-0000-000000000101';
+    const entityIdToUse = entityId || '00000000-0000-0000-0000-000000000101';
     
     const duplicateIndices: number[] = [];
     const existingValues: string[] = [];

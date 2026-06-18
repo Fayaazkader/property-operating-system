@@ -1,20 +1,83 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { PageHeader } from "../components/layout/PageHeader";
 
-export default async function PropertiesPage() {
-  const { data: properties } = await supabase
-    .from("properties")
-    .select("*")
-    .order("property_name");
+export default function PropertiesPage() {
+  const [properties, setProperties] = useState<any[]>([]);
+  const [entities, setEntities] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const { data: entities } = await supabase
-    .from("entities")
-    .select("id, entity_name");
+  useEffect(() => {
+    async function loadData() {
+      try {
+        // 1. Get the current user
+        const { data: { user } } = await supabase.auth.getUser();
+        console.log('Current user:', user?.id);
+
+        if (!user) {
+          console.log('No user found');
+          setLoading(false);
+          return;
+        }
+
+        // 2. Get the user's entities
+        const { data: userEntities } = await supabase
+          .from('user_entities')
+          .select('entity_id')
+          .eq('user_id', user.id);
+
+        console.log('User entities:', userEntities);
+
+        const entityIds = userEntities?.map(e => e.entity_id) || [];
+        console.log('Entity IDs:', entityIds);
+
+        if (entityIds.length === 0) {
+          console.log('No entities found for user');
+          setLoading(false);
+          return;
+        }
+
+        // 3. Get properties filtered by entity
+        const { data: propertiesData } = await supabase
+          .from("properties")
+          .select("*")
+          .in('entity_id', entityIds)
+          .order("property_name");
+
+        console.log('Properties found:', propertiesData?.length);
+        setProperties(propertiesData || []);
+
+        // 4. Get entities
+        const { data: entitiesData } = await supabase
+          .from("entities")
+          .select("id, entity_name");
+
+        setEntities(entitiesData || []);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
 
   function getEntityName(entityId: string | null): string {
     if (!entityId || !entities) return "—";
     return entities.find(e => e.id === entityId)?.entity_name || "—";
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl space-y-8 px-6 pt-8 pb-12">
+        <PageHeader title="Properties" subtitle="Manage your property portfolio" />
+        <p className="text-[var(--text-muted)]">Loading properties...</p>
+      </div>
+    );
   }
 
   return (

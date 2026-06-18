@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -20,6 +20,7 @@ type Lease = {
   lease_type: string;
   parking_bays: number;
   gla_sqm: number;
+  managing_entity_id: string;
 };
 
 export default function LeasesPage() {
@@ -30,13 +31,55 @@ export default function LeasesPage() {
   const [selectedLease, setSelectedLease] = useState<Lease | null>(null);
 
   useEffect(() => {
-    async function load() {
-      const { data } = await supabase.from("leases").select("*").order("created_at", { ascending: false });
-      if (data) setLeases(data as Lease[]);
+  async function load() {
+    try {
+      // 1. Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('=== LEASES DEBUG ===');
+
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      // 2. Get the user's entities
+      const { data: userEntities } = await supabase
+        .from('user_entities')
+        .select('entity_id')
+        .eq('user_id', user.id);
+
+      const entityIds = userEntities?.map(e => e.entity_id) || [];
+      console.log('Entity IDs:', entityIds);
+
+      if (entityIds.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      // 3. Get ALL leases
+      const { data: allLeases, error } = await supabase
+        .from("leases")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      console.log('All leases from DB:', allLeases?.length);
+      
+      // 4. Filter in JavaScript
+      const filtered = allLeases?.filter(l => 
+        entityIds.includes(l.managing_entity_id)
+      );
+      
+      console.log('Filtered leases:', filtered?.length);
+      setLeases(filtered || []);
+      
+    } catch (error) {
+      console.error('Error loading leases:', error);
+    } finally {
       setLoading(false);
     }
-    load();
-  }, []);
+  }
+  load();
+}, []);
 
   // Filter by search
   const searched = leases.filter(l => {
@@ -99,8 +142,8 @@ export default function LeasesPage() {
           + New Lease
         </Link>
         <button onClick={() => exportToCSV(filtered, "leases")} className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)] ml-3">
-  📥 Export
-</button>
+          📥 Export
+        </button>
       </div>
 
       {/* Lease Health */}

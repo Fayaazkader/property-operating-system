@@ -1,0 +1,3 @@
+name,code,email,phone,company_type
+Entity1 Tenant Alpha,ENT1A,alpha@entity1.com,+27123456789,Corporation
+Entity1 Tenant Beta,ENT1B,beta@entity1.com,+27876543210,Private

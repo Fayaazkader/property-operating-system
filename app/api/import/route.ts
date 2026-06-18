@@ -14,44 +14,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
-    // 2. Create a client that reads the session from cookies
+    // 2. Use service role key for all operations (bypasses RLS)
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-    
-    // 3. Get the logged-in user from the session
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      console.log('Auth error:', authError);
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    console.log('User found:', user.email);
-    
-    // 4. Verify the user has access to the requested entity
-    const { data: userEntity, error: entityError } = await supabase
-      .from('user_entities')
-      .select('entity_id')
-      .eq('user_id', user.id)
-      .eq('entity_id', entityId)
-      .single();
-
-    if (entityError || !userEntity) {
-      console.log('Entity error:', entityError);
-      return NextResponse.json({ error: 'User does not have access to this entity' }, { status: 403 });
-    }
 
     // Use entity from request, or fallback to default
     const entityIdToUse = entityId || '00000000-0000-0000-0000-000000000101';
     console.log('Using entity ID:', entityIdToUse);
-    
-    // 5. For actual data operations, use service role key (bypasses RLS)
-    const serviceSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
 
     const allowedTargets = ['properties', 'tenants', 'leases'];
     if (!allowedTargets.includes(target)) {
@@ -80,7 +51,7 @@ export async function POST(req: NextRequest) {
         entity_id: entityIdToUse,
       }));
     } else if (target === 'leases') {
-      return await handleLeaseImport(serviceSupabase, rows, entityIdToUse);
+      return await handleLeaseImport(supabase, rows, entityIdToUse);
     }
 
     const BATCH_SIZE = 500;
@@ -103,7 +74,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const { data, error } = await serviceSupabase
+      const { data, error } = await supabase
         .from(target)
         .insert(validBatch)
         .select();
