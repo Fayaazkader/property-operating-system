@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { supabase } from "../../lib/supabase";
+import { createClient } from '@supabase/supabase-js';
 import { PageHeader } from "../components/layout/PageHeader";
 import { exportToCSV } from "../../lib/utils";
+import { supabase } from "@/lib/supabase";
 
 type Lease = {
   id: string;
@@ -21,6 +22,7 @@ type Lease = {
   parking_bays: number;
   gla_sqm: number;
   managing_entity_id: string;
+  owner_entity_id: string;
 };
 
 export default function LeasesPage() {
@@ -31,55 +33,48 @@ export default function LeasesPage() {
   const [selectedLease, setSelectedLease] = useState<Lease | null>(null);
 
   useEffect(() => {
-  async function load() {
-    try {
-      // 1. Get the current user
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('=== LEASES DEBUG ===');
+    async function load() {
+      try {
+        // Use service role key to bypass RLS
+        const serviceSupabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
 
-      if (!user) {
+       // Get user first
+const { data: { user } } = await supabase.auth.getUser();
+
+// Then get entities
+const { data: userEntities } = await supabase
+  .from('user_entities')
+  .select('entity_id')
+  .eq('user_id', user?.id);
+        const entityIds = userEntities?.map(e => e.entity_id) || [];
+
+        if (entityIds.length === 0) {
+          setLoading(false);
+          return;
+        }
+
+        // Get leases using service role key (bypasses RLS)
+        const { data, error } = await serviceSupabase
+          .from("leases")
+          .select("*")
+          .in('managing_entity_id', entityIds)
+          .order("created_at", { ascending: false });
+
+        console.log('Leases found:', data?.length);
+        if (data) setLeases(data as Lease[]);
+        
+      } catch (error) {
+        console.error('Error loading leases:', error);
+      } finally {
         setLoading(false);
-        return;
       }
-
-      // 2. Get the user's entities
-      const { data: userEntities } = await supabase
-        .from('user_entities')
-        .select('entity_id')
-        .eq('user_id', user.id);
-
-      const entityIds = userEntities?.map(e => e.entity_id) || [];
-      console.log('Entity IDs:', entityIds);
-
-      if (entityIds.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      // 3. Get ALL leases
-      const { data: allLeases, error } = await supabase
-        .from("leases")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      console.log('All leases from DB:', allLeases?.length);
-      
-      // 4. Filter in JavaScript
-      const filtered = allLeases?.filter(l => 
-        entityIds.includes(l.managing_entity_id)
-      );
-      
-      console.log('Filtered leases:', filtered?.length);
-      setLeases(filtered || []);
-      
-    } catch (error) {
-      console.error('Error loading leases:', error);
-    } finally {
-      setLoading(false);
     }
-  }
-  load();
-}, []);
+    load();
+  }, []);
+
 
   // Filter by search
   const searched = leases.filter(l => {
