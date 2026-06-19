@@ -9,11 +9,9 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [email, setEmail] = useState("");
-  const [userName, setUserName] = useState("");
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
-  // Don't show navbar on login/signup pages
   if (pathname === '/login' || pathname === '/signup') {
     return null;
   }
@@ -23,22 +21,15 @@ export default function Navbar() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.email) {
         setEmail(user.email);
-        setUserName(user.email.split("@")[0]);
-      } else {
-        setEmail("");
-        setUserName("");
       }
     }
     getUser();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user?.email) {
         setEmail(session.user.email);
-        setUserName(session.user.email.split("@")[0]);
       } else {
         setEmail("");
-        setUserName("");
       }
     });
 
@@ -48,31 +39,26 @@ export default function Navbar() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setEmail("");
-    setUserName("");
     setShowDropdown(false);
     router.push('/login');
   };
 
   return (
     <div className="bg-black border-b border-[var(--border-default)] px-6 py-3 flex items-center justify-between relative z-50">
-      {/* Left: Brand */}
       <div className="flex items-center gap-6">
         <h1 className="text-lg font-bold tracking-tight text-[var(--text-primary)]">AssetFlow</h1>
       </div>
 
-      {/* Center: Global Search */}
       <div className="flex-1 max-w-xl mx-6">
         <button
           onClick={() => setCommandPaletteOpen(true)}
           className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-2 text-sm text-[var(--text-muted)] text-left hover:border-[var(--border-hover)] transition-colors flex items-center gap-3"
         >
-          <span>🔍</span>
+          <span>⌘K</span>
           <span className="flex-1">Ask AssetFlow anything...</span>
-          <span className="text-xs text-[var(--text-muted)]">⌘K</span>
         </button>
       </div>
 
-      {/* Right: User */}
       <div className="flex items-center gap-4">
         <button className="w-9 h-9 rounded-full border border-[var(--border-default)] bg-[var(--bg-secondary)] flex items-center justify-center text-sm text-[var(--text-muted)] hover:border-[var(--border-hover)] transition-colors">
           🔔
@@ -94,7 +80,6 @@ export default function Navbar() {
             </svg>
           </button>
 
-          {/* Dropdown */}
           {showDropdown && (
             <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)] shadow-lg py-1 overflow-hidden">
               <div className="px-4 py-3 border-b border-[var(--border-default)]">
@@ -105,19 +90,19 @@ export default function Navbar() {
                 onClick={() => router.push('/settings')}
                 className="w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
               >
-                ⚙️ Settings
+                Settings
               </button>
               <button
                 onClick={() => router.push('/settings/import')}
                 className="w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
               >
-                📥 Import Data
+                Import Data
               </button>
               <button
                 onClick={handleLogout}
                 className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-red-500/5 transition-colors border-t border-[var(--border-default)]"
               >
-                🚪 Sign Out
+                Sign Out
               </button>
             </div>
           )}

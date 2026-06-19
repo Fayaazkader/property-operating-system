@@ -29,7 +29,7 @@ export default function HomePage() {
       
       if (!session) {
         console.log('HomePage - No session, redirecting to login');
-        router.replace('/login');
+         router.replace('/landing');
         return;
       }
 

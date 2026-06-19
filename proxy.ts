@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
@@ -31,21 +30,13 @@ export async function proxy(request: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession();
 
-  const publicRoutes = ['/login', '/signup', '/landing'];
-  const isPublicRoute = publicRoutes.includes(request.nextUrl.pathname);
+  const pathname = request.nextUrl.pathname;
+  console.log('=== PROXY DEBUG ===');
+  console.log('Pathname:', pathname);
+  console.log('Session exists?', !!session);
 
-  if (!session && !isPublicRoute) {
-    return NextResponse.redirect(new URL('/landing', request.url));
-  }
-
-  if (session && request.nextUrl.pathname === '/landing') {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
-
-  if (!session && request.nextUrl.pathname === '/') {
-    return NextResponse.redirect(new URL('/landing', request.url));
-  }
-
+  // All auth redirects are handled by the home page
+  // Middleware only logs for now
   return response;
 }
 

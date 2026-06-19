@@ -40,12 +40,17 @@ export default function CashBookPage() {
     async function loadAccounts() {
       if (!selectedEntity) return;
       setLoading(true);
-      const { data } = await supabase
-        .from("bank_accounts")
-        .select("*")
-        .eq("entity_id", selectedEntity)
-        .eq("is_active", true)
-        .order("is_trust_account", { ascending: false });
+      console.log('Loading accounts for entity:', selectedEntity);
+console.log('Query:', `bank_accounts where entity_id = ${selectedEntity} and is_active = true`);
+     const { data, error } = await supabase
+  .from("bank_accounts")
+  .select("*")
+  .eq("entity_id", selectedEntity)
+  .eq("is_active", true)
+  .order("is_trust_account", { ascending: false });
+
+console.log('Data:', data);
+console.log('Error:', error);
 
       if (data) {
         // Get unreconciled counts per account

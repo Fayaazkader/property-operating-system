@@ -8,31 +8,34 @@ import { CustomDropdown } from '@/components/ui';
 
 type AllocationLine = {
   id: string;
-  layer: 'entity' | 'tenant' | 'property';
-  entity_id?: string;
+  target: 'tenant_invoice' | 'supplier_invoice' | 'property' | 'entity' | 'deposit' | 'gl_only';
   tenant_id?: string;
+  supplier_id?: string;
   property_id?: string;
+  entity_id?: string;
   gl_code: string;
   amount: number;
 };
 
-export default function AllocationWorkspace() {
+export default function TransactionAllocationWorkspace() {
   const router = useRouter();
   const params = useParams();
   const accountId = params.accountId as string;
   const transactionId = params.transactionId as string;
 
   const [transaction, setTransaction] = useState<any>(null);
-  const [allocations, setAllocations] = useState<AllocationLine[]>([]);
-  const [entities, setEntities] = useState<any[]>([]);
+  const [allocations, setAllocations] = useState<AllocationLine[]>([
+    { id: crypto.randomUUID(), target: 'tenant_invoice', gl_code: '', amount: 0 }
+  ]);
   const [tenants, setTenants] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
+  const [entities, setEntities] = useState<any[]>([]);
   const [glCodes, setGlCodes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
-      // Get transaction
       const { data: tx } = await supabase
         .from('bank_transactions')
         .select('*')
@@ -40,46 +43,19 @@ export default function AllocationWorkspace() {
         .single();
       setTransaction(tx);
 
-      // Auto-create first allocation with full amount
-      if (tx) {
-        setAllocations([
-          { 
-            id: crypto.randomUUID(), 
-            layer: 'tenant', 
-            gl_code: '', 
-            amount: Math.abs(tx.transaction_amount),
-          }
-        ]);
-      }
+      const [tenantsRes, suppliersRes, propertiesRes, entitiesRes, glRes] = await Promise.all([
+        supabase.from('tenants').select('id, tenant_name, code').order('tenant_name'),
+        supabase.from('suppliers').select('id, supplier_name, code').order('supplier_name'),
+        supabase.from('properties').select('id, property_name, code').order('property_name'),
+        supabase.from('entities').select('id, entity_name, entity_code').order('entity_name'),
+        supabase.from('gl_codes').select('id, code, description').eq('is_active', true).order('code'),
+      ]);
 
-      // Get entities
-      const { data: entitiesData } = await supabase
-        .from('entities')
-        .select('id, entity_name, entity_code')
-        .order('entity_name');
-      setEntities(entitiesData || []);
-
-      // Get tenants
-      const { data: tenantsData } = await supabase
-        .from('tenants')
-        .select('id, tenant_name, code')
-        .order('tenant_name');
-      setTenants(tenantsData || []);
-
-      // Get properties
-      const { data: propertiesData } = await supabase
-        .from('properties')
-        .select('id, property_name, code')
-        .order('property_name');
-      setProperties(propertiesData || []);
-
-      // Get GL codes
-      const { data: glData } = await supabase
-  .from('gl_codes')
-  .select('id, code, description')
-  .eq('is_active', true)
-  .order('code');
-      setGlCodes(glData || []);
+      setTenants(tenantsRes.data || []);
+      setSuppliers(suppliersRes.data || []);
+      setProperties(propertiesRes.data || []);
+      setEntities(entitiesRes.data || []);
+      setGlCodes(glRes.data || []);
 
       setLoading(false);
     }
@@ -87,25 +63,13 @@ export default function AllocationWorkspace() {
   }, [accountId, transactionId]);
 
   const totalAllocated = allocations.reduce((sum, a) => sum + (a.amount || 0), 0);
-  const totalAmount = Math.abs(transaction?.transaction_amount || 0);
-  const remainingAmount = totalAmount - totalAllocated;
+  const remaining = Math.abs(transaction?.transaction_amount || 0) - totalAllocated;
 
-  const addSplit = () => {
+  const addAllocation = () => {
     setAllocations([
       ...allocations,
-      { 
-        id: crypto.randomUUID(), 
-        layer: 'tenant', 
-        gl_code: '', 
-        amount: 0,
-      }
+      { id: crypto.randomUUID(), target: 'tenant_invoice', gl_code: '', amount: 0 }
     ]);
-  };
-
-  const fillRemainder = (id: string) => {
-    setAllocations(allocations.map(a => 
-      a.id === id ? { ...a, amount: remainingAmount } : a
-    ));
   };
 
   const removeAllocation = (id: string) => {
@@ -126,9 +90,11 @@ export default function AllocationWorkspace() {
       
       await supabase.from('transaction_allocations').insert({
         transaction_id: transactionId,
-        entity_id: alloc.layer === 'entity' ? alloc.entity_id : null,
-        tenant_id: alloc.layer === 'tenant' ? alloc.tenant_id : null,
-        property_id: alloc.layer === 'property' ? alloc.property_id : null,
+        target: alloc.target,
+        tenant_id: alloc.target === 'tenant_invoice' ? alloc.tenant_id : null,
+        supplier_id: alloc.target === 'supplier_invoice' ? alloc.supplier_id : null,
+        property_id: alloc.target === 'property' ? alloc.property_id : null,
+        entity_id: alloc.target === 'entity' ? alloc.entity_id : null,
         amount: alloc.amount,
         gl_code: alloc.gl_code,
       });
@@ -157,55 +123,31 @@ export default function AllocationWorkspace() {
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-6 pt-8 pb-12">
       <PageHeader 
-        title="Manual Allocation" 
+        title="Transaction Allocation" 
         subtitle={transaction ? `${transaction.transaction_description} — R${Math.abs(transaction.transaction_amount).toLocaleString()}` : 'Loading...'}
       />
 
       <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6">
-        {/* Transaction Details */}
-        <div className="mb-6 p-4 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-default)]">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-xs text-[var(--text-muted)]">Description</p>
-              <p className="text-[var(--text-primary)] font-medium">{transaction?.transaction_description}</p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-muted)]">Total Amount</p>
-              <p className="text-[var(--text-primary)] font-medium tabular-nums">R{totalAmount.toLocaleString()}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Allocation Lines */}
         <div className="space-y-3">
           {allocations.map((alloc, index) => (
             <div key={alloc.id} className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-default)] flex-wrap">
               <span className="text-xs text-[var(--text-muted)] font-mono w-8">{index + 1}</span>
 
               <CustomDropdown
-                value={alloc.layer}
-                onChange={(val) => updateAllocation(alloc.id, 'layer', val as 'entity' | 'tenant' | 'property')}
+                value={alloc.target}
+                onChange={(val) => updateAllocation(alloc.id, 'target', val as AllocationLine['target'])}
                 options={[
-                  { value: 'entity', label: '🏢 Entity' },
-                  { value: 'tenant', label: '👤 Tenant' },
-                  { value: 'property', label: '🏠 Property' },
+                  { value: 'tenant_invoice', label: 'Tenant Invoice' },
+                  { value: 'supplier_invoice', label: 'Supplier Invoice' },
+                  { value: 'property', label: 'Property' },
+                  { value: 'entity', label: 'Entity' },
+                  { value: 'deposit', label: 'Deposit' },
+                  { value: 'gl_only', label: 'GL Code Only' },
                 ]}
-                className="w-[140px]"
+                className="w-[160px]"
               />
 
-              {alloc.layer === 'entity' && (
-                <CustomDropdown
-                  value={alloc.entity_id || ''}
-                  onChange={(val) => updateAllocation(alloc.id, 'entity_id', val)}
-                  options={[
-                    { value: '', label: 'Select entity...' },
-                    ...entities.map(e => ({ value: e.id, label: `${e.entity_name} (${e.entity_code})` }))
-                  ]}
-                  className="flex-1 min-w-[180px]"
-                />
-              )}
-
-              {alloc.layer === 'tenant' && (
+              {alloc.target === 'tenant_invoice' && (
                 <CustomDropdown
                   value={alloc.tenant_id || ''}
                   onChange={(val) => updateAllocation(alloc.id, 'tenant_id', val)}
@@ -217,7 +159,19 @@ export default function AllocationWorkspace() {
                 />
               )}
 
-              {alloc.layer === 'property' && (
+              {alloc.target === 'supplier_invoice' && (
+                <CustomDropdown
+                  value={alloc.supplier_id || ''}
+                  onChange={(val) => updateAllocation(alloc.id, 'supplier_id', val)}
+                  options={[
+                    { value: '', label: 'Select supplier...' },
+                    ...suppliers.map(s => ({ value: s.id, label: `${s.supplier_name} (${s.code})` }))
+                  ]}
+                  className="flex-1 min-w-[180px]"
+                />
+              )}
+
+              {alloc.target === 'property' && (
                 <CustomDropdown
                   value={alloc.property_id || ''}
                   onChange={(val) => updateAllocation(alloc.id, 'property_id', val)}
@@ -229,35 +183,49 @@ export default function AllocationWorkspace() {
                 />
               )}
 
-              <CustomDropdown
-                value={alloc.gl_code || ''}
-                onChange={(val) => updateAllocation(alloc.id, 'gl_code', val)}
-                options={[
-                  { value: '', label: 'Select GL Code...' },
-                  ...glCodes.map(g => ({ 
-  value: g.code, 
-  label: `${g.code} - ${g.description}` 
-}))
-                ]}
-                className="w-[160px]"
-              />
-
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  value={alloc.amount || ''}
-                  onChange={(e) => updateAllocation(alloc.id, 'amount', parseFloat(e.target.value) || 0)}
-                  className="w-[120px] rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-sm text-[var(--text-primary)] tabular-nums outline-none focus:border-[var(--border-hover)]"
+              {alloc.target === 'entity' && (
+                <CustomDropdown
+                  value={alloc.entity_id || ''}
+                  onChange={(val) => updateAllocation(alloc.id, 'entity_id', val)}
+                  options={[
+                    { value: '', label: 'Select entity...' },
+                    ...entities.map(e => ({ value: e.id, label: `${e.entity_name} (${e.entity_code})` }))
+                  ]}
+                  className="flex-1 min-w-[180px]"
                 />
-                {allocations.length > 1 && remainingAmount > 0 && (
-                  <button
-                    onClick={() => fillRemainder(alloc.id)}
-                    className="text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] px-2 py-1 rounded-xl border border-[var(--border-default)] hover:border-[var(--accent)] transition whitespace-nowrap"
-                  >
-                    Remainder
-                  </button>
-                )}
-              </div>
+              )}
+
+              {(alloc.target === 'tenant_invoice' || alloc.target === 'supplier_invoice' || alloc.target === 'property' || alloc.target === 'entity' || alloc.target === 'deposit') && (
+                <CustomDropdown
+                  value={alloc.gl_code || ''}
+                  onChange={(val) => updateAllocation(alloc.id, 'gl_code', val)}
+                  options={[
+                    { value: '', label: 'GL Code...' },
+                    ...glCodes.map(g => ({ value: g.code, label: `${g.code} - ${g.description}` }))
+                  ]}
+                  className="w-[160px]"
+                />
+              )}
+
+              {alloc.target === 'gl_only' && (
+                <CustomDropdown
+                  value={alloc.gl_code || ''}
+                  onChange={(val) => updateAllocation(alloc.id, 'gl_code', val)}
+                  options={[
+                    { value: '', label: 'Select GL Code...' },
+                    ...glCodes.map(g => ({ value: g.code, label: `${g.code} - ${g.description}` }))
+                  ]}
+                  className="flex-1 min-w-[180px]"
+                />
+              )}
+
+              <input
+                type="number"
+                value={alloc.amount || ''}
+                onChange={(e) => updateAllocation(alloc.id, 'amount', parseFloat(e.target.value) || 0)}
+                placeholder="0.00"
+                className="w-[120px] rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-sm text-[var(--text-primary)] tabular-nums outline-none focus:border-[var(--border-hover)]"
+              />
 
               <button
                 onClick={() => removeAllocation(alloc.id)}
@@ -270,26 +238,24 @@ export default function AllocationWorkspace() {
           ))}
         </div>
 
-        {/* Add Split Button */}
-        {remainingAmount > 0 && (
-          <button
-            onClick={addSplit}
-            className="mt-4 text-sm text-[var(--accent)] hover:text-[var(--accent-hover)] transition flex items-center gap-2"
-          >
-            + Add Split
-            <span className="text-xs text-[var(--text-muted)]">(R{remainingAmount.toLocaleString()} remaining)</span>
-          </button>
-        )}
+        <button
+          onClick={addAllocation}
+          className="mt-4 text-sm text-[var(--accent)] hover:text-[var(--accent-hover)] transition flex items-center gap-1"
+        >
+          + Add Split
+        </button>
 
-        {/* Summary */}
         <div className="mt-6 pt-4 border-t border-[var(--border-default)] flex items-center justify-between">
           <div className="space-y-1">
+            <p className="text-sm text-[var(--text-muted)]">
+              Transaction Total: <span className="text-[var(--text-primary)] font-medium tabular-nums">R{Math.abs(transaction?.transaction_amount || 0).toLocaleString('en-ZA')}</span>
+            </p>
             <p className="text-sm text-[var(--text-muted)]">
               Allocated: <span className="text-emerald-400 font-medium tabular-nums">R{totalAllocated.toLocaleString()}</span>
             </p>
             <p className="text-sm text-[var(--text-muted)]">
-              Remaining: <span className={`font-medium tabular-nums ${remainingAmount === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                R{remainingAmount.toLocaleString()}
+              Remaining: <span className={`font-medium tabular-nums ${remaining === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                R{remaining.toLocaleString()}
               </span>
             </p>
           </div>
@@ -303,9 +269,9 @@ export default function AllocationWorkspace() {
             </button>
             <button
               onClick={handleSave}
-              disabled={remainingAmount !== 0 || allocations.some(a => !a.gl_code)}
+              disabled={remaining !== 0 || allocations.some(a => !a.gl_code)}
               className={`rounded-2xl px-8 py-3 text-sm font-semibold transition ${
-                remainingAmount === 0 && !allocations.some(a => !a.gl_code)
+                remaining === 0 && !allocations.some(a => !a.gl_code)
                   ? 'bg-[var(--text-primary)] text-black hover:opacity-90'
                   : 'bg-[var(--bg-elevated)] text-[var(--text-muted)] cursor-not-allowed'
               }`}

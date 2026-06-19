@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -28,6 +28,7 @@ export default function AccountWorkspacePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeQueue, setActiveQueue] = useState<"ready" | "review" | "exceptions" | "posted">("ready");
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -43,10 +44,29 @@ export default function AccountWorkspacePage() {
         .limit(200);
 
       if (txs) {
-        const enriched = txs.map((tx: any) => ({
-          ...tx,
-          confidence: tx.matched_tenant_id ? (tx.matched_invoice_id ? 97 : 80) : Math.floor(Math.random() * 40) + 10,
-        }));
+        // Fix 1: Deterministic confidence scores
+        const enriched = txs.map((tx: any) => {
+          let confidence = 0;
+          const desc = tx.transaction_description?.toLowerCase() || '';
+          const ref = tx.transaction_reference?.toLowerCase() || '';
+
+          if (tx.matched_invoice_id) {
+            confidence = 97;
+          } else if (tx.matched_tenant_id) {
+            confidence = 85;
+          } else if (ref && desc.includes(ref)) {
+            confidence = 95;
+          } else if (desc.match(/rent|invoice|payment|tenant|lease|shop|office|suite/i)) {
+            confidence = 75;
+          } else {
+            confidence = 20;
+          }
+
+          return {
+            ...tx,
+            confidence,
+          };
+        });
         setTransactions(enriched);
       }
       setLoading(false);
@@ -57,35 +77,47 @@ export default function AccountWorkspacePage() {
   const difference = account ? account.statement_balance - account.current_balance : 0;
   const isBalanced = Math.abs(difference) < 0.01;
 
+  // Fix 2: Consistent threshold (90 everywhere)
   const queueCounts = {
-    ready: transactions.filter(t => t.allocation_status !== "posted" && (t.confidence >= 75 || t.matched_tenant_id)).length,
-    review: transactions.filter(t => t.allocation_status !== "posted" && t.confidence >= 40 && t.confidence < 75 && !t.matched_tenant_id).length,
-    exceptions: transactions.filter(t => t.allocation_status !== "posted" && t.confidence < 40 && !t.matched_tenant_id).length,
+    ready: transactions.filter(t => t.allocation_status !== "posted" && t.allocation_status !== "fully_allocated" && t.queue !== "posted" && (t.confidence >= 90 || t.matched_tenant_id)).length,
+    review: transactions.filter(t => t.allocation_status !== "posted" && t.confidence >= 70 && t.confidence < 90 && !t.matched_tenant_id).length,
+    exceptions: transactions.filter(t => t.allocation_status !== "posted" && t.confidence < 70 && !t.matched_tenant_id).length,
     posted: transactions.filter(t => t.allocation_status === "posted" || t.queue === "posted").length,
   };
 
-  const filteredTxs = transactions.filter(tx => {
-    if (activeQueue === "ready") return tx.allocation_status !== "posted" && tx.allocation_status !== "fully_allocated" && tx.queue !== "posted" && (tx.confidence >= 75 || tx.matched_tenant_id);
-    if (activeQueue === "review") return tx.allocation_status !== "posted" && tx.confidence >= 40 && tx.confidence < 75 && !tx.matched_tenant_id;
-    if (activeQueue === "exceptions") return tx.allocation_status !== "posted" && tx.confidence < 40 && !tx.matched_tenant_id;
+  // Fix 5: Search filter
+  const searched = transactions.filter(tx => {
+    if (!searchTerm) return true;
+    const s = searchTerm.toLowerCase();
+    return (
+      tx.transaction_description?.toLowerCase().includes(s) ||
+      tx.transaction_reference?.toLowerCase().includes(s) ||
+      tx.transaction_amount?.toString().includes(s)
+    );
+  });
+
+  const filteredTxs = searched.filter(tx => {
+    if (activeQueue === "ready") return tx.allocation_status !== "posted" && tx.allocation_status !== "fully_allocated" && tx.queue !== "posted" && (tx.confidence >= 90 || tx.matched_tenant_id);
+    if (activeQueue === "review") return tx.allocation_status !== "posted" && tx.confidence >= 70 && tx.confidence < 90 && !tx.matched_tenant_id;
+    if (activeQueue === "exceptions") return tx.allocation_status !== "posted" && tx.confidence < 70 && !tx.matched_tenant_id;
     if (activeQueue === "posted") return tx.allocation_status === "posted" || tx.queue === "posted";
     return true;
   });
 
-  if (loading) return <div className="mx-auto max-w-7xl px-6 pt-8 pb-12"><p className="text-[var(--text-muted)]">Loading...</p></div>;
-  if (!account) return <div className="mx-auto max-w-7xl px-6 pt-8 pb-12"><p className="text-[var(--text-muted)]">Account not found.</p></div>;
-async function handlePostAllReady() {
-  const readyTxs = transactions.filter(tx => 
-    tx.allocation_status !== "posted" && 
-    tx.allocation_status !== "fully_allocated" && 
-    tx.queue !== "posted" && 
-    (tx.confidence >= 75 || tx.matched_tenant_id)
-  );
+  // Fix 3: Bulk posting (single query)
+  async function handlePostAllReady() {
+    const readyTxs = transactions.filter(tx => 
+      tx.allocation_status !== "posted" && 
+      tx.allocation_status !== "fully_allocated" && 
+      tx.queue !== "posted" && 
+      (tx.confidence >= 90 || tx.matched_tenant_id)
+    );
 
-  if (readyTxs.length === 0) return;
+    if (readyTxs.length === 0) return;
 
-  setLoading(true);
-  for (const tx of readyTxs) {
+    setLoading(true);
+    const readyIds = readyTxs.map(tx => tx.id);
+
     await supabase
       .from("bank_transactions")
       .update({
@@ -93,29 +125,70 @@ async function handlePostAllReady() {
         queue: "posted",
         updated_at: new Date().toISOString(),
       })
-      .eq("id", tx.id);
-  }
-  
-  // Refresh the data
-  const { data: txs } = await supabase
-    .from("bank_transactions")
-    .select("*")
-    .eq("bank_account_id", accountId)
-    .order("transaction_date", { ascending: false })
-    .limit(200);
+      .in("id", readyIds);
 
-  if (txs) {
-    const enriched = txs.map((tx: any) => ({
-      ...tx,
-      confidence: tx.matched_tenant_id ? (tx.matched_invoice_id ? 97 : 80) : Math.floor(Math.random() * 40) + 10,
-    }));
-    setTransactions(enriched);
+    // Fix 4: Refresh transactions without page reload
+    const { data: freshData } = await supabase
+      .from("bank_transactions")
+      .select("*")
+      .eq("bank_account_id", accountId)
+      .order("transaction_date", { ascending: false })
+      .limit(200);
+
+    if (freshData) {
+      const enriched = freshData.map((tx: any) => {
+        let confidence = 0;
+        const desc = tx.transaction_description?.toLowerCase() || '';
+        const ref = tx.transaction_reference?.toLowerCase() || '';
+
+        if (tx.matched_invoice_id) {
+          confidence = 97;
+        } else if (tx.matched_tenant_id) {
+          confidence = 85;
+        } else if (ref && desc.includes(ref)) {
+          confidence = 95;
+        } else if (desc.match(/rent|invoice|payment|tenant|lease|shop|office|suite/i)) {
+          confidence = 75;
+        } else {
+          confidence = 20;
+        }
+
+        return {
+          ...tx,
+          confidence,
+        };
+      });
+      setTransactions(enriched);
+    }
+    setLoading(false);
   }
-  setLoading(false);
-}
+
+  if (loading) return <div className="mx-auto max-w-7xl px-6 pt-8 pb-12"><p className="text-[var(--text-muted)]">Loading...</p></div>;
+  if (!account) return <div className="mx-auto max-w-7xl px-6 pt-8 pb-12"><p className="text-[var(--text-muted)]">Account not found.</p></div>;
+
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 pt-8 pb-12">
       <PageHeader title={`${account.bank_name} — ${account.account_name}`} subtitle={account.account_number} />
+
+      {/* Fix 6: Reconciliation Summary */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+          <p className="text-2xl font-bold text-emerald-400">{queueCounts.ready}</p>
+          <p className="text-xs text-gray-400">Ready to Post</p>
+        </div>
+        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+          <p className="text-2xl font-bold text-amber-400">{queueCounts.review}</p>
+          <p className="text-xs text-gray-400">Need Review</p>
+        </div>
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
+          <p className="text-2xl font-bold text-red-400">{queueCounts.exceptions}</p>
+          <p className="text-xs text-gray-400">Exceptions</p>
+        </div>
+        <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
+          <p className="text-2xl font-bold text-blue-400">{queueCounts.posted}</p>
+          <p className="text-xs text-gray-400">Posted</p>
+        </div>
+      </div>
 
       {/* Month-End Status Bar */}
       <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4">
@@ -142,45 +215,37 @@ async function handlePostAllReady() {
         </div>
       </div>
 
-      {/* Queue Tabs */}
-      <div className="flex gap-3">
-        {(["ready", "review", "exceptions", "posted"] as const).map(queue => (
-          <button key={queue} onClick={() => setActiveQueue(queue)}
-            className={`rounded-2xl px-5 py-3 text-sm font-semibold capitalize transition ${
-              activeQueue === queue
-                ? "bg-white text-black"
-                : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
-            }`}>
-            {queue === "ready" ? "Ready to Post" : queue === "review" ? "Needs Review" : queue === "exceptions" ? "Exceptions" : "Posted"}
-            <span className="ml-1.5 text-xs opacity-50">({queueCounts[queue]})</span>
+      {/* Search + Tabs */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search description, reference, or amount..."
+          className="flex-1 min-w-[200px] rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] placeholder:text-[var(--text-muted)]"
+        />
+        <div className="flex gap-2">
+          {(["ready", "review", "exceptions", "posted"] as const).map(queue => (
+            <button key={queue} onClick={() => setActiveQueue(queue)}
+              className={`rounded-2xl px-5 py-3 text-sm font-semibold capitalize transition ${
+                activeQueue === queue
+                  ? "bg-white text-black"
+                  : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+              }`}>
+              {queue === "ready" ? "Ready to Post" : queue === "review" ? "Needs Review" : queue === "exceptions" ? "Exceptions" : "Posted"}
+              <span className="ml-1.5 text-xs opacity-50">({queueCounts[queue]})</span>
+            </button>
+          ))}
+          {activeQueue === "ready" && queueCounts.ready > 0 && (
+            <button onClick={handlePostAllReady} disabled={loading}
+              className="ml-auto rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-40">
+              {loading ? "Posting..." : `Post All Ready (${queueCounts.ready})`}
+            </button>
+          )}
+          <button onClick={() => exportToCSV(filteredTxs, `cashbook-${accountId}`)} className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)] ml-auto">
+            📥 Export
           </button>
-        ))}
-        {activeQueue === "ready" && queueCounts.ready > 0 && (
-          <button onClick={async () => {
-  const readyTxs = transactions.filter(tx => 
-    tx.allocation_status !== "posted" && 
-    tx.allocation_status !== "fully_allocated" && 
-    tx.queue !== "posted" && 
-    (tx.confidence >= 75 || tx.matched_tenant_id)
-  );
-  if (readyTxs.length === 0) return;
-  setLoading(true);
-  for (const tx of readyTxs) {
-    await supabase.from("bank_transactions").update({
-      allocation_status: "fully_allocated",
-      queue: "posted",
-      updated_at: new Date().toISOString(),
-    }).eq("id", tx.id);
-  }
-  window.location.reload();
-}} disabled={loading}
-  className="ml-auto rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-40">
-  {loading ? "Posting..." : `Post All Ready (${queueCounts.ready})`}
-</button>
-        )}
-        <button onClick={() => exportToCSV(filteredTxs, `cashbook-${accountId}`)} className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)] ml-auto">
-  📥 Export
-</button>
+        </div>
       </div>
 
       {/* Transaction List */}
@@ -218,13 +283,11 @@ async function handlePostAllReady() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-  <button 
-    onClick={() => router.push(`/financials/cash-book/${accountId}/allocate?txId=${tx.id}&amount=${tx.transaction_amount}&desc=${encodeURIComponent(tx.transaction_description)}&ref=${encodeURIComponent(tx.transaction_reference || "")}&date=${tx.transaction_date}`)}
-    className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors"
-  >
-    {activeQueue === "posted" ? "View" : "Allocate"}
-  </button>
-</td>
+                    <button onClick={() => router.push(`/financials/cash-book/${accountId}/allocate?txId=${tx.id}&amount=${tx.transaction_amount}&desc=${encodeURIComponent(tx.transaction_description)}&ref=${encodeURIComponent(tx.transaction_reference || "")}&date=${tx.transaction_date}`)}
+                      className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">
+                      {activeQueue === "posted" ? "View" : "Allocate"}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
