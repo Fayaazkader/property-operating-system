@@ -163,24 +163,25 @@ export default function RevenueOperationsPage() {
 
   // ===== OPTIMIZED REVENUE HEALTH =====
   async function loadRevenueHealth() {
-    let query = supabase
-      .from("leases")
-      .select(`
-        id,
-        tenant_id,
-        property_id,
-        entity_id,
-        monthly_rental,
-        lease_status,
-        tenants (tenant_name),
-        properties (property_name, entity_id),
-        entities (entity_name)
-      `)
-      .eq("lease_status", "Active");
+    const { data: userData } = await supabase.auth.getUser();
+console.log("user ID:", userData.user?.id);
+  let query = supabase
+  .from("leases")
+  .select(`
+  id,
+  tenant_id,
+  property_id,
+  owner_entity_id,
+  monthly_rental,
+  lease_status
+`)
+  .eq("lease_status", "Active");
 
-    if (viewBy === "entity" && selectedEntity) {
-      query = query.eq("entity_id", selectedEntity);
-    } else if (viewBy === "property" && selectedProperty) {
+console.log("viewBy:", viewBy, "selectedEntity:", selectedEntity);
+
+if (viewBy === "entity" && selectedEntity) {
+  query = query.eq("owner_entity_id", selectedEntity);
+} else if (viewBy === "property" && selectedProperty) {
       query = query.eq("property_id", selectedProperty);
     } else if (viewBy === "tenant" && selectedTenant) {
       query = query.eq("tenant_id", selectedTenant);
@@ -191,8 +192,15 @@ export default function RevenueOperationsPage() {
       const typeProps = properties.filter(p => p.property_type === selectedPropertyType).map(p => p.id);
       if (typeProps.length > 0) query = query.in("property_id", typeProps);
     }
-
-    const { data: leases } = await query;
+console.log("VIEW BY:", viewBy);
+console.log("SELECTED ENTITY:", selectedEntity);
+console.log("QUERY FILTER RUNNING");
+    const { data: leases, error } = await query;
+console.log(
+  "LEASES RETURNED:",
+  leases?.length
+);
+console.log("LEASES:", leases);
 
     if (!leases || leases.length === 0) {
       setHealth({ activeLeases: 0, expectedRevenue: 0, billed: 0, notBilled: 0, sent: 0, notSent: 0 });
@@ -219,9 +227,9 @@ export default function RevenueOperationsPage() {
       .eq("source_id", `INV-${currentStmtPeriod}`);
 
     const { data: billingRules } = await supabase
-      .from("billing_rules")
-      .select("lease_id, is_active")
-      .in("lease_id", leaseIds);
+  .from("billing_rules")
+  .select("lease_id, status")
+  .in("lease_id", leaseIds);
 
     const chargeMap = new Map();
     charges?.forEach((c: any) => {
@@ -245,12 +253,11 @@ export default function RevenueOperationsPage() {
       const leaseCharges = chargeMap.get(lease.id) || [];
       const hasCharges = leaseCharges.length > 0;
       const hasCommunications = commMap.has(lease.tenant_id);
-      const hasRules = (ruleMap.get(lease.id) || []).some((r: any) => r.is_active);
+      const hasRules = (ruleMap.get(lease.id) || []).some((r: any) => r.status === 'active');
       
-      const entityName = (lease.entities as any)?.entity_name || "Unknown Entity";
-      const propertyName = (lease.properties as any)?.property_name || "Unknown Property";
-      const tenantName = (lease.tenants as any)?.tenant_name || "Unknown";
-
+     const entityName = (lease as any).entity?.entity_name || "Unknown Entity";
+const propertyName = (lease as any).properties?.property_name || "Unknown Property";
+const tenantName = (lease as any).tenants?.tenant_name || "Unknown";
       if (hasCharges) {
         billed++;
         if (hasCommunications) {
@@ -389,6 +396,8 @@ export default function RevenueOperationsPage() {
 
   function getScopeLabel(): string {
     if (viewBy === "all") return "All Properties";
+    console.log("viewBy:", viewBy, "selectedEntity:", selectedEntity);
+    console.log("selectedEntity:", selectedEntity);
     if (viewBy === "entity" && selectedEntity) {
       const entity = entities.find(e => e.id === selectedEntity);
       return entity ? entity.entity_name : "Entity";
@@ -450,11 +459,13 @@ export default function RevenueOperationsPage() {
           <div className="mt-3 grid grid-cols-3 gap-3">
             {viewBy === "entity" && (
               <CustomDropdown
+              
                 value={selectedEntity}
                 options={entities.map(e => ({ id: e.id, label: e.entity_name }))}
                 onChange={setSelectedEntity}
                 placeholder="Select entity..."
               />
+              
             )}
             {viewBy === "property" && (
               <CustomDropdown
