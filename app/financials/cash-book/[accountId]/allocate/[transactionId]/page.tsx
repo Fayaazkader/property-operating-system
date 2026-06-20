@@ -120,8 +120,8 @@ export default function TransactionAllocationWorkspace() {
   const { data: updateData, error: updateError } = await supabase
     .from('bank_transactions')
     .update({ 
-      allocation_status: 'ready_to_post',
-      queue: 'ready',
+      allocation_status: 'posted',
+queue: 'posted',
     })
     .eq('id', transactionId);
 

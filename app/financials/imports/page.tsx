@@ -17,7 +17,14 @@ export default function BankingImportsPage() {
   const [showPresetDropdown, setShowPresetDropdown] = useState(false);
   const [importHistory, setImportHistory] = useState<any[]>([]);
   const presetDropdownRef = useRef<HTMLDivElement>(null);
-const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Entity & Bank Account
+  const [entities, setEntities] = useState<any[]>([]);
+  const [selectedEntity, setSelectedEntity] = useState("");
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [selectedBankAccount, setSelectedBankAccount] = useState("");
+
   // Load presets
   useEffect(() => {
     async function loadPresets() {
@@ -33,6 +40,25 @@ const [message, setMessage] = useState<{ type: "success" | "error"; text: string
     }
     loadPresets();
   }, []);
+
+  // Load entities
+  useEffect(() => {
+    async function loadEntities() {
+      const { data } = await supabase.from("entities").select("id, entity_name").order("entity_name");
+      if (data) setEntities(data);
+    }
+    loadEntities();
+  }, []);
+
+  // Load bank accounts when entity changes
+  useEffect(() => {
+    async function loadAccounts() {
+      if (!selectedEntity) { setBankAccounts([]); return; }
+      const { data } = await supabase.from("bank_accounts").select("id, account_name, bank_name, account_number").eq("entity_id", selectedEntity).order("account_name");
+      if (data) setBankAccounts(data);
+    }
+    loadAccounts();
+  }, [selectedEntity]);
 
   // Load import history
   useEffect(() => {
@@ -74,86 +100,97 @@ const [message, setMessage] = useState<{ type: "success" | "error"; text: string
   }, []);
 
   async function handleImport(file: File) {
-  setLoading(true);
-  setFileName(file.name);
+    setLoading(true);
+    setFileName(file.name);
 
-  // Read file once
-  const text = await file.text();
-  const batchRef = await hashContent(text);
+    const text = await file.text();
+    const batchRef = await hashContent(text);
 
-  // Run validation
-  const validation = await validateBankImport(file, activePreset);
+    const validation = await validateBankImport(file, activePreset);
 
-  if (!validation.valid) {
-    setMessage({ type: "error", text: validation.errors.join(" · ") });
-    setLoading(false);
-    return;
-  }
-
-  // Check for duplicate
-  const { data: existing } = await supabase
-    .from("bank_transactions")
-    .select("id")
-    .eq("imported_batch_reference", batchRef)
-    .limit(1);
-
-  if (existing && existing.length > 0) {
-    setMessage({ type: "error", text: "This bank statement has already been imported. Duplicate detected." });
-    setLoading(false);
-    return;
-  }
-
-  // Proceed with import
-  const result = await importBankTransactions(file, activePreset);
-
-  if (result.success && result.data) {
-    for (const tx of result.data) {
-      await supabase.from("bank_transactions").upsert({
-        id: tx.id,
-        transaction_date: tx.transactionDate || null,
-        transaction_description: tx.description || null,
-        transaction_amount: tx.amount || 0,
-        transaction_reference: tx.reference || null,
-        bank_account_name: activePreset?.bank_name || null,
-        bank_account_number: null,
-        allocation_status: "unallocated",
-        split_allocations: tx.splitAllocations || [],
-        queue: "ready",
-        imported_batch_reference: batchRef,
-        imported_at: new Date().toISOString(),
-      });
+    if (!validation.valid) {
+      setMessage({ type: "error", text: validation.errors.join(" · ") });
+      setLoading(false);
+      return;
     }
 
-    const importedCount = result.data.length;
+    const { data: existing } = await supabase
+      .from("bank_transactions")
+      .select("id")
+      .eq("imported_batch_reference", batchRef)
+      .limit(1);
 
-    // Run auto-reconciliation
-    const recon = await runReconciliationEngine();
-
-    if (recon.total > 0) {
-      setMessage({
-        type: "success",
-        text: `${importedCount} imported. ${recon.autoAllocated} auto-allocated, ${recon.partiallyAllocated} flagged for review, ${recon.unallocated} need manual allocation.`
-      });
-    } else {
-      setMessage({ type: "success", text: `${importedCount} transactions imported and posted to Cash Book.` });
+    if (existing && existing.length > 0) {
+      setMessage({ type: "error", text: "This bank statement has already been imported. Duplicate detected." });
+      setLoading(false);
+      return;
     }
 
+    const result = await importBankTransactions(file, activePreset);
+
+    if (result.success && result.data) {
+      for (const tx of result.data) {
+        await supabase.from("bank_transactions").upsert({
+          id: tx.id,
+          transaction_date: tx.transactionDate || null,
+          transaction_description: tx.description || null,
+          transaction_amount: tx.amount || 0,
+          transaction_reference: tx.reference || null,
+          bank_account_name: activePreset?.bank_name || null,
+          bank_account_id: selectedBankAccount || null,
+          bank_account_number: null,
+          allocation_status: "unallocated",
+          split_allocations: tx.splitAllocations || [],
+          queue: "ready",
+          imported_batch_reference: batchRef,
+          imported_at: new Date().toISOString(),
+        });
+      }
+// Update bank account balance
+const totalImported = result.data.reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
+const { data: currentAccount } = await supabase
+  .from("bank_accounts")
+  .select("current_balance")
+  .eq("id", selectedBankAccount)
+  .single();
+
+const newBalance = (currentAccount?.current_balance || 0) + totalImported;
+
+await supabase
+  .from("bank_accounts")
+  .update({ 
+    current_balance: newBalance,
+    statement_balance: newBalance
+  })
+  .eq("id", selectedBankAccount);
+      const importedCount = result.data.length;
+
+      const recon = await runReconciliationEngine();
+
+      if (recon.total > 0) {
+        setMessage({
+          type: "success",
+          text: `${importedCount} imported. ${recon.autoAllocated} auto-allocated, ${recon.partiallyAllocated} flagged for review, ${recon.unallocated} need manual allocation.`
+        });
+      } else {
+        setMessage({ type: "success", text: `${importedCount} transactions imported and posted to Cash Book.` });
+      }
+
+      setLoading(false);
+      return;
+    }
+
+    setMessage({ type: "error", text: "Import failed. Please check the file format and try again." });
     setLoading(false);
-    return;
   }
 
-  setMessage({ type: "error", text: "Import failed. Please check the file format and try again." });
-  setLoading(false);
-}
-
-// Helper: hash file content
-async function hashContent(content: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(content);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-}
+  async function hashContent(content: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(content);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 pt-8 pb-12">
@@ -236,6 +273,29 @@ async function hashContent(content: string): Promise<string> {
         </div>
       </div>
 
+      {/* Entity & Bank Account Selector */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-2">Entity</p>
+          <CustomDropdown
+            value={selectedEntity}
+            options={entities.map((e: any) => ({ id: e.id, label: e.entity_name }))}
+            onChange={(id: string) => { setSelectedEntity(id); setSelectedBankAccount(""); }}
+            placeholder="Select entity..."
+          />
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-2">Bank Account</p>
+          <CustomDropdown
+            value={selectedBankAccount}
+            options={bankAccounts.map((a: any) => ({ id: a.id, label: `${a.bank_name} - ${a.account_name} (${a.account_number})` }))}
+            onChange={setSelectedBankAccount}
+            placeholder="Select account..."
+            disabled={!selectedEntity}
+          />
+        </div>
+      </div>
+
       {/* Upload */}
       <ImportDropzone
         title="Bank Statement Import"
@@ -283,6 +343,57 @@ async function hashContent(content: string): Promise<string> {
           setPresetsOpen(false);
         }}
       />
+    </div>
+  );
+}
+
+// CustomDropdown component
+function CustomDropdown({ value, options, onChange, placeholder, disabled }: {
+  value: string;
+  options: { id: string; label: string }[];
+  onChange: (id: string) => void;
+  placeholder: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selected = options.find(o => o.id === value);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => !disabled && setOpen(!open)}
+        className={`w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm outline-none focus:border-zinc-600 flex items-center justify-between ${disabled ? "opacity-30 cursor-not-allowed" : ""}`}
+      >
+        <span className={selected ? "text-white" : "text-zinc-500"}>
+          {selected ? selected.label : placeholder}
+        </span>
+        <span className="text-zinc-500 text-xs">▼</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 z-40 mt-1 rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
+          {options.map(opt => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => { onChange(opt.id); setOpen(false); }}
+              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${value === opt.id ? "bg-white text-black font-medium" : "text-zinc-300 hover:bg-zinc-800"}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

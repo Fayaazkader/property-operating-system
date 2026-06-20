@@ -211,7 +211,7 @@ export async function runReconciliationEngine(
           matched_invoice_id: matchedInvoiceId,
           property_id: propertyId,
           allocation_status: "fully_allocated",
-          queue: "posted",
+          queue: "ready",
           reconciliation_notes: matchReason,
           updated_at: new Date().toISOString(),
         })
@@ -224,7 +224,7 @@ export async function runReconciliationEngine(
           matched_invoice_id: matchedInvoiceId,
           property_id: propertyId,
           allocation_status: "unallocated",
-          queue: "review",
+          queue: "ready",
           reconciliation_notes: matchReason,
           updated_at: new Date().toISOString(),
         })

@@ -56,10 +56,10 @@ console.log('Error:', error);
         // Get unreconciled counts per account
         const enriched = await Promise.all(data.map(async (acc: BankAccount) => {
           const { count } = await supabase
-            .from("bank_transactions")
-            .select("id", { count: "exact", head: true })
-            .eq("bank_account_id", acc.id)
-            .neq("allocation_status", "posted");
+  .from("bank_transactions")
+  .select("id", { count: "exact", head: true })
+  .eq("bank_account_id", acc.id)
+  .neq("allocation_status", "posted");
           return { ...acc, unreconciled: count || 0 };
         }));
         setAccounts(enriched as any[]);
