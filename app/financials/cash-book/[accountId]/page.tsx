@@ -31,53 +31,29 @@ export default function AccountWorkspacePage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    async function load() {
-      if (!accountId) return;
-      const { data: acc } = await supabase.from("bank_accounts").select("*").eq("id", accountId).single();
-      if (acc) setAccount(acc);
+  async function load() {
+    if (!accountId) return;
+    const { data: acc } = await supabase.from("bank_accounts").select("*").eq("id", accountId).single();
+    if (acc) setAccount(acc);
 
-      const { data: txs } = await supabase
-        .from("bank_transactions")
-        .select("*")
-        .eq("bank_account_id", accountId)
-        .order("transaction_date", { ascending: false })
-        .limit(200);
+    const { data: txs } = await supabase
+      .from("bank_transactions")
+      .select("*")
+      .eq("bank_account_id", accountId)
+      .order("transaction_date", { ascending: false })
+      .limit(200);
 
-      if (txs) {
-        // Fix 1: Deterministic confidence scores
-        const enriched = txs.map((tx: any) => {
-          let confidence = 0;
-          const desc = tx.transaction_description?.toLowerCase() || '';
-          const ref = tx.transaction_reference?.toLowerCase() || '';
-
-          if (tx.matched_invoice_id) {
-            confidence = 97;
-          } else if (tx.matched_tenant_id) {
-            confidence = 85;
-          } else if (ref && desc.includes(ref)) {
-            confidence = 95;
-          } else if (desc.match(/rent|invoice|payment|tenant|lease|shop|office|suite/i)) {
-            confidence = 75;
-          } else {
-            confidence = 20;
-          }
-
-          return {
-            ...tx,
-            confidence,
-          };
-        });
-        setTransactions(enriched);
-      }
-      setLoading(false);
+    if (txs) {
+      setTransactions(txs);
     }
-    load();
-  }, [accountId]);
+    setLoading(false);
+  }
+  load();
+}, [accountId]);
 
   const difference = account ? account.statement_balance - account.current_balance : 0;
   const isBalanced = Math.abs(difference) < 0.01;
 
-  // Fix 2: Consistent threshold (90 everywhere)
   const queueCounts = {
     ready: transactions.filter(t => t.allocation_status !== "posted" && t.allocation_status !== "fully_allocated" && t.queue !== "posted" && (t.confidence >= 90 || t.matched_tenant_id)).length,
     review: transactions.filter(t => t.allocation_status !== "posted" && t.confidence >= 70 && t.confidence < 90 && !t.matched_tenant_id).length,
@@ -85,7 +61,6 @@ export default function AccountWorkspacePage() {
     posted: transactions.filter(t => t.allocation_status === "posted" || t.queue === "posted").length,
   };
 
-  // Fix 5: Search filter
   const searched = transactions.filter(tx => {
     if (!searchTerm) return true;
     const s = searchTerm.toLowerCase();
@@ -104,7 +79,6 @@ export default function AccountWorkspacePage() {
     return true;
   });
 
-  // Fix 3: Bulk posting (single query)
   async function handlePostAllReady() {
     const readyTxs = transactions.filter(tx => 
       tx.allocation_status !== "posted" && 
@@ -127,7 +101,6 @@ export default function AccountWorkspacePage() {
       })
       .in("id", readyIds);
 
-    // Fix 4: Refresh transactions without page reload
     const { data: freshData } = await supabase
       .from("bank_transactions")
       .select("*")
@@ -170,7 +143,6 @@ export default function AccountWorkspacePage() {
     <div className="mx-auto max-w-7xl space-y-8 px-6 pt-8 pb-12">
       <PageHeader title={`${account.bank_name} — ${account.account_name}`} subtitle={account.account_number} />
 
-      {/* Fix 6: Reconciliation Summary */}
       <div className="grid grid-cols-4 gap-4">
         <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
           <p className="text-2xl font-bold text-emerald-400">{queueCounts.ready}</p>
@@ -190,7 +162,6 @@ export default function AccountWorkspacePage() {
         </div>
       </div>
 
-      {/* Month-End Status Bar */}
       <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4">
         <div className="flex items-center gap-6 text-sm">
           <div className="flex items-center gap-2">
@@ -215,7 +186,6 @@ export default function AccountWorkspacePage() {
         </div>
       </div>
 
-      {/* Search + Tabs */}
       <div className="flex items-center gap-4 flex-wrap">
         <input
           type="text"
@@ -248,7 +218,6 @@ export default function AccountWorkspacePage() {
         </div>
       </div>
 
-      {/* Transaction List */}
       {filteredTxs.length === 0 ? (
         <div className="text-center py-20 rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)]">
           <p className="text-[var(--text-muted)]">No transactions in this queue.</p>
@@ -268,7 +237,7 @@ export default function AccountWorkspacePage() {
             </thead>
             <tbody>
               {filteredTxs.map((tx) => (
-                <tr key={tx.id} className="border-b border-[var(--border-default)] hover:bg-[var(--bg-elevated)] transition-colors">
+                <tr key={tx.id} className="border-b border-[var(--border-default)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer">
                   <td className="px-4 py-3 text-sm text-[var(--text-primary)]">{tx.transaction_date}</td>
                   <td className="px-4 py-3 text-sm text-[var(--text-primary)]">{tx.transaction_description}</td>
                   <td className="px-4 py-3 text-sm text-[var(--text-muted)] font-mono text-xs">{tx.transaction_reference || "—"}</td>
@@ -283,10 +252,52 @@ export default function AccountWorkspacePage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button onClick={() => router.push(`/financials/cash-book/${accountId}/allocate?txId=${tx.id}&amount=${tx.transaction_amount}&desc=${encodeURIComponent(tx.transaction_description)}&ref=${encodeURIComponent(tx.transaction_reference || "")}&date=${tx.transaction_date}`)}
-                      className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">
-                      {activeQueue === "posted" ? "View" : "Allocate"}
-                    </button>
+                   {activeQueue === "ready" && (
+  <div className="flex gap-2">
+    <button 
+      onClick={() => router.push(`/financials/cash-book/${accountId}/allocate/${tx.id}`)}
+      className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors"
+    >
+      Edit
+    </button>
+    <button 
+      onClick={async () => {
+        await supabase
+          .from("bank_transactions")
+          .update({
+            allocation_status: "posted",
+            queue: "posted",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", tx.id);
+        // Refresh the page
+        window.location.reload();
+      }}
+      className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors"
+    >
+      Post
+    </button>
+  </div>
+)}
+{activeQueue === "review" && (
+  <button 
+    onClick={() => router.push(`/financials/cash-book/${accountId}/allocate?txId=${tx.id}&amount=${tx.transaction_amount}&desc=${encodeURIComponent(tx.transaction_description)}&ref=${encodeURIComponent(tx.transaction_reference || "")}&date=${tx.transaction_date}`)}
+    className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors"
+  >
+    Review
+  </button>
+)}
+{activeQueue === "exceptions" && (
+  <button 
+    onClick={() => router.push(`/financials/cash-book/${accountId}/allocate?txId=${tx.id}&amount=${tx.transaction_amount}&desc=${encodeURIComponent(tx.transaction_description)}&ref=${encodeURIComponent(tx.transaction_reference || "")}&date=${tx.transaction_date}`)}
+    className="rounded-xl border border-[var(--border-default)] px-4 py-2 text-xs text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors"
+  >
+    Allocate
+  </button>
+)}
+{activeQueue === "posted" && (
+  <span className="text-xs text-[var(--text-muted)]">✓ Posted</span>
+)}
                   </td>
                 </tr>
               ))}
