@@ -30,6 +30,18 @@ type BillingPreviewItem = {
   charges: ChargeDetail[];
 };
 
+type LeaseWithRelations = {
+  id: string;
+  tenant_id: string;
+  property_id: string;
+  entity_id: string;
+  monthly_rental: number;
+  lease_status: string;
+  tenants: { tenant_name: string } | null;
+  properties: { property_name: string; entity_id: string } | null;
+  entities: { entity_name: string } | null;
+};
+
 export default function RevenueOperationsPage() {
   // ===== STATE =====
   const [loading, setLoading] = useState(false);
@@ -151,142 +163,141 @@ export default function RevenueOperationsPage() {
 
   // ===== OPTIMIZED REVENUE HEALTH =====
   async function loadRevenueHealth() {
-  let query = supabase
-    .from("leases")
-    .select(`
-      id,
-      tenant_id,
-      property_id,
-      entity_id,
-      monthly_rental,
-      lease_status,
-      tenants (tenant_name),
-      properties (property_name, entity_id),
-      entities (entity_name)
-    `)
-    .eq("lease_status", "Active");
+    let query = supabase
+      .from("leases")
+      .select(`
+        id,
+        tenant_id,
+        property_id,
+        entity_id,
+        monthly_rental,
+        lease_status,
+        tenants (tenant_name),
+        properties (property_name, entity_id),
+        entities (entity_name)
+      `)
+      .eq("lease_status", "Active");
 
-  if (viewBy === "entity" && selectedEntity) {
-    query = query.eq("entity_id", selectedEntity);
-  } else if (viewBy === "property" && selectedProperty) {
-    query = query.eq("property_id", selectedProperty);
-  } else if (viewBy === "tenant" && selectedTenant) {
-    query = query.eq("tenant_id", selectedTenant);
-  } else if (viewBy === "region" && selectedRegion) {
-    const regionProps = properties.filter(p => p.province === selectedRegion).map(p => p.id);
-    if (regionProps.length > 0) query = query.in("property_id", regionProps);
-  } else if (viewBy === "propertyType" && selectedPropertyType) {
-    const typeProps = properties.filter(p => p.property_type === selectedPropertyType).map(p => p.id);
-    if (typeProps.length > 0) query = query.in("property_id", typeProps);
-  }
-
-  const { data: leases } = await query;
-
-  if (!leases || leases.length === 0) {
-    setHealth({ activeLeases: 0, expectedRevenue: 0, billed: 0, notBilled: 0, sent: 0, notSent: 0 });
-    setExceptions([]);
-    setBillingPreviewSummary([]);
-    setBillingPreviewDetail([]);
-    return;
-  }
-
-  const leaseIds = leases.map((l: any) => l.id);
-  const tenantIds = leases.map((l: any) => l.tenant_id).filter(Boolean);
-
-  const { data: charges } = await supabase
-    .from("charges")
-    .select("lease_id, amount_excl_vat, vat_amount, amount_incl_vat, status, billing_period, charge_type, description, gl_code")
-    .in("lease_id", leaseIds)
-    .eq("billing_period", currentStmtPeriod);
-
-  const { data: communications } = await supabase
-    .from("communications")
-    .select("tenant_id, source_id")
-    .in("tenant_id", tenantIds)
-    .eq("event_type", "statement_available")
-    .eq("source_id", `INV-${currentStmtPeriod}`);
-
-  const { data: billingRules } = await supabase
-    .from("billing_rules")
-    .select("lease_id, is_active")
-    .in("lease_id", leaseIds);
-
-  const chargeMap = new Map();
-  charges?.forEach((c: any) => {
-    if (!chargeMap.has(c.lease_id)) chargeMap.set(c.lease_id, []);
-    chargeMap.get(c.lease_id).push(c);
-  });
-
-  const commMap = new Set(communications?.map((c: any) => c.tenant_id) || []);
-  const ruleMap = new Map();
-  billingRules?.forEach((r: any) => {
-    if (!ruleMap.has(r.lease_id)) ruleMap.set(r.lease_id, []);
-    ruleMap.get(r.lease_id).push(r);
-  });
-
-  let billed = 0, notBilled = 0, sent = 0, notSent = 0;
-  const exceptionList = [];
-  const detailItems = [];
-  const summaryTotals = {};
-
-  for (const lease of leases) {
-  const leaseCharges = chargeMap.get(lease.id) || [];
-  const hasCharges = leaseCharges.length > 0;
-  const hasCommunications = commMap.has(lease.tenant_id);
-  const hasRules = (ruleMap.get(lease.id) || []).some((r: any) => r.is_active);
-  
-  // SAFE ACCESS — prevents undefined errors
-  const entityName = lease.entities?.entity_name || "Unknown Entity";
-  const propertyName = lease.properties?.property_name || "Unknown Property";
-  const tenantName = lease.tenants?.tenant_name || "Unknown";
-
-  if (hasCharges) {
-    billed++;
-    if (hasCommunications) {
-      sent++;
-    } else {
-      notSent++;
+    if (viewBy === "entity" && selectedEntity) {
+      query = query.eq("entity_id", selectedEntity);
+    } else if (viewBy === "property" && selectedProperty) {
+      query = query.eq("property_id", selectedProperty);
+    } else if (viewBy === "tenant" && selectedTenant) {
+      query = query.eq("tenant_id", selectedTenant);
+    } else if (viewBy === "region" && selectedRegion) {
+      const regionProps = properties.filter(p => p.province === selectedRegion).map(p => p.id);
+      if (regionProps.length > 0) query = query.in("property_id", regionProps);
+    } else if (viewBy === "propertyType" && selectedPropertyType) {
+      const typeProps = properties.filter(p => p.property_type === selectedPropertyType).map(p => p.id);
+      if (typeProps.length > 0) query = query.in("property_id", typeProps);
     }
-    leaseCharges.forEach((c: any) => {
-      const type = c.charge_type || c.description || "Other";
-      summaryTotals[type] = (summaryTotals[type] || 0) + (c.amount_incl_vat || 0);
+
+    const { data: leases } = await query;
+
+    if (!leases || leases.length === 0) {
+      setHealth({ activeLeases: 0, expectedRevenue: 0, billed: 0, notBilled: 0, sent: 0, notSent: 0 });
+      setExceptions([]);
+      setBillingPreviewSummary([]);
+      setBillingPreviewDetail([]);
+      return;
+    }
+
+    const leaseIds = leases.map((l: any) => l.id);
+    const tenantIds = leases.map((l: any) => l.tenant_id).filter(Boolean);
+
+    const { data: charges } = await supabase
+      .from("charges")
+      .select("lease_id, amount_excl_vat, vat_amount, amount_incl_vat, status, billing_period, charge_type, description, gl_code")
+      .in("lease_id", leaseIds)
+      .eq("billing_period", currentStmtPeriod);
+
+    const { data: communications } = await supabase
+      .from("communications")
+      .select("tenant_id, source_id")
+      .in("tenant_id", tenantIds)
+      .eq("event_type", "statement_available")
+      .eq("source_id", `INV-${currentStmtPeriod}`);
+
+    const { data: billingRules } = await supabase
+      .from("billing_rules")
+      .select("lease_id, is_active")
+      .in("lease_id", leaseIds);
+
+    const chargeMap = new Map();
+    charges?.forEach((c: any) => {
+      if (!chargeMap.has(c.lease_id)) chargeMap.set(c.lease_id, []);
+      chargeMap.get(c.lease_id).push(c);
     });
-    const total = leaseCharges.reduce((sum: number, c: any) => sum + (c.amount_incl_vat || 0), 0);
-    const chargeDetails: ChargeDetail[] = leaseCharges.map((c: any) => ({
-      description: c.description || c.charge_type || "Charge",
-      amount_excl: c.amount_excl_vat || 0,
-      vat_amount: c.vat_amount || 0,
-      amount_incl: c.amount_incl_vat || 0,
-      gl_code: c.gl_code || "",
-    }));
-    detailItems.push({
-      entity: entityName,
-      property: propertyName,
-      tenant: tenantName,
-      total,
-      charges: chargeDetails,
+
+    const commMap = new Set(communications?.map((c: any) => c.tenant_id) || []);
+    const ruleMap = new Map();
+    billingRules?.forEach((r: any) => {
+      if (!ruleMap.has(r.lease_id)) ruleMap.set(r.lease_id, []);
+      ruleMap.get(r.lease_id).push(r);
     });
-  } else {
-    notBilled++;
-    const issue = !hasRules ? "No billing rules" : "No charges generated";
-    exceptionList.push({ tenant_name: tenantName, property_name: propertyName, issue });
+
+    let billed = 0, notBilled = 0, sent = 0, notSent = 0;
+    const exceptionList: any[] = [];
+    const detailItems: BillingPreviewItem[] = [];
+    const summaryTotals: Record<string, number> = {};
+
+    for (const lease of leases) {
+      const leaseCharges = chargeMap.get(lease.id) || [];
+      const hasCharges = leaseCharges.length > 0;
+      const hasCommunications = commMap.has(lease.tenant_id);
+      const hasRules = (ruleMap.get(lease.id) || []).some((r: any) => r.is_active);
+      
+      const entityName = (lease.entities as any)?.entity_name || "Unknown Entity";
+      const propertyName = (lease.properties as any)?.property_name || "Unknown Property";
+      const tenantName = (lease.tenants as any)?.tenant_name || "Unknown";
+
+      if (hasCharges) {
+        billed++;
+        if (hasCommunications) {
+          sent++;
+        } else {
+          notSent++;
+        }
+        leaseCharges.forEach((c: any) => {
+          const type = c.charge_type || c.description || "Other";
+          summaryTotals[type] = (summaryTotals[type] || 0) + (c.amount_incl_vat || 0);
+        });
+        const total = leaseCharges.reduce((sum: number, c: any) => sum + (c.amount_incl_vat || 0), 0);
+        const chargeDetails: ChargeDetail[] = leaseCharges.map((c: any) => ({
+          description: c.description || c.charge_type || "Charge",
+          amount_excl: c.amount_excl_vat || 0,
+          vat_amount: c.vat_amount || 0,
+          amount_incl: c.amount_incl_vat || 0,
+          gl_code: c.gl_code || "",
+        }));
+        detailItems.push({
+          entity: entityName,
+          property: propertyName,
+          tenant: tenantName,
+          total,
+          charges: chargeDetails,
+        });
+      } else {
+        notBilled++;
+        const issue = !hasRules ? "No billing rules" : "No charges generated";
+        exceptionList.push({ tenant_name: tenantName, property_name: propertyName, issue });
+      }
+    }
+
+    const summaryArray = Object.entries(summaryTotals).map(([type, total]) => ({ type, total }));
+
+    setHealth({
+      activeLeases: leases.length,
+      expectedRevenue: leases.reduce((sum: number, l: any) => sum + (l.monthly_rental || 0), 0),
+      billed,
+      notBilled,
+      sent,
+      notSent,
+    });
+    setExceptions(exceptionList);
+    setBillingPreviewSummary(summaryArray);
+    setBillingPreviewDetail(detailItems);
   }
-}
-
-  const summaryArray = Object.entries(summaryTotals).map(([type, total]) => ({ type, total }));
-
-  setHealth({
-    activeLeases: leases.length,
-    expectedRevenue: leases.reduce((sum: number, l: any) => sum + (l.monthly_rental || 0), 0),
-    billed,
-    notBilled,
-    sent,
-    notSent,
-  });
-  setExceptions(exceptionList);
-  setBillingPreviewSummary(summaryArray);
-  setBillingPreviewDetail(detailItems);
-}
 
   // ===== DRILLDOWN HANDLER =====
   function handleDrilldown(type: string) {
@@ -406,9 +417,7 @@ export default function RevenueOperationsPage() {
 
       <PageHeader title="Revenue Operations" subtitle="Billing, statements, and distribution." />
 
-      {/* ============================================================ */}
       {/* 1. WORKSPACE SCOPE */}
-      {/* ============================================================ */}
       <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] mr-2">Scope</span>
@@ -499,9 +508,7 @@ export default function RevenueOperationsPage() {
         )}
       </div>
 
-      {/* ============================================================ */}
       {/* 2. REVENUE HEALTH */}
-      {/* ============================================================ */}
       <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Revenue Health — {getScopeLabel()}</p>
@@ -528,9 +535,7 @@ export default function RevenueOperationsPage() {
         </div>
       </div>
 
-      {/* ============================================================ */}
       {/* 3. BILLING EXCEPTIONS */}
-      {/* ============================================================ */}
       {exceptions.length > 0 && (
         <div className="rounded-3xl border border-red-500/20 bg-red-500/5 p-5">
           <button
@@ -559,9 +564,7 @@ export default function RevenueOperationsPage() {
         </div>
       )}
 
-      {/* ============================================================ */}
-      {/* 4. ACTIONS — New Charge & Utility Import (before preview) */}
-      {/* ============================================================ */}
+      {/* 4. ACTIONS — New Charge & Utility Import */}
       <div className="flex items-center gap-2">
         <button
           onClick={() => setShowNewCharge(true)}
@@ -577,9 +580,7 @@ export default function RevenueOperationsPage() {
         </button>
       </div>
 
-      {/* ============================================================ */}
-      {/* 5. BILLING PREVIEW (Summary only) */}
-      {/* ============================================================ */}
+      {/* 5. BILLING PREVIEW */}
       <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Billing Preview — {getScopeLabel()}</p>
@@ -625,9 +626,7 @@ export default function RevenueOperationsPage() {
         </div>
       </div>
 
-      {/* ============================================================ */}
-      {/* 6. GENERATE STATEMENTS (after preview, before distribution results) */}
-      {/* ============================================================ */}
+      {/* 6. GENERATE STATEMENTS */}
       <div className="flex items-center gap-2">
         <button
           onClick={() => setShowStatements(true)}
@@ -637,9 +636,7 @@ export default function RevenueOperationsPage() {
         </button>
       </div>
 
-      {/* ============================================================ */}
       {/* 7. DISTRIBUTION RESULTS */}
-      {/* ============================================================ */}
       {statementResults && (
         <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5">
           <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] mb-3">Distribution Results</p>
