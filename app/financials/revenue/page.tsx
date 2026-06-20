@@ -46,6 +46,7 @@ export default function RevenueOperationsPage() {
   // ===== STATE =====
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [leasesData, setLeasesData] = useState<any[]>([]);
 
   // Scope
   const [viewBy, setViewBy] = useState<"all" | "entity" | "property" | "region" | "propertyType" | "tenantGroup" | "tenant">("all");
@@ -117,10 +118,10 @@ export default function RevenueOperationsPage() {
   // Statements
   const [showStatements, setShowStatements] = useState(false);
   const [statementResults, setStatementResults] = useState<{ delivered: number; failed: number; pending: number } | null>(null);
-
+const [channelCounts, setChannelCounts] = useState({ email: 0, whatsapp: 0 });
   // Message health
   const [messageHealth, setMessageHealth] = useState<any>(null);
-
+console.log("handleGenerateStatements exists:", typeof handleGenerateStatements);
   // ===== LOAD FUNCTIONS =====
   async function loadScopeData() {
     const [entitiesRes, propsRes, regionsRes, typesRes, groupsRes, tenantsRes] = await Promise.all([
@@ -174,6 +175,7 @@ console.log("user ID:", userData.user?.id);
   owner_entity_id,
   monthly_rental,
   lease_status
+  
 `)
   .eq("lease_status", "Active");
 
@@ -196,6 +198,7 @@ console.log("VIEW BY:", viewBy);
 console.log("SELECTED ENTITY:", selectedEntity);
 console.log("QUERY FILTER RUNNING");
     const { data: leases, error } = await query;
+    setLeasesData(leases || []);
 console.log(
   "LEASES RETURNED:",
   leases?.length
@@ -207,6 +210,7 @@ console.log("LEASES:", leases);
       setExceptions([]);
       setBillingPreviewSummary([]);
       setBillingPreviewDetail([]);
+      
       return;
     }
 
@@ -238,6 +242,17 @@ console.log("LEASES:", leases);
     });
 
     const commMap = new Set(communications?.map((c: any) => c.tenant_id) || []);
+    const { data: channelData } = await supabase
+  .from("tenants")
+  .select("email_enabled, whatsapp_enabled")
+  .in("id", tenantIds);
+
+if (channelData) {
+  setChannelCounts({
+    email: channelData.filter((t: any) => t.email_enabled).length,
+    whatsapp: channelData.filter((t: any) => t.whatsapp_enabled).length,
+  });
+}
     const ruleMap = new Map();
     billingRules?.forEach((r: any) => {
       if (!ruleMap.has(r.lease_id)) ruleMap.set(r.lease_id, []);
@@ -384,10 +399,47 @@ const tenantName = (lease as any).tenants?.tenant_name || "Unknown";
   }
 
   async function handleGenerateStatements() {
-    setStatementResults({ delivered: 45, failed: 2, pending: 3 });
-    showToast("success", "Statements generated");
-    setShowStatements(false);
+  setShowStatements(false);
+  setLoading(true);
+  
+  // Get tenant IDs directly from the leases data we already have
+  const { data: leasesForStatement } = await supabase
+    .from("leases")
+    .select("tenant_id")
+    .eq("owner_entity_id", selectedEntity)
+    .eq("lease_status", "Active");
+  
+  const tenantIds = [...new Set(leasesForStatement?.map((l: any) => l.tenant_id) || [])];
+  
+  let delivered = 0, failed = 0, pending = 0;
+
+  for (const tenantId of tenantIds) {
+    try {
+      const { error } = await supabase.from("communications").insert({
+  tenant_id: tenantId,
+  event_type: "statement_available",
+  channel: "email",
+  message_body: `Your statement for ${currentStmtPeriod} is now available.`,
+  source_id: `INV-${currentStmtPeriod}`,
+  status: "sent",
+  sent_at: new Date().toISOString(),
+});
+      
+      if (error) {
+        failed++;
+      } else {
+        delivered++;
+      }
+    } catch {
+      failed++;
+    }
   }
+
+  setStatementResults({ delivered, failed, pending });
+  showToast("success", `${delivered} statements sent, ${failed} failed`);
+  setLoading(false);
+  loadRevenueHealth();
+}
 
   const manualTotalExcl = manualLines.reduce((s, l) => s + l.amount_excl, 0);
   const manualTotalVat = manualLines.reduce((s, l) => s + l.vat_amount, 0);
@@ -1000,11 +1052,11 @@ const tenantName = (lease as any).tenants?.tenant_name || "Unknown";
                   <p className="text-xs text-[var(--text-muted)]">Statements to Send</p>
                 </div>
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-center">
-                  <p className="text-2xl font-bold text-emerald-400">610</p>
+                  <p className="text-2xl font-bold text-emerald-400">{channelCounts.email}</p>
                   <p className="text-xs text-[var(--text-muted)]">Email</p>
                 </div>
                 <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 text-center">
-                  <p className="text-2xl font-bold text-blue-400">112</p>
+                  <p className="text-2xl font-bold text-blue-400">{channelCounts.whatsapp}</p>
                   <p className="text-xs text-[var(--text-muted)]">WhatsApp</p>
                 </div>
               </div>
@@ -1018,7 +1070,7 @@ const tenantName = (lease as any).tenants?.tenant_name || "Unknown";
             <div className="mt-6 flex gap-3 justify-end">
               <button onClick={() => setShowStatements(false)} className="rounded-2xl border border-[var(--border-default)] px-6 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">Cancel</button>
               <button className="rounded-2xl border border-[var(--border-default)] px-6 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">Preview</button>
-              <button onClick={handleGenerateStatements} className="rounded-2xl bg-amber-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-amber-500 transition-colors">Send Statements</button>
+              <button onClick={() => { console.log("BUTTON CLICKED"); handleGenerateStatements(); }} className="rounded-2xl bg-amber-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-amber-500 transition-colors">Send Statements</button>
             </div>
           </div>
         </div>
