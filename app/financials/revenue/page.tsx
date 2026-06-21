@@ -181,6 +181,10 @@ console.log("user ID:", userData.user?.id);
   
 `)
   .eq("lease_status", "Active");
+  const { data: userEntityIds } = await supabase.rpc('auth_entities');
+if (userEntityIds && userEntityIds.length > 0) {
+  query = query.in("owner_entity_id", userEntityIds);
+}
 
 console.log("viewBy:", viewBy, "selectedEntity:", selectedEntity);
 

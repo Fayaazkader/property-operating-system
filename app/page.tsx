@@ -35,13 +35,26 @@ export default function HomePage() {
 
       console.log('HomePage - User is authenticated:', session.user.email);
 
-      // 2. Load all the data
+            // 2. Load all the data — filtered by user's entities
+      const { data: entityIds } = await supabase.rpc('auth_entities');
+      const entityIdList = entityIds || [];
+
+      const { data: bankAccounts } = entityIdList.length > 0 
+        ? await supabase.from("bank_accounts").select("id").in("entity_id", entityIdList)
+        : { data: [] };
+      const bankAccountIds = bankAccounts?.map(a => a.id) || [];
+
+      const { data: entityTenants } = entityIdList.length > 0
+        ? await supabase.from("tenants").select("id").in("entity_id", entityIdList)
+        : { data: [] };
+      const tenantIds = entityTenants?.map(t => t.id) || [];
+
       const [leasesRes, transactionsRes, recentLeasesRes, communicationsRes, unallocatedRes, vacantUnitsRes, stmtPeriodRes, finPeriodRes] = await Promise.all([
-        supabase.from("leases").select("*"),
-        supabase.from("bank_transactions").select("*").order("created_at", { ascending: false }).limit(10),
-        supabase.from("leases").select("*").order("created_at", { ascending: false }).limit(5),
-        supabase.from("communications").select("*").order("created_at", { ascending: false }).limit(5),
-        supabase.from("bank_transactions").select("transaction_amount").neq("allocation_status", "posted"),
+        entityIdList.length > 0 ? supabase.from("leases").select("*").in("owner_entity_id", entityIdList) : { data: [] },
+        bankAccountIds.length > 0 ? supabase.from("bank_transactions").select("*").in("bank_account_id", bankAccountIds).order("created_at", { ascending: false }).limit(10) : { data: [] },
+        entityIdList.length > 0 ? supabase.from("leases").select("*").in("owner_entity_id", entityIdList).order("created_at", { ascending: false }).limit(5) : { data: [] },
+        tenantIds.length > 0 ? supabase.from("communications").select("*").in("tenant_id", tenantIds).order("created_at", { ascending: false }).limit(5) : { data: [] },
+        bankAccountIds.length > 0 ? supabase.from("bank_transactions").select("transaction_amount").neq("allocation_status", "posted").in("bank_account_id", bankAccountIds) : { data: [] },
         supabase.from("units").select("id, unit_number, gla_sqm, current_rental_rate, occupancy_status").eq("occupancy_status", "Vacant"),
         supabase.from("statement_periods").select("status, period_name").eq("status", "open").order("period_start", { ascending: false }).limit(1).single(),
         supabase.from("statement_periods").select("status, period_name").order("period_start", { ascending: false }).limit(1).single(),
