@@ -44,8 +44,11 @@ export default function BankingImportsPage() {
   // Load entities
   useEffect(() => {
     async function loadEntities() {
-      const { data } = await supabase.from("entities").select("id, entity_name").order("entity_name");
-      if (data) setEntities(data);
+      const { data: entityIds } = await supabase.rpc('auth_entities');
+const { data } = entityIds && entityIds.length > 0
+  ? await supabase.from("entities").select("id, entity_name").in("id", entityIds).order("entity_name")
+  : { data: [] };
+if (data) setEntities(data);
     }
     loadEntities();
   }, []);

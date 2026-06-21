@@ -124,8 +124,11 @@ const [channelCounts, setChannelCounts] = useState({ email: 0, whatsapp: 0 });
 console.log("handleGenerateStatements exists:", typeof handleGenerateStatements);
   // ===== LOAD FUNCTIONS =====
   async function loadScopeData() {
-    const [entitiesRes, propsRes, regionsRes, typesRes, groupsRes, tenantsRes] = await Promise.all([
-      supabase.from("entities").select("id, entity_name").order("entity_name"),
+    const { data: entityIds } = await supabase.rpc('auth_entities');
+const [entitiesRes, propsRes, regionsRes, typesRes, groupsRes, tenantsRes] = await Promise.all([
+  entityIds && entityIds.length > 0 
+    ? supabase.from("entities").select("id, entity_name").in("id", entityIds).order("entity_name")
+    : { data: [] },
       supabase.from("properties").select("id, property_name, entity_id, city, province, property_type").order("property_name"),
       supabase.from("properties").select("province").order("province"),
       supabase.from("properties").select("property_type").order("property_type"),

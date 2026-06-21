@@ -23,22 +23,9 @@ export default function PropertiesPage() {
           return;
         }
 
-        // 2. Get the user's entities
-        const { data: userEntities } = await supabase
-          .from('user_entities')
-          .select('entity_id')
-          .eq('user_id', user.id);
-
-        console.log('User entities:', userEntities);
-
-        const entityIds = userEntities?.map(e => e.entity_id) || [];
-        console.log('Entity IDs:', entityIds);
-
-        if (entityIds.length === 0) {
-          console.log('No entities found for user');
-          setLoading(false);
-          return;
-        }
+               // 2. Get the user's entities via auth_entities()
+        const { data: entityIds } = await supabase.rpc('auth_entities');
+        if (!entityIds || entityIds.length === 0) { setLoading(false); return; }
 
         // 3. Get properties filtered by entity
         const { data: propertiesData } = await supabase
@@ -47,13 +34,14 @@ export default function PropertiesPage() {
           .in('entity_id', entityIds)
           .order("property_name");
 
-        console.log('Properties found:', propertiesData?.length);
         setProperties(propertiesData || []);
 
         // 4. Get entities
         const { data: entitiesData } = await supabase
           .from("entities")
-          .select("id, entity_name");
+          .select("id, entity_name")
+          .in("id", entityIds)
+          .order("entity_name");
 
         setEntities(entitiesData || []);
       } catch (error) {

@@ -21,18 +21,9 @@ export default function TenantsPage() {
           return;
         }
 
-        // 2. Get the user's entities
-        const { data: userEntities } = await supabase
-          .from('user_entities')
-          .select('entity_id')
-          .eq('user_id', user.id);
-
-        const entityIds = userEntities?.map(e => e.entity_id) || [];
-
-        if (entityIds.length === 0) {
-          setLoading(false);
-          return;
-        }
+               // 2. Get the user's entities via auth_entities()
+        const { data: entityIds } = await supabase.rpc('auth_entities');
+        if (!entityIds || entityIds.length === 0) { setLoading(false); return; }
 
         // 3. Get tenants filtered by entity
         const { data: tenantsData } = await supabase
@@ -46,7 +37,9 @@ export default function TenantsPage() {
         // 4. Get entities
         const { data: entitiesData } = await supabase
           .from("entities")
-          .select("id, entity_name");
+          .select("id, entity_name")
+          .in("id", entityIds)
+          .order("entity_name");
 
         setEntities(entitiesData || []);
       } catch (error) {

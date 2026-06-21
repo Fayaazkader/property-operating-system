@@ -40,14 +40,9 @@ export default function LeasesPage() {
           return;
         }
 
-        const { data: userEntities } = await supabase
-          .from("user_entities")
-          .select("entity_id")
-          .eq("user_id", user.id);
+                const { data: entityIds } = await supabase.rpc('auth_entities');
 
-        const entityIds = userEntities?.map(e => e.entity_id) || [];
-
-        if (entityIds.length === 0) {
+        if (!entityIds || entityIds.length === 0) {
           setLoading(false);
           return;
         }

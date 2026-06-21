@@ -24,10 +24,15 @@ export default function CashBookPage() {
   const [loading, setLoading] = useState(true);
   const [showEntityDropdown, setShowEntityDropdown] = useState(false);
   const entityFilterRef = useRef<HTMLDivElement>(null);
-
+useEffect(() => {
+  supabase.rpc('auth_entities').then(({ data }) => console.log('auth_entities:', data));
+}, []);
   useEffect(() => {
     async function load() {
-      const { data: ent } = await supabase.from("entities").select("id, entity_code, entity_name").order("entity_name");
+      const { data: entityIds } = await supabase.rpc('auth_entities');
+const { data: ent } = entityIds && entityIds.length > 0 
+  ? await supabase.from("entities").select("id, entity_code, entity_name").in("id", entityIds).order("entity_name")
+  : { data: [] };
       if (ent && ent.length > 0) {
         setEntities(ent);
         setSelectedEntity(ent[0].id);
