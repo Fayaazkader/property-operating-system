@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase";
-import { PageHeader } from "../components/layout/PageHeader";
-import SlideOverPanel from "../components/overlays/SlideOverPanel";
+import { supabase } from "@/lib/supabase";
+import { PageHeader } from "@/app/components/layout/PageHeader";
+import SlideOverPanel from "@/app/components/overlays/SlideOverPanel";
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<any[]>([]);

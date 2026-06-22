@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { PageHeader } from "../components/layout/PageHeader";
+import { PageHeader } from "@/app/components/layout/PageHeader";
 
 
 export default function PropertiesPage() {

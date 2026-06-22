@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { supabase } from "../../../lib/supabase";
-import { PageHeader } from "../../components/layout/PageHeader";
+import { supabase } from "@/lib/supabase";
+import { PageHeader } from "@/app/components/layout/PageHeader";
 import { getTenantTimeline } from "@/lib/communications/communication-service";
 import Link from "next/link";
 

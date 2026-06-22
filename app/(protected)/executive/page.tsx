@@ -1,4 +1,4 @@
-import { PageHeader } from "../components/layout/PageHeader";
+import { PageHeader } from "@/app/components/layout/PageHeader";
 
 export default function ExecutivePage() {
   return (

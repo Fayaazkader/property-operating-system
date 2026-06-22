@@ -1,6 +1,6 @@
 "use client";
 
-import { usePlatform } from "../../context/PlatformContext";
+import { usePlatform } from "@/app/context/PlatformContext";
 
 export default function TasksPage() {
 

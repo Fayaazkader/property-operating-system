@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { extractRulesFromLease } from "@/lib/revenue/rule-extractor";
-import { PageHeader } from "../../components/layout/PageHeader";
+import { PageHeader } from "@/app/components/layout/PageHeader";
 import { logAudit } from "@/lib/audit/audit-log";
 
 const LEASE_TYPES = ["Retail", "Office", "Industrial", "Storage", "Residential", "Advertising", "Telecommunications"];

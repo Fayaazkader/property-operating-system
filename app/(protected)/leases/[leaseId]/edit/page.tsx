@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "../../../../lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { extractRulesFromLease } from "@/lib/revenue/rule-extractor";
-import { PageHeader } from "../../../components/layout/PageHeader";
+import { PageHeader } from "@/app/components/layout/PageHeader";
 
 export default function EditLeasePage() {
   const params = useParams();
