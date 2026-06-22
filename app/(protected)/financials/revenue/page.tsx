@@ -245,7 +245,7 @@ console.log("LEASES:", leases);
 
     const { data: billingRules } = await supabase
   .from("billing_rules")
-  .select("lease_id, status")
+  .select("lease_id, status, base_amount")
   .in("lease_id", leaseIds);
 
     const chargeMap = new Map();
@@ -323,7 +323,7 @@ const tenantName = (lease as any).tenants?.tenant_name || "Unknown";
 
     setHealth({
       activeLeases: leases.length,
-      expectedRevenue: leases.reduce((sum: number, l: any) => sum + (l.monthly_rental || 0), 0),
+      expectedRevenue: (billingRules || []).filter((r: any) => r.status === 'active').reduce((sum: number, r: any) => sum + (r.base_amount || 0), 0),
       billed,
       notBilled,
       sent,
