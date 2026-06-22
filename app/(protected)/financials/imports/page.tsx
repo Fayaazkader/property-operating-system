@@ -55,14 +55,19 @@ if (data) setEntities(data);
   }, []);
 
   // Load bank accounts when entity changes
-  useEffect(() => {
-    async function loadAccounts() {
-      if (!selectedEntity) { setBankAccounts([]); return; }
-      const { data } = await supabase.from("bank_accounts").select("id, account_name, bank_name, account_number").eq("entity_id", selectedEntity).order("account_name");
-      if (data) setBankAccounts(data);
+  async function loadAccounts() {
+  if (!selectedEntity) { setBankAccounts([]); return; }
+  const { data } = await supabase.from("bank_accounts").select("id, account_name, bank_name, account_number").eq("entity_id", selectedEntity).order("account_name");
+  if (data) {
+    setBankAccounts(data);
+    // Auto-select: if only one account, use it. Otherwise use first.
+    if (data.length === 1) {
+      setSelectedBankAccount(data[0].id);
+    } else if (data.length > 0 && !selectedBankAccount) {
+      setSelectedBankAccount(data[0].id);
     }
-    loadAccounts();
-  }, [selectedEntity]);
+  }
+}
 
   // Load import history
   useEffect(() => {
@@ -106,6 +111,11 @@ if (data) setEntities(data);
   async function handleImport(file: File) {
     setLoading(true);
     setFileName(file.name);
+    if (!selectedBankAccount) {
+  setMessage({ type: "error", text: "Please select a bank account before importing." });
+  setLoading(false);
+  return;
+}
 
     const text = await file.text();
     const batchRef = await hashContent(text);
