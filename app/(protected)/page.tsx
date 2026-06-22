@@ -249,9 +249,9 @@ export default function HomePage() {
         <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5">
           <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)] mb-3">My Work</p>
           <div className="space-y-2">
-            <div className="flex justify-between text-sm"><span className="text-[var(--text-primary)]">Open Tasks</span><span className="text-[var(--text-primary)] font-medium">5</span></div>
-            <div className="flex justify-between text-sm"><span className="text-[var(--text-primary)]">Approvals Waiting</span><span className="text-amber-400 font-medium">2</span></div>
-            <div className="flex justify-between text-sm"><span className="text-[var(--text-primary)]">Lease Reviews</span><span className="text-[var(--text-primary)] font-medium">1</span></div>
+           <div className="flex justify-between text-sm"><span className="text-[var(--text-primary)]">Open Tasks</span><span className="text-[var(--text-primary)] font-medium">{transactions.filter((t: any) => t.allocation_status !== 'posted' && t.queue !== 'posted').length}</span></div>
+<div className="flex justify-between text-sm"><span className="text-[var(--text-primary)]">Approvals Waiting</span><span className="text-amber-400 font-medium">{transactions.filter((t: any) => t.queue === 'review').length}</span></div>
+<div className="flex justify-between text-sm"><span className="text-[var(--text-primary)]">Lease Reviews</span><span className="text-[var(--text-primary)] font-medium">{expiringLeases.length}</span></div>
           </div>
         </div>
         {totalLeakage > 0 ? (

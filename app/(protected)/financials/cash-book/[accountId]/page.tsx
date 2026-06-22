@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit/audit-log";
 import { PageHeader } from "@/app/components/layout/PageHeader";
 import { exportToCSV } from "@/lib/utils";
 import ProgressModal from "@/components/ui/ProgressModal";
+import { isReady, isReview, isException, isPosted } from "@/lib/transaction-status";
 
 type Transaction = {
   id: string;
@@ -59,11 +60,11 @@ export default function AccountWorkspacePage() {
   const isBalanced = Math.abs(difference) < 0.01;
 
   const queueCounts = {
-   ready: transactions.filter(t => t.allocation_status !== "posted" && t.queue !== "posted" && (t.confidence >= 90 || t.matched_tenant_id)).length,
-    review: transactions.filter(t => t.allocation_status !== "posted" && t.confidence >= 70 && t.confidence < 90 && !t.matched_tenant_id).length,
-    exceptions: transactions.filter(t => t.allocation_status !== "posted" && t.confidence < 70 && !t.matched_tenant_id).length,
-    posted: transactions.filter(t => t.allocation_status === "posted" || t.queue === "posted").length,
-  };
+  ready: transactions.filter(t => isReady(t)).length,
+  review: transactions.filter(t => isReview(t)).length,
+  exceptions: transactions.filter(t => isException(t)).length,
+  posted: transactions.filter(t => isPosted(t)).length,
+};
 
   const searched = transactions.filter(tx => {
     if (!searchTerm) return true;
@@ -75,13 +76,13 @@ export default function AccountWorkspacePage() {
     );
   });
 
-  const filteredTxs = searched.filter(tx => {
-   if (activeQueue === "ready") return tx.allocation_status !== "posted" && tx.queue !== "posted" && (tx.confidence >= 90 || tx.matched_tenant_id);
-    if (activeQueue === "review") return tx.allocation_status !== "posted" && tx.confidence >= 70 && tx.confidence < 90 && !tx.matched_tenant_id;
-    if (activeQueue === "exceptions") return tx.allocation_status !== "posted" && tx.confidence < 70 && !tx.matched_tenant_id;
-    if (activeQueue === "posted") return tx.allocation_status === "posted" || tx.queue === "posted";
-    return true;
-  });
+const filteredTxs = searched.filter(tx => {
+  if (activeQueue === "ready") return isReady(tx);
+  if (activeQueue === "review") return isReview(tx);
+  if (activeQueue === "exceptions") return isException(tx);
+  if (activeQueue === "posted") return isPosted(tx);
+  return true;
+});
 
  async function handlePostAllReady() {
     const readyTxs = transactions.filter(tx => 
