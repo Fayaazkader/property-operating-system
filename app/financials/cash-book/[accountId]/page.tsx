@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { logAudit } from "@/lib/audit/audit-log";
 import { PageHeader } from "@/app/components/layout/PageHeader";
 import { exportToCSV } from "@/lib/utils";
 
@@ -262,17 +263,26 @@ export default function AccountWorkspacePage() {
     </button>
     <button 
       onClick={async () => {
-        await supabase
-          .from("bank_transactions")
-          .update({
-            allocation_status: "posted",
-            queue: "posted",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", tx.id);
-        // Refresh the page
-        window.location.reload();
-      }}
+  await supabase
+    .from("bank_transactions")
+    .update({
+      allocation_status: "posted",
+      queue: "posted",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", tx.id);
+  
+  logAudit({
+    action: "update",
+    resource_type: "transaction",
+    resource_id: tx.id,
+    resource_label: `Posted transaction ${tx.transaction_description || tx.id}`,
+    old_values: { allocation_status: tx.allocation_status, queue: tx.queue },
+    new_values: { allocation_status: "posted", queue: "posted" }
+  });
+  
+  window.location.reload();
+}}
       className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors"
     >
       Post

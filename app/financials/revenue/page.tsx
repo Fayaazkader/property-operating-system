@@ -441,7 +441,12 @@ const tenantName = (lease as any).tenants?.tenant_name || "Unknown";
       failed++;
     }
   }
-
+  logAudit({
+    action: "create",
+    resource_type: "statement",
+    resource_label: `Generated ${delivered} statements for ${currentStmtPeriod}`,
+    new_values: { period: currentStmtPeriod, delivered, failed, entity: selectedEntity }
+  });
   setStatementResults({ delivered, failed, pending });
   showToast("success", `${delivered} statements sent, ${failed} failed`);
   setLoading(false);
