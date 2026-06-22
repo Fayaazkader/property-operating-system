@@ -8,6 +8,7 @@ import { triggerCommunication } from "@/lib/communications/communication-service
 import { getMessageHealth } from "@/lib/communications/communication-service";
 import { logAudit } from "@/lib/audit/audit-log";
 import { getCurrentStatementPeriod, getCurrentFinancialPeriod } from "@/lib/revenue/period-utils";
+import { useRouter } from "next/navigation";
 
 type BillingCode = { id: string; code: string; description: string; vat_rate: number; gl_code: string; is_recoverable: boolean };
 type ManualLine = {
@@ -47,6 +48,8 @@ export default function RevenueOperationsPage() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [leasesData, setLeasesData] = useState<any[]>([]);
+  
+
 
   // Scope
   const [viewBy, setViewBy] = useState<"all" | "entity" | "property" | "region" | "propertyType" | "tenantGroup" | "tenant">("all");

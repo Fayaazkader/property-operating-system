@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { PageHeader } from "@/app/components/layout/PageHeader";
 import { exportToCSV } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 type Lease = {
   id: string;
@@ -22,13 +23,20 @@ type Lease = {
   gla_sqm: number;
   managing_entity_id: string;
 };
-
+import AuthGuard from '@/app/components/AuthGuard';
 export default function LeasesPage() {
   const [leases, setLeases] = useState<Lease[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "active" | "expiring" | "expired" | "renewals">("all");
   const [selectedLease, setSelectedLease] = useState<Lease | null>(null);
+    const router = useRouter();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) router.push('/login');
+    });
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -40,9 +48,14 @@ export default function LeasesPage() {
           return;
         }
 
-                const { data: entityIds } = await supabase.rpc('auth_entities');
+        const { data: userEntities } = await supabase
+          .from("user_entities")
+          .select("entity_id")
+          .eq("user_id", user.id);
 
-        if (!entityIds || entityIds.length === 0) {
+        const entityIds = userEntities?.map(e => e.entity_id) || [];
+
+        if (entityIds.length === 0) {
           setLoading(false);
           return;
         }

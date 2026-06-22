@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { PageHeader } from "@/app/components/layout/PageHeader";
 import { triggerCommunication } from "@/lib/communications/communication-service";
 import { logAudit } from "@/lib/audit/audit-log";
+import { useRouter } from "next/navigation";
 
 type BillingStats = {
   totalTenants: number;
@@ -54,6 +55,13 @@ export default function PeriodsPage() {
   const [preBillingChecks, setPreBillingChecks] = useState<PreBillingCheck[]>([]);
   const [closeValidations, setCloseValidations] = useState<CloseValidation[]>([]);
   const [receiptStats, setReceiptStats] = useState({ receipts: 312, allocated: 2800000, unreconciled: 3, cashbookBalanced: false });
+  const router = useRouter();
+
+useEffect(() => {
+  supabase.auth.getSession().then(({ data }) => {
+    if (!data.session) router.push('/login');
+  });
+}, []);
 
   useEffect(() => { loadData(); }, []);
 

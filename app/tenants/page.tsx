@@ -4,11 +4,20 @@ import { useState, useEffect } from 'react';
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { PageHeader } from "../components/layout/PageHeader";
+import { useRouter } from "next/navigation";
 
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<any[]>([]);
   const [entities, setEntities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const router = useRouter();
+
+useEffect(() => {
+  supabase.auth.getSession().then(({ data }) => {
+    if (!data.session) router.push('/login');
+  });
+}, []);
 
   useEffect(() => {
     async function loadData() {
