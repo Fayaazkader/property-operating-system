@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { BankImportPresets } from "@/components/financials/BankImportPresets";
 import { validateBankImport } from "@/lib/banking/import-validation";
 import { runReconciliationEngine } from "@/lib/banking/reconciliation-engine";
-import { useRouter } from "next/navigation";
+
 
 export default function BankingImportsPage() {
   const [loading, setLoading] = useState(false);
@@ -19,13 +19,6 @@ export default function BankingImportsPage() {
   const [importHistory, setImportHistory] = useState<any[]>([]);
   const presetDropdownRef = useRef<HTMLDivElement>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-    const router = useRouter();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) router.push('/login');
-    });
-  }, []);
 
   // Entity & Bank Account
   const [entities, setEntities] = useState<any[]>([]);
