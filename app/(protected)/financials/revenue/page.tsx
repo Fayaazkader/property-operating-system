@@ -10,6 +10,7 @@ import { logAudit } from "@/lib/audit/audit-log";
 import { getCurrentStatementPeriod, getCurrentFinancialPeriod } from "@/lib/revenue/period-utils";
 import { useRouter } from "next/navigation";
 import ProgressModal from "@/components/ui/ProgressModal";
+import PreBillingVerification from "@/components/financials/PreBillingVerification";
 
 type BillingCode = { id: string; code: string; description: string; vat_rate: number; gl_code: string; is_recoverable: boolean };
 type ManualLine = {
@@ -50,7 +51,8 @@ export default function RevenueOperationsPage() {
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [leasesData, setLeasesData] = useState<any[]>([]);
   const [progressModal, setProgressModal] = useState<{ title: string; steps: any[] } | null>(null);
-
+  const [showPreBillingPreview, setShowPreBillingPreview] = useState(false);
+  
 
   // Scope
   const [viewBy, setViewBy] = useState<"all" | "entity" | "property" | "region" | "propertyType" | "tenantGroup" | "tenant">("all");
@@ -1120,12 +1122,22 @@ const tenantName = (lease as any).tenants?.tenant_name || "Unknown";
 
             <div className="mt-6 flex gap-3 justify-end">
               <button onClick={() => setShowStatements(false)} className="rounded-2xl border border-[var(--border-default)] px-6 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">Cancel</button>
-              <button className="rounded-2xl border border-[var(--border-default)] px-6 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">Preview</button>
+             <button onClick={() => { setShowStatements(false); setShowPreBillingPreview(true); }} className="rounded-2xl border border-[var(--border-default)] px-6 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">Preview</button>
               <button onClick={() => { console.log("BUTTON CLICKED"); handleGenerateStatements(); }} className="rounded-2xl bg-amber-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-amber-500 transition-colors">Send Statements</button>
             </div>
           </div>
         </div>
       )}
+    
+{showPreBillingPreview && (
+  <PreBillingVerification
+    data={billingPreviewDetail}
+    viewBy={viewBy}
+    scopeLabel={getScopeLabel()}
+    period={currentStmtPeriod}
+    onClose={() => setShowPreBillingPreview(false)}
+  />
+)}
       {/* Progress Modal */}
 {progressModal && (
   <ProgressModal
