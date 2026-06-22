@@ -6,6 +6,7 @@ import { PageHeader } from "@/app/components/layout/PageHeader";
 import { triggerCommunication } from "@/lib/communications/communication-service";
 import { logAudit } from "@/lib/audit/audit-log";
 import { useRouter } from "next/navigation";
+import ProgressModal from "@/components/ui/ProgressModal";
 
 type BillingStats = {
   totalTenants: number;
@@ -39,6 +40,7 @@ export default function PeriodsPage() {
   const [nextFinancialPeriod, setNextFinancialPeriod] = useState("July 2026");
   const [billingRunStartedBy, setBillingRunStartedBy] = useState("");
   const [billingRunStartedAt, setBillingRunStartedAt] = useState("");
+  const [progressModal, setProgressModal] = useState<{ title: string; steps: any[] } | null>(null);
 
   const [billingStats, setBillingStats] = useState<BillingStats>({
     totalTenants: 2100,
@@ -131,21 +133,47 @@ useEffect(() => {
   }
 
   async function confirmCloseStatement() {
-    setLoading(true);
+    setShowCloseStatementConfirm(false);
+    
+    setProgressModal({
+      title: `Closing ${statementPeriod} Statement Period`,
+      steps: [
+        { label: "Finalizing invoices...", status: "running" },
+        { label: "Freezing period...", status: "waiting" },
+        { label: "Opening next period...", status: "waiting" },
+      ]
+    });
+
+    await new Promise(r => setTimeout(r, 800));
+    
+    setProgressModal({
+      title: `Closing ${statementPeriod} Statement Period`,
+      steps: [
+        { label: "Finalizing invoices...", status: "done" },
+        { label: "Freezing period...", status: "running" },
+        { label: "Opening next period...", status: "waiting" },
+      ]
+    });
+
     setStatementStatus("closed");
     setNextStatementPeriod("August 2026");
-    setShowCloseStatementConfirm(false);
 
     await logAudit({
       action: "update",
       resource_type: "period",
-      resource_label: `Statement period July 2026 closed`,
+      resource_label: `Statement period ${statementPeriod} closed`,
       old_values: { status: "open" },
-      new_values: { status: "closed", period: "July 2026" }
+      new_values: { status: "closed", period: statementPeriod }
     });
 
-    showToast("success", "July Statement Period closed. August period opened. Receipting re-enabled.");
-    setLoading(false);
+    setProgressModal({
+      title: `${statementPeriod} Closed`,
+      steps: [
+        { label: "Finalizing invoices...", status: "done" },
+        { label: "Freezing period...", status: "done" },
+        { label: "Opening next period...", status: "done" },
+      ]
+    });
   }
 
   function handleCloseFinancial() {
@@ -153,22 +181,47 @@ useEffect(() => {
   }
 
   async function confirmCloseFinancial() {
-    setLoading(true);
+    setShowCloseFinancialConfirm(false);
+    
+    setProgressModal({
+      title: `Closing ${financialPeriod} Financial Period`,
+      steps: [
+        { label: "Locking GL...", status: "running" },
+        { label: "Generating reports...", status: "waiting" },
+        { label: "Opening next period...", status: "waiting" },
+      ]
+    });
+
+    await new Promise(r => setTimeout(r, 800));
     setFinancialStatus("closed");
     setFinancialPeriod("July 2026");
     setNextFinancialPeriod("August 2026");
-    setShowCloseFinancialConfirm(false);
+
+    setProgressModal({
+      title: `Closing ${financialPeriod} Financial Period`,
+      steps: [
+        { label: "Locking GL...", status: "done" },
+        { label: "Generating reports...", status: "running" },
+        { label: "Opening next period...", status: "waiting" },
+      ]
+    });
 
     await logAudit({
       action: "update",
       resource_type: "period",
-      resource_label: `Financial period June 2026 closed`,
+      resource_label: `Financial period ${financialPeriod} closed`,
       old_values: { status: "open" },
-      new_values: { status: "closed", period: "June 2026" }
+      new_values: { status: "closed", period: financialPeriod }
     });
 
-    showToast("success", "June Financial Period closed. Reports generated. July period opened.");
-    setLoading(false);
+    setProgressModal({
+      title: `${financialPeriod} Closed`,
+      steps: [
+        { label: "Locking GL...", status: "done" },
+        { label: "Generating reports...", status: "done" },
+        { label: "Opening next period...", status: "done" },
+      ]
+    });
   }
 
   return (
@@ -417,6 +470,13 @@ useEffect(() => {
           </div>
         </div>
       )}
+      {progressModal && (
+  <ProgressModal
+    title={progressModal.title}
+    steps={progressModal.steps}
+    onClose={() => setProgressModal(null)}
+  />
+)}
     </div>
   );
 }

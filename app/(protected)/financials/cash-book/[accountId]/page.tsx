@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit/audit-log";
 import { PageHeader } from "@/app/components/layout/PageHeader";
 import { exportToCSV } from "@/lib/utils";
+import ProgressModal from "@/components/ui/ProgressModal";
 
 type Transaction = {
   id: string;
@@ -30,6 +31,7 @@ export default function AccountWorkspacePage() {
   const [activeQueue, setActiveQueue] = useState<"ready" | "review" | "exceptions" | "posted">("ready");
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [progressModal, setProgressModal] = useState<{ title: string; steps: any[] } | null>(null);
 
   useEffect(() => {
   async function load() {
@@ -81,7 +83,7 @@ export default function AccountWorkspacePage() {
     return true;
   });
 
-  async function handlePostAllReady() {
+ async function handlePostAllReady() {
     const readyTxs = transactions.filter(tx => 
       tx.allocation_status !== "posted" && 
       tx.queue !== "posted" && 
@@ -90,18 +92,42 @@ export default function AccountWorkspacePage() {
 
     if (readyTxs.length === 0) return;
 
-    setLoading(true);
+    setProgressModal({
+      title: "Posting Transactions",
+      steps: [
+        { label: `Posting ${readyTxs.length} transactions...`, status: "running", count: 0, total: readyTxs.length },
+      ]
+    });
+
     const readyIds = readyTxs.map(tx => tx.id);
 
-    await supabase
-      .from("bank_transactions")
-      .update({
-        allocation_status: "fully_allocated",
-        queue: "posted",
-        updated_at: new Date().toISOString(),
-      })
-      .in("id", readyIds);
+    for (let i = 0; i < readyIds.length; i += 10) {
+      const batch = readyIds.slice(i, i + 10);
+      await supabase
+        .from("bank_transactions")
+        .update({
+          allocation_status: "posted",
+          queue: "posted",
+          updated_at: new Date().toISOString(),
+        })
+        .in("id", batch);
+      
+      setProgressModal({
+        title: "Posting Transactions",
+        steps: [
+          { label: `Posting ${readyTxs.length} transactions...`, status: "running", count: Math.min(i + 10, readyIds.length), total: readyIds.length },
+        ]
+      });
+    }
 
+    setProgressModal({
+      title: "Posting Complete",
+      steps: [
+        { label: `${readyTxs.length} transactions posted`, status: "done", count: readyIds.length, total: readyIds.length },
+      ]
+    });
+
+    // Refresh
     const { data: freshData } = await supabase
       .from("bank_transactions")
       .select("*")
@@ -109,32 +135,7 @@ export default function AccountWorkspacePage() {
       .order("transaction_date", { ascending: false })
       .limit(200);
 
-    if (freshData) {
-      const enriched = freshData.map((tx: any) => {
-        let confidence = 0;
-        const desc = tx.transaction_description?.toLowerCase() || '';
-        const ref = tx.transaction_reference?.toLowerCase() || '';
-
-        if (tx.matched_invoice_id) {
-          confidence = 97;
-        } else if (tx.matched_tenant_id) {
-          confidence = 85;
-        } else if (ref && desc.includes(ref)) {
-          confidence = 95;
-        } else if (desc.match(/rent|invoice|payment|tenant|lease|shop|office|suite/i)) {
-          confidence = 75;
-        } else {
-          confidence = 20;
-        }
-
-        return {
-          ...tx,
-          confidence,
-        };
-      });
-      setTransactions(enriched);
-    }
-    setLoading(false);
+    if (freshData) setTransactions(freshData);
   }
 
   if (loading) return <div className="mx-auto max-w-7xl px-6 pt-8 pb-12"><p className="text-[var(--text-muted)]">Loading...</p></div>;
@@ -315,6 +316,13 @@ export default function AccountWorkspacePage() {
           </table>
         </div>
       )}
+      {progressModal && (
+  <ProgressModal
+    title={progressModal.title}
+    steps={progressModal.steps}
+    onClose={() => setProgressModal(null)}
+  />
+)}
     </div>
   );
 }

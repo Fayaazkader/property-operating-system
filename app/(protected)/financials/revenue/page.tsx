@@ -9,6 +9,7 @@ import { getMessageHealth } from "@/lib/communications/communication-service";
 import { logAudit } from "@/lib/audit/audit-log";
 import { getCurrentStatementPeriod, getCurrentFinancialPeriod } from "@/lib/revenue/period-utils";
 import { useRouter } from "next/navigation";
+import ProgressModal from "@/components/ui/ProgressModal";
 
 type BillingCode = { id: string; code: string; description: string; vat_rate: number; gl_code: string; is_recoverable: boolean };
 type ManualLine = {
@@ -48,7 +49,7 @@ export default function RevenueOperationsPage() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [leasesData, setLeasesData] = useState<any[]>([]);
-  
+  const [progressModal, setProgressModal] = useState<{ title: string; steps: any[] } | null>(null);
 
 
   // Scope
@@ -410,9 +411,16 @@ const tenantName = (lease as any).tenants?.tenant_name || "Unknown";
 
   async function handleGenerateStatements() {
   setShowStatements(false);
-  setLoading(true);
   
-  // Get tenant IDs directly from the leases data we already have
+  // Show progress modal
+  setProgressModal({
+    title: `Generating Statements — ${currentStmtPeriod}`,
+    steps: [
+      { label: "Fetching billed tenants...", status: "running" },
+      { label: "Sending statements...", status: "waiting", count: 0, total: 0 },
+    ]
+  });
+
   const { data: leasesForStatement } = await supabase
     .from("leases")
     .select("tenant_id")
@@ -421,19 +429,28 @@ const tenantName = (lease as any).tenants?.tenant_name || "Unknown";
   
   const tenantIds = [...new Set(leasesForStatement?.map((l: any) => l.tenant_id) || [])];
   
-  let delivered = 0, failed = 0, pending = 0;
+  setProgressModal({
+    title: `Generating Statements — ${currentStmtPeriod}`,
+    steps: [
+      { label: "Fetching billed tenants...", status: "done" },
+      { label: "Sending statements...", status: "running", count: 0, total: tenantIds.length },
+    ]
+  });
 
-  for (const tenantId of tenantIds) {
+  let delivered = 0, failed = 0;
+
+  for (let i = 0; i < tenantIds.length; i++) {
+    const tenantId = tenantIds[i];
     try {
       const { error } = await supabase.from("communications").insert({
-  tenant_id: tenantId,
-  event_type: "statement_available",
-  channel: "email",
-  message_body: `Your statement for ${currentStmtPeriod} is now available.`,
-  source_id: `INV-${currentStmtPeriod}`,
-  status: "sent",
-  sent_at: new Date().toISOString(),
-});
+        tenant_id: tenantId,
+        event_type: "statement_available",
+        channel: "email",
+        message_body: `Your statement for ${currentStmtPeriod} is now available.`,
+        source_id: `INV-${currentStmtPeriod}`,
+        status: "sent",
+        sent_at: new Date().toISOString(),
+      });
       
       if (error) {
         failed++;
@@ -443,16 +460,35 @@ const tenantName = (lease as any).tenants?.tenant_name || "Unknown";
     } catch {
       failed++;
     }
+    
+    // Update progress
+    setProgressModal({
+      title: `Generating Statements — ${currentStmtPeriod}`,
+      steps: [
+        { label: "Fetching billed tenants...", status: "done" },
+        { label: "Sending statements...", status: "running", count: delivered + failed, total: tenantIds.length },
+      ]
+    });
   }
+
+  const allSuccess = failed === 0;
+
+  setProgressModal({
+    title: `Statements — ${currentStmtPeriod}`,
+    steps: [
+      { label: "Fetching billed tenants...", status: "done" },
+      { label: `Sent: ${delivered} | Failed: ${failed}`, status: allSuccess ? "done" : "failed", count: delivered + failed, total: tenantIds.length },
+    ]
+  });
+
   logAudit({
     action: "create",
     resource_type: "statement",
     resource_label: `Generated ${delivered} statements for ${currentStmtPeriod}`,
     new_values: { period: currentStmtPeriod, delivered, failed, entity: selectedEntity }
   });
-  setStatementResults({ delivered, failed, pending });
-  showToast("success", `${delivered} statements sent, ${failed} failed`);
-  setLoading(false);
+
+  setStatementResults({ delivered, failed, pending: 0 });
   loadRevenueHealth();
 }
 
@@ -1090,6 +1126,14 @@ const tenantName = (lease as any).tenants?.tenant_name || "Unknown";
           </div>
         </div>
       )}
+      {/* Progress Modal */}
+{progressModal && (
+  <ProgressModal
+    title={progressModal.title}
+    steps={progressModal.steps}
+    onClose={() => setProgressModal(null)}
+  />
+)}
     </div>
   );
 }
