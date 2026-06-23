@@ -68,13 +68,58 @@ useEffect(() => {
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
+    // Load statement period
+    const { data: stmtPeriod } = await supabase
+      .from("statement_periods")
+      .select("period_name, status")
+      .eq("status", "open")
+      .order("period_start", { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (stmtPeriod) {
+      setStatementPeriod(stmtPeriod.period_name);
+      setStatementStatus(stmtPeriod.status as any);
+       // Calculate next period
+  const [monthName, yearStr] = stmtPeriod.period_name.split(" ");
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const idx = monthNames.indexOf(monthName);
+  const yr = parseInt(yearStr);
+  const nextIdx = idx === 11 ? 0 : idx + 1;
+  const nextYr = idx === 11 ? yr + 1 : yr;
+  setNextStatementPeriod(`${monthNames[nextIdx]} ${nextYr}`);
+    }
+
+        // Load financial period from financial_periods table
+    const { data: finPeriod } = await supabase
+      .from("financial_periods")
+      .select("period_name, status")
+      .eq("status", "open")
+      .order("period_start", { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (finPeriod) {
+      setFinancialPeriod(finPeriod.period_name);
+      setFinancialStatus(finPeriod.status as any);
+      
+      const [monthName, yearStr] = finPeriod.period_name.split(" ");
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const idx = monthNames.indexOf(monthName);
+      const yr = parseInt(yearStr);
+      const nextIdx = idx === 11 ? 0 : idx + 1;
+      const nextYr = idx === 11 ? yr + 1 : yr;
+      setNextFinancialPeriod(`${monthNames[nextIdx]} ${nextYr}`);
+    }
+
+    // Load receipt stats
     const { data: txData } = await supabase.from("bank_transactions").select("allocation_status, transaction_amount").eq("allocation_status", "posted");
     const { count: unreconciled } = await supabase.from("bank_transactions").select("id", { count: "exact" }).neq("allocation_status", "posted");
 
     setReceiptStats({
-      receipts: txData?.length || 312,
-      allocated: txData?.reduce((s: number, t: any) => s + Math.abs(t.transaction_amount || 0), 0) || 2800000,
-      unreconciled: unreconciled || 3,
+      receipts: txData?.length || 0,
+      allocated: txData?.reduce((s: number, t: any) => s + Math.abs(t.transaction_amount || 0), 0) || 0,
+      unreconciled: unreconciled || 0,
       cashbookBalanced: (unreconciled || 0) === 0,
     });
   }
@@ -144,8 +189,13 @@ useEffect(() => {
       ]
     });
 
-    await new Promise(r => setTimeout(r, 800));
-    
+    // Close current period in database
+    await supabase
+      .from("statement_periods")
+      .update({ status: "closed", closed_at: new Date().toISOString() })
+      .eq("period_name", statementPeriod)
+      .eq("status", "open");
+
     setProgressModal({
       title: `Closing ${statementPeriod} Statement Period`,
       steps: [
@@ -155,8 +205,41 @@ useEffect(() => {
       ]
     });
 
+       // Calculate and open next period
+    const [monthName, yearStr] = statementPeriod.split(" ");
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const currentMonthIndex = monthNames.indexOf(monthName);
+    const currentYear = parseInt(yearStr);
+    const nextMonthIndex = currentMonthIndex === 11 ? 0 : currentMonthIndex + 1;
+    const nextYear = currentMonthIndex === 11 ? currentYear + 1 : currentYear;
+    const nextPeriod = `${monthNames[nextMonthIndex]} ${nextYear}`;
+
+    const startDate = `${nextYear}-${String(nextMonthIndex + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(nextYear, nextMonthIndex + 1, 0).getDate();
+    const endDate = `${nextYear}-${String(nextMonthIndex + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+    const { data: existingNext } = await supabase
+      .from("statement_periods")
+      .select("id")
+      .eq("period_name", nextPeriod)
+      .limit(1);
+
+    if (!existingNext || existingNext.length === 0) {
+      await supabase
+        .from("statement_periods")
+        .insert({
+          period_name: nextPeriod,
+          period_start: startDate,
+          period_end: endDate,
+          status: "open",
+        });
+    }
+const nextAfterMonthIndex = nextMonthIndex === 11 ? 0 : nextMonthIndex + 1;
+const nextAfterYear = nextMonthIndex === 11 ? nextYear + 1 : nextYear;
+const periodAfterNext = `${monthNames[nextAfterMonthIndex]} ${nextAfterYear}`;
     setStatementStatus("closed");
-    setNextStatementPeriod("August 2026");
+    
+setNextStatementPeriod(periodAfterNext);
 
     await logAudit({
       action: "update",
@@ -171,7 +254,7 @@ useEffect(() => {
       steps: [
         { label: "Finalizing invoices...", status: "done" },
         { label: "Freezing period...", status: "done" },
-        { label: "Opening next period...", status: "done" },
+        { label: `Opening ${nextPeriod}...`, status: "done" },
       ]
     });
   }
@@ -186,29 +269,65 @@ useEffect(() => {
     setProgressModal({
       title: `Closing ${financialPeriod} Financial Period`,
       steps: [
-        { label: "Locking GL...", status: "running" },
-        { label: "Generating reports...", status: "waiting" },
+        { label: "Verifying cash book balance...", status: "running" },
+        { label: "Locking GL...", status: "waiting" },
         { label: "Opening next period...", status: "waiting" },
       ]
     });
 
-    await new Promise(r => setTimeout(r, 800));
-    setFinancialStatus("closed");
-    setFinancialPeriod("July 2026");
-    setNextFinancialPeriod("August 2026");
+    // Close current period
+    await supabase
+      .from("financial_periods")
+      .update({ status: "closed", closed_at: new Date().toISOString() })
+      .eq("period_name", financialPeriod);
 
     setProgressModal({
       title: `Closing ${financialPeriod} Financial Period`,
       steps: [
-        { label: "Locking GL...", status: "done" },
-        { label: "Generating reports...", status: "running" },
+        { label: "Verifying cash book balance...", status: "done" },
+        { label: "Locking GL...", status: "running" },
         { label: "Opening next period...", status: "waiting" },
       ]
     });
 
+    // Calculate and create next period
+    const [monthName, yearStr] = financialPeriod.split(" ");
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const idx = monthNames.indexOf(monthName);
+    const yr = parseInt(yearStr);
+    const nextIdx = idx === 11 ? 0 : idx + 1;
+    const nextYr = idx === 11 ? yr + 1 : yr;
+    const nextPeriod = `${monthNames[nextIdx]} ${nextYr}`;
+    const periodAfterNext = `${monthNames[nextIdx === 11 ? 0 : nextIdx + 1]} ${nextIdx === 11 ? nextYr + 1 : nextYr}`;
+
+    const startDate = `${nextYr}-${String(nextIdx + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(nextYr, nextIdx + 1, 0).getDate();
+    const endDate = `${nextYr}-${String(nextIdx + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+    const { data: existingNext } = await supabase
+      .from("financial_periods")
+      .select("id")
+      .eq("period_name", nextPeriod)
+      .limit(1);
+
+    if (!existingNext || existingNext.length === 0) {
+      await supabase
+        .from("financial_periods")
+        .insert({
+          period_name: nextPeriod,
+          period_start: startDate,
+          period_end: endDate,
+          status: "open",
+        });
+    }
+
+    setFinancialStatus("closed");
+    setFinancialPeriod(nextPeriod);
+    setNextFinancialPeriod(periodAfterNext);
+
     await logAudit({
       action: "update",
-      resource_type: "period",
+      resource_type: "financial_period",
       resource_label: `Financial period ${financialPeriod} closed`,
       old_values: { status: "open" },
       new_values: { status: "closed", period: financialPeriod }
@@ -217,9 +336,9 @@ useEffect(() => {
     setProgressModal({
       title: `${financialPeriod} Closed`,
       steps: [
+        { label: "Verifying cash book balance...", status: "done" },
         { label: "Locking GL...", status: "done" },
-        { label: "Generating reports...", status: "done" },
-        { label: "Opening next period...", status: "done" },
+        { label: `Opening ${nextPeriod}...`, status: "done" },
       ]
     });
   }

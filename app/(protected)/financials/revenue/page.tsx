@@ -374,6 +374,19 @@ const tenantName = (lease as any).tenants?.tenant_name || "Unknown";
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Refresh period when page gains focus (user may have closed period in another tab)
+useEffect(() => {
+  const handleFocus = async () => {
+    const stmt = await getCurrentStatementPeriod();
+    setCurrentStmtPeriod(stmt.name);
+    setStmtStart(stmt.start);
+    setStmtEnd(stmt.end);
+  };
+  
+  window.addEventListener("focus", handleFocus);
+  return () => window.removeEventListener("focus", handleFocus);
+}, []);
+
   // ===== ACTIONS =====
   function showToast(type: "success" | "error", text: string) {
     setToast({ type, text });
