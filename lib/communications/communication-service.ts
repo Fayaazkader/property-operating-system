@@ -10,7 +10,7 @@ type CommunicationPayload = {
 };
 
 export async function triggerCommunication(payload: CommunicationPayload): Promise<string | null> {
-  // 1. Get the event
+  console.log("triggerCommunication called:", payload.tenant_id, payload.event_type);
   const { data: event } = await supabase
     .from("communication_events")
     .select("*")
@@ -23,7 +23,6 @@ export async function triggerCommunication(payload: CommunicationPayload): Promi
     return null;
   }
 
-  // 2. Get active rules for this event
   const { data: rules } = await supabase
     .from("communication_rules")
     .select("*")
@@ -35,13 +34,11 @@ export async function triggerCommunication(payload: CommunicationPayload): Promi
     return null;
   }
 
-  // 3. Get tenant preferences
   const { data: prefs } = await supabase
     .from("tenant_communication_prefs")
     .select("*")
     .eq("tenant_id", payload.tenant_id);
 
-  // 4. Get tenant contact info
   const { data: tenant } = await supabase
     .from("tenants")
     .select("whatsapp_number, whatsapp_enabled, email_enabled, sms_enabled")
@@ -49,24 +46,19 @@ export async function triggerCommunication(payload: CommunicationPayload): Promi
     .single();
 
   let lastMessageId: string | null = null;
-
+console.log("tenant whatsapp_enabled:", tenant?.whatsapp_enabled, "whatsapp_number:", tenant?.whatsapp_number);
   for (const rule of rules) {
-    // Check tenant preference for this event + channel
     const pref = prefs?.find(p => p.event_type === payload.event_type && p.channel === rule.channel);
     if (pref && !pref.is_enabled) continue;
 
-    // Check tenant has this channel enabled
     if (rule.channel === "whatsapp" && !tenant?.whatsapp_enabled) continue;
     if (rule.channel === "email" && !tenant?.email_enabled) continue;
     if (rule.channel === "sms" && !tenant?.sms_enabled) continue;
 
-    // Check contact info exists
     if (rule.channel === "whatsapp" && !tenant?.whatsapp_number) continue;
 
-    // Build message from template
     const messageBody = await buildMessage(rule.template_name, rule.channel, payload.merge_data);
 
-    // Create communication record
     const { data: comm } = await supabase
       .from("communications")
       .insert({
@@ -85,8 +77,11 @@ export async function triggerCommunication(payload: CommunicationPayload): Promi
       .select("id")
       .single();
 
-       if (comm) {
-      await sendMessage(comm.id, rule.channel, tenant?.whatsapp_number || "", rule.template_name, messageBody);
+    if (comm) {
+      const phone = tenant?.whatsapp_number;
+      if (phone) {
+        await sendMessage(comm.id, rule.channel, phone, rule.template_name, messageBody);
+      }
       lastMessageId = comm.id;
     }
   }
@@ -95,7 +90,6 @@ export async function triggerCommunication(payload: CommunicationPayload): Promi
 }
 
 async function buildMessage(templateName: string, channel: string, data: Record<string, string>): Promise<string> {
-  // Fetch latest active template version from DB
   const { data: template } = await supabase
     .from("communication_templates")
     .select("message_body, version")
@@ -114,7 +108,6 @@ async function buildMessage(templateName: string, channel: string, data: Record<
     return message;
   }
 
-  // Fallback to hardcoded templates
   const templates: Record<string, string> = {
     receipt_confirmation: `Thank you ${data.tenant_name}. Your payment of R${data.amount} has been received. Reference: ${data.reference}.`,
     invoice_ready: `Dear ${data.tenant_name}, your invoice for ${data.period} is ready. Total: R${data.total}. View: ${data.link}`,
@@ -128,7 +121,10 @@ async function buildMessage(templateName: string, channel: string, data: Record<
 
   return templates[templateName] || `Message for ${data.tenant_name}: ${templateName}`;
 }
+
 async function sendMessage(commId: string, channel: string, phoneNumber: string, templateName: string, body: string): Promise<void> {
+  console.log("sendMessage:", { channel, phoneNumber });
+
   if (channel !== "whatsapp") {
     await supabase
       .from("communications")
@@ -137,74 +133,43 @@ async function sendMessage(commId: string, channel: string, phoneNumber: string,
     return;
   }
 
-  const { watiProvider } = await import("./providers/wati");
-  
-  if (watiProvider.isEnabled()) {
-    const result = await watiProvider.send({
-      phoneNumber,
-      templateName,
-      bodyParams: [{ name: "body", value: body }],
-    });
+  // Normalize phone number
+  const normalized = phoneNumber.replace(/\D/g, "").replace(/^0/, "27");
+  console.log("Normalized phone:", normalized);
 
-    if (result.status === "sent") {
-      await supabase
-        .from("communications")
-        .update({ status: "sent", external_message_id: result.id, sent_at: new Date().toISOString() })
-        .eq("id", commId);
+  const { sendTwilioWhatsApp } = await import("./providers/twilio");
+  const twilioResult = await sendTwilioWhatsApp(normalized, body);
+  console.log("Twilio result:", twilioResult);
 
-      setTimeout(async () => {
-        await supabase
-          .from("communications")
-          .update({ status: "delivered", delivered_at: new Date().toISOString() })
-          .eq("id", commId);
-      }, 3000);
-    } else {
-      await handleRetry(commId);
-    }
-  } else {
-    await simulateSend(commId, channel, body);
+  if (twilioResult.success) {
+    await supabase
+      .from("communications")
+      .update({ status: "sent", external_message_id: twilioResult.messageId, sent_at: new Date().toISOString() })
+      .eq("id", commId);
+    return;
   }
-}
-async function simulateSend(commId: string, channel: string, body: string): Promise<void> {
-  // Simulate sending delay
-  await new Promise(resolve => setTimeout(resolve, 200));
 
-  // Update to sent
+  // Twilio failed — mark as failed, don't simulate
   await supabase
     .from("communications")
     .update({
-      status: "sent",
-      external_message_id: `MSG-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      sent_at: new Date().toISOString(),
+      status: "failed",
+      failed_at: new Date().toISOString(),
+      internal_notes: `Twilio failed: ${twilioResult.error || 'Unknown error'}`
     })
     .eq("id", commId);
+}
 
-  // Simulate delivery (80% delivered, 15% read, 5% failed)
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const random = Math.random();
-
-  if (random < 0.05) {
-    // Failed — retry
-    await handleRetry(commId);
-  } else if (random < 0.20) {
-    // Delivered only
-    await supabase
-      .from("communications")
-      .update({ status: "delivered", delivered_at: new Date().toISOString() })
-      .eq("id", commId);
-  } else {
-    // Delivered + Read
-    await supabase
-      .from("communications")
-      .update({ status: "delivered", delivered_at: new Date().toISOString() })
-      .eq("id", commId);
-    
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await supabase
-      .from("communications")
-      .update({ status: "read", read_at: new Date().toISOString() })
-      .eq("id", commId);
-  }
+async function simulateSend(commId: string, channel: string, body: string): Promise<void> {
+  // No more simulation. If we reach here, no provider worked — mark as failed.
+  await supabase
+    .from("communications")
+    .update({
+      status: "failed",
+      failed_at: new Date().toISOString(),
+      internal_notes: "No provider configured or all providers failed"
+    })
+    .eq("id", commId);
 }
 
 async function handleRetry(commId: string): Promise<void> {
@@ -219,7 +184,6 @@ async function handleRetry(commId: string): Promise<void> {
   const retryCount = (comm.retry_count || 0) + 1;
 
   if (retryCount <= (comm.max_retries || 3)) {
-    // Retry
     await supabase
       .from("communications")
       .update({
@@ -228,11 +192,9 @@ async function handleRetry(commId: string): Promise<void> {
       })
       .eq("id", commId);
 
-    // Simulate retry delay then send again
     await new Promise(resolve => setTimeout(resolve, 2000));
     await simulateSend(commId, "whatsapp", "");
   } else {
-    // Max retries reached — mark as failed
     await supabase
       .from("communications")
       .update({
@@ -244,7 +206,6 @@ async function handleRetry(commId: string): Promise<void> {
   }
 }
 
-// Health dashboard data
 export async function getMessageHealth(): Promise<{
   today_total: number;
   delivered: number;
@@ -274,7 +235,6 @@ export async function getMessageHealth(): Promise<{
   };
 }
 
-// Tenant communication timeline
 export async function getTenantTimeline(tenantId: string, limit: number = 20) {
   const { data } = await supabase
     .from("communications")

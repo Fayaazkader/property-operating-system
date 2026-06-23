@@ -423,11 +423,26 @@ const tenantName = (lease as any).tenants?.tenant_name || "Unknown";
     ]
   });
 
-  const { data: leasesForStatement } = await supabase
+  let leaseQuery = supabase
     .from("leases")
     .select("tenant_id")
-    .eq("owner_entity_id", selectedEntity)
     .eq("lease_status", "Active");
+
+if (viewBy === "entity" && selectedEntity) {
+  leaseQuery = leaseQuery.eq("owner_entity_id", selectedEntity);
+} else if (viewBy === "property" && selectedProperty) {
+  leaseQuery = leaseQuery.eq("property_id", selectedProperty);
+} else if (viewBy === "tenant" && selectedTenant) {
+  leaseQuery = leaseQuery.eq("tenant_id", selectedTenant);
+} else if (viewBy === "region" && selectedRegion) {
+  const regionProps = properties.filter(p => p.province === selectedRegion).map(p => p.id);
+  if (regionProps.length > 0) leaseQuery = leaseQuery.in("property_id", regionProps);
+} else if (viewBy === "propertyType" && selectedPropertyType) {
+  const typeProps = properties.filter(p => p.property_type === selectedPropertyType).map(p => p.id);
+  if (typeProps.length > 0) leaseQuery = leaseQuery.in("property_id", typeProps);
+}
+
+const { data: leasesForStatement } = await leaseQuery;
   
   const tenantIds = [...new Set(leasesForStatement?.map((l: any) => l.tenant_id) || [])];
   
@@ -440,30 +455,24 @@ const tenantName = (lease as any).tenants?.tenant_name || "Unknown";
   });
 
   let delivered = 0, failed = 0;
-
-  for (let i = 0; i < tenantIds.length; i++) {
+console.log("tenantIds:", tenantIds);
+   for (let i = 0; i < tenantIds.length; i++) {
     const tenantId = tenantIds[i];
+    console.log("Sending to tenant:", tenantId);
+    
     try {
-      const { error } = await supabase.from("communications").insert({
+      await triggerCommunication({
         tenant_id: tenantId,
         event_type: "statement_available",
-        channel: "email",
-        message_body: `Your statement for ${currentStmtPeriod} is now available.`,
+        source_type: "statement",
         source_id: `INV-${currentStmtPeriod}`,
-        status: "sent",
-        sent_at: new Date().toISOString(),
+        merge_data: { period: currentStmtPeriod },
       });
-      
-      if (error) {
-        failed++;
-      } else {
-        delivered++;
-      }
+      delivered++;
     } catch {
       failed++;
     }
     
-    // Update progress
     setProgressModal({
       title: `Generating Statements — ${currentStmtPeriod}`,
       steps: [
