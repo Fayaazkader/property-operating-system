@@ -1,121 +1,19 @@
 import { NavigationItem } from "@/app/types/navigation";
 
 export const navigation: NavigationItem[] = [
-  // ZONE 1 — Primary Daily Operations
-  {
-    label: "Home",
-    href: "/",
-    workspace: "home",
-    roles: ["executive", "admin", "leasing", "finance", "operations"],
-    icon: "home",
-    zone: "primary",
-  },
-  {
-    label: "Cash Book",
-    href: "/financials/cash-book",
-    workspace: "finance",
-    roles: ["executive", "admin", "finance"],
-    icon: "cashbook",
-    zone: "primary",
-  },
-    {
-    label: "Revenue Ops",
-    href: "/financials/revenue",
-    workspace: "finance",
-    roles: ["executive", "admin", "finance"],
-    icon: "revenue",
-    zone: "primary",
-  },
-  {
-    label: "Periods",
-    href: "/financials/periods",
-    workspace: "finance",
-    roles: ["executive", "admin", "finance"],
-    icon: "reports",
-    zone: "tertiary",
-  },
-  {
-    label: "Leases",
-    href: "/leases",
-    workspace: "leasing",
-    roles: ["executive", "admin", "leasing", "finance"],
-    icon: "leases",
-    zone: "primary",
-  },
-  {
-    label: "Maintenance",
-    href: "/maintenance",
-    workspace: "operations",
-    roles: ["executive", "admin", "operations", "leasing"],
-    icon: "maintenance",
-    zone: "primary",
-  },
-
-  // ZONE 2 — Secondary Management
-  {
-    label: "Properties",
-    href: "/properties",
-    workspace: "properties",
-    roles: ["executive", "admin", "leasing", "finance", "operations"],
-    icon: "properties",
-    zone: "secondary",
-  },
-  {
-    label: "Tenants",
-    href: "/tenants",
-    workspace: "tenants",
-    roles: ["executive", "admin", "leasing", "finance"],
-    icon: "tenants",
-    zone: "secondary",
-  },
-  {
-    label: "Suppliers",
-    href: "/suppliers",
-    workspace: "suppliers",
-    roles: ["executive", "admin", "finance", "operations"],
-    icon: "suppliers",
-    zone: "secondary",
-  },
-  {
-    label: "Documents",
-    href: "/documents",
-    workspace: "documents",
-    roles: ["executive", "admin", "leasing", "finance", "operations"],
-    icon: "documents",
-    zone: "secondary",
-  },
-
-  // ZONE 3 — Tertiary Analysis & Settings
-  {
-    label: "Bank Imports",
-    href: "/financials/imports",
-    workspace: "finance",
-    roles: ["executive", "admin", "finance"],
-    icon: "import",
-    zone: "tertiary",
-  },
-  {
-    label: "Reports",
-    href: "/reports",
-    workspace: "reports",
-    roles: ["executive", "admin", "finance"],
-    icon: "reports",
-    zone: "tertiary",
-  },
-  {
-    label: "Settings",
-    href: "/settings",
-    workspace: "admin",
-    roles: ["executive", "admin"],
-    icon: "settings",
-    zone: "tertiary",
-  },
-    {
-    label: "Import Data",
-    href: "/settings/import",
-    workspace: "admin",
-    roles: ["executive", "admin", "finance"],
-    icon: "import",
-    zone: "tertiary",
-  },
+  // OPERATIONS
+  { label: "Morning Brief", href: "/", roles: ["executive", "admin", "leasing", "finance", "operations"], icon: "home", section: "operations" },
+  { label: "Leases", href: "/leases", roles: ["executive", "admin", "leasing", "finance"], icon: "leases", section: "operations" },
+  { label: "Revenue Ops", href: "/financials/revenue", roles: ["executive", "admin", "finance"], icon: "revenue", section: "operations" },
+  { label: "Cash Book", href: "/financials/cash-book", roles: ["executive", "admin", "finance"], icon: "cashbook", section: "operations" },
+  { label: "Communications", href: "/communications", roles: ["executive", "admin", "leasing", "finance", "operations"], icon: "maintenance", section: "operations" },
+  { label: "Tasks", href: "/tasks", roles: ["executive", "admin", "leasing", "finance", "operations"], icon: "documents", section: "operations" },
+  // PORTFOLIO
+  { label: "Properties", href: "/properties", roles: ["executive", "admin", "leasing", "finance", "operations"], icon: "properties", section: "portfolio" },
+  { label: "Tenants", href: "/tenants", roles: ["executive", "admin", "leasing", "finance"], icon: "tenants", section: "portfolio" },
+  { label: "Suppliers", href: "/suppliers", roles: ["executive", "admin", "finance", "operations"], icon: "suppliers", section: "portfolio" },
+  // SYSTEM
+  { label: "Imports", href: "/financials/imports", roles: ["executive", "admin", "finance"], icon: "import", section: "control" },
+  { label: "Statement Periods", href: "/financials/periods", roles: ["executive", "admin", "finance"], icon: "reports", section: "control" },
+  { label: "Settings", href: "/settings", roles: ["executive", "admin"], icon: "settings", section: "administration" },
 ];

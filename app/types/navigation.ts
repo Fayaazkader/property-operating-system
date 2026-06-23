@@ -4,5 +4,5 @@ export type NavigationItem = {
   workspace?: string;
   roles: string[];
   icon?: string;
-  zone?: "primary" | "secondary" | "tertiary";
+  section?: "operations" | "portfolio" | "control" | "intelligence" | "administration";
 };
