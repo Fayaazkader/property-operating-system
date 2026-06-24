@@ -6,6 +6,7 @@ import { getTenantBalance } from "@/lib/intelligence/tenant-balance";
 import { getTenantPayments } from "@/lib/intelligence/tenant-payments";
 import { getTenantStatements } from "@/lib/intelligence/tenant-statements";
 import { normalizePhone } from "@/lib/intelligence/phone-utils";
+import { checkRateLimit } from "@/lib/intelligence/rate-limiter";
 
 function detectIntent(message: string): { intent: string; confidence: number } {
   const msg = message.toLowerCase().trim();
@@ -73,6 +74,13 @@ export async function POST(request: NextRequest) {
     }
 
     const phoneNumber = from.replace("whatsapp:", "");
+
+    // Rate limiting
+    const phoneKey = normalizePhone(phoneNumber);
+    if (!checkRateLimit(phoneKey)) {
+      return new NextResponse("You've reached the message limit. Please try again later.", { status: 200 });
+    }
+
     const tenant = await findTenantByPhone(supabase, phoneNumber);
 
     if (!tenant) {

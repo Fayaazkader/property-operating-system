@@ -33,17 +33,21 @@ export function CommandPalette({ open, onClose }: Props) {
     if (searchTerm.length < 2) { setResults([]); setLoading(false); return; }
     setLoading(true);
     const timer = setTimeout(async () => {
-      // Search
       const searchRes = await fetch(`/api/intelligence/search?q=${encodeURIComponent(searchTerm)}`);
       const searchData = await searchRes.json();
-      
-      // Insights (for intelligence queries)
+
+      // Log search activity
+      fetch("/api/intelligence/search-activity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: searchTerm, resultCount: searchData.results?.length || 0 }),
+      });
+
       const insightRes = await fetch(`/api/intelligence/insights?q=${encodeURIComponent(searchTerm)}`);
       const insightData = await insightRes.json();
 
       const allResults = [...(searchData.results || [])];
 
-      // If insight returned meaningful data, add it
       if (insightData.type !== "unknown" && insightData.results) {
         allResults.unshift({
           type: "insight",
@@ -80,14 +84,21 @@ export function CommandPalette({ open, onClose }: Props) {
       if (e.key === "ArrowUp") { e.preventDefault(); setSelectedIndex(prev => Math.max(prev - 1, 0)); return; }
       if (e.key === "Enter" && results[selectedIndex]) {
         e.preventDefault();
-        router.push(results[selectedIndex].href);
+        const item = results[selectedIndex];
+        // Log result clicked
+        fetch("/api/intelligence/search-activity", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: searchTerm, resultClicked: item.label }),
+        });
+        router.push(item.href);
         onClose();
         return;
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, results, selectedIndex, router, onClose]);
+  }, [open, results, selectedIndex, router, onClose, searchTerm]);
 
   useEffect(() => { setSelectedIndex(0); }, [searchTerm]);
 
@@ -119,7 +130,15 @@ export function CommandPalette({ open, onClose }: Props) {
             return (
               <button
                 key={`${item.type}-${item.id || item.label}`}
-                onClick={() => { router.push(item.href); onClose(); }}
+                onClick={() => {
+                  fetch("/api/intelligence/search-activity", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: searchTerm, resultClicked: item.label }),
+                  });
+                  router.push(item.href);
+                  onClose();
+                }}
                 className={`w-full flex items-start gap-3 px-4 py-3 rounded-2xl text-sm transition-colors text-left ${
                   i === selectedIndex ? "bg-[var(--bg-elevated)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
                 }`}
