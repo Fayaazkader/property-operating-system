@@ -2,9 +2,15 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getNavigationForRole } from "@/lib/rbac/navigation";
-import { usePlatform } from "@/app/context/PlatformContext";
-import { supabase } from "@/lib/supabase";
+import { searchIcons } from "@/lib/platform/icons";
+
+type SearchResult = {
+  type: string;
+  id?: string;
+  label: string;
+  sublabel?: string;
+  href: string;
+};
 
 type Props = {
   open: boolean;
@@ -13,39 +19,30 @@ type Props = {
 
 export function CommandPalette({ open, onClose }: Props) {
   const router = useRouter();
-  const { activeRole } = usePlatform();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [tenantResults, setTenantResults] = useState<any[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const navItems = getNavigationForRole(activeRole.id as any);
-
-  const results = searchTerm
-    ? navItems.filter(i => i.label.toLowerCase().includes(searchTerm.toLowerCase()))
-    : navItems.slice(0, 8);
-
-  // Search tenants
+  // Fetch results from search API
   useEffect(() => {
-    async function searchTenants() {
-      if (searchTerm.length < 2) { setTenantResults([]); return; }
-      const { data } = await supabase
-        .from("tenants")
-        .select("id, tenant_name")
-        .ilike("tenant_name", `%${searchTerm}%`)
-        .limit(5);
-      if (data) setTenantResults(data);
-    }
-    searchTenants();
+    if (searchTerm.length < 2) { setResults([]); setLoading(false); return; }
+    setLoading(true);
+    const timer = setTimeout(async () => {
+      const res = await fetch(`/api/intelligence/search?q=${encodeURIComponent(searchTerm)}`);
+      const data = await res.json();
+      setResults(data.results || []);
+      setLoading(false);
+    }, 200);
+    return () => clearTimeout(timer);
   }, [searchTerm]);
-
-  const totalResults = tenantResults.length + results.length;
 
   useEffect(() => {
     if (open) {
       setSearchTerm("");
       setSelectedIndex(0);
-      setTenantResults([]);
+      setResults([]);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [open]);
@@ -54,87 +51,68 @@ export function CommandPalette({ open, onClose }: Props) {
     function handleKeyDown(e: KeyboardEvent) {
       if (!open) return;
       if (e.key === "Escape") { e.preventDefault(); onClose(); return; }
-      if (e.key === "ArrowDown") { e.preventDefault(); setSelectedIndex(prev => Math.min(prev + 1, totalResults - 1)); return; }
+      if (e.key === "ArrowDown") { e.preventDefault(); setSelectedIndex(prev => Math.min(prev + 1, results.length - 1)); return; }
       if (e.key === "ArrowUp") { e.preventDefault(); setSelectedIndex(prev => Math.max(prev - 1, 0)); return; }
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && results[selectedIndex]) {
         e.preventDefault();
-        const allItems = [...tenantResults.map(t => ({ type: "tenant", ...t })), ...results.map(r => ({ type: "page", ...r }))];
-        if (allItems[selectedIndex]) {
-          const item = allItems[selectedIndex];
-          if (item.type === "tenant") {
-            router.push("/leases");
-          } else {
-            router.push((item as any).href);
-          }
-          onClose();
-        }
+        const item = results[selectedIndex];
+        router.push(item.href);
+        onClose();
         return;
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, results, tenantResults, selectedIndex, totalResults, router, onClose]);
+  }, [open, results, selectedIndex, router, onClose]);
 
   useEffect(() => { setSelectedIndex(0); }, [searchTerm]);
 
   if (!open) return null;
 
-  const icons: Record<string, string> = {
-    home: "⌂", cashbook: "◧", revenue: "◨", leases: "◫", maintenance: "⚙",
-    properties: "▣", tenants: "◩", suppliers: "◎", documents: "▤",
-    import: "↓", reports: "◪", settings: "⚒",
-  };
-
-  const allItems = [...tenantResults.map((t, i) => ({ type: "tenant", id: t.id, name: t.tenant_name, index: i })), ...results.map((r, i) => ({ type: "page", ...r, index: tenantResults.length + i }))];
-
   return (
     <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-start justify-center pt-[15vh]" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-800">
-          <span className="text-zinc-500 text-lg">🔍</span>
+      <div onClick={(e) => e.stopPropagation()} className="bg-[var(--bg-primary)] border border-[var(--border-default)] rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--border-default)]">
+          <span className="text-[var(--text-muted)]">
+            <searchIcons.cashbook className="w-5 h-5" />
+          </span>
           <input ref={inputRef} type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search tenants, pages..." className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-zinc-600" />
-          <span className="text-xs text-zinc-600 bg-zinc-900 px-2 py-1 rounded-lg">ESC</span>
+            placeholder="Search tenants, properties, leases, statements..." className="flex-1 bg-transparent text-[var(--text-primary)] text-sm outline-none placeholder:text-[var(--text-muted)]" />
+          <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-elevated)] px-2 py-1 rounded-lg">ESC</span>
         </div>
 
-        <div className="max-h-72 overflow-y-auto p-2">
-          {allItems.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-zinc-500 text-center">No results found</p>
-          ) : (
-            allItems.map((item: any, i) => (
+        <div className="max-h-80 overflow-y-auto p-2">
+          {loading && (
+            <p className="px-4 py-6 text-sm text-[var(--text-muted)] text-center">Searching...</p>
+          )}
+          {!loading && results.length === 0 && searchTerm.length >= 2 && (
+            <p className="px-4 py-6 text-sm text-[var(--text-muted)] text-center">No results found</p>
+          )}
+          {!loading && results.length === 0 && searchTerm.length < 2 && (
+            <p className="px-4 py-6 text-sm text-[var(--text-muted)] text-center">Type to search across your portfolio</p>
+          )}
+          {results.map((item, i) => {
+            const Icon = searchIcons[item.type] || searchIcons.cashbook;
+            return (
               <button
-                key={item.type === "tenant" ? `t-${item.id}` : `p-${item.href}`}
-                onClick={() => {
-                  if (item.type === "tenant") {
-                    router.push("/leases");
-                  } else {
-                    router.push(item.href);
-                  }
-                  onClose();
-                }}
+                key={`${item.type}-${item.id || item.label}`}
+                onClick={() => { router.push(item.href); onClose(); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm transition-colors text-left ${
-                  i === selectedIndex ? "bg-zinc-800 text-white" : "text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                  i === selectedIndex ? "bg-[var(--bg-elevated)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
                 }`}
               >
-                {item.type === "tenant" ? (
-                  <>
-                    <span className="text-lg w-8 text-center">👤</span>
-                    <span className="flex-1">{item.name}</span>
-                    <span className="text-xs text-zinc-600">Tenant</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-lg w-8 text-center">{icons[item.icon as string] || "•"}</span>
-                    <span className="flex-1">{item.label}</span>
-                    <span className="text-xs text-zinc-600">{item.href}</span>
-                  </>
-                )}
+                <Icon className="w-5 h-5 text-[var(--text-muted)] flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{item.label}</p>
+                  {item.sublabel && <p className="text-xs text-[var(--text-muted)] truncate">{item.sublabel}</p>}
+                </div>
+                <span className="text-[10px] text-[var(--text-muted)] uppercase flex-shrink-0">{item.type}</span>
               </button>
-            ))
-          )}
+            );
+          })}
         </div>
 
-        <div className="px-5 py-3 border-t border-zinc-800 flex items-center gap-4 text-xs text-zinc-600">
+        <div className="px-5 py-3 border-t border-[var(--border-default)] flex items-center gap-4 text-xs text-[var(--text-muted)]">
           <span>↑↓ Navigate</span>
           <span>↵ Open</span>
           <span>ESC Close</span>
