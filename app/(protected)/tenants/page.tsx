@@ -1,106 +1,362 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from "@/lib/supabase";
-import Link from "next/link";
-import { PageHeader } from "@/app/components/layout/PageHeader";
+import { Search, Plus, ChevronDown, ChevronRight } from "lucide-react";
 
+type EnrichedTenant = {
+  id: string;
+  tenant_name: string;
+  code: string | null;
+  company_registration: string | null;
+  email: string;
+  entity_id: string;
+  entity_name: string;
+  property_id: string | null;
+  property_name: string | null;
+  current_lease: string | null;
+  lease_status: string | null;
+  monthly_rental: number | null;
+  balance: number;
+  days_to_expiry: number;
+  whatsapp_enabled: boolean;
+};
 
 export default function TenantsPage() {
-  const [tenants, setTenants] = useState<any[]>([]);
-  const [entities, setEntities] = useState<any[]>([]);
+  const router = useRouter();
+  const [tenants, setTenants] = useState<EnrichedTenant[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeFilter, setActiveFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
+  const [expandedEntities, setExpandedEntities] = useState<Set<string>>(new Set());
+  const [expandedProperties, setExpandedProperties] = useState<Set<string>>(new Set());
+  const [recentTenants, setRecentTenants] = useState<EnrichedTenant[]>([]);
+  const [pageSize, setPageSize] = useState(50);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState("");
+  const [totalCount, setTotalCount] = useState(0);
+  
 
+  useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        // 1. Get the current user
-        const { data: { user } } = await supabase.auth.getUser();
+    localStorage.setItem('tenant-expanded-entities', JSON.stringify([...expandedEntities]));
+  }, [expandedEntities]);
 
-        if (!user) {
-          setLoading(false);
-          return;
-        }
+  useEffect(() => {
+    localStorage.setItem('tenant-expanded-properties', JSON.stringify([...expandedProperties]));
+  }, [expandedProperties]);
 
-               // 2. Get the user's entities via auth_entities()
-        const { data: entityIds } = await supabase.rpc('auth_entities');
-        if (!entityIds || entityIds.length === 0) { setLoading(false); return; }
-
-        // 3. Get tenants filtered by entity
-        const { data: tenantsData } = await supabase
-          .from("tenants")
-          .select("*")
-          .in('entity_id', entityIds)
-          .order("tenant_name");
-
-        setTenants(tenantsData || []);
-
-        // 4. Get entities
-        const { data: entitiesData } = await supabase
-          .from("entities")
-          .select("id, entity_name")
-          .in("id", entityIds)
-          .order("entity_name");
-
-        setEntities(entitiesData || []);
-      } catch (error) {
-        console.error('Error loading tenants:', error);
-      } finally {
-        setLoading(false);
-      }
+  useEffect(() => {
+    const saved = localStorage.getItem('tenant-recents');
+    if (saved) {
+      const ids: string[] = JSON.parse(saved);
+      const recents = ids.map(id => tenants.find(t => t.id === id)).filter(Boolean) as EnrichedTenant[];
+      setRecentTenants(recents.slice(0, 5));
     }
+  }, [tenants]);
 
-    loadData();
-  }, []);
+ async function loadData() {
+  const res = await fetch(`/api/intelligence/tenants?page=0&pageSize=1000&search=${encodeURIComponent(searchTerm)}&filter=${activeFilter}`);
+  const json = await res.json();
 
-  function getEntityName(entityId: string | null): string {
-    if (!entityId || !entities) return "—";
-    return entities.find(e => e.id === entityId)?.entity_name || "—";
+  setTenants(json.tenants || []);
+  setTotalCount(json.total || 0);
+  setLastUpdated(new Date().toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }));
+
+  const saved = localStorage.getItem('tenant-expanded-entities');
+  if (saved) setExpandedEntities(new Set(JSON.parse(saved)));
+  const savedProps = localStorage.getItem('tenant-expanded-properties');
+  if (savedProps) setExpandedProperties(new Set(JSON.parse(savedProps)));
+
+  setLoading(false);
+}
+
+  const openTenant = (id: string) => {
+    const saved = localStorage.getItem('tenant-recents');
+    const ids: string[] = saved ? JSON.parse(saved) : [];
+    const updated = [id, ...ids.filter(i => i !== id)].slice(0, 10);
+    localStorage.setItem('tenant-recents', JSON.stringify(updated));
+    router.push(`/tenants/${id}`);
+  };
+
+  const toggleEntity = (name: string) => {
+    setExpandedEntities(prev => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
+  };
+
+  const toggleProperty = (name: string) => {
+    setExpandedProperties(prev => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
+  };
+
+  const filters = [
+    { key: "all", label: "All" },
+    { key: "active", label: "Active" },
+    { key: "expiring", label: "Expiring" },
+    { key: "arrears", label: "Arrears" },
+    { key: "archived", label: "Archived" },
+  ];
+
+  const hasSearch = searchTerm.length > 0;
+
+  const filteredTenants = tenants.filter(t => {
+    const s = searchTerm.toLowerCase();
+    const matchesSearch = !hasSearch || 
+      t.tenant_name?.toLowerCase().includes(s) ||
+      (t.code || '').toLowerCase().includes(s) ||
+      (t.company_registration || '').toLowerCase().includes(s) ||
+      t.current_lease?.toLowerCase().includes(s) ||
+      t.property_name?.toLowerCase().includes(s) ||
+      t.email?.toLowerCase().includes(s) ||
+      t.entity_name?.toLowerCase().includes(s);
+
+    if (!matchesSearch) return false;
+
+    switch (activeFilter) {
+      case "active": return t.lease_status === 'Active';
+      case "expiring": return t.lease_status === 'Active' && t.days_to_expiry <= 90;
+      case "arrears": return t.balance > 0;
+      case "archived": return t.lease_status === 'Expired';
+      default: return true;
+    }
+  });
+
+  const pagedTenants = filteredTenants.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  const totalPages = Math.ceil(filteredTenants.length / pageSize);
+
+  const grouped = new Map<string, Map<string, EnrichedTenant[]>>();
+  if (!hasSearch) {
+    filteredTenants.forEach(t => {
+      const entityKey = t.entity_name || "Unknown Entity";
+      const propertyKey = t.property_name || "No Property";
+      if (!grouped.has(entityKey)) grouped.set(entityKey, new Map());
+      if (!grouped.get(entityKey)!.has(propertyKey)) grouped.get(entityKey)!.set(propertyKey, []);
+      grouped.get(entityKey)!.get(propertyKey)!.push(t);
+    });
   }
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-7xl space-y-8 px-6 pt-8 pb-12">
-        <PageHeader title="Tenants" subtitle="Manage your tenants" />
-        <p className="text-[var(--text-muted)]">Loading tenants...</p>
-      </div>
-    );
-  }
+  const formatRands = (amount: number) => `R${amount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+  const counts = {
+    all: tenants.length,
+    active: tenants.filter(t => t.lease_status === 'Active').length,
+    expiring: tenants.filter(t => t.lease_status === 'Active' && t.days_to_expiry <= 90).length,
+    arrears: tenants.filter(t => t.balance > 0).length,
+    archived: tenants.filter(t => t.lease_status === 'Expired').length,
+  };
+
+  const TenantRow = ({ t }: { t: EnrichedTenant }) => (
+    <tr
+      onClick={() => openTenant(t.id)}
+      className="border-b border-[var(--border-default)] last:border-0 cursor-pointer hover:bg-[var(--bg-elevated)] transition-colors"
+    >
+      <td className="py-2.5 px-4">
+        <p className="text-[var(--text-primary)] font-medium font-mono text-xs">{t.code || t.id.slice(0, 8)}</p>
+        <p className="text-[var(--text-primary)] text-sm">{t.tenant_name}</p>
+        {t.company_registration && <p className="text-xs text-[var(--text-muted)]">{t.company_registration}</p>}
+      </td>
+      <td className="py-2.5 px-4">
+        {t.current_lease ? (
+          <div>
+            <p className="text-[var(--text-primary)] font-mono text-xs">{t.current_lease}</p>
+            <p className="text-xs text-[var(--text-muted)]">{t.monthly_rental ? formatRands(t.monthly_rental) : ""}</p>
+          </div>
+        ) : <span className="text-[var(--text-muted)]">—</span>}
+      </td>
+      <td className="py-2.5 px-4 text-right tabular-nums">
+        <span className={t.balance > 0 ? 'text-amber-400' : 'text-[var(--text-primary)]'}>{formatRands(t.balance)}</span>
+      </td>
+      <td className="py-2.5 px-4">
+        <span className={`text-xs px-2 py-0.5 rounded-full ${
+          t.lease_status === 'Active' ? 'bg-emerald-500/10 text-emerald-300' :
+          t.lease_status === 'Expired' ? 'bg-red-500/10 text-red-300' :
+          'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
+        }`}>{t.lease_status || "—"}</span>
+      </td>
+    </tr>
+  );
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 px-6 pt-8 pb-12">
-      <PageHeader title="Tenants" subtitle="Manage your tenants" />
+    <div className="mx-auto max-w-7xl space-y-6 px-6 pt-8 pb-12">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Tenant Operations</h1>
+          <p className="text-xs text-[var(--text-muted)] mt-1">
+            {totalCount} tenant accounts · {new Set(tenants.map(t => t.entity_id)).size} entities · {new Set(tenants.filter(t => t.property_id).map(t => t.property_id)).size} properties
+            <span className="ml-3">Updated {lastUpdated}</span>
+          </p>
+        </div>
+        <button
+          onClick={() => router.push('/tenants/new')}
+          className="flex items-center gap-2 rounded-xl bg-[var(--text-primary)] text-[var(--bg-primary)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity"
+        >
+          <Plus className="w-4 h-4" /> New Tenant
+        </button>
+      </div>
 
-      {!tenants || tenants.length === 0 ? (
-        <div className="text-center py-20 rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)]">
-          <p className="text-[var(--text-muted)]">No tenants found.</p>
-          <Link href="/tenants/new" className="mt-4 inline-block rounded-xl bg-[var(--text-primary)] text-black px-5 py-3 text-sm font-semibold">+ Add Tenant</Link>
+      {!hasSearch && recentTenants.length > 0 && (
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-[var(--text-muted)]">Recent:</span>
+          {recentTenants.map(t => (
+            <button key={t.id} onClick={() => openTenant(t.id)}
+              className="text-[var(--accent)] hover:underline">{t.tenant_name}</button>
+          ))}
+        </div>
+      )}
+
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-muted)]" />
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(0); }}
+          placeholder="Search by tenancy code, trading name, property, unit, email or contact..."
+          className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] pl-12 pr-4 py-3.5 text-sm outline-none focus:border-[var(--border-hover)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+        />
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {filters.map(f => (
+          <button
+            key={f.key}
+            onClick={() => { setActiveFilter(f.key); setCurrentPage(0); }}
+            className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+              activeFilter === f.key
+                ? 'bg-[var(--text-primary)] text-[var(--bg-primary)]'
+                : 'border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-hover)]'
+            }`}
+          >
+            {f.label}
+            <span className="ml-1.5 opacity-60">{(counts as any)[f.key]}</span>
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          {[1,2,3,4,5].map(i => (
+            <div key={i} className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4 animate-pulse">
+              <div className="h-4 bg-[var(--bg-elevated)] rounded w-1/3 mb-2"></div>
+              <div className="h-3 bg-[var(--bg-elevated)] rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      ) : filteredTenants.length === 0 ? (
+        <div className="text-center py-12 text-[var(--text-muted)]">No tenants found</div>
+      ) : hasSearch ? (
+        <div>
+          <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--border-default)]">
+                  <th className="text-left py-2.5 px-4 text-xs text-[var(--text-muted)] font-normal uppercase tracking-[0.2em]">Tenant</th>
+                  <th className="text-left py-2.5 px-4 text-xs text-[var(--text-muted)] font-normal uppercase tracking-[0.2em]">Property</th>
+                  <th className="text-left py-2.5 px-4 text-xs text-[var(--text-muted)] font-normal uppercase tracking-[0.2em]">Lease</th>
+                  <th className="text-right py-2.5 px-4 text-xs text-[var(--text-muted)] font-normal uppercase tracking-[0.2em]">Balance</th>
+                  <th className="text-left py-2.5 px-4 text-xs text-[var(--text-muted)] font-normal uppercase tracking-[0.2em]">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedTenants.map(t => (
+                  <tr
+                    key={t.id}
+                    onClick={() => openTenant(t.id)}
+                    className="border-b border-[var(--border-default)] last:border-0 cursor-pointer hover:bg-[var(--bg-elevated)] transition-colors"
+                  >
+                    <td className="py-2.5 px-4">
+                      <p className="text-[var(--text-primary)] font-medium font-mono text-xs">{t.code || t.id.slice(0, 8)}</p>
+                      <p className="text-[var(--text-primary)] text-sm">{t.tenant_name}</p>
+                      {t.company_registration && <p className="text-xs text-[var(--text-muted)]">{t.company_registration}</p>}
+                    </td>
+                    <td className="py-2.5 px-4 text-[var(--text-secondary)]">{t.property_name || "—"}</td>
+                    <td className="py-2.5 px-4">
+                      {t.current_lease ? <p className="text-[var(--text-primary)] font-mono text-xs">{t.current_lease}</p> : <span className="text-[var(--text-muted)]">—</span>}
+                    </td>
+                    <td className="py-2.5 px-4 text-right tabular-nums">
+                      <span className={t.balance > 0 ? 'text-amber-400' : 'text-[var(--text-primary)]'}>{formatRands(t.balance)}</span>
+                    </td>
+                    <td className="py-2.5 px-4">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        t.lease_status === 'Active' ? 'bg-emerald-500/10 text-emerald-300' :
+                        t.lease_status === 'Expired' ? 'bg-red-500/10 text-red-300' :
+                        'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
+                      }`}>{t.lease_status || "—"}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {filteredTenants.length > pageSize && (
+            <div className="flex items-center justify-between px-4 py-3 mt-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)]">
+              <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                <span>Rows</span>
+                <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(0); }}
+                  className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)] px-2 py-1 text-xs outline-none">
+                  <option value={25}>25</option><option value={50}>50</option><option value={100}>100</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-1 text-xs">
+                <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0}
+                  className="px-2 py-1 rounded-lg hover:bg-[var(--bg-elevated)] disabled:opacity-30">←</button>
+                <span className="text-[var(--text-muted)]">{currentPage + 1} of {totalPages}</span>
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage >= totalPages - 1}
+                  className="px-2 py-1 rounded-lg hover:bg-[var(--bg-elevated)] disabled:opacity-30">→</button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)]">
-          <table className="w-full">
-            <thead className="border-b border-[var(--border-default)] bg-[var(--bg-elevated)]">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Tenant</th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Code</th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Entity</th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Email</th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Phone</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tenants.map((t: any) => (
-                <tr key={t.id} className="border-b border-[var(--border-default)] hover:bg-[var(--bg-elevated)] transition-colors">
-                  <td className="px-4 py-3 text-sm text-[var(--text-primary)] font-medium">{t.tenant_name || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-muted)] font-mono">{t.code || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{getEntityName(t.entity_id)}</td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{t.email || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{t.phone || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-4">
+          {Array.from(grouped.entries()).map(([entity, properties]) => (
+            <div key={entity} className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] overflow-hidden">
+              <button
+                onClick={() => toggleEntity(entity)}
+                className="w-full flex items-center gap-2 px-5 py-3 hover:bg-[var(--bg-elevated)] transition-colors text-left"
+              >
+                {expandedEntities.has(entity) ? <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" /> : <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />}
+                <span className="text-sm font-semibold text-[var(--text-primary)]">{entity}</span>
+                <span className="text-xs text-[var(--text-muted)]">{Array.from(properties.values()).flat().length} tenants</span>
+              </button>
+              {expandedEntities.has(entity) && (
+                <div className="border-t border-[var(--border-default)]">
+                  {Array.from(properties.entries()).map(([property, propertyTenants]) => (
+                    <div key={property}>
+                      <button
+                        onClick={() => toggleProperty(`${entity}-${property}`)}
+                        className="w-full flex items-center gap-2 px-8 py-2 hover:bg-[var(--bg-elevated)] transition-colors text-left"
+                      >
+                        {expandedProperties.has(`${entity}-${property}`) ? <ChevronDown className="w-3 h-3 text-[var(--text-muted)]" /> : <ChevronRight className="w-3 h-3 text-[var(--text-muted)]" />}
+                        <span className="text-xs text-[var(--text-secondary)]">{property}</span>
+                        <span className="text-xs text-[var(--text-muted)]">{propertyTenants.length} tenant{propertyTenants.length !== 1 ? 's' : ''}</span>
+                        {propertyTenants.filter(t => t.balance > 0).length > 0 && (
+                          <span className="text-xs text-amber-400">{propertyTenants.filter(t => t.balance > 0).length} arrears</span>
+                        )}
+                        {propertyTenants.filter(t => t.days_to_expiry <= 90 && t.lease_status === 'Active').length > 0 && (
+                          <span className="text-xs text-red-400">{propertyTenants.filter(t => t.days_to_expiry <= 90 && t.lease_status === 'Active').length} expiring</span>
+                        )}
+                      </button>
+                      {expandedProperties.has(`${entity}-${property}`) && (
+                        <table className="w-full text-sm">
+                          <tbody>
+                            {propertyTenants.map(t => <TenantRow key={t.id} t={t} />)}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
