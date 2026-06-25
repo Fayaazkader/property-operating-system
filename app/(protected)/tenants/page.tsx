@@ -3,7 +3,20 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from "@/lib/supabase";
-import { Search, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { Search, Plus, ChevronDown, ChevronRight, MessageSquare, Mail } from "lucide-react";
+
+type TenantSummary = {
+  tenants: EnrichedTenant[];
+  total: number;
+  page: number;
+  pageSize: number;
+  summary: {
+    active: number;
+    arrears: number;
+    expiring: number;
+    archived: number;
+  };
+};
 
 type EnrichedTenant = {
   id: string;
@@ -36,9 +49,9 @@ export default function TenantsPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [lastUpdated, setLastUpdated] = useState("");
   const [totalCount, setTotalCount] = useState(0);
-  
+  const [summary, setSummary] = useState({ active: 0, arrears: 0, expiring: 0, archived: 0 });
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [currentPage, pageSize, searchTerm, activeFilter]);
 
   useEffect(() => {
     localStorage.setItem('tenant-expanded-entities', JSON.stringify([...expandedEntities]));
@@ -57,21 +70,23 @@ export default function TenantsPage() {
     }
   }, [tenants]);
 
- async function loadData() {
-  const res = await fetch(`/api/intelligence/tenants?page=0&pageSize=1000&search=${encodeURIComponent(searchTerm)}&filter=${activeFilter}`);
-  const json = await res.json();
+  async function loadData() {
+    setLoading(true);
+    const res = await fetch(`/api/intelligence/tenants?page=${currentPage}&pageSize=${pageSize}&search=${encodeURIComponent(searchTerm)}&filter=${activeFilter}`);
+    const json: TenantSummary = await res.json();
 
-  setTenants(json.tenants || []);
-  setTotalCount(json.total || 0);
-  setLastUpdated(new Date().toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }));
+    setTenants(json.tenants || []);
+    setTotalCount(json.total || 0);
+    setSummary(json.summary || { active: 0, arrears: 0, expiring: 0, archived: 0 });
+    setLastUpdated(new Date().toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }));
 
-  const saved = localStorage.getItem('tenant-expanded-entities');
-  if (saved) setExpandedEntities(new Set(JSON.parse(saved)));
-  const savedProps = localStorage.getItem('tenant-expanded-properties');
-  if (savedProps) setExpandedProperties(new Set(JSON.parse(savedProps)));
+    const saved = localStorage.getItem('tenant-expanded-entities');
+    if (saved) setExpandedEntities(new Set(JSON.parse(saved)));
+    const savedProps = localStorage.getItem('tenant-expanded-properties');
+    if (savedProps) setExpandedProperties(new Set(JSON.parse(savedProps)));
 
-  setLoading(false);
-}
+    setLoading(false);
+  }
 
   const openTenant = (id: string) => {
     const saved = localStorage.getItem('tenant-recents');
@@ -98,43 +113,19 @@ export default function TenantsPage() {
   };
 
   const filters = [
-    { key: "all", label: "All" },
-    { key: "active", label: "Active" },
-    { key: "expiring", label: "Expiring" },
-    { key: "arrears", label: "Arrears" },
-    { key: "archived", label: "Archived" },
+    { key: "all", label: "All", count: totalCount },
+    { key: "active", label: "Active", count: summary.active },
+    { key: "expiring", label: "Expiring", count: summary.expiring },
+    { key: "arrears", label: "Arrears", count: summary.arrears },
+    { key: "archived", label: "Archived", count: summary.archived },
   ];
 
   const hasSearch = searchTerm.length > 0;
-
-  const filteredTenants = tenants.filter(t => {
-    const s = searchTerm.toLowerCase();
-    const matchesSearch = !hasSearch || 
-      t.tenant_name?.toLowerCase().includes(s) ||
-      (t.code || '').toLowerCase().includes(s) ||
-      (t.company_registration || '').toLowerCase().includes(s) ||
-      t.current_lease?.toLowerCase().includes(s) ||
-      t.property_name?.toLowerCase().includes(s) ||
-      t.email?.toLowerCase().includes(s) ||
-      t.entity_name?.toLowerCase().includes(s);
-
-    if (!matchesSearch) return false;
-
-    switch (activeFilter) {
-      case "active": return t.lease_status === 'Active';
-      case "expiring": return t.lease_status === 'Active' && t.days_to_expiry <= 90;
-      case "arrears": return t.balance > 0;
-      case "archived": return t.lease_status === 'Expired';
-      default: return true;
-    }
-  });
-
-  const pagedTenants = filteredTenants.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
-  const totalPages = Math.ceil(filteredTenants.length / pageSize);
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   const grouped = new Map<string, Map<string, EnrichedTenant[]>>();
   if (!hasSearch) {
-    filteredTenants.forEach(t => {
+    tenants.forEach(t => {
       const entityKey = t.entity_name || "Unknown Entity";
       const propertyKey = t.property_name || "No Property";
       if (!grouped.has(entityKey)) grouped.set(entityKey, new Map());
@@ -144,13 +135,6 @@ export default function TenantsPage() {
   }
 
   const formatRands = (amount: number) => `R${amount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
-  const counts = {
-    all: tenants.length,
-    active: tenants.filter(t => t.lease_status === 'Active').length,
-    expiring: tenants.filter(t => t.lease_status === 'Active' && t.days_to_expiry <= 90).length,
-    arrears: tenants.filter(t => t.balance > 0).length,
-    archived: tenants.filter(t => t.lease_status === 'Expired').length,
-  };
 
   const TenantRow = ({ t }: { t: EnrichedTenant }) => (
     <tr
@@ -174,22 +158,27 @@ export default function TenantsPage() {
         <span className={t.balance > 0 ? 'text-amber-400' : 'text-[var(--text-primary)]'}>{formatRands(t.balance)}</span>
       </td>
       <td className="py-2.5 px-4">
-        <span className={`text-xs px-2 py-0.5 rounded-full ${
-          t.lease_status === 'Active' ? 'bg-emerald-500/10 text-emerald-300' :
-          t.lease_status === 'Expired' ? 'bg-red-500/10 text-red-300' :
-          'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
-        }`}>{t.lease_status || "—"}</span>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs px-2 py-0.5 rounded-full ${
+            t.lease_status === 'Active' ? 'bg-emerald-500/10 text-emerald-300' :
+            t.lease_status === 'Expired' ? 'bg-red-500/10 text-red-300' :
+            'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
+          }`}>{t.lease_status || "—"}</span>
+          {t.whatsapp_enabled && <MessageSquare className="w-3 h-3 text-emerald-400" />}
+{t.email && <Mail className="w-3 h-3 text-blue-400" />}
+        </div>
       </td>
     </tr>
   );
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-6 pt-8 pb-12">
+      {/* Header — items 7, 10 from review */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Tenant Operations</h1>
           <p className="text-xs text-[var(--text-muted)] mt-1">
-            {totalCount} tenant accounts · {new Set(tenants.map(t => t.entity_id)).size} entities · {new Set(tenants.filter(t => t.property_id).map(t => t.property_id)).size} properties
+            Showing {tenants.length} of {totalCount} tenant accounts · {new Set(tenants.map(t => t.entity_id)).size} entities · {new Set(tenants.filter(t => t.property_id).map(t => t.property_id)).size} properties
             <span className="ml-3">Updated {lastUpdated}</span>
           </p>
         </div>
@@ -201,27 +190,32 @@ export default function TenantsPage() {
         </button>
       </div>
 
+      {/* Recent — item 5 from review */}
       {!hasSearch && recentTenants.length > 0 && (
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-[var(--text-muted)]">Recent:</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-[var(--text-muted)]">Recently Opened:</span>
           {recentTenants.map(t => (
             <button key={t.id} onClick={() => openTenant(t.id)}
-              className="text-[var(--accent)] hover:underline">{t.tenant_name}</button>
+              className="text-xs px-3 py-1 rounded-full border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] transition-colors">
+              {t.tenant_name}
+            </button>
           ))}
         </div>
       )}
 
+      {/* Search — item 6 from review */}
       <div className="relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-muted)]" />
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(0); }}
-          placeholder="Search by tenancy code, trading name, property, unit, email or contact..."
+          placeholder="Find a tenant, tenancy code, registered company, trading name, property, lease, VAT or contact..."
           className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] pl-12 pr-4 py-3.5 text-sm outline-none focus:border-[var(--border-hover)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
         />
       </div>
 
+      {/* Filters — item 3 from review */}
       <div className="flex gap-2 flex-wrap">
         {filters.map(f => (
           <button
@@ -234,11 +228,12 @@ export default function TenantsPage() {
             }`}
           >
             {f.label}
-            <span className="ml-1.5 opacity-60">{(counts as any)[f.key]}</span>
+            <span className="ml-1.5 opacity-60">{f.count}</span>
           </button>
         ))}
       </div>
 
+      {/* Content */}
       {loading ? (
         <div className="space-y-3">
           {[1,2,3,4,5].map(i => (
@@ -248,8 +243,11 @@ export default function TenantsPage() {
             </div>
           ))}
         </div>
-      ) : filteredTenants.length === 0 ? (
-        <div className="text-center py-12 text-[var(--text-muted)]">No tenants found</div>
+      ) : tenants.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-[var(--text-muted)]">No tenants match your search.</p>
+          <p className="text-xs text-[var(--text-muted)] mt-1">Try another tenancy code, property, registered company, or contact.</p>
+        </div>
       ) : hasSearch ? (
         <div>
           <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] overflow-hidden">
@@ -264,37 +262,30 @@ export default function TenantsPage() {
                 </tr>
               </thead>
               <tbody>
-                {pagedTenants.map(t => (
-                  <tr
-                    key={t.id}
-                    onClick={() => openTenant(t.id)}
-                    className="border-b border-[var(--border-default)] last:border-0 cursor-pointer hover:bg-[var(--bg-elevated)] transition-colors"
-                  >
+                {tenants.map(t => (
+                  <tr key={t.id} onClick={() => openTenant(t.id)}
+                    className="border-b border-[var(--border-default)] last:border-0 cursor-pointer hover:bg-[var(--bg-elevated)] transition-colors">
                     <td className="py-2.5 px-4">
                       <p className="text-[var(--text-primary)] font-medium font-mono text-xs">{t.code || t.id.slice(0, 8)}</p>
                       <p className="text-[var(--text-primary)] text-sm">{t.tenant_name}</p>
                       {t.company_registration && <p className="text-xs text-[var(--text-muted)]">{t.company_registration}</p>}
                     </td>
                     <td className="py-2.5 px-4 text-[var(--text-secondary)]">{t.property_name || "—"}</td>
+                    <td className="py-2.5 px-4">{t.current_lease ? <p className="text-[var(--text-primary)] font-mono text-xs">{t.current_lease}</p> : <span className="text-[var(--text-muted)]">—</span>}</td>
+                    <td className="py-2.5 px-4 text-right tabular-nums"><span className={t.balance > 0 ? 'text-amber-400' : 'text-[var(--text-primary)]'}>{formatRands(t.balance)}</span></td>
                     <td className="py-2.5 px-4">
-                      {t.current_lease ? <p className="text-[var(--text-primary)] font-mono text-xs">{t.current_lease}</p> : <span className="text-[var(--text-muted)]">—</span>}
-                    </td>
-                    <td className="py-2.5 px-4 text-right tabular-nums">
-                      <span className={t.balance > 0 ? 'text-amber-400' : 'text-[var(--text-primary)]'}>{formatRands(t.balance)}</span>
-                    </td>
-                    <td className="py-2.5 px-4">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        t.lease_status === 'Active' ? 'bg-emerald-500/10 text-emerald-300' :
-                        t.lease_status === 'Expired' ? 'bg-red-500/10 text-red-300' :
-                        'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
-                      }`}>{t.lease_status || "—"}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${t.lease_status === 'Active' ? 'bg-emerald-500/10 text-emerald-300' : t.lease_status === 'Expired' ? 'bg-red-500/10 text-red-300' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}>{t.lease_status || "—"}</span>
+                        {t.whatsapp_enabled && <MessageSquare className="w-3 h-3 text-emerald-400" />}
+                        {t.email && <Mail className="w-3 h-3 text-blue-400" />}
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {filteredTenants.length > pageSize && (
+          {totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 mt-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)]">
               <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
                 <span>Rows</span>
@@ -307,8 +298,7 @@ export default function TenantsPage() {
                 <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0}
                   className="px-2 py-1 rounded-lg hover:bg-[var(--bg-elevated)] disabled:opacity-30">←</button>
                 <span className="text-[var(--text-muted)]">{currentPage + 1} of {totalPages}</span>
-                <button onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
-                  disabled={currentPage >= totalPages - 1}
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))} disabled={currentPage >= totalPages - 1}
                   className="px-2 py-1 rounded-lg hover:bg-[var(--bg-elevated)] disabled:opacity-30">→</button>
               </div>
             </div>
@@ -316,47 +306,47 @@ export default function TenantsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {Array.from(grouped.entries()).map(([entity, properties]) => (
-            <div key={entity} className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] overflow-hidden">
-              <button
-                onClick={() => toggleEntity(entity)}
-                className="w-full flex items-center gap-2 px-5 py-3 hover:bg-[var(--bg-elevated)] transition-colors text-left"
-              >
-                {expandedEntities.has(entity) ? <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" /> : <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />}
-                <span className="text-sm font-semibold text-[var(--text-primary)]">{entity}</span>
-                <span className="text-xs text-[var(--text-muted)]">{Array.from(properties.values()).flat().length} tenants</span>
-              </button>
-              {expandedEntities.has(entity) && (
-                <div className="border-t border-[var(--border-default)]">
-                  {Array.from(properties.entries()).map(([property, propertyTenants]) => (
-                    <div key={property}>
-                      <button
-                        onClick={() => toggleProperty(`${entity}-${property}`)}
-                        className="w-full flex items-center gap-2 px-8 py-2 hover:bg-[var(--bg-elevated)] transition-colors text-left"
-                      >
-                        {expandedProperties.has(`${entity}-${property}`) ? <ChevronDown className="w-3 h-3 text-[var(--text-muted)]" /> : <ChevronRight className="w-3 h-3 text-[var(--text-muted)]" />}
-                        <span className="text-xs text-[var(--text-secondary)]">{property}</span>
-                        <span className="text-xs text-[var(--text-muted)]">{propertyTenants.length} tenant{propertyTenants.length !== 1 ? 's' : ''}</span>
-                        {propertyTenants.filter(t => t.balance > 0).length > 0 && (
-                          <span className="text-xs text-amber-400">{propertyTenants.filter(t => t.balance > 0).length} arrears</span>
+          {Array.from(grouped.entries()).map(([entity, properties]) => {
+            const entityTenants = Array.from(properties.values()).flat();
+            const entityRevenue = entityTenants.reduce((s, t) => s + (t.monthly_rental || 0), 0);
+            return (
+              <div key={entity} className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] overflow-hidden">
+                <button onClick={() => toggleEntity(entity)}
+                  className="w-full flex items-center gap-2 px-5 py-3 hover:bg-[var(--bg-elevated)] transition-colors text-left">
+                  {expandedEntities.has(entity) ? <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" /> : <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />}
+                  <span className="text-sm font-semibold text-[var(--text-primary)]">{entity}</span>
+                  <span className="text-xs text-[var(--text-muted)]">{entityTenants.length} active · {formatRands(entityRevenue)} monthly · {properties.size} properties</span>
+                </button>
+                {expandedEntities.has(entity) && (
+                  <div className="border-t border-[var(--border-default)]">
+                    {Array.from(properties.entries()).map(([property, propertyTenants]) => (
+                      <div key={property}>
+                        <button onClick={() => toggleProperty(`${entity}-${property}`)}
+                          className="w-full flex items-center gap-2 px-8 py-2 hover:bg-[var(--bg-elevated)] transition-colors text-left">
+                          {expandedProperties.has(`${entity}-${property}`) ? <ChevronDown className="w-3 h-3 text-[var(--text-muted)]" /> : <ChevronRight className="w-3 h-3 text-[var(--text-muted)]" />}
+                          <span className="text-xs text-[var(--text-secondary)]">{property}</span>
+                          <span className="text-xs text-[var(--text-muted)]">{propertyTenants.length} active</span>
+                          {propertyTenants.filter(t => t.balance > 0).length > 0 && (
+                            <span className="text-xs text-amber-400">{propertyTenants.filter(t => t.balance > 0).length} arrears</span>
+                          )}
+                          {propertyTenants.filter(t => t.days_to_expiry <= 90 && t.lease_status === 'Active').length > 0 && (
+                            <span className="text-xs text-red-400">{propertyTenants.filter(t => t.days_to_expiry <= 90 && t.lease_status === 'Active').length} expiring</span>
+                          )}
+                        </button>
+                        {expandedProperties.has(`${entity}-${property}`) && (
+                          <table className="w-full text-sm">
+                            <tbody>
+                              {propertyTenants.map(t => <TenantRow key={t.id} t={t} />)}
+                            </tbody>
+                          </table>
                         )}
-                        {propertyTenants.filter(t => t.days_to_expiry <= 90 && t.lease_status === 'Active').length > 0 && (
-                          <span className="text-xs text-red-400">{propertyTenants.filter(t => t.days_to_expiry <= 90 && t.lease_status === 'Active').length} expiring</span>
-                        )}
-                      </button>
-                      {expandedProperties.has(`${entity}-${property}`) && (
-                        <table className="w-full text-sm">
-                          <tbody>
-                            {propertyTenants.map(t => <TenantRow key={t.id} t={t} />)}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
