@@ -13,7 +13,6 @@ const navItems = [
   { label: "Morning Brief", href: "/", icon: Home, desc: "Portfolio Overview" },
   { section: "divider" },
   { section: "header", label: "OPERATIONS" },
-  { label: "Leases", href: "/leases", icon: FileText, desc: "Lease Lifecycle · Renewals · Documents" },
   { label: "Revenue Ops", href: "/financials/revenue", icon: Receipt, desc: "Billing · Statements · Utilities" },
   { label: "Cash Book", href: "/financials/cash-book", icon: Landmark, desc: "Banking · Reconciliation · Allocation" },
   { label: "Communications", href: "/communications", icon: MessageSquare, desc: "Email · WhatsApp · Statements" },

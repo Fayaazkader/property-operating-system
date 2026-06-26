@@ -173,22 +173,27 @@ export default function TenantsPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-6 pt-8 pb-12">
-      {/* Header — items 7, 10 from review */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Tenant Operations</h1>
-          <p className="text-xs text-[var(--text-muted)] mt-1">
-            Showing {tenants.length} of {totalCount} tenant accounts · {new Set(tenants.map(t => t.entity_id)).size} entities · {new Set(tenants.filter(t => t.property_id).map(t => t.property_id)).size} properties
-            <span className="ml-3">Updated {lastUpdated}</span>
-          </p>
-        </div>
-        <button
-          onClick={() => router.push('/tenants/new')}
-          className="flex items-center gap-2 rounded-xl bg-[var(--text-primary)] text-[var(--bg-primary)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity"
-        >
-          <Plus className="w-4 h-4" /> New Tenant
-        </button>
-      </div>
+      {/* Header */}
+<div className="flex items-center justify-between">
+  <div>
+    <h1 className="text-2xl font-bold text-[var(--text-primary)]">Tenant Operations</h1>
+    <div className="flex items-center gap-4 mt-1 text-xs text-[var(--text-muted)]">
+      <span>{totalCount} tenant accounts</span>
+      <span>·</span>
+      <span>{new Set(tenants.map(t => t.entity_id)).size} entities</span>
+      <span>·</span>
+      <span>{new Set(tenants.filter(t => t.property_id).map(t => t.property_id)).size} properties</span>
+      <span>·</span>
+      <span>Updated {lastUpdated}</span>
+    </div>
+  </div>
+  <button
+    onClick={() => router.push('/tenants/new')}
+    className="flex items-center gap-2 rounded-xl bg-[var(--text-primary)] text-[var(--bg-primary)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity"
+  >
+    <Plus className="w-4 h-4" /> New Tenant
+  </button>
+</div>
 
       {/* Recent — item 5 from review */}
       {!hasSearch && recentTenants.length > 0 && (
