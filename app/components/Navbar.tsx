@@ -13,22 +13,32 @@ export default function Navbar() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showAttention, setShowAttention] = useState(false);
   const [attentionCount, setAttentionCount] = useState(0);
+  const [displayName, setDisplayName] = useState("");
   const { isOpen, open, close } = useCommandPalette();
 
   if (pathname === '/login' || pathname === '/signup' || pathname === '/landing') return null;
-
-  useEffect(() => {
-    async function getUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) setEmail(user.email);
+useEffect(() => {
+  async function getUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email) {
+      setEmail(user.email);
+      const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", user.id).single();
+      if (profile?.display_name) setDisplayName(profile.display_name);
     }
-    getUser();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user?.email) setEmail(session.user.email);
-      else setEmail("");
-    });
-    return () => subscription.unsubscribe();
-  }, []);
+  }
+  getUser();
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    if (session?.user?.email) {
+      setEmail(session.user.email);
+      const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", session.user.id).single();
+      if (profile?.display_name) setDisplayName(profile.display_name);
+    } else {
+      setEmail("");
+      setDisplayName("");
+    }
+  });
+  return () => subscription.unsubscribe();
+}, []);
 
   useEffect(() => {
     async function loadAttention() {
@@ -82,7 +92,7 @@ export default function Navbar() {
 
         <div className="relative">
           <button onClick={() => setShowDropdown(!showDropdown)} className="flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
-            <span>{email ? email.split('@')[0] : "User"}</span><span>▼</span>
+            <span>{displayName || (email ? email.split('@')[0] : "User")}</span>
           </button>
           {showDropdown && (
             <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)] shadow-lg py-1 overflow-hidden">

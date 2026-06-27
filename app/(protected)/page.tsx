@@ -11,6 +11,7 @@ export default function HomePage() {
   const router = useRouter();
   const { open } = useCommandPalette();
   const [loading, setLoading] = useState(true);
+  const [displayName, setDisplayName] = useState("");
   const [data, setData] = useState<any>({
     leases: [], transactions: [], recentLeases: [], communications: [],
     unallocated: [], vacantUnits: [], stmtPeriod: null, finPeriod: null,
@@ -21,6 +22,8 @@ export default function HomePage() {
     async function checkAuthAndLoad() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.replace('/landing'); return; }
+      const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", session.user.id).single();
+if (profile?.display_name) setDisplayName(profile.display_name);
 
       const { data: entityIds } = await supabase.rpc('auth_entities');
       const entityIdList = entityIds || [];
@@ -135,7 +138,9 @@ export default function HomePage() {
     <div className="mx-auto max-w-7xl space-y-10 px-6 pt-12 pb-20">
       <div className="space-y-2">
         <p className="text-sm tracking-[0.2em] uppercase text-[var(--text-muted)]">Morning Brief</p>
-        <h1 className="text-4xl font-semibold tracking-tight text-[var(--text-primary)]">{greeting}</h1>
+        <h1 className="text-4xl font-semibold tracking-tight text-[var(--text-primary)]">
+  {greeting}{displayName ? `, ${displayName}` : ""}
+</h1>
         <p className="text-lg text-[var(--text-secondary)] leading-relaxed">
           {portfolioHealthy ? "Your portfolio is healthy. A few items need attention." : `${attentionItems.length} items require attention. ${criticalLeases.length} ${criticalLeases.length === 1 ? "is" : "are"} critical.`}
         </p>
