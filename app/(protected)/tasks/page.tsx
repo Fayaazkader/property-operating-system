@@ -18,8 +18,7 @@ export default function TasksPage() {
   useEffect(() => { loadData(); }, [page, filter, searchTerm]);
 
   async function loadData() {
-    const [myWorkFilter, setMyWorkFilter] = useState(false);
-    setLoading(true);
+        setLoading(true);
     const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize), filter });
     if (searchTerm) params.set("search", searchTerm);
     const res = await fetch(`/api/intelligence/tasks?${params}`);
