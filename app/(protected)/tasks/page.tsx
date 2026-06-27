@@ -1,329 +1,161 @@
-"use client";
+'use client';
 
-import { usePlatform } from "@/app/context/PlatformContext";
+import { useState, useEffect } from 'react';
+import { Search, CheckSquare, AlertTriangle, Clock, Flag, Calendar } from "lucide-react";
+import { Receipt, Landmark, MessageSquare, FileText, Briefcase, Shield, Settings } from "lucide-react";
 
 export default function TasksPage() {
+  const [data, setData] = useState<any>({ tasks: [], total: 0, summary: null });
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(0);
+  const pageSize = 50;
+  const [currentUser, setCurrentUser] = useState("");
+  
 
-  const {
-    activeCompany,
-    activeRole,
-  } = usePlatform();
 
-  const tasks = [
-    
+  useEffect(() => { loadData(); }, [page, filter, searchTerm]);
 
-    {
-      id: 1,
-      title:
-        "Lease renewal negotiation",
-      priority: "High",
-      status: "In Progress",
-      dueDate: "2026-06-02",
-      workspace: "Leasing",
-      owner: "Sarah Chen",
-    },
+  async function loadData() {
+    const [myWorkFilter, setMyWorkFilter] = useState(false);
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize), filter });
+    if (searchTerm) params.set("search", searchTerm);
+    const res = await fetch(`/api/intelligence/tasks?${params}`);
+    const json = await res.json();
+    setData(json);
+    setLoading(false);
+  }
 
-    {
-      id: 2,
-      title:
-        "Arrears escalation review",
-      priority: "Critical",
-      status: "Pending",
-      dueDate: "2026-05-28",
-      workspace: "Finance",
-      owner: "Michael Jacobs"
-    },
+  const { tasks, total, summary } = data;
+  const totalPages = Math.ceil(total / pageSize);
 
-    {
-      id: 3,
-      title:
-        "Portfolio occupancy audit",
-      priority: "Medium",
-      status: "Scheduled",
-      dueDate: "2026-06-10",
-      workspace: "Executive",
-      owner: "Executive Office"
-    },
+  const formatDate = (d: string) => d ? new Date(d).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : "—";
 
-    {
-      id: 4,
-      title:
-        "Maintenance contractor approval",
-      priority: "High",
-      status: "Awaiting Approval",
-      dueDate: "2026-05-30",
-      workspace: "Operations",
-      owner: "David Naidoo"
-    },
-    
+  const priorityBadge = (priority: string) => {
+    if (priority === 'high') return <Flag className="w-3 h-3 text-red-400" />;
+    if (priority === 'medium') return <Flag className="w-3 h-3 text-amber-400" />;
+    return <Flag className="w-3 h-3 text-[var(--text-muted)]" />;
+  };
 
+  const statusBadge = (status: string, dueDate: string) => {
+    if (status === 'completed') return <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300">Done</span>;
+    if (dueDate && new Date(dueDate) < new Date()) return <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-300">Overdue</span>;
+    if (dueDate && new Date(dueDate).toDateString() === new Date().toDateString()) return <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300">Today</span>;
+    return <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300">Open</span>;
+  };
+
+
+const sourceIcon = (source: string) => {
+  const s = (source || '').toLowerCase();
+  if (s.includes('revenue') || s.includes('billing')) return <Receipt className="w-3 h-3 text-[var(--text-muted)]" />;
+  if (s.includes('cash') || s.includes('bank') || s.includes('allocation')) return <Landmark className="w-3 h-3 text-[var(--text-muted)]" />;
+  if (s.includes('comm') || s.includes('whatsapp') || s.includes('email')) return <MessageSquare className="w-3 h-3 text-[var(--text-muted)]" />;
+  if (s.includes('lease')) return <FileText className="w-3 h-3 text-[var(--text-muted)]" />;
+  if (s.includes('supplier')) return <Briefcase className="w-3 h-3 text-[var(--text-muted)]" />;
+  if (s.includes('complian')) return <Shield className="w-3 h-3 text-[var(--text-muted)]" />;
+  return <CheckSquare className="w-3 h-3 text-[var(--text-muted)]" />;
+};
+
+  const filters = [
+    { key: "all", label: "All", count: summary?.total || 0 },
+    { key: "my", label: "My Work", count: summary?.open || 0 },
+    { key: "pending", label: "Open", count: summary?.open || 0 },
+    { key: "overdue", label: "Overdue", count: summary?.overdue || 0 },
+    { key: "today", label: "Today", count: summary?.today || 0 },
+    { key: "high", label: "High Priority", count: summary?.high || 0 },
+    { key: "completed", label: "Done", count: (summary?.total || 0) - (summary?.open || 0) },
   ];
-  const statusStyles = {
-    
-
-  Pending:
-    "bg-zinc-800 text-zinc-300",
-
-  "In Progress":
-    "bg-blue-500/20 text-blue-400",
-
-  "Awaiting Approval":
-    "bg-orange-500/20 text-orange-400",
-
-  Resolved:
-    "bg-green-500/20 text-green-400",
-
-  Escalated:
-    "bg-red-500/20 text-red-400",
-
-};
-const priorityStyles = {
-
-  Critical:
-    "border-red-500/30 bg-red-500/10 text-red-400",
-
-  High:
-    "border-orange-500/30 bg-orange-500/10 text-orange-400",
-
-  Medium:
-    "border-yellow-500/30 bg-yellow-500/10 text-yellow-400",
-
-  Low:
-    "border-zinc-700 bg-zinc-800 text-zinc-300",
-
-};
-const groupedTasks = tasks.reduce(
-
-  (groups, task) => {
-
-    if (!groups[task.status]) {
-
-      groups[task.status] = [];
-    }
-
-    groups[task.status].push(task);
-
-    return groups;
-
-  },
-
-  {} as Record<string, typeof tasks>
-
-);
 
   return (
-
-    <div className="p-8">
-
-      <div className="mb-8">
-
-        <p className="text-sm uppercase tracking-[0.25em] text-zinc-500 mb-3">
-
-          Operational Workflow System
-
-        </p>
-
-        <h1 className="text-5xl font-black text-white">
-
-          Tasks Workspace
-
-        </h1>
-
-        <p className="mt-4 text-zinc-400 max-w-3xl leading-8">
-
-          Centralized operational workflow orchestration across leasing,
-          finance, executive management, and operations.
-
-        </p>
-
+    <div className="mx-auto max-w-7xl space-y-6 px-6 pt-8 pb-12">
+      <div>
+       <h1 className="text-2xl font-bold text-[var(--text-primary)]">Tasks</h1>
+<p className="text-xs text-[var(--text-muted)] mt-1">Tasks generated by platform workflows and operational events.</p>
+<p className="text-xs text-[var(--text-muted)]">{summary?.open || 0} open · {summary?.overdue || 0} overdue · {summary?.today || 0} due today · {summary?.high || 0} high priority</p>
       </div>
 
-      <div className="mb-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
-
-        <div className="flex flex-wrap items-center gap-6">
-
-          <div>
-
-            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-2">
-
-              Active Organization
-
-            </p>
-
-            <p className="text-lg font-semibold text-white">
-
-              {activeCompany.name}
-
-            </p>
-
-          </div>
-
-          <div>
-
-            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-2">
-
-              Active Role
-
-            </p>
-
-            <p className="text-lg font-semibold text-white">
-
-              {activeRole.label}
-
-            </p>
-
-          </div>
-
+      {/* KPIs */}
+      {summary && (
+        <div className="grid grid-cols-5 gap-3">
+          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-[var(--text-primary)]">{summary.open}</p><p className="text-xs text-[var(--text-muted)]">Open</p></div>
+          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-red-400">{summary.overdue}</p><p className="text-xs text-[var(--text-muted)]">Overdue</p></div>
+          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-amber-400">{summary.today}</p><p className="text-xs text-[var(--text-muted)]">Due Today</p></div>
+          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-[var(--text-primary)]">{summary.high}</p><p className="text-xs text-[var(--text-muted)]">High Priority</p></div>
+          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-emerald-400">{summary.total - summary.open}</p><p className="text-xs text-[var(--text-muted)]">Completed</p></div>
         </div>
+      )}
 
-      </div>
-
-    <div className="space-y-10">
-
-  {Object.entries(groupedTasks).map(
-
-    ([status, tasks]) => (
-
-      <div key={status}>
-
-        <div className="mb-5 flex items-center justify-between">
-
-          <h2 className="text-2xl font-bold text-white">
-
-            {status}
-
-          </h2>
-
-          <span className="rounded-full bg-zinc-800 px-4 py-2 text-sm text-zinc-400">
-
-            {tasks.length}
-            {" "}
-            Tasks
-
-          </span>
-
+      {/* Search + Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+          <input type="text" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPage(0); }} placeholder="Search tasks..." className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] pl-10 pr-4 py-2.5 text-sm outline-none focus:border-[var(--border-hover)]" />
         </div>
-
-        <div className="grid gap-5">
-
-          {tasks.map((task) => (
-
-            <div
-              key={task.id}
-              className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6"
-            >
-
-              <div className="flex flex-wrap items-start justify-between gap-4">
-
-                <div>
-
-                  <p className="text-2xl font-bold text-white">
-
-                    {task.title}
-
-                  </p>
-
-                  <p className="mt-3 text-zinc-400">
-
-                    Workspace:
-                    {" "}
-                    {task.workspace}
-
-                  </p>
-                  <p className="mt-2 text-zinc-500">
-
-  Owner:
-  {" "}
-  <span className="text-white font-medium">
-
-    {task.owner}
-
-  </span>
-
-</p>
-
-                </div>
-
-                <div className="flex flex-wrap gap-3">
-
-                  <span
-                    className={`
-                      rounded-full
-                      border
-                      px-4
-                      py-2
-                      text-sm
-                      font-semibold
-
-                      ${
-                        priorityStyles[
-                          task.priority as keyof typeof priorityStyles
-                        ]
-                      }
-                    `}
-                  >
-
-                    {task.priority}
-
-                  </span>
-
-                  <span
-                    className={`
-                      rounded-full
-                      px-4
-                      py-2
-                      text-sm
-                      font-semibold
-
-                      ${
-                        statusStyles[
-                          task.status as keyof typeof statusStyles
-                        ]
-                      }
-                    `}
-                  >
-
-                    {task.status}
-
-                  </span>
-
-                </div>
-
-              </div>
-
-              <div className="mt-6 flex items-center justify-between border-t border-zinc-800 pt-5">
-
-                <p className="text-sm text-zinc-500">
-
-                  Due:
-                  {" "}
-                  {task.dueDate}
-
-                </p>
-
-                <button className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200">
-
-                  Open Workflow
-
-                </button>
-
-              </div>
-
-            </div>
-
+        <div className="flex gap-2 flex-wrap">
+          {filters.map(f => (
+            <button key={f.key} onClick={() => { setFilter(f.key); setPage(0); }} className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${filter === f.key ? 'bg-[var(--text-primary)] text-[var(--bg-primary)]' : 'border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-hover)]'}`}>
+              {f.label} <span className="ml-1 opacity-60">{f.count}</span>
+            </button>
           ))}
-
         </div>
-
       </div>
 
-    )
+      {/* Table */}
+      {loading ? (
+        <div className="space-y-2">{[1,2,3,4,5].map(i => (<div key={i} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4 animate-pulse"><div className="h-4 bg-[var(--bg-elevated)] rounded w-1/3 mb-2"></div><div className="h-3 bg-[var(--bg-elevated)] rounded w-1/2"></div></div>))}</div>
+      ) : tasks.length === 0 ? (
+        <div className="text-center py-12 text-[var(--text-muted)]"><CheckSquare className="w-8 h-8 mx-auto mb-2 opacity-30" /><p>No tasks found</p></div>
+      ) : (
+        <>
+          <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--border-default)]">
+                  <th className="text-left py-2.5 px-4 text-xs text-[var(--text-muted)] font-normal uppercase tracking-[0.2em] w-8"></th>
+                  <th className="text-left py-2.5 px-4 text-xs text-[var(--text-muted)] font-normal uppercase tracking-[0.2em]">Task</th>
+                  <th className="text-left py-2.5 px-4 text-xs text-[var(--text-muted)] font-normal uppercase tracking-[0.2em]">Source</th>
+                  <th className="text-left py-2.5 px-4 text-xs text-[var(--text-muted)] font-normal uppercase tracking-[0.2em]">Assigned</th>
+                  <th className="text-left py-2.5 px-4 text-xs text-[var(--text-muted)] font-normal uppercase tracking-[0.2em]">Due</th>
+                  <th className="text-left py-2.5 px-4 text-xs text-[var(--text-muted)] font-normal uppercase tracking-[0.2em]">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tasks.map((t: any) => (
+                  <tr key={t.id} className="border-b border-[var(--border-default)] last:border-0 hover:bg-[var(--bg-elevated)] transition-colors">
+                    <td className="py-2.5 px-4">{priorityBadge(t.priority)}</td>
+                    <td className="py-2.5 px-4">
+                      <p className="text-[var(--text-primary)] font-medium">{t.title || t.description || "Untitled Task"}</p>
+                      {t.description && t.title && <p className="text-xs text-[var(--text-muted)] truncate max-w-xs">{t.description}</p>}
+                    </td>
+                    <td className="py-2.5 px-4"><span className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">{sourceIcon(t.source)} {t.source || "—"}</span></td>
+                    <td className="py-2.5 px-4"><span className="text-xs text-[var(--text-muted)]">{t.assigned_to || "—"}</span></td>
+                    <td className="py-2.5 px-4"><span className="text-xs text-[var(--text-muted)] flex items-center gap-1"><Calendar className="w-3 h-3" /> {formatDate(t.due_date)}</span></td>
+                    <td className="py-2.5 px-4">{statusBadge(t.status, t.due_date)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-  )}
-
-</div>
-
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-[var(--text-muted)]">Page {page + 1} of {totalPages}</div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="px-3 py-1.5 rounded-lg text-xs hover:bg-[var(--bg-elevated)] disabled:opacity-30">← Prev</button>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  const start = Math.max(0, Math.min(page - 2, totalPages - 5));
+                  const pageNum = start + i;
+                  return <button key={pageNum} onClick={() => setPage(pageNum)} className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${page === pageNum ? 'bg-[var(--text-primary)] text-[var(--bg-primary)]' : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]'}`}>{pageNum + 1}</button>;
+                })}
+                {totalPages > 5 && page < totalPages - 3 && <span className="text-xs text-[var(--text-muted)]">...{totalPages}</span>}
+                <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="px-3 py-1.5 rounded-lg text-xs hover:bg-[var(--bg-elevated)] disabled:opacity-30">Next →</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
-
   );
 }
