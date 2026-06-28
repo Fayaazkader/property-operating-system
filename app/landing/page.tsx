@@ -33,8 +33,17 @@ export default function LandingPage() {
     }),
   });
 
+  console.log("Status:", res.status);
+  
   if (res.ok) {
     setBetaSubmitted(true);
+  } else {
+    try {
+      const data = await res.json();
+      console.error("Insert failed:", data);
+    } catch {
+      console.error("Insert failed with status:", res.status);
+    }
   }
 };
 
