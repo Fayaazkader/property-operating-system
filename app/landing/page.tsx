@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { supabase } from "@/lib/supabase";
 
 export default function LandingPage() {
   const [betaEmail, setBetaEmail] = useState('');
@@ -12,11 +13,30 @@ export default function LandingPage() {
   const [betaHeadache, setBetaHeadache] = useState('');
   const [betaSubmitted, setBetaSubmitted] = useState(false);
 
-  const handleBetaSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Beta request:', { betaEmail, betaCompany, betaPortfolio, betaSystem, betaHeadache });
+  const handleBetaSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beta_waitlist`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      "Authorization": `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+    },
+    body: JSON.stringify({
+      name: betaEmail.split('@')[0] || "Unknown",
+      company_name: betaCompany,
+      email: betaEmail,
+      portfolio_size: betaPortfolio,
+      pain_point: betaHeadache,
+      status: "new",
+    }),
+  });
+
+  if (res.ok) {
     setBetaSubmitted(true);
-  };
+  }
+};
 
   return (
     <div className="min-h-screen bg-black text-white">
