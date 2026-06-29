@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { supabase } from "@/lib/supabase";
 
 export default function LandingPage() {
   const [betaEmail, setBetaEmail] = useState('');
@@ -47,7 +46,7 @@ export default function LandingPage() {
       </nav>
 
       {/* ============================================================ */}
-      {/* HERO — single screenshot, product face */}
+      {/* HERO */}
       {/* ============================================================ */}
       <section className="relative overflow-hidden px-6 pt-32 pb-20 md:pt-40">
         <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-emerald-500/5 blur-3xl" />
@@ -62,7 +61,7 @@ export default function LandingPage() {
               <span className="text-gray-400">Your portfolio is talking.</span>
             </h1>
             <p className="mx-auto max-w-2xl text-lg text-gray-400">
-              Commercial property operations, finally in one system. Leases, billing, statements, cash books, communications and intelligence — from a single operating platform.
+              The commercial property operating system. Leases, billing, cash books and communications — finally working together.
             </p>
             <div className="flex flex-wrap justify-center gap-4 pt-4">
               <a href="#beta" className="rounded-full bg-white px-8 py-3.5 text-sm font-medium text-black transition hover:bg-white/90">Request Beta Access</a>
@@ -99,8 +98,8 @@ export default function LandingPage() {
             </div>
           ))}
         </div>
-        <div className="mt-6 text-center">
-          <p className="text-xl text-white font-medium">AssetFlow → One operating system.</p>
+        <div className="mt-8 text-center">
+          <p className="text-2xl text-white font-semibold">One portfolio. One team. One operating system.</p>
         </div>
       </section>
 
@@ -131,7 +130,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============================================================ */}
-      {/* PRODUCT TOUR — 4 screenshots only */}
+      {/* PRODUCT TOUR — 3 screenshots */}
       {/* ============================================================ */}
       <section className="mx-auto max-w-6xl px-6 py-20">
         <div className="mb-12 text-center">
@@ -140,7 +139,6 @@ export default function LandingPage() {
         </div>
 
         <div className="space-y-16">
-          {/* Revenue Ops */}
           <div>
             <div className="mb-4">
               <p className="text-sm font-semibold text-white">Revenue Operations</p>
@@ -151,7 +149,6 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Cash Book */}
           <div>
             <div className="mb-4">
               <p className="text-sm font-semibold text-white">Cash Book</p>
@@ -162,26 +159,26 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Tenant Workspace */}
           <div>
             <div className="mb-4">
-              <p className="text-sm font-semibold text-white">Tenant Workspace</p>
-              <p className="text-sm text-gray-400">Everything about a tenant in one place — leases, statements, communications, tasks, and audit history.</p>
-            </div>
-            <div className="overflow-hidden rounded-2xl border border-white/5 bg-white/5 shadow-2xl">
-              <img src="/screenshots/tenant-workspace.png" alt="AssetFlow Tenant Workspace" className="w-full h-auto" />
-            </div>
-          </div>
-
-          {/* Property Workspace */}
-          <div>
-            <div className="mb-4">
-              <p className="text-sm font-semibold text-white">Property Workspace</p>
+              <p className="text-sm font-semibold text-white">Property Intelligence Workspace</p>
               <p className="text-sm text-gray-400">Asset health scoring, tenant concentration, occupancy metrics, and financial performance — per property.</p>
             </div>
             <div className="overflow-hidden rounded-2xl border border-white/5 bg-white/5 shadow-2xl">
               <img src="/screenshots/property-workspace.png" alt="AssetFlow Property Workspace" className="w-full h-auto" />
             </div>
+          </div>
+        </div>
+
+        <div className="mt-12 rounded-2xl border border-white/5 bg-white/5 p-6 text-center">
+          <p className="text-sm text-gray-400">Also included:</p>
+          <div className="mt-3 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-300">
+            <span>✓ Tenant Workspace</span>
+            <span>✓ Communications Engine</span>
+            <span>✓ Tasks & Workflows</span>
+            <span>✓ Audit Trail</span>
+            <span>✓ Document Management</span>
+            <span>✓ Operational Calendar</span>
           </div>
         </div>
       </section>
@@ -195,20 +192,20 @@ export default function LandingPage() {
           <h2 className="mt-3 text-3xl font-bold text-white md:text-4xl">What your portfolio is trying to tell you.</h2>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
-          <div className="rounded-3xl border border-emerald-500/10 bg-emerald-500/5 p-8">
-            <div className="text-4xl font-bold text-emerald-400">R47,500</div>
-            <p className="mt-2 text-lg font-medium text-white">Missed recoveries found</p>
-            <p className="mt-1 text-sm text-gray-400">Parking, utilities, rates — flagged before they hit your P&L.</p>
+          <div className="rounded-3xl border border-amber-500/10 bg-amber-500/5 p-8">
+            <div className="text-4xl font-bold text-amber-400">3</div>
+            <p className="mt-2 text-lg font-medium text-white">Parking bays have no billing rule</p>
+            <p className="mt-1 text-sm text-gray-400">Potential loss: R31,500 annually. Flagged before it hits your P&L.</p>
           </div>
           <div className="rounded-3xl border border-amber-500/10 bg-amber-500/5 p-8">
-            <div className="text-4xl font-bold text-amber-400">5</div>
-            <p className="mt-2 text-lg font-medium text-white">Leases expiring soon</p>
-            <p className="mt-1 text-sm text-gray-400">Renewal alerts. Revenue at risk. Don't let leases lapse.</p>
+            <div className="text-4xl font-bold text-amber-400">44</div>
+            <p className="mt-2 text-lg font-medium text-white">Vacant units across your portfolio</p>
+            <p className="mt-1 text-sm text-gray-400">Daily revenue loss: R30,247. Vacancy cost clock tracks every day.</p>
           </div>
-          <div className="rounded-3xl border border-blue-500/10 bg-blue-500/5 p-8">
-            <div className="text-4xl font-bold text-blue-400">7</div>
-            <p className="mt-2 text-lg font-medium text-white">Things need attention</p>
-            <p className="mt-1 text-sm text-gray-400">Prioritized. Actionable. The system flags. You decide.</p>
+          <div className="rounded-3xl border border-red-500/10 bg-red-500/5 p-8">
+            <div className="text-4xl font-bold text-red-400">5</div>
+            <p className="mt-2 text-lg font-medium text-white">Leases expire within 90 days</p>
+            <p className="mt-1 text-sm text-gray-400">Revenue exposed: R2.1m annually. Renewal alerts before it's too late.</p>
           </div>
         </div>
       </section>
@@ -232,6 +229,7 @@ export default function LandingPage() {
             </thead>
             <tbody>
               {[
+                ["Single Operating Workspace", "✓", "×"],
                 ["Morning Brief", "✓", "×"],
                 ["Revenue Leakage Detection", "✓", "×"],
                 ["Vacancy Cost Clock", "✓", "×"],
@@ -247,6 +245,21 @@ export default function LandingPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* ============================================================ */}
+      {/* TRUST */}
+      {/* ============================================================ */}
+      <section className="mx-auto max-w-3xl px-6 py-20 text-center">
+        <div className="border-t border-white/5 pt-16">
+          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Built by property professionals</p>
+          <p className="mt-4 text-lg text-gray-400 leading-relaxed">
+            Designed by people who have worked in administration, leasing, property management, and portfolio management.
+          </p>
+          <p className="mt-2 text-white font-medium">
+            Not software people trying to understand property. Property people building software.
+          </p>
         </div>
       </section>
 
