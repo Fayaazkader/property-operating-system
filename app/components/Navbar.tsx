@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { CommandPalette } from "./layout/CommandPalette";
 import { useCommandPalette } from "@/lib/platform/CommandPaletteContext";
-import { Bell } from "lucide-react";
+import { Bell, MessageSquare } from "lucide-react";
 
 export default function Navbar() {
   const router = useRouter();
@@ -21,6 +21,11 @@ export default function Navbar() {
   const { isOpen, open, close } = useCommandPalette();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const attentionRef = useRef<HTMLDivElement>(null);
+
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackType, setFeedbackType] = useState("love");
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
   if (pathname === '/login' || pathname === '/signup' || pathname === '/landing') return null;
 
@@ -94,7 +99,6 @@ export default function Navbar() {
 
   return (
     <div className="bg-[var(--bg-primary)] border-b border-[var(--border-default)] px-6 py-3 flex items-center justify-between relative z-50">
-      {/* Center: Search */}
       <div className="flex-1 max-w-xl">
         <button onClick={open} className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-2 text-sm text-[var(--text-muted)] text-left hover:border-[var(--border-hover)] transition-colors flex items-center gap-3">
           <span className="flex-1">Search anything...</span>
@@ -102,17 +106,12 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Right: Periods + Attention + User */}
       <div className="flex items-center gap-4 ml-6">
         {stmtPeriod && (
-          <span className="rounded-full border border-[var(--border-default)] px-3 py-1 text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)]">
-            STMT {stmtPeriod}
-          </span>
+          <span className="rounded-full border border-[var(--border-default)] px-3 py-1 text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)]">STMT {stmtPeriod}</span>
         )}
         {finPeriod && (
-          <span className="rounded-full border border-[var(--border-default)] px-3 py-1 text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)]">
-            FIN {finPeriod}
-          </span>
+          <span className="rounded-full border border-[var(--border-default)] px-3 py-1 text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)]">FIN {finPeriod}</span>
         )}
 
         <div className="relative" ref={attentionRef}>
@@ -128,6 +127,35 @@ export default function Navbar() {
               {attentionItems.map((item, i) => (
                 <button key={i} onClick={() => { router.push(item.href); setShowAttention(false); }} className="w-full text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] px-4 py-2 transition-colors">{item.label}</button>
               ))}
+            </div>
+          )}
+        </div>
+
+        <div className="relative">
+          <button onClick={() => setShowFeedback(!showFeedback)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" title="Send Feedback">
+            <MessageSquare className="w-5 h-5" />
+          </button>
+          {showFeedback && (
+            <div className="absolute right-0 mt-2 w-80 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)] shadow-xl p-4 overflow-hidden z-50">
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)] mb-3">Send Feedback</p>
+              {feedbackSubmitted ? (
+                <p className="text-sm text-emerald-400 text-center py-4">Thank you! Feedback submitted.</p>
+              ) : (
+                <>
+                  <div className="flex gap-2 mb-3">
+                    {[{ key: "love", label: "❤️ Love" }, { key: "frustration", label: "😤 Frustrated" }, { key: "missing_feature", label: "💡 Missing" }].map(f => (
+                      <button key={f.key} onClick={() => setFeedbackType(f.key)} className={`rounded-full px-3 py-1 text-xs transition-colors ${feedbackType === f.key ? 'bg-white text-black' : 'border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-hover)]'}`}>{f.label}</button>
+                    ))}
+                  </div>
+                  <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows={2} placeholder="What's on your mind?" className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] resize-none placeholder:text-[var(--text-muted)] mb-3" />
+                  <button onClick={async () => {
+                    if (!feedbackText.trim()) return;
+                    await supabase.from("feedback_items").insert({ category: feedbackType, title: feedbackText, status: "new", page: pathname });
+                    setFeedbackSubmitted(true);
+                    setTimeout(() => { setShowFeedback(false); setFeedbackSubmitted(false); setFeedbackText(""); }, 2000);
+                  }} className="w-full rounded-xl bg-[var(--text-primary)] text-[var(--bg-primary)] py-2 text-xs font-semibold hover:opacity-90 transition-opacity">Submit</button>
+                </>
+              )}
             </div>
           )}
         </div>
