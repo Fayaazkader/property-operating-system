@@ -21,6 +21,7 @@ export default function Navbar() {
   const { isOpen, open, close } = useCommandPalette();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const attentionRef = useRef<HTMLDivElement>(null);
+  const feedbackRef = useRef<HTMLDivElement>(null);
 
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
@@ -81,13 +82,14 @@ export default function Navbar() {
   }, [open]);
 
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowDropdown(false);
-      if (attentionRef.current && !attentionRef.current.contains(e.target as Node)) setShowAttention(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  function handleClickOutside(e: MouseEvent) {
+    if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowDropdown(false);
+    if (attentionRef.current && !attentionRef.current.contains(e.target as Node)) setShowAttention(false);
+    if (feedbackRef.current && !feedbackRef.current.contains(e.target as Node)) setShowFeedback(false);
+  }
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -131,8 +133,8 @@ export default function Navbar() {
           )}
         </div>
 
-        <div className="relative">
-          <button onClick={() => setShowFeedback(!showFeedback)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" title="Send Feedback">
+        <div className="relative" ref={feedbackRef}>
+  <button onClick={() => setShowFeedback(!showFeedback)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" title="Send Feedback">
             <MessageSquare className="w-5 h-5" />
           </button>
           {showFeedback && (

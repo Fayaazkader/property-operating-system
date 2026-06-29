@@ -345,9 +345,12 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 md:flex-row">
           <p className="text-sm text-gray-500">© 2026 AssetFlow — The Commercial Property Operating System</p>
           <div className="flex items-center gap-6 text-sm text-gray-500">
-            <a href="/privacy" className="transition-colors hover:text-white">Privacy</a>
-            <a href="/terms" className="transition-colors hover:text-white">Terms</a>
-          </div>
+  <a href="/about" className="transition-colors hover:text-white">About</a>
+  <a href="/security" className="transition-colors hover:text-white">Security</a>
+  <a href="/contact" className="transition-colors hover:text-white">Contact</a>
+  <a href="/privacy" className="transition-colors hover:text-white">Privacy</a>
+  <a href="/terms" className="transition-colors hover:text-white">Terms</a>
+</div>
         </div>
       </footer>
     </div>
