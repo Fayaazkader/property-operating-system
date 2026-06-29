@@ -19,14 +19,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
   );
 
-  // Property
   const { data: property } = await supabase.from("properties").select("*").eq("id", id).single();
   if (!property) return NextResponse.json({ error: "Property not found" }, { status: 404 });
 
-  // Entity
   const { data: entity } = await supabase.from("entities").select("entity_name").eq("id", property.entity_id).single();
 
-  // Active leases
   const { data: leases } = await supabase
     .from("leases")
     .select("id, lease_id, tenant_id, lease_status, lease_start_date, lease_end_date, monthly_rental, tenants(tenant_name)")
@@ -34,13 +31,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .order("lease_start_date", { ascending: false });
 
   const activeLeases = leases?.filter(l => l.lease_status === 'Active') || [];
-  const occupied = activeLeases.length;
-  const totalUnits = property.number_of_units || activeLeases.length;
-  const vacant = totalUnits - occupied;
-  const occupancy = totalUnits > 0 ? Math.round((occupied / totalUnits) * 100) : 0;
   const monthlyRevenue = activeLeases.reduce((s, l) => s + (l.monthly_rental || 0), 0);
 
-  // Charges & arrears
+  // Use units table for real occupancy
+  const { data: units } = await supabase.from("units").select("occupancy_status, current_rental_rate").eq("property_id", id);
+  const totalUnits = units?.length || property.number_of_units || 0;
+  const occupiedUnits = units?.filter(u => u.occupancy_status === 'Occupied').length || 0;
+  const vacantUnits = totalUnits - occupiedUnits;
+  const occupancyPct = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+
   const { data: charges } = await supabase.from("charges").select("*").in("lease_id", leases?.map(l => l.id) || []).order("created_at", { ascending: false }).limit(50);
   const { data: payments } = await supabase
     .from("bank_transactions")
@@ -50,16 +49,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const totalCharges = charges?.reduce((s: number, c: any) => s + (c.amount_incl_vat || 0), 0) || 0;
   const totalPayments = payments?.reduce((s: number, p: any) => s + Math.abs(p.transaction_amount || 0), 0) || 0;
-  const arrears = totalCharges - totalPayments;
 
-  // Expiring leases
   const now = new Date();
   const expiring = activeLeases.filter(l => {
     const end = l.lease_end_date ? new Date(l.lease_end_date) : null;
     return end && Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) <= 90;
   });
 
-  // Communications
   const tenantIds = activeLeases.map(l => l.tenant_id).filter(Boolean);
   const { data: communications } = await supabase
     .from("communications")
@@ -68,20 +64,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .order("created_at", { ascending: false })
     .limit(30);
 
-  // Units (if table exists)
-  const { data: units } = await supabase.from("units").select("*").eq("property_id", id).order("unit_number");
-
   return NextResponse.json({
     property: { ...property, entity_name: entity?.entity_name || "Unknown" },
-    leases: leases || [],
-    activeLeases,
-    units: units || [],
-    financial: {
-      totalCharges, totalPayments, arrears, monthlyRevenue,
-      charges: charges || [], payments: payments || [],
-    },
-    occupancy: { totalUnits, occupied, vacant, occupancy },
-    expiring: expiring || [],
-    communications: communications || [],
+    leases: leases || [], activeLeases, units: units || [],
+    financial: { totalCharges, totalPayments, arrears: totalCharges - totalPayments, monthlyRevenue, charges: charges || [], payments: payments || [] },
+    occupancy: { totalUnits, occupied: occupiedUnits, vacant: vacantUnits, occupancy: occupancyPct },
+    expiring: expiring || [], communications: communications || [],
   });
 }
