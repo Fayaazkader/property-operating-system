@@ -9,8 +9,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const isFullPage = pathname === '/login' || 
-                     pathname === '/signup' || 
-                     pathname === '/landing';
+                   pathname === '/signup' || 
+                   pathname === '/landing' ||
+                   pathname === '/about' ||
+                   pathname === '/security' ||
+                   pathname === '/contact' ||
+                   pathname === '/privacy' ||
+                   pathname === '/terms';
 
   if (isFullPage) {
     return <div className="min-h-screen bg-black">{children}</div>;
