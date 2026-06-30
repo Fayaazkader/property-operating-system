@@ -19,6 +19,7 @@ export default function Navbar() {
   const [attentionItems, setAttentionItems] = useState<{ label: string; href: string }[]>([]);
   const [stmtPeriod, setStmtPeriod] = useState("");
   const [finPeriod, setFinPeriod] = useState("");
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const { isOpen, open, close } = useCommandPalette();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const attentionRef = useRef<HTMLDivElement>(null);
@@ -36,8 +37,9 @@ export default function Navbar() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.email) {
         setEmail(user.email);
-        const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", user.id).single();
-        if (profile?.display_name) setDisplayName(profile.display_name);
+        const { data: profile } = await supabase.from("profiles").select("display_name, platform_role").eq("id", user.id).single();
+if (profile?.display_name) setDisplayName(profile.display_name);
+if (profile?.platform_role === 'platform_admin') setIsPlatformAdmin(true);
       }
     }
     getUser();
@@ -174,6 +176,9 @@ export default function Navbar() {
           {showDropdown && (
             <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)] shadow-lg py-1 overflow-hidden">
               <button onClick={() => router.push('/settings')} className="w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors">Profile</button>
+              {isPlatformAdmin && (
+  <button onClick={() => router.push('/admin')} className="w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors">Admin</button>
+)}
               <button onClick={() => router.push('/settings')} className="w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors">Settings</button>
               <button onClick={handleLogout} className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-red-500/5 transition-colors border-t border-[var(--border-default)]">Logout</button>
             </div>
