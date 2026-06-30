@@ -264,6 +264,7 @@ setNextStatementPeriod(periodAfterNext);
   }
 
   async function confirmCloseFinancial() {
+    console.log("Closing financial period:", financialPeriod);
     setShowCloseFinancialConfirm(false);
     
     setProgressModal({
