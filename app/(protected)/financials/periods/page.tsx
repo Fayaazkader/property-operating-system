@@ -341,6 +341,7 @@ setNextStatementPeriod(periodAfterNext);
         { label: `Opening ${nextPeriod}...`, status: "done" },
       ]
     });
+     loadData();
   }
 
   return (
