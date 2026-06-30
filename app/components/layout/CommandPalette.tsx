@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { searchIcons } from "@/lib/platform/icons";
+import { trackEvent, AnalyticsEvents } from "@/lib/analytics/tracker";
 
 type SearchResult = {
   type: string;
@@ -62,6 +63,7 @@ export function CommandPalette({ open, onClose }: Props) {
       }
 
       setResults(allResults.slice(0, 10));
+      trackEvent(AnalyticsEvents.SEARCH, undefined, { query: searchTerm, resultsCount: allResults.length });
       setLoading(false);
     }, 200);
     return () => clearTimeout(timer);

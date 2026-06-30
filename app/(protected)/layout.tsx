@@ -3,11 +3,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { trackEvent, AnalyticsEvents } from "@/lib/analytics/tracker";
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     async function checkAccess() {
@@ -35,6 +38,11 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     }
     checkAccess();
   }, []);
+  useEffect(() => {
+  if (ready && hasAccess) {
+    trackEvent(AnalyticsEvents.PAGE_VIEW, undefined, { path: pathname });
+  }
+}, [pathname, ready, hasAccess]);
 
   if (!ready) return null;
 

@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabase";
 import { CommandPalette } from "./layout/CommandPalette";
 import { useCommandPalette } from "@/lib/platform/CommandPaletteContext";
 import { Bell, MessageSquare } from "lucide-react";
+import { trackEvent, AnalyticsEvents } from "@/lib/analytics/tracker";
 
 export default function Navbar() {
   const router = useRouter();
@@ -153,6 +154,7 @@ export default function Navbar() {
                   <button onClick={async () => {
                     if (!feedbackText.trim()) return;
                     await supabase.from("feedback_items").insert({ category: feedbackType, title: feedbackText, status: "new", page: pathname });
+                    trackEvent(AnalyticsEvents.FEEDBACK_SUBMITTED, "feedback", { category: feedbackType, page: pathname });
                     setFeedbackSubmitted(true);
                     setTimeout(() => { setShowFeedback(false); setFeedbackSubmitted(false); setFeedbackText(""); }, 2000);
                   }} className="w-full rounded-xl bg-[var(--text-primary)] text-[var(--bg-primary)] py-2 text-xs font-semibold hover:opacity-90 transition-opacity">Submit</button>

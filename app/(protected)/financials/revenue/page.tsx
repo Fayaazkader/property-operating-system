@@ -11,6 +11,7 @@ import { getCurrentStatementPeriod, getCurrentFinancialPeriod } from "@/lib/reve
 import { useRouter } from "next/navigation";
 import ProgressModal from "@/components/ui/ProgressModal";
 import PreBillingVerification from "@/components/financials/PreBillingVerification";
+import { trackEvent, AnalyticsEvents } from "@/lib/analytics/tracker";
 
 type BillingCode = { id: string; code: string; description: string; vat_rate: number; gl_code: string; is_recoverable: boolean };
 type ManualLine = {
@@ -513,6 +514,7 @@ console.log("tenantIds:", tenantIds);
   });
 
   setStatementResults({ delivered, failed, pending: 0 });
+  trackEvent(AnalyticsEvents.STATEMENT_GENERATED, "revenue", { count: delivered, failed, period: currentStmtPeriod });
   loadRevenueHealth();
 }
 
