@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { sendEmail } from "@/lib/email/sendgrid";
 
 export default function LandingPage() {
   const [betaEmail, setBetaEmail] = useState('');
@@ -29,7 +30,24 @@ export default function LandingPage() {
         status: "new",
       }),
     });
-    if (res.ok) setBetaSubmitted(true);
+    if (res.ok) {
+  setBetaSubmitted(true);
+  
+  // Send confirmation email
+  await sendEmail(
+    betaEmail,
+    "Your AssetFlow Beta Application — Received",
+    `<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
+      <h2 style="color: #10b981;">Thank you for your interest in AssetFlow</h2>
+      <p>Hi ${betaEmail.split('@')[0]},</p>
+      <p>Your beta application has been received and will be reviewed within 48 hours.</p>
+      <p>AssetFlow is a commercial property operating system — leases, billing, cash books, and communications in one platform.</p>
+      <p>We'll reach out with next steps soon.</p>
+      <hr style="border: 1px solid #eee; margin: 20px 0;" />
+      <p style="color: #666; font-size: 12px;">AssetFlow — The Commercial Property Operating System</p>
+    </div>`
+  );
+}
   };
 
   return (
