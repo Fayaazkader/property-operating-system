@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await sgMail.send({ to, from: "fayaaz318@gmail.com", subject, html });
+    await sgMail.send({ to, from: "hello@assetflow.africa", subject, html });
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("SendGrid error:", error.message);
