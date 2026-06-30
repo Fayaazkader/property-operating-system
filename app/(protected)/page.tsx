@@ -12,18 +12,23 @@ export default function HomePage() {
   const { open } = useCommandPalette();
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState("");
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [data, setData] = useState<any>({
     leases: [], transactions: [], recentLeases: [], communications: [],
     unallocated: [], vacantUnits: [], stmtPeriod: null, finPeriod: null,
     totalUnits: 0, occupiedUnits: 0, commsDelivered: 0, commsSent: 0, commsRead: 0,
   });
+  
+  
 
   useEffect(() => {
     async function checkAuthAndLoad() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.replace('/landing'); return; }
-      const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", session.user.id).single();
+      const { data: profile } = await supabase.from("profiles").select("display_name, first_login").eq("id", session.user.id).single();
 if (profile?.display_name) setDisplayName(profile.display_name);
+if (profile?.first_login) setIsFirstLogin(true);
+
 
       const { data: entityIds } = await supabase.rpc('auth_entities');
       const entityIdList = entityIds || [];
@@ -141,6 +146,38 @@ if (profile?.display_name) setDisplayName(profile.display_name);
         <h1 className="text-4xl font-semibold tracking-tight text-[var(--text-primary)]">
   {greeting}{displayName ? `, ${displayName}` : ""}
 </h1>
+{isFirstLogin && (
+  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
+    <p className="text-xs uppercase tracking-[0.2em] text-emerald-300 mb-3">Getting Started</p>
+    <div className="space-y-2">
+      {[
+        { label: "Explore the Morning Brief", done: true },
+        { label: "View your tenants and properties", done: false, href: "/tenants" },
+        { label: "Review billing in Revenue Ops", done: false, href: "/financials/revenue" },
+        { label: "Check your Cash Book", done: false, href: "/financials/cash-book" },
+        { label: "Try searching with ⌘K", done: false },
+      ].map(item => (
+        <div key={item.label} className="flex items-center gap-2 text-sm">
+          <span className={item.done ? "text-emerald-400" : "text-[var(--text-muted)]"}>{item.done ? "✓" : "○"}</span>
+          {item.href ? (
+            <Link href={item.href} className="text-[var(--text-primary)] hover:underline">{item.label}</Link>
+          ) : (
+            <span className="text-[var(--text-primary)]">{item.label}</span>
+          )}
+        </div>
+      ))}
+    </div>
+    <button 
+      onClick={async () => {
+        await supabase.from("profiles").update({ first_login: false }).eq("id", (await supabase.auth.getUser()).data.user?.id);
+        setIsFirstLogin(false);
+      }}
+      className="mt-3 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+    >
+      Dismiss
+    </button>
+  </div>
+)}
         <p className="text-lg text-[var(--text-secondary)] leading-relaxed">
           {portfolioHealthy ? "Your portfolio is healthy. A few items need attention." : `${attentionItems.length} items require attention. ${criticalLeases.length} ${criticalLeases.length === 1 ? "is" : "are"} critical.`}
         </p>
