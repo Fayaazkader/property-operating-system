@@ -320,42 +320,48 @@ export default function LandingPage() {
             </div>
           ) : (
             <form onSubmit={handleBetaSubmit} className="space-y-4">
-              <div>
-                <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">Company Name</label>
-                <input type="text" value={betaCompany} onChange={(e) => setBetaCompany(e.target.value)} required className="w-full rounded-full border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30" placeholder="Acme Property Group" />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">Email</label>
-                <input type="email" value={betaEmail} onChange={(e) => setBetaEmail(e.target.value)} required className="w-full rounded-full border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30" placeholder="you@company.com" />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">Portfolio Size</label>
-                <select value={betaPortfolio} onChange={(e) => setBetaPortfolio(e.target.value)} required className="w-full rounded-full border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30">
-                  <option value="">Select...</option>
-                  <option value="1-50">1-50 properties</option>
-                  <option value="51-200">51-200 properties</option>
-                  <option value="201-500">201-500 properties</option>
-                  <option value="500+">500+ properties</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">Current System</label>
-                <select value={betaSystem} onChange={(e) => setBetaSystem(e.target.value)} required className="w-full rounded-full border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30">
-                  <option value="">Select...</option>
-                  <option value="mda">MDA</option>
-                  <option value="mri">MRI</option>
-                  <option value="yardi">Yardi</option>
-                  <option value="re-leased">Re-Leased</option>
-                  <option value="excel">Excel / Spreadsheets</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">What's your biggest operational headache?</label>
-                <textarea value={betaHeadache} onChange={(e) => setBetaHeadache(e.target.value)} rows={2} className="w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30" placeholder="Reconciliation, billing, arrears, lease renewals, reporting..." />
-              </div>
-              <button type="submit" className="w-full rounded-full bg-white py-3.5 text-sm font-medium text-black transition hover:bg-white/90">Request Early Access</button>
-            </form>
+  <div>
+    <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">Company Name</label>
+    <input type="text" value={betaCompany} onChange={(e) => setBetaCompany(e.target.value)} required className="w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30" placeholder="Acme Property Group" />
+  </div>
+  <div>
+    <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">Email</label>
+    <input type="email" value={betaEmail} onChange={(e) => setBetaEmail(e.target.value)} required className="w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30" placeholder="you@company.com" />
+  </div>
+  <div>
+    <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">Portfolio Size</label>
+    <div className="relative">
+      <select value={betaPortfolio} onChange={(e) => setBetaPortfolio(e.target.value)} required className="w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30 appearance-none">
+        <option value="">Select...</option>
+        <option value="1-50">1-50 properties</option>
+        <option value="51-200">51-200 properties</option>
+        <option value="201-500">201-500 properties</option>
+        <option value="500+">500+ properties</option>
+      </select>
+      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs pointer-events-none">▼</span>
+    </div>
+  </div>
+  <div>
+    <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">Current System</label>
+    <div className="relative">
+      <select value={betaSystem} onChange={(e) => setBetaSystem(e.target.value)} required className="w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30 appearance-none">
+        <option value="">Select...</option>
+        <option value="mda">MDA</option>
+        <option value="mri">MRI</option>
+        <option value="yardi">Yardi</option>
+        <option value="re-leased">Re-Leased</option>
+        <option value="excel">Excel / Spreadsheets</option>
+        <option value="other">Other</option>
+      </select>
+      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs pointer-events-none">▼</span>
+    </div>
+  </div>
+  <div>
+    <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">What's your biggest operational headache?</label>
+    <textarea value={betaHeadache} onChange={(e) => setBetaHeadache(e.target.value)} rows={2} className="w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30" placeholder="Reconciliation, billing, arrears, lease renewals, reporting..." />
+  </div>
+  <button type="submit" className="w-full rounded-full bg-white py-3.5 text-sm font-medium text-black transition hover:bg-white/90">Request Early Access</button>
+</form>
           )}
         </div>
       </section>
