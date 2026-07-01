@@ -34,14 +34,18 @@ export default function RentRollPage() {
     setLoading(false);
   }
 
-  const formatRands = (amount: number) => `R${amount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+  const formatRands = (amount: number) => {
+  if (amount === null || amount === undefined) return "R0.00";
+  return `R${amount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+};
   const formatDate = (d: string) => d ? new Date(d).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" }) : "—";
   const formatDays = (d: number | null) => d === null ? "—" : d > 365 ? `${(d/365).toFixed(1)}yrs` : `${d} days`;
 
   if (loading) return <div className="p-8 text-[var(--text-muted)]">Loading...</div>;
   if (!data) return <div className="p-8 text-[var(--text-muted)]">No data available</div>;
 
-  const { leases, summary } = data;
+  const { leases = [], summary = {} } = data || {};
+  
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-6 pt-8 pb-12">

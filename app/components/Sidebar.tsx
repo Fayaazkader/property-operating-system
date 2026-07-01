@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useCommandPalette } from "@/lib/platform/CommandPaletteContext";
 import { supabase } from "@/lib/supabase";
 import { 
-  Home, Receipt, Landmark, MessageSquare, CheckSquare,
+  Home, Receipt, Landmark, MessageSquare, CheckSquare,BarChart3,
   Building2, Users, Briefcase, Calendar, Search
 } from "lucide-react";
 import { Pin, PinOff } from "lucide-react";
@@ -62,6 +62,7 @@ export default function Sidebar() {
 
   const systemItems: NavItem[] = [
     { label: "Periods", href: "/financials/periods", icon: Calendar, desc: "Billing Cycles · Governance" },
+    { label: "Reports", href: "/reports", icon: BarChart3, desc: "Rent Roll · Arrears · Portfolio" },
   ];
 
   function NavItemRow({ item, showLabel }: { item: NavItem; showLabel: boolean }) {
