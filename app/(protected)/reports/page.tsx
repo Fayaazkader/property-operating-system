@@ -2,17 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, TrendingDown, Calendar, Building2, DollarSign, AlertTriangle, BarChart3, Download, Clock, Star, Settings, Filter } from "lucide-react";
-
-type ReportDef = {
-  name: string;
-  description: string;
-  href: string;
-  formats: string[];
-  schedule?: string;
-  lastGenerated?: string;
-  favorite: boolean;
-};
+import { supabase } from "@/lib/supabase";
+import { TrendingDown, Calendar, Building2, DollarSign, BarChart3, Download, Clock, Star, Filter } from "lucide-react";
 
 const reportCategories = [
   {
@@ -70,10 +61,29 @@ const reportCategories = [
 
 export default function ReportsPage() {
   const router = useRouter();
-  const [entityFilter, setEntityFilter] = useState("all");
+  const [viewBy, setViewBy] = useState<string>("all");
+  const [selectedEntity, setSelectedEntity] = useState("");
+  const [selectedProperty, setSelectedProperty] = useState("");
+  const [selectedRegion, setSelectedRegion] = useState("");
   const [dateAsAt, setDateAsAt] = useState(new Date().toISOString().split("T")[0]);
   const [activeCategory, setActiveCategory] = useState("all");
-  const [viewBy, setViewBy] = useState<string>("all");
+  const [entities, setEntities] = useState<any[]>([]);
+  const [properties, setProperties] = useState<any[]>([]);
+  const [regions, setRegions] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      const { data: ent } = await supabase.from("entities").select("id, entity_name").order("entity_name");
+      const { data: props } = await supabase.from("properties").select("id, property_name, province").order("property_name");
+      if (ent) setEntities(ent);
+      if (props) {
+        setProperties(props);
+        const uniqueRegions = [...new Set(props.map((p: any) => p.province).filter(Boolean))];
+        setRegions(uniqueRegions.map((r: any) => ({ id: r, name: r })));
+      }
+    }
+    load();
+  }, []);
 
   const allReports = reportCategories.flatMap(cat => cat.reports.map(r => ({ ...r, category: cat.category })));
   const favorites = allReports.filter(r => r.favorite);
@@ -81,63 +91,59 @@ export default function ReportsPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-6 pt-8 pb-12">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-[var(--text-primary)]">Reporting Centre</h1>
         <div className="flex items-center gap-4 mt-1 text-xs text-[var(--text-muted)]">
-          <span>{allReports.length} reports available</span>
-          <span>·</span>
-          <span className="text-emerald-400">{scheduled.length} scheduled deliveries</span>
-          <span>·</span>
+          <span>{allReports.length} reports available</span><span>·</span>
+          <span className="text-emerald-400">{scheduled.length} scheduled deliveries</span><span>·</span>
           <span>Last run: Today 07:00</span>
         </div>
       </div>
-<div className="grid grid-cols-4 gap-3">
-  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center">
-    <p className="text-lg font-bold text-[var(--text-primary)]">{allReports.length}</p>
-    <p className="text-xs text-[var(--text-muted)]">Reports</p>
-  </div>
-  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center">
-    <p className="text-lg font-bold text-emerald-400">{scheduled.length}</p>
-    <p className="text-xs text-[var(--text-muted)]">Scheduled</p>
-  </div>
-  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center">
-    <p className="text-lg font-bold text-amber-400">{favorites.length}</p>
-    <p className="text-xs text-[var(--text-muted)]">Favorites</p>
-  </div>
-  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center">
-    <p className="text-lg font-bold text-[var(--text-primary)]">127</p>
-    <p className="text-xs text-[var(--text-muted)]">Exports This Month</p>
-  </div>
-</div>
-      {/* Global Filters */}
-      const [viewBy, setViewBy] = useState("all");
-const [selectedEntity, setSelectedEntity] = useState("");
-const [selectedProperty, setSelectedProperty] = useState("");
-const [selectedRegion, setSelectedRegion] = useState("");
 
-{(["all", "entity", "property", "region"] as const).map((v) => (
-  <button key={v} onClick={() => setViewBy(v)}
-    className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${viewBy === v ? 'bg-[var(--text-primary)] text-[var(--bg-primary)]' : 'border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-hover)]'}`}>
-    {v === "all" ? "All" : v.charAt(0).toUpperCase() + v.slice(1)}
-  </button>
-))}
+      <div className="grid grid-cols-4 gap-3">
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-[var(--text-primary)]">{allReports.length}</p><p className="text-xs text-[var(--text-muted)]">Reports</p></div>
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-emerald-400">{scheduled.length}</p><p className="text-xs text-[var(--text-muted)]">Scheduled</p></div>
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-amber-400">{favorites.length}</p><p className="text-xs text-[var(--text-muted)]">Favorites</p></div>
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-[var(--text-primary)]">127</p><p className="text-xs text-[var(--text-muted)]">Exports This Month</p></div>
+      </div>
 
-      {/* Favorites */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <Filter className="w-4 h-4 text-[var(--text-muted)]" />
+        {(["all", "entity", "property", "region"] as const).map((v) => (
+          <button key={v} onClick={() => setViewBy(v)}
+            className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${viewBy === v ? 'bg-[var(--text-primary)] text-[var(--bg-primary)]' : 'border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-hover)]'}`}>
+            {v === "all" ? "All" : v.charAt(0).toUpperCase() + v.slice(1)}
+          </button>
+        ))}
+        {viewBy === "entity" && (
+          <select value={selectedEntity} onChange={(e) => setSelectedEntity(e.target.value)} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3 py-2 text-xs outline-none">
+            <option value="">All Entities</option>
+            {entities.map((e: any) => <option key={e.id} value={e.id}>{e.entity_name}</option>)}
+          </select>
+        )}
+        {viewBy === "property" && (
+          <select value={selectedProperty} onChange={(e) => setSelectedProperty(e.target.value)} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3 py-2 text-xs outline-none">
+            <option value="">All Properties</option>
+            {properties.map((p: any) => <option key={p.id} value={p.id}>{p.property_name}</option>)}
+          </select>
+        )}
+        {viewBy === "region" && (
+          <select value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3 py-2 text-xs outline-none">
+            <option value="">All Regions</option>
+            {regions.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+        )}
+        <span className="text-xs text-[var(--text-muted)] ml-2">As at:</span>
+        <input type="date" value={dateAsAt} onChange={(e) => setDateAsAt(e.target.value)} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3 py-2 text-xs outline-none" />
+      </div>
+
       {favorites.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Star className="w-4 h-4 text-amber-400" />
-            <h2 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-[0.1em]">Frequently Used</h2>
-          </div>
+          <div className="flex items-center gap-2 mb-3"><Star className="w-4 h-4 text-amber-400" /><h2 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-[0.1em]">Frequently Used</h2></div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             {favorites.map(report => (
-              <button key={report.name} onClick={() => router.push(report.href)}
-                className="text-left rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4 hover:border-[var(--border-hover)] transition-colors group">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm font-medium text-[var(--text-primary)]">{report.name}</p>
-                  <Star className="w-3 h-3 text-amber-400" />
-                </div>
+              <button key={report.name} onClick={() => router.push(report.href)} className="text-left rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4 hover:border-[var(--border-hover)] transition-colors group">
+                <div className="flex items-center justify-between mb-1"><p className="text-sm font-medium text-[var(--text-primary)]">{report.name}</p><Star className="w-3 h-3 text-amber-400" /></div>
                 <p className="text-xs text-[var(--text-muted)]">{report.description}</p>
                 <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--text-muted)]">
                   {report.lastGenerated && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {report.lastGenerated}</span>}
@@ -149,24 +155,17 @@ const [selectedRegion, setSelectedRegion] = useState("");
         </div>
       )}
 
-      {/* Scheduled */}
       {scheduled.length > 0 && (
         <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/5 p-4">
           <p className="text-xs uppercase tracking-[0.2em] text-emerald-300 mb-2">Scheduled Deliveries</p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
             {scheduled.map(r => (
-              <div key={r.name} className="flex items-center gap-2">
-                <Clock className="w-3 h-3 text-emerald-400" />
-                <span className="text-[var(--text-primary)]">{r.name}</span>
-                <span className="text-[var(--text-muted)]">→ {r.category} Team</span>
-                <span className="text-emerald-400">{r.schedule}</span>
-              </div>
+              <div key={r.name} className="flex items-center gap-2"><Clock className="w-3 h-3 text-emerald-400" /><span className="text-[var(--text-primary)]">{r.name}</span><span className="text-[var(--text-muted)]">→ {r.category} Team</span><span className="text-emerald-400">{r.schedule}</span></div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Category Tabs */}
       <div className="flex gap-2 flex-wrap border-b border-[var(--border-default)] pb-2">
         <button onClick={() => setActiveCategory("all")} className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${activeCategory === "all" ? 'bg-[var(--text-primary)] text-[var(--bg-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>All Reports</button>
         {reportCategories.map(cat => (
@@ -174,36 +173,18 @@ const [selectedRegion, setSelectedRegion] = useState("");
         ))}
       </div>
 
-      {/* Report Cards by Category */}
       {reportCategories.filter(cat => activeCategory === "all" || cat.category === activeCategory).map(cat => (
         <div key={cat.category}>
-          <div className="flex items-center gap-2 mb-3">
-            <cat.icon className="w-4 h-4 text-[var(--text-muted)]" />
-            <h2 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-[0.1em]">{cat.category}</h2>
-            <span className="text-xs text-[var(--text-muted)]">{cat.reports.length} reports</span>
-          </div>
+          <div className="flex items-center gap-2 mb-3"><cat.icon className="w-4 h-4 text-[var(--text-muted)]" /><h2 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-[0.1em]">{cat.category}</h2><span className="text-xs text-[var(--text-muted)]">{cat.reports.length} reports</span></div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {cat.reports.map(report => (
-              <button key={report.name} onClick={() => router.push(report.href)}
-                className="text-left rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4 hover:border-[var(--border-hover)] transition-colors group">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-[var(--text-primary)]">{report.name}</p>
-                  <div className="flex items-center gap-1">
-                    {report.favorite && <Star className="w-3 h-3 text-amber-400" />}
-                    <Download className="w-4 h-4 text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </div>
+              <button key={report.name} onClick={() => router.push(report.href)} className="text-left rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4 hover:border-[var(--border-hover)] transition-colors group">
+                <div className="flex items-center justify-between"><p className="text-sm font-medium text-[var(--text-primary)]">{report.name}</p><div className="flex items-center gap-1">{report.favorite && <Star className="w-3 h-3 text-amber-400" />}<Download className="w-4 h-4 text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" /></div></div>
                 <p className="text-xs text-[var(--text-muted)] mt-1">{report.description}</p>
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  {report.formats.map(f => (
-                    <span key={f} className="text-[10px] bg-[var(--bg-elevated)] text-[var(--text-muted)] px-2 py-0.5 rounded-full">{f}</span>
-                  ))}
-                  {report.schedule && (
-                    <span className="text-[10px] bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full">{report.schedule}</span>
-                  )}
-                  {report.lastGenerated && (
-                    <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><Clock className="w-3 h-3" /> {report.lastGenerated}</span>
-                  )}
+                  {report.formats.map(f => (<span key={f} className="text-[10px] bg-[var(--bg-elevated)] text-[var(--text-muted)] px-2 py-0.5 rounded-full">{f}</span>))}
+                  {report.schedule && (<span className="text-[10px] bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full">{report.schedule}</span>)}
+                  {report.lastGenerated && (<span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><Clock className="w-3 h-3" /> {report.lastGenerated}</span>)}
                 </div>
               </button>
             ))}
