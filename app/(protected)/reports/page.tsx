@@ -73,6 +73,7 @@ export default function ReportsPage() {
   const [entityFilter, setEntityFilter] = useState("all");
   const [dateAsAt, setDateAsAt] = useState(new Date().toISOString().split("T")[0]);
   const [activeCategory, setActiveCategory] = useState("all");
+  const [viewBy, setViewBy] = useState<string>("all");
 
   const allReports = reportCategories.flatMap(cat => cat.reports.map(r => ({ ...r, category: cat.category })));
   const favorites = allReports.filter(r => r.favorite);
@@ -110,16 +111,17 @@ export default function ReportsPage() {
   </div>
 </div>
       {/* Global Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Filter className="w-4 h-4 text-[var(--text-muted)]" />
-        <select value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3 py-2 text-xs outline-none">
-          <option value="all">All Entities</option>
-          <option value="demo">Demo Portfolio</option>
-          <option value="sandton">Sandton Property Holdings</option>
-        </select>
-        <span className="text-xs text-[var(--text-muted)]">As at:</span>
-        <input type="date" value={dateAsAt} onChange={(e) => setDateAsAt(e.target.value)} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3 py-2 text-xs outline-none" />
-      </div>
+      const [viewBy, setViewBy] = useState("all");
+const [selectedEntity, setSelectedEntity] = useState("");
+const [selectedProperty, setSelectedProperty] = useState("");
+const [selectedRegion, setSelectedRegion] = useState("");
+
+{(["all", "entity", "property", "region"] as const).map((v) => (
+  <button key={v} onClick={() => setViewBy(v)}
+    className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${viewBy === v ? 'bg-[var(--text-primary)] text-[var(--bg-primary)]' : 'border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-hover)]'}`}>
+    {v === "all" ? "All" : v.charAt(0).toUpperCase() + v.slice(1)}
+  </button>
+))}
 
       {/* Favorites */}
       {favorites.length > 0 && (
