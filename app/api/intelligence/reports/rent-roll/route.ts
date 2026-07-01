@@ -5,6 +5,8 @@ import { cookies } from "next/headers";
 export async function GET(request: NextRequest) {
   const url = request.nextUrl;
   const entityId = url.searchParams.get("entity") || "";
+  const propertyId = url.searchParams.get("property") || "";
+  const region = url.searchParams.get("region") || "";
   const leaseStatus = url.searchParams.get("status") || "Active";
 
   const cookieStore = await cookies();
@@ -23,17 +25,19 @@ export async function GET(request: NextRequest) {
 
   let query = supabase.from("leases").select("*").eq("lease_status", leaseStatus).order("monthly_rental", { ascending: false });
   if (entityId) query = query.eq("owner_entity_id", entityId);
+  if (propertyId) query = query.eq("property_id", propertyId);
 
   const { data: leases } = await query;
-  if (!leases || leases.length === 0) return NextResponse.json({ leases: [], summary: {} });
+  if (!leases || leases.length === 0) return NextResponse.json({ leases: [], summary: {}, grouped: {} });
 
   const leaseIds = leases.map(l => l.id);
   const tenantIds = leases.map(l => l.tenant_id).filter(Boolean);
   const propertyIds = leases.map(l => l.property_id).filter(Boolean);
+  const entityIds = leases.map(l => l.owner_entity_id).filter(Boolean);
 
   const { data: tenants } = await supabase.from("tenants").select("id, tenant_name, code, company_registration, industry, risk_rating").in("id", tenantIds);
-  const { data: properties } = await supabase.from("properties").select("id, property_name, property_code, property_type, province, total_gla_sqm").in("id", propertyIds);
-  const { data: entities } = await supabase.from("entities").select("id, entity_name").in("id", leases.map(l => l.owner_entity_id).filter(Boolean));
+  const { data: properties } = await supabase.from("properties").select("id, property_name, property_code, property_type, province, total_gla_sqm, operational_region").in("id", propertyIds);
+  const { data: entities } = await supabase.from("entities").select("id, entity_name").in("id", entityIds);
   const { data: charges } = await supabase.from("charges").select("lease_id, amount_incl_vat, created_at").in("lease_id", leaseIds);
   const { data: payments } = await supabase.from("bank_transactions").select("matched_tenant_id, transaction_amount").in("matched_tenant_id", tenantIds);
   const { data: units } = await supabase.from("units").select("id, gla_sqm, property_id, current_tenant_name").in("property_id", propertyIds);
@@ -43,6 +47,7 @@ export async function GET(request: NextRequest) {
   const entityMap = new Map(entities?.map(e => [e.id, e]) || []);
 
   const now = new Date();
+
   const enriched = leases.map(l => {
     const tenant = tenantMap.get(l.tenant_id);
     const property = propertyMap.get(l.property_id);
@@ -69,7 +74,9 @@ export async function GET(request: NextRequest) {
       registered_name: tenant?.company_registration || l.tenant_name,
       tenant_industry: tenant?.industry || "—",
       tenant_risk: tenant?.risk_rating || "—",
+      entity_id: l.owner_entity_id,
       entity_name: entity?.entity_name || "—",
+      portfolio: property?.operational_region || "—",
       property_code: property?.property_code || "—",
       property_name: property?.property_name || "—",
       property_type: property?.property_type || "—",
@@ -93,6 +100,19 @@ export async function GET(request: NextRequest) {
     };
   });
 
+  // Group by Portfolio → Entity → Property → Tenant
+  const grouped: Record<string, Record<string, Record<string, any[]>>> = {};
+  enriched.forEach(l => {
+    const portfolio = l.portfolio || "No Portfolio";
+    const entity = l.entity_name || "Unknown Entity";
+    const property = l.property_name || "No Property";
+    if (!grouped[portfolio]) grouped[portfolio] = {};
+    if (!grouped[portfolio][entity]) grouped[portfolio][entity] = {};
+    if (!grouped[portfolio][entity][property]) grouped[portfolio][entity][property] = [];
+    grouped[portfolio][entity][property].push(l);
+  });
+
+  // Summary
   const totalMonthly = enriched.reduce((s, l) => s + l.monthly_rental, 0);
   const totalAnnual = totalMonthly * 12;
   const totalArrears = enriched.reduce((s, l) => s + l.arrears, 0);
@@ -104,6 +124,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     leases: enriched,
+    grouped,
     summary: {
       totalLeases: enriched.length,
       totalMonthlyRental: totalMonthly,

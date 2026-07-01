@@ -143,7 +143,15 @@ export default function ReportsPage() {
           <div className="flex items-center gap-2 mb-3"><Star className="w-4 h-4 text-amber-400" /><h2 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-[0.1em]">Frequently Used</h2></div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             {favorites.map(report => (
-              <button key={report.name} onClick={() => router.push(report.href)} className="text-left rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4 hover:border-[var(--border-hover)] transition-colors group">
+              <button key={report.name} onClick={() => {
+  const params = new URLSearchParams();
+  if (viewBy === "entity" && selectedEntity) params.set("entity", selectedEntity);
+  if (viewBy === "property" && selectedProperty) params.set("property", selectedProperty);
+  if (viewBy === "region" && selectedRegion) params.set("region", selectedRegion);
+  if (dateAsAt) params.set("as_at", dateAsAt);
+  const queryString = params.toString();
+  router.push(queryString ? `${report.href}?${queryString}` : report.href);
+}} className="text-left rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4 hover:border-[var(--border-hover)] transition-colors group">
                 <div className="flex items-center justify-between mb-1"><p className="text-sm font-medium text-[var(--text-primary)]">{report.name}</p><Star className="w-3 h-3 text-amber-400" /></div>
                 <p className="text-xs text-[var(--text-muted)]">{report.description}</p>
                 <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--text-muted)]">
@@ -191,7 +199,15 @@ export default function ReportsPage() {
           {!collapsedCategories.has(cat.category) && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
              {cat.reports.map(report => (
-                <button key={report.name} onClick={() => router.push(report.href)} className="text-left rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4 hover:border-[var(--border-hover)] transition-colors group">
+                <button key={report.name} onClick={() => {
+  const params = new URLSearchParams();
+  if (viewBy === "entity" && selectedEntity) params.set("entity", selectedEntity);
+  if (viewBy === "property" && selectedProperty) params.set("property", selectedProperty);
+  if (viewBy === "region" && selectedRegion) params.set("region", selectedRegion);
+  if (dateAsAt) params.set("as_at", dateAsAt);
+  const queryString = params.toString();
+  router.push(queryString ? `${report.href}?${queryString}` : report.href);
+}} className="text-left rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4 hover:border-[var(--border-hover)] transition-colors group">
                   <div className="flex items-center justify-between"><p className="text-sm font-medium text-[var(--text-primary)]">{report.name}</p><div className="flex items-center gap-1">{report.favorite && <Star className="w-3 h-3 text-amber-400" />}<Download className="w-4 h-4 text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" /></div></div>
                   <p className="text-xs text-[var(--text-muted)] mt-1">{report.description}</p>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
