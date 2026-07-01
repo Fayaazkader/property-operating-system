@@ -91,7 +91,24 @@ export default function ReportsPage() {
           <span>Last run: Today 07:00</span>
         </div>
       </div>
-
+<div className="grid grid-cols-4 gap-3">
+  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center">
+    <p className="text-lg font-bold text-[var(--text-primary)]">{allReports.length}</p>
+    <p className="text-xs text-[var(--text-muted)]">Reports</p>
+  </div>
+  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center">
+    <p className="text-lg font-bold text-emerald-400">{scheduled.length}</p>
+    <p className="text-xs text-[var(--text-muted)]">Scheduled</p>
+  </div>
+  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center">
+    <p className="text-lg font-bold text-amber-400">{favorites.length}</p>
+    <p className="text-xs text-[var(--text-muted)]">Favorites</p>
+  </div>
+  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center">
+    <p className="text-lg font-bold text-[var(--text-primary)]">127</p>
+    <p className="text-xs text-[var(--text-muted)]">Exports This Month</p>
+  </div>
+</div>
       {/* Global Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <Filter className="w-4 h-4 text-[var(--text-muted)]" />
