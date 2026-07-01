@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
   const { data: charges } = await supabase.from("charges").select("lease_id, amount_incl_vat").in("lease_id", leaseIds);
   const { data: payments } = await supabase.from("bank_transactions").select("matched_tenant_id, transaction_amount, transaction_date").in("matched_tenant_id", tenantIds);
-  const { data: units } = await supabase.from("units").select("id, gla_sqm, property_id, current_tenant_name").in("property_id", leases.map(l => l.property_id));
+ const { data: units } = await supabase.from("units").select("id, gla_sqm, property_id, current_tenant_name").in("property_id", leases.map((l: any) => l.property_id));
 
   const now = new Date(dateAsAt);
   const enriched = leases.map(l => {
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     const annualValue = (l.monthly_rental || 0) * 12;
     const remainingValue = daysRemaining ? (l.monthly_rental || 0) * (daysRemaining / 30) : 0;
 
-    const propertyUnits = units?.filter(u => u.property_id === l.property_id) || [];
+    const propertyUnits = units?.filter((u: any) => u.property_id === (l as any).property_id) || [];
     const tenantUnit = propertyUnits.find(u => u.current_tenant_name === l.tenant_name);
     const gla = tenantUnit?.gla_sqm || (l as any).properties?.total_gla_sqm || 0;
     const rentalRate = gla > 0 ? (l.monthly_rental || 0) / gla : 0;
