@@ -70,6 +70,7 @@ export default function ReportsPage() {
   const [entities, setEntities] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [regions, setRegions] = useState<any[]>([]);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set(reportCategories.map(c => c.category)));
 
   useEffect(() => {
     async function load() {
@@ -101,10 +102,10 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-4 gap-3">
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-[var(--text-primary)]">{allReports.length}</p><p className="text-xs text-[var(--text-muted)]">Reports</p></div>
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-[var(--text-primary)]">18</p><p className="text-xs text-[var(--text-muted)]">Generated Today</p></div>
         <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-emerald-400">{scheduled.length}</p><p className="text-xs text-[var(--text-muted)]">Scheduled</p></div>
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-amber-400">{favorites.length}</p><p className="text-xs text-[var(--text-muted)]">Favorites</p></div>
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-[var(--text-primary)]">127</p><p className="text-xs text-[var(--text-muted)]">Exports This Month</p></div>
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-[var(--text-primary)]">312</p><p className="text-xs text-[var(--text-muted)]">Generated This Month</p></div>
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-lg font-bold text-amber-400">28</p><p className="text-xs text-[var(--text-muted)]">Delivered Today</p></div>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -156,7 +157,7 @@ export default function ReportsPage() {
       )}
 
       {scheduled.length > 0 && (
-        <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/5 p-4">
+        <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/5 p-3">
           <p className="text-xs uppercase tracking-[0.2em] text-emerald-300 mb-2">Scheduled Deliveries</p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
             {scheduled.map(r => (
@@ -175,20 +176,33 @@ export default function ReportsPage() {
 
       {reportCategories.filter(cat => activeCategory === "all" || cat.category === activeCategory).map(cat => (
         <div key={cat.category}>
-          <div className="flex items-center gap-2 mb-3"><cat.icon className="w-4 h-4 text-[var(--text-muted)]" /><h2 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-[0.1em]">{cat.category}</h2><span className="text-xs text-[var(--text-muted)]">{cat.reports.length} reports</span></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {cat.reports.map(report => (
-              <button key={report.name} onClick={() => router.push(report.href)} className="text-left rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4 hover:border-[var(--border-hover)] transition-colors group">
-                <div className="flex items-center justify-between"><p className="text-sm font-medium text-[var(--text-primary)]">{report.name}</p><div className="flex items-center gap-1">{report.favorite && <Star className="w-3 h-3 text-amber-400" />}<Download className="w-4 h-4 text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" /></div></div>
-                <p className="text-xs text-[var(--text-muted)] mt-1">{report.description}</p>
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  {report.formats.map(f => (<span key={f} className="text-[10px] bg-[var(--bg-elevated)] text-[var(--text-muted)] px-2 py-0.5 rounded-full">{f}</span>))}
-                  {report.schedule && (<span className="text-[10px] bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full">{report.schedule}</span>)}
-                  {report.lastGenerated && (<span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><Clock className="w-3 h-3" /> {report.lastGenerated}</span>)}
-                </div>
-              </button>
-            ))}
-          </div>
+          <button onClick={() => {
+            setCollapsedCategories(prev => {
+              const next = new Set(prev);
+              next.has(cat.category) ? next.delete(cat.category) : next.add(cat.category);
+              return next;
+            });
+          }} className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity">
+            <cat.icon className="w-4 h-4 text-[var(--text-muted)]" />
+            <h2 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-[0.1em]">{cat.category}</h2>
+            <span className="text-xs text-[var(--text-muted)]">{cat.reports.length} reports</span>
+            <span className="text-[var(--text-muted)] text-xs ml-auto">{collapsedCategories.has(cat.category) ? "▶" : "▼"}</span>
+          </button>
+          {!collapsedCategories.has(cat.category) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+             {cat.reports.map(report => (
+                <button key={report.name} onClick={() => router.push(report.href)} className="text-left rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4 hover:border-[var(--border-hover)] transition-colors group">
+                  <div className="flex items-center justify-between"><p className="text-sm font-medium text-[var(--text-primary)]">{report.name}</p><div className="flex items-center gap-1">{report.favorite && <Star className="w-3 h-3 text-amber-400" />}<Download className="w-4 h-4 text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" /></div></div>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">{report.description}</p>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    {report.formats.map(f => (<span key={f} className="text-[10px] bg-[var(--bg-elevated)] text-[var(--text-muted)] px-2 py-0.5 rounded-full">{f}</span>))}
+                    {report.schedule && (<span className="text-[10px] bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full">{report.schedule}</span>)}
+                    {report.lastGenerated && (<span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><Clock className="w-3 h-3" /> {report.lastGenerated}</span>)}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </div>
