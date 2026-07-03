@@ -15,10 +15,10 @@ export async function POST(request: NextRequest) {
     await sgMail.send({
       to,
       from: {
-        email: "fayaaz318@gmail.com",
-        name: "AssetFlow Team"
+        email: "hello@assetflow.africa",
+        name: "AssetFlow"
       },
-      replyTo: "fayaaz318@gmail.com",
+      replyTo: "hello@assetflow.africa",
       subject,
       html,
     });
