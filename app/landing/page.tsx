@@ -38,15 +38,67 @@ export default function LandingPage() {
     body: JSON.stringify({
       to: betaEmail,
       subject: "Your AssetFlow Beta Application — Received",
-      html: `<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
-        <h2 style="color: #10b981;">Thank you for your interest in AssetFlow</h2>
-        <p>Hi ${betaEmail.split('@')[0]},</p>
-        <p>Your beta application has been received and will be reviewed within 48 hours.</p>
-        <p>AssetFlow is a commercial property operating system — leases, billing, cash books, and communications in one platform.</p>
-        <p>We'll reach out with next steps soon.</p>
-        <hr style="border: 1px solid #eee; margin: 20px 0;" />
-        <p style="color: #666; font-size: 12px;">AssetFlow — The Commercial Property Operating System</p>
-      </div>`,
+           html: `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #111827; line-height: 1.6;">
+  
+  <div style="padding-bottom: 24px; border-bottom: 1px solid #e5e7eb;">
+    <h1 style="margin: 0; font-size: 28px; color: #111827;">
+      Welcome to AssetFlow Beta
+    </h1>
+    <p style="margin-top: 8px; color: #6b7280;">
+      Your application has been received successfully.
+    </p>
+  </div>
+
+  <div style="padding: 32px 0;">
+    <p>Hi ${betaEmail.split('@')[0]},</p>
+
+    <p>
+      Thank you for your interest in AssetFlow.
+    </p>
+
+    <p>
+      AssetFlow is a commercial property operating system designed to help teams spend less time operating software and more time operating property.
+    </p>
+
+    <p>
+      Your beta application is currently being reviewed and we'll be in touch shortly regarding access and onboarding.
+    </p>
+
+    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px; margin: 28px 0;">
+      <p style="margin-top: 0; font-weight: 600; color: #111827;">
+        During beta you'll have access to:
+      </p>
+      <ul style="padding-left: 20px; color: #4b5563; margin-bottom: 0;">
+        <li>Morning Brief operational intelligence</li>
+        <li>Revenue Operations and billing workflows</li>
+        <li>Cash Book reconciliation and allocation</li>
+        <li>Tenant communications and WhatsApp workflows</li>
+        <li>Portfolio reporting and analytics</li>
+      </ul>
+    </div>
+
+    <p>
+      We're intentionally onboarding a limited number of portfolios during beta to ensure every customer receives the support and attention needed for a successful rollout.
+    </p>
+
+    <p>
+      We appreciate your interest and look forward to welcoming you to the platform.
+    </p>
+
+    <p>
+      The AssetFlow Team
+    </p>
+  </div>
+
+  <div style="border-top: 1px solid #e5e7eb; padding-top: 24px; color: #6b7280; font-size: 12px;">
+    <strong>AssetFlow</strong><br />
+    The Commercial Property Operating System<br />
+    Johannesburg, South Africa
+  </div>
+
+</div>
+      `,
     }),
   });
 }
