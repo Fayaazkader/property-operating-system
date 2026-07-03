@@ -189,7 +189,7 @@ export default function OccupancyReportPage() {
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">Property Detail</h2>
           <div className="flex items-center gap-2">
             <span className="text-xs text-[var(--text-muted)]">Filter:</span>
-            {propertyTypes.map((v: string) => (
+            {propertyTypes.map((v: any) => (
               <button key={`filter-${v}`} onClick={() => setPropertyFilter2(v)}
                 className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${propertyFilter2 === v ? 'bg-[var(--text-primary)] text-[var(--bg-primary)]' : 'border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-hover)]'}`}>
                 {v === "all" ? "All" : v === "below_target" ? "Below Target" : v.charAt(0).toUpperCase() + v.slice(1)}
