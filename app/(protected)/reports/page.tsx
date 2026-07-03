@@ -70,8 +70,7 @@ export default function ReportsPage() {
   const [entities, setEntities] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [regions, setRegions] = useState<any[]>([]);
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set(reportCategories.map(c => c.category)));
-
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   useEffect(() => {
     async function load() {
       const { data: ent } = await supabase.from("entities").select("id, entity_name").order("entity_name");
