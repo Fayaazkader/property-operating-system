@@ -51,10 +51,31 @@ export async function POST(request: NextRequest) {
     const tenant = await findTenantByPhone(supabase, phoneNumber);
     if (!tenant) return new NextResponse("We couldn't find your account. Please contact your property manager.", { status: 200 });
 
-    let mediaUrls: string[] = [];
+        let mediaUrls: string[] = [];
     for (let i = 0; i < numMedia; i++) {
       const mediaUrl = formData.get(`MediaUrl${i}`);
       if (mediaUrl) mediaUrls.push(mediaUrl as string);
+    }
+
+    // Process forwarded documents (non-maintenance files)
+    if (mediaUrls.length > 0 && !body.toLowerCase().includes("maintenance") && !body.toLowerCase().includes("leak") && !body.toLowerCase().includes("repair")) {
+      const { intakeFromWhatsApp } = await import("@/lib/document-intelligence/engine");
+      let docReply = "";
+      for (const mediaUrl of mediaUrls) {
+        const fileName = `whatsapp-document-${Date.now()}.pdf`;
+        const docResult = await intakeFromWhatsApp(mediaUrl, fileName, tenant.id, tenant.tenant_name, body);
+        if (docResult.documentType !== "unknown") {
+          docReply = docResult.message;
+        }
+      }
+      if (docReply) {
+        await supabase.from("communications").insert({
+          tenant_id: tenant.id, event_type: "whatsapp_response", channel: "whatsapp",
+          message_body: docReply, status: "sent", source_type: "whatsapp",
+          source_id: `WA-RESP-${Date.now()}`,
+        });
+        return new NextResponse(docReply, { status: 200, headers: { "Content-Type": "text/plain" } });
+      }
     }
 
     const context = await getContext(tenant.id, tenant.tenant_name);
