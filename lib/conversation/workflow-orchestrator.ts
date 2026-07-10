@@ -28,7 +28,7 @@ class WorkflowOrchestrator {
     let currentStep: WorkflowStep | undefined = workflow.steps[0];
 
     while (currentStep) {
-      const step = currentStep;
+      const step: WorkflowStep = currentStep;
       try {
         const result = await this.executeStep(step, context);
         results.push({ step: step.id, success: true, data: result });
