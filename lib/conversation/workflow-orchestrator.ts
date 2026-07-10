@@ -1,5 +1,3 @@
-// Workflow Orchestrator — starts and coordinates governed business processes
-
 export type WorkflowStep = {
   id: string;
   action: string;
@@ -30,14 +28,15 @@ class WorkflowOrchestrator {
     let currentStep: WorkflowStep | undefined = workflow.steps[0];
 
     while (currentStep) {
+      const step = currentStep;
       try {
-        const result = await this.executeStep(currentStep, context);
-        results.push({ step: currentStep.id, success: true, data: result });
+        const result = await this.executeStep(step, context);
+        results.push({ step: step.id, success: true, data: result });
         context = { ...context, ...result };
-        currentStep = currentStep.nextOnSuccess ? workflow.steps.find(s => s.id === currentStep!.nextOnSuccess) : undefined;
+        currentStep = step.nextOnSuccess ? workflow.steps.find(s => s.id === step.nextOnSuccess) : undefined;
       } catch (error) {
-        results.push({ step: currentStep.id, success: false, error });
-        currentStep = currentStep.nextOnFailure ? workflow.steps.find(s => s.id === currentStep!.nextOnFailure) : undefined;
+        results.push({ step: step.id, success: false, error });
+        currentStep = step.nextOnFailure ? workflow.steps.find(s => s.id === step.nextOnFailure) : undefined;
       }
     }
 
@@ -52,7 +51,6 @@ class WorkflowOrchestrator {
 
 export const orchestrator = new WorkflowOrchestrator();
 
-// Register lease renewal workflow
 orchestrator.register({
   id: "lease_renewal",
   name: "Lease Renewal Process",
@@ -65,7 +63,6 @@ orchestrator.register({
   ],
 });
 
-// Register maintenance workflow
 orchestrator.register({
   id: "maintenance",
   name: "Maintenance Request Process",
@@ -76,7 +73,6 @@ orchestrator.register({
   ],
 });
 
-// Register lease application intake workflow
 orchestrator.register({
   id: "lease_application_intake",
   name: "Lease Application Intake",
@@ -88,7 +84,6 @@ orchestrator.register({
   ],
 });
 
-// Register lease activation workflow
 orchestrator.register({
   id: "lease_activation",
   name: "Lease Activation",
