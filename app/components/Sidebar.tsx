@@ -6,10 +6,9 @@ import { usePathname } from "next/navigation";
 import { useCommandPalette } from "@/lib/platform/CommandPaletteContext";
 import { supabase } from "@/lib/supabase";
 import { 
-  Home, Receipt, Landmark, MessageSquare, CheckSquare,BarChart3,
-  Building2, Users, Briefcase, Calendar, Search
+  Home, Receipt, Landmark, MessageSquare, CheckSquare,
+  Building2, Users, Briefcase, Calendar, Search, Pin, PinOff, FileText, BarChart3
 } from "lucide-react";
-import { Pin, PinOff } from "lucide-react";
 
 type NavItem = {
   label: string;
@@ -50,6 +49,7 @@ export default function Sidebar() {
   const operationsItems: NavItem[] = [
     { label: "Revenue Ops", href: "/financials/revenue", icon: Receipt, desc: "Billing · Statements · Utilities", count: counts.revenue },
     { label: "Cash Book", href: "/financials/cash-book", icon: Landmark, desc: "Banking · Reconciliation · Allocation", count: counts.cashbook },
+    { label: "Leasing", href: "/leasing", icon: FileText, desc: "Intake · Negotiations · Activation" },
     { label: "Communications", href: "/communications", icon: MessageSquare, desc: "Email · WhatsApp · Statements", count: counts.communications },
     { label: "Tasks", href: "/tasks", icon: CheckSquare, desc: "Workflows · Approvals · Follow Ups", count: counts.tasks },
   ];
