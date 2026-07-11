@@ -53,49 +53,67 @@ export default function LeaseIntakeWorkspace() {
   }
 
   async function handleActivate() {
-    setActivating(true);
-    setNotification(null);
+  setActivating(true);
+  setNotification(null);
+  
+  try {
+    // Get the session using the imported supabase client
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    try {
-      const response = await fetch(`/api/leasing/intake/${id}/activate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" }
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || data.error || "Activation failed");
-      }
-      
-      setShowActivationModal(false);
-      
-      // Reload the intake to get updated status
-      await loadIntake();
-      
-      setNotification({
-        type: 'success',
-        message: '✅ Lease activated successfully!',
-        details: data.lease_id ? `Lease ID: ${data.lease_id}` : 'Revenue operations have been initiated.'
-      });
-      
-      // Auto-dismiss after 3 seconds and refresh page
-      setTimeout(() => {
-        setNotification(null);
-        router.refresh();
-      }, 3000);
-      
-    } catch (error) {
-      console.error("Activation error:", error);
-      setNotification({
-        type: 'error',
-        message: error instanceof Error ? error.message : "Activation failed",
-        details: 'Please check the logs for more information.'
-      });
-    } finally {
-      setActivating(false);
+    if (sessionError) {
+      console.error('Session error:', sessionError);
+      throw new Error(`Session error: ${sessionError.message}`);
     }
+
+    if (!session) {
+      throw new Error("Not authenticated. Please log in again.");
+    }
+
+    const token = session.access_token;
+    console.log('Token obtained, length:', token.length);
+
+    const response = await fetch(`/api/leasing/intake/${id}/activate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      }
+    });
+    
+    const data = await response.json();
+    console.log('API Response:', data);
+    
+    if (!response.ok) {
+      const errorMessage = data?.error || data?.message || data?.details || "Activation failed";
+      throw new Error(errorMessage);
+    }
+    
+    setShowActivationModal(false);
+    await loadIntake();
+    
+    setNotification({
+      type: 'success',
+      message: '✅ Lease activated successfully!',
+      details: data.lease_id ? `Lease ID: ${data.lease_id}` : 'Revenue operations have been initiated.'
+    });
+    
+    setTimeout(() => {
+      setNotification(null);
+      router.refresh();
+    }, 5000);
+    
+  } catch (error) {
+    console.error("Activation error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Activation failed";
+    setNotification({
+      type: 'error',
+      message: errorMessage,
+      details: 'Check the console for more details.'
+    });
+  } finally {
+    setActivating(false);
   }
+}
 
   const statusFlow = [
     { key: "awaiting_review", label: "Review", icon: Clock },

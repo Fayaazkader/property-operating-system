@@ -1,44 +1,37 @@
 // lib/workflows/lease-activation.ts
-// Complete Lease Activation Workflow
+// Lease Activation Workflow
+// Uses the authenticated supabase client passed from the API route
 
-import { supabase } from "@/lib/supabase";
 import { publish } from "@/lib/conversation/event-bus";
 
 export async function activateLease(context: any, config: any) {
-  console.log("========== ACTIVATE LEASE START ==========");
-  console.log("Context:", context);
-  console.log("Config:", config);
-  const { intakeId, initiated_by } = context;
-  console.log("Intake ID:", intakeId);
+  const { intakeId, initiated_by, intake, supabase } = context;
   
-  // 1. Fetch intake
-  const { data: intake, error: intakeError } = await supabase
-    .from("lease_intake")
-    .select("*")
-    .eq("id", intakeId)
-    .single();
-    console.log("Fetch Intake:");
-  console.log("Intake:", intake);
-  console.log("Intake Error:", intakeError);
-
-
-  if (intakeError || !intake) {
-     console.error("FAILED AT STEP 1 - FETCH INTAKE");
+  // Use the intake passed from the API route
+  if (!intake) {
     return {
       success: false,
       step: "fetchIntake",
-      message: "Intake not found",
+      message: "Intake not provided in context",
       blocking: true
     };
   }
 
-  // 2. Validate readiness
+  if (!supabase) {
+    return {
+      success: false,
+      step: "noSupabase",
+      message: "Supabase client not provided in context",
+      blocking: true
+    };
+  }
+
+  console.log("activateLease: Processing intake:", intake.id, "Status:", intake.status);
+
+  // Validate readiness
   const readiness = await validateReadiness(intake);
-   console.log("Readiness Result:", readiness);
+  
   if (!readiness.ready) {
-    console.error("FAILED AT STEP 2 - VALIDATION");
-    console.error("Critical:", readiness.critical);
-    console.error("Warnings:", readiness.warnings);
     return {
       success: false,
       step: "validation",
@@ -50,22 +43,15 @@ export async function activateLease(context: any, config: any) {
       }
     };
   }
-   console.log("Validation Passed");
 
-  // 3. Fetch tenant for entity context
-  const { data: tenant, error: tenantError } = await supabase
+  // Fetch tenant for entity context (using authenticated client)
+  const { data: tenant } = await supabase
     .from("tenants")
     .select("entity_id, tenant_name, email, phone")
     .eq("id", intake.tenant_id)
     .single();
 
-  console.log("Tenant:");
-  console.log(tenant);
-  console.log("Tenant Error:");
-  console.log(tenantError);
-
-  // 4. Create lease
-   console.log("Creating Lease...");
+  // Create lease (using authenticated client)
   const { data: lease, error: leaseError } = await supabase
     .from("leases")
     .insert({
@@ -92,12 +78,9 @@ export async function activateLease(context: any, config: any) {
     })
     .select()
     .single();
-    console.log("Lease Insert Result:");
-  console.log("Lease:", lease);
-  console.log("Lease Error:", leaseError);
 
   if (leaseError) {
-     console.error("FAILED AT STEP 4 - CREATE LEASE");
+    console.error("activateLease: Lease creation error:", leaseError);
     return {
       success: false,
       step: "createLease",
@@ -105,10 +88,10 @@ export async function activateLease(context: any, config: any) {
       blocking: true
     };
   }
-  console.log("Lease Created Successfully");
 
-  // 5. Update intake with lease_id
-  console.log("Updating Intake...");
+  console.log("✅ Lease created:", lease.id);
+
+  // Update intake with lease_id
   const { error: updateError } = await supabase
     .from("lease_intake")
     .update({ 
@@ -116,10 +99,9 @@ export async function activateLease(context: any, config: any) {
       updated_at: new Date().toISOString()
     })
     .eq("id", intakeId);
-    console.log("Update Intake Error:", updateError);
 
   if (updateError) {
-    console.error("FAILED AT STEP 5 - UPDATE INTAKE");
+    console.error("activateLease: Intake update error:", updateError);
     return {
       success: false,
       step: "updateIntake",
@@ -127,8 +109,30 @@ export async function activateLease(context: any, config: any) {
       blocking: true
     };
   }
- console.log("Intake Updated Successfully");
-  // Store both in context for next steps
+
+  // Update intake status to activated
+  const { error: statusUpdateError } = await supabase
+    .from("lease_intake")
+    .update({ 
+      status: "activated",
+      activated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", intakeId);
+
+  if (statusUpdateError) {
+    console.error("activateLease: Status update error:", statusUpdateError);
+    return {
+      success: false,
+      step: "updateStatus",
+      message: statusUpdateError.message,
+      blocking: true
+    };
+  }
+
+  console.log("✅ Intake status updated to activated");
+
+  // Store in context for next steps
   context.lease = lease;
   context.intake = intake;
 
@@ -138,17 +142,11 @@ export async function activateLease(context: any, config: any) {
     intake
   };
 }
-export async function createBilling(context: any, config: any) {
-  console.log('createBilling: Starting with context:', { 
-    hasLease: !!context.lease, 
-    hasIntake: !!context.intake 
-    
-  });
-  const lease = context.lease;
-  const intake = context.intake;
 
-if (!lease || !intake) {
-    console.error('createBilling: Missing lease or intake');
+export async function createBilling(context: any, config: any) {
+  const { lease, intake, supabase } = context;
+
+  if (!lease || !intake) {
     return {
       success: false,
       step: "createBilling",
@@ -157,9 +155,18 @@ if (!lease || !intake) {
     };
   }
 
-  console.log('createBilling: Creating billing for lease', lease.id);
+  if (!supabase) {
+    return {
+      success: false,
+      step: "createBilling",
+      message: "Supabase client not provided",
+      blocking: true
+    };
+  }
 
-  // 1. Create billing rule for monthly rental
+  console.log("createBilling: Creating billing for lease:", lease.id);
+
+  // Create billing rule for monthly rental
   const { data: billingRule, error: billingError } = await supabase
     .from("billing_rules")
     .insert({
@@ -178,6 +185,7 @@ if (!lease || !intake) {
     .single();
 
   if (billingError) {
+    console.error("createBilling: Error:", billingError);
     return {
       success: false,
       step: "createBilling",
@@ -186,7 +194,9 @@ if (!lease || !intake) {
     };
   }
 
-  // 2. Create deposit ledger entry
+  console.log("✅ Billing rule created:", billingRule.id);
+
+  // Create deposit ledger entry
   const { data: depositLedger, error: depositError } = await supabase
     .from("deposit_ledger")
     .insert({
@@ -201,6 +211,7 @@ if (!lease || !intake) {
     .single();
 
   if (depositError) {
+    console.error("createBilling: Deposit error:", depositError);
     return {
       success: false,
       step: "createDepositLedger",
@@ -208,6 +219,8 @@ if (!lease || !intake) {
       blocking: true
     };
   }
+
+  console.log("✅ Deposit ledger created:", depositLedger.id);
 
   return {
     success: true,
@@ -217,12 +230,9 @@ if (!lease || !intake) {
 }
 
 export async function notifyTenant(context: any, config: any) {
-  // Get lease and intake from context
-  const lease = context.lease;
-  const intake = context.intake;
+  const { lease, intake, supabase } = context;
 
   if (!lease || !intake) {
-    console.error('notifyTenant: Missing lease or intake in context');
     return {
       success: false,
       step: "notifyTenant",
@@ -231,27 +241,18 @@ export async function notifyTenant(context: any, config: any) {
     };
   }
 
-  // 1. Update intake status to activated (LEASING OWNS THIS)
-  const { error: statusError } = await supabase
-    .from("lease_intake")
-    .update({ 
-      status: "activated",
-      activated_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", intake.id);
-
-  if (statusError) {
-    console.error('notifyTenant: Failed to update status:', statusError);
+  if (!supabase) {
     return {
       success: false,
-      step: "updateStatus",
-      message: statusError.message,
+      step: "notifyTenant",
+      message: "Supabase client not provided",
       blocking: true
     };
   }
 
-  // 2. Update unit occupancy (PROPERTY OWNS THIS - but we do it here for now)
+  console.log("notifyTenant: Sending notifications for lease:", lease.id);
+
+  // Update unit occupancy
   if (intake.unit_id) {
     const { error: unitError } = await supabase
       .from("units")
@@ -265,12 +266,13 @@ export async function notifyTenant(context: any, config: any) {
       .eq("id", intake.unit_id);
 
     if (unitError) {
-      console.error('notifyTenant: Failed to update unit:', unitError);
-      // Don't block on this - it's a warning
+      console.error("notifyTenant: Unit update error:", unitError);
+    } else {
+      console.log("✅ Unit updated:", intake.unit_id);
     }
   }
 
-  // 3. Publish lease.activated event
+  // Publish lease.activated event
   await publish("lease.activated", {
     event: "lease.activated",
     tenantId: intake.tenant_id,
@@ -305,6 +307,8 @@ export async function notifyTenant(context: any, config: any) {
       occurred_at: new Date().toISOString()
     }
   });
+
+  console.log("✅ lease.activated event published");
 
   return { 
     success: true, 
