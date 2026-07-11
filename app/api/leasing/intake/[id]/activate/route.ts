@@ -1,10 +1,6 @@
-// app/api/leasing/intake/[id]/activate/route.ts
-// API route for lease activation
-// Calls the Workflow Orchestrator
-
 import { NextRequest, NextResponse } from "next/server";
 import { orchestrator } from "@/lib/conversation/workflow-orchestrator";
-import { createClient } from "@/lib/supabase/server";
+import { supabase } from "@/lib/supabase";
 
 export async function POST(
   req: NextRequest,
@@ -20,12 +16,20 @@ export async function POST(
       );
     }
 
-    const supabase = await createClient();
+    // Get current user for audit
     const { data: { user } } = await supabase.auth.getUser();
+
+    // First, fetch the intake to pass through
+    const { data: intake } = await supabase
+      .from("lease_intake")
+      .select("*")
+      .eq("id", id)
+      .single();
 
     const result = await orchestrator.execute("lease_activation", {
       intakeId: id,
-      initiated_by: user?.id || "system"
+      initiated_by: user?.id || "system",
+      intake: intake // Pass the full intake data
     });
 
     if (!result.success) {
@@ -52,6 +56,7 @@ export async function POST(
       warnings: result.results.flatMap(r => r.data?.intake?.warnings || [])
     });
   } catch (error) {
+    console.error("Activation API error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }

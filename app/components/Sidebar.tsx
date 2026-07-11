@@ -49,7 +49,7 @@ export default function Sidebar() {
   const operationsItems: NavItem[] = [
     { label: "Revenue Ops", href: "/financials/revenue", icon: Receipt, desc: "Billing · Statements · Utilities", count: counts.revenue },
     { label: "Cash Book", href: "/financials/cash-book", icon: Landmark, desc: "Banking · Reconciliation · Allocation", count: counts.cashbook },
-    { label: "Commercial Leasing", href: "/commercial-leasing", icon: FileText, desc: "Opportunities · Brokers · Deals" },
+    { label: "Commercial Leasing", href: "/leasing", icon: FileText, desc: "Opportunities · Brokers · Deals" },
     { label: "Communications", href: "/communications", icon: MessageSquare, desc: "Email · WhatsApp · Statements", count: counts.communications },
     { label: "Tasks", href: "/tasks", icon: CheckSquare, desc: "Workflows · Approvals · Follow Ups", count: counts.tasks },
   ];
