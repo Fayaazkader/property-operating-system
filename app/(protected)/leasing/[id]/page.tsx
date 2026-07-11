@@ -279,11 +279,11 @@ export default function LeaseIntakeWorkspace() {
             </p>
           )}
           <button 
-            onClick={() => router.push('/revenue')}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 text-white px-6 py-2.5 text-sm font-semibold hover:bg-emerald-700 transition-colors"
-          >
-            Go to Revenue Operations
-          </button>
+  onClick={() => router.push('/financials/revenue')}
+  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 text-white px-6 py-2.5 text-sm font-semibold hover:bg-emerald-700 transition-colors"
+>
+  Go to Revenue Operations
+</button>
         </div>
       )}
 
