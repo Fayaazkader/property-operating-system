@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft, Save, Send, CheckCircle, FileText, AlertTriangle, Clock } from "lucide-react";
+import { ArrowLeft, Save, Send, CheckCircle, FileText, AlertTriangle, Clock, Loader2 } from "lucide-react";
 
 export default function LeaseIntakeWorkspace() {
   const { id } = useParams();
@@ -11,6 +11,8 @@ export default function LeaseIntakeWorkspace() {
   const [intake, setIntake] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [activating, setActivating] = useState(false);
+  const [showActivationModal, setShowActivationModal] = useState(false);
 
   useEffect(() => { loadIntake(); }, [id]);
 
@@ -49,6 +51,33 @@ export default function LeaseIntakeWorkspace() {
     loadIntake();
   }
 
+  async function handleActivate() {
+    setActivating(true);
+    
+    try {
+      const response = await fetch(`/api/leasing/intake/${id}/activate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Activation failed");
+      }
+      
+      setShowActivationModal(false);
+      await loadIntake();
+      
+      alert(`✅ Lease activated successfully!\nLease ID: ${data.lease_id}`);
+    } catch (error) {
+      console.error("Activation error:", error);
+      alert(error instanceof Error ? error.message : "Activation failed");
+    } finally {
+      setActivating(false);
+    }
+  }
+
   const statusFlow = [
     { key: "awaiting_review", label: "Review", icon: Clock },
     { key: "under_negotiation", label: "Negotiate", icon: AlertTriangle },
@@ -76,7 +105,7 @@ export default function LeaseIntakeWorkspace() {
           <button onClick={saveIntake} disabled={saving} className="flex items-center gap-2 rounded-xl border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors">
             <Save className="w-4 h-4" /> {saving ? "Saving..." : "Save"}
           </button>
-          {intake.status !== "activated" && (
+          {intake.status !== "activated" && intake.status !== "ready_for_activation" && (
             <button onClick={() => advanceStatus("ready_for_activation")} className="flex items-center gap-2 rounded-xl bg-[var(--text-primary)] text-[var(--bg-primary)] px-5 py-2 text-sm font-semibold hover:opacity-90 transition-opacity">
               <Send className="w-4 h-4" /> Advance
             </button>
@@ -101,6 +130,46 @@ export default function LeaseIntakeWorkspace() {
           );
         })}
       </div>
+
+      {/* Activation Review Section */}
+      {intake.status === "ready_for_activation" && (
+        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-emerald-400">Ready for Activation</h3>
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                This lease is ready to become operational. Review the commercial terms before activating.
+              </p>
+              <div className="mt-4 space-y-1">
+                <div className="flex items-center gap-2 text-xs">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-[var(--text-secondary)]">Commercial Terms complete</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-[var(--text-secondary)]">Tenant selected</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-[var(--text-secondary)]">Property & Unit assigned</span>
+                </div>
+                {!intake.contact_email && (
+                  <div className="flex items-center gap-2 text-xs text-amber-400">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span className="text-[var(--text-secondary)]">Contact Email missing (optional)</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <button 
+              onClick={() => setShowActivationModal(true)}
+              className="flex items-center gap-2 rounded-xl bg-emerald-600 text-white px-6 py-2.5 text-sm font-semibold hover:bg-emerald-700 transition-colors"
+            >
+              Activate Lease
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Commercial Terms */}
       <div className="grid grid-cols-2 gap-6">
@@ -170,6 +239,48 @@ export default function LeaseIntakeWorkspace() {
         <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-2">Negotiation Notes</h2>
         <textarea value={intake.negotiation_notes || ""} onChange={(e) => updateField("negotiation_notes", e.target.value)} rows={3} className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-2.5 text-sm outline-none focus:border-[var(--border-hover)] resize-none" placeholder="Notes about negotiations, special terms, or tenant requests..." />
       </div>
+
+      {/* Activation Confirmation Modal */}
+      {showActivationModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[var(--bg-primary)] rounded-3xl p-6 max-w-md w-full border border-[var(--border-default)]">
+            <h3 className="text-lg font-semibold text-[var(--text-primary)]">Confirm Activation</h3>
+            <p className="text-sm text-[var(--text-muted)] mt-2">
+              This will:
+            </p>
+            <ul className="text-sm text-[var(--text-secondary)] mt-3 space-y-1.5">
+              <li>• Create an operational lease</li>
+              <li>• Generate billing rules</li>
+              <li>• Update unit occupancy</li>
+              <li>• Notify the tenant</li>
+              <li>• Update portfolio reporting</li>
+            </ul>
+            
+            <div className="flex gap-3 mt-6">
+              <button 
+                onClick={() => setShowActivationModal(false)}
+                className="flex-1 rounded-xl border border-[var(--border-default)] px-4 py-2.5 text-sm text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleActivate}
+                disabled={activating}
+                className="flex-1 rounded-xl bg-emerald-600 text-white px-4 py-2.5 text-sm font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {activating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Activating...
+                  </>
+                ) : (
+                  "Confirm Activation"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

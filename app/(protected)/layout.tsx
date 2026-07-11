@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import { trackEvent, AnalyticsEvents } from "@/lib/analytics/tracker";
+// In app/layout.tsx, near the top with other imports
+import "@/lib/events";
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
