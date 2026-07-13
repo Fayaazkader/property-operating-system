@@ -402,7 +402,10 @@ export default function LeaseIntakeWorkspace() {
 
       {/* ⭐ EXECUTION SECTION — NEW */}
       {intake.lease_id && (
-        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-6">
+        <div 
+  className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-6"
+  data-execution-id={execution?.id}
+>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
               <FileText className="w-4 h-4 text-[var(--text-muted)]" />

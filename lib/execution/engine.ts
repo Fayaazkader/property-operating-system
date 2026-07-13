@@ -21,6 +21,7 @@ import {
   ExecutionPolicy,
 } from './types';
 import { logExecutionEvent } from './events';
+import { generateSigningLink } from './links';
 
 // ============================================================
 // Execution Engine Class
@@ -387,19 +388,27 @@ checks.push({
         };
       }
 
-      // Add participants
-      const participantsToAdd = params.participants || [];
-      for (const p of participantsToAdd) {
-        await this.addParticipant({
-          execution_id: params.execution_id,
-          participant_type: p.participant_type,
-          name: p.name,
-          email: p.email,
-          phone: p.phone,
-          company: p.company,
-          signing_order: participantsToAdd.indexOf(p) + 1,
-        });
-      }
+  // Add participants
+const participantsToAdd = params.participants || [];
+for (const p of participantsToAdd) {
+  await this.addParticipant({
+    execution_id: params.execution_id,
+    participant_type: p.participant_type,
+    name: p.name,
+    email: p.email,
+    phone: p.phone,
+    company: p.company,
+    signing_order: participantsToAdd.indexOf(p) + 1,
+  });
+}
+
+// ⭐ After adding participants, fetch them to generate links
+const allParticipants = await this.getParticipants(params.execution_id);
+for (const p of allParticipants) {
+  const link = await generateSigningLink(p.id, params.execution_id);
+  console.log(`Signing link for ${p.name}: ${link}`);
+  // TODO: Send via WhatsApp/Email
+}
 
       // Update participant statuses to 'sent'
       await this.supabase
