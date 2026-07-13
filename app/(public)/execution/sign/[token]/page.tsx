@@ -126,14 +126,17 @@ export default function SigningPage() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/execution/${execution.id}/sign`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          participant_id: participant.id,
-          signature: signature,
-        }),
-      });
+      // Update the fetch call
+const response = await fetch(`/api/execution/${execution.id}/sign`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    participant_id: participant.id,
+    signature: signature,
+    signature_method: 'typed', // or 'drawn' based on mode
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  }),
+});
 
       const data = await response.json();
 

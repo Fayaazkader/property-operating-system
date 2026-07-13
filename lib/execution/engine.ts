@@ -310,7 +310,22 @@ export class ExecutionEngine {
         const link = await generateSigningLink(p.id, params.execution_id);
         console.log(`🔗 Signing link for ${p.name}: ${link}`);
       }
-
+// After generating signing links
+const { sendExecutionNotifications } = await import('./notifications');
+for (const p of allParticipants) {
+  const link = await generateSigningLink(p.id, params.execution_id);
+  await sendExecutionNotifications({
+    executionId: params.execution_id,
+    participantId: p.id,
+    participantName: p.name,
+    signingLink: link,
+    channels: {
+      email: p.email,
+      whatsapp: p.phone,
+      phone: p.phone,
+    },
+  });
+}
       await logExecutionEvent({
         supabase: this.supabase,
         executionId: params.execution_id,
@@ -344,138 +359,139 @@ export class ExecutionEngine {
   // ============================================================
 
   async sign(params: {
-    executionId: string;
-    participantId: string;
-    signature: string;
-    signatureMethod?: 'typed' | 'drawn' | 'otp' | 'qualified';
-    ipAddress?: string;
-    userAgent?: string;
-    timezone?: string;
-  }): Promise<ExecutionResult> {
-    try {
-      const execution = await this.get(params.executionId);
-      if (!execution) {
-        return {
-          success: false,
-          execution_id: params.executionId,
-          status: 'draft',
-          errors: ['Execution not found'],
-        };
-      }
-
-      if (!['sent', 'viewed', 'partially_signed'].includes(execution.status)) {
-        return {
-          success: false,
-          execution_id: execution.id,
-          status: execution.status,
-          errors: [`Cannot sign: execution is in "${execution.status}" state`],
-        };
-      }
-
-      const { data: participant, error: pError } = await this.supabase
-        .from('execution_participants')
-        .select('*')
-        .eq('id', params.participantId)
-        .eq('execution_id', params.executionId)
-        .single();
-
-      if (pError || !participant) {
-        return {
-          success: false,
-          execution_id: execution.id,
-          status: execution.status,
-          errors: ['Participant not found'],
-        };
-      }
-
-      if (participant.status === 'signed') {
-        return {
-          success: false,
-          execution_id: execution.id,
-          status: execution.status,
-          errors: ['Already signed'],
-        };
-      }
-
-      const now = new Date().toISOString();
-
-      const { error: updateError } = await this.supabase
-        .from('execution_participants')
-        .update({
-          status: 'signed',
-          signed_at: now,
-          signature_data: {
-            type: params.signatureMethod || 'typed',
-            value: params.signature,
-            signed_at: now,
-            ip_address: params.ipAddress,
-            user_agent: params.userAgent,
-            timezone: params.timezone,
-          },
-          ip_address: params.ipAddress,
-          user_agent: params.userAgent,
-        })
-        .eq('id', params.participantId);
-
-      if (updateError) {
-        return {
-          success: false,
-          execution_id: execution.id,
-          status: execution.status,
-          errors: [updateError.message],
-        };
-      }
-
-      await logExecutionEvent({
-        supabase: this.supabase,
-        executionId: params.executionId,
-        eventType: 'signed',
-        eventData: {
-          participant_id: params.participantId,
-          participant_name: participant.name,
-        },
-        ipAddress: params.ipAddress,
-        userAgent: params.userAgent,
-        userId: this.userId,
-      });
-
-      // Check if all signed
-      const { data: allParticipants } = await this.supabase
-        .from('execution_participants')
-        .select('status')
-        .eq('execution_id', params.executionId);
-
-      const allSigned = allParticipants?.every(p => p.status === 'signed');
-
-      if (allSigned) {
-        return await this.execute(params.executionId);
-      }
-
-      await this.supabase
-        .from('executions')
-        .update({
-          status: 'partially_signed',
-        })
-        .eq('id', params.executionId);
-
-      const remaining = allParticipants?.filter(p => p.status !== 'signed') || [];
-      return {
-        success: true,
-        execution_id: execution.id,
-        status: 'partially_signed',
-        message: `${participant.name} signed. ${remaining.length} more signatures needed.`,
-        data: { participant, remaining },
-      };
-
-    } catch (error) {
+  executionId: string;
+  participantId: string;
+  signature: string;
+  signatureMethod?: 'typed' | 'drawn' | 'otp' | 'qualified';
+  ipAddress?: string;
+  userAgent?: string;
+  timezone?: string;
+}): Promise<ExecutionResult> {
+  try {
+    const execution = await this.get(params.executionId);
+    if (!execution) {
       return {
         success: false,
         execution_id: params.executionId,
         status: 'draft',
-        errors: [error instanceof Error ? error.message : 'Unknown error'],
+        errors: ['Execution not found'],
       };
     }
+
+    if (!['sent', 'viewed', 'partially_signed'].includes(execution.status)) {
+      return {
+        success: false,
+        execution_id: execution.id,
+        status: execution.status,
+        errors: [`Cannot sign: execution is in "${execution.status}" state`],
+      };
+    }
+
+    const { data: participant, error: pError } = await this.supabase
+      .from('execution_participants')
+      .select('*')
+      .eq('id', params.participantId)
+      .eq('execution_id', params.executionId)
+      .single();
+
+    if (pError || !participant) {
+      return {
+        success: false,
+        execution_id: execution.id,
+        status: execution.status,
+        errors: ['Participant not found'],
+      };
+    }
+
+    if (participant.status === 'signed') {
+      return {
+        success: false,
+        execution_id: execution.id,
+        status: execution.status,
+        errors: ['Already signed'],
+      };
+    }
+
+    const now = new Date().toISOString();
+
+    const { error: updateError } = await this.supabase
+      .from('execution_participants')
+      .update({
+        status: 'signed',
+        signed_at: now,
+        signature_data: {
+          type: params.signatureMethod || 'typed',
+          value: params.signature,
+          signed_at: now,
+          ip_address: params.ipAddress,
+          user_agent: params.userAgent,
+          timezone: params.timezone,
+        },
+        ip_address: params.ipAddress,
+        user_agent: params.userAgent,
+      })
+      .eq('id', params.participantId);
+
+    if (updateError) {
+      return {
+        success: false,
+        execution_id: execution.id,
+        status: execution.status,
+        errors: [updateError.message],
+      };
+    }
+
+    await logExecutionEvent({
+      supabase: this.supabase,
+      executionId: params.executionId,
+      eventType: 'signed',
+      eventData: {
+        participant_id: params.participantId,
+        participant_name: participant.name,
+      },
+      ipAddress: params.ipAddress,
+      userAgent: params.userAgent,
+      userId: this.userId,
+    });
+
+    // Check if all signed
+    const { data: allParticipants } = await this.supabase
+      .from('execution_participants')
+      .select('status')
+      .eq('execution_id', params.executionId);
+
+    const allSigned = allParticipants?.every(p => p.status === 'signed');
+
+    if (allSigned) {
+      // ⭐ This is where execute() is called, which will generate the certificate
+      return await this.execute(params.executionId);
+    }
+
+    await this.supabase
+      .from('executions')
+      .update({
+        status: 'partially_signed',
+      })
+      .eq('id', params.executionId);
+
+    const remaining = allParticipants?.filter(p => p.status !== 'signed') || [];
+    return {
+      success: true,
+      execution_id: execution.id,
+      status: 'partially_signed',
+      message: `${participant.name} signed. ${remaining.length} more signatures needed.`,
+      data: { participant, remaining },
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      execution_id: params.executionId,
+      status: 'draft',
+      errors: [error instanceof Error ? error.message : 'Unknown error'],
+    };
   }
+}
 
   // ============================================================
   // EXECUTE — Complete execution when all signed

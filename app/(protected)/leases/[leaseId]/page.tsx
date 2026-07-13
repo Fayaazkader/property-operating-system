@@ -505,7 +505,26 @@ export default function LeaseIntakeWorkspace() {
                   ))}
                 </div>
               )}
-
+{/* Certificate Section */}
+{execution?.execution_certificate_url && (
+  <div className="mt-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-xs text-emerald-400 font-medium">✅ Execution Certificate</p>
+        <p className="text-xs text-[var(--text-muted)]">Official execution record with audit trail</p>
+      </div>
+      <a 
+        href={execution.execution_certificate_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 rounded-xl bg-emerald-600 text-white px-4 py-2 text-xs font-semibold hover:bg-emerald-700 transition-colors"
+      >
+        <FileText className="w-3.5 h-3.5" />
+        View Certificate
+      </a>
+    </div>
+  </div>
+)}
               {/* Actions */}
               {execution.status === 'draft' && (
                 <button
