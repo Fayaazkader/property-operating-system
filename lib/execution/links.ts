@@ -1,12 +1,4 @@
-// lib/execution/links.ts
-// Signing link generation
-
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabase } from "@/lib/supabase";
 
 export async function generateSigningLink(
   participantId: string,
@@ -15,7 +7,7 @@ export async function generateSigningLink(
   // Generate a secure token
   const token = crypto.randomUUID().replace(/-/g, '');
   
-  // Store token in a new table or in participant record
+  // Store token in the participant record
   const { error } = await supabase
     .from('execution_participants')
     .update({ 

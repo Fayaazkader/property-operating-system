@@ -1,6 +1,6 @@
 import "./globals.css";
 import { PlatformProvider } from "./context/PlatformContext";
-import AppLayout from "./components/layout/AppLayout";
+import RouteGuard from "./components/RouteGuard";
 import Script from "next/script";
 
 export const metadata = {
@@ -30,41 +30,41 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-  <html lang="en" className="dark">
-    <head>
-  <Script async src="https://www.googletagmanager.com/gtag/js?id=G-8GV9CJ6VBB" strategy="afterInteractive" />
-  <Script id="google-analytics" strategy="afterInteractive">
-    {`
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-8GV9CJ6VBB');
-    `}
-  </Script>
-</head>
-    <body className="bg-black text-white">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            "name": "AssetFlow",
-            "description": "Commercial property operating system — leases, billing, statements, cash books, communications and intelligence in one platform.",
-            "applicationCategory": "BusinessApplication",
-            "operatingSystem": "Web",
-            "url": "https://assetflow.africa",
-            "offers": {
-              "@type": "Offer",
-              "description": "Property operations platform for landlords, property managers and managing agents."
-            }
-          })
-        }}
-      />
-      <PlatformProvider>
-        <AppLayout>{children}</AppLayout>
-      </PlatformProvider>
-    </body>
-  </html>
-);
+    <html lang="en" className="dark">
+      <head>
+        <Script async src="https://www.googletagmanager.com/gtag/js?id=G-8GV9CJ6VBB" strategy="afterInteractive" />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-8GV9CJ6VBB');
+          `}
+        </Script>
+      </head>
+      <body className="bg-black text-white">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": "AssetFlow",
+              "description": "Commercial property operating system — leases, billing, statements, cash books, communications and intelligence in one platform.",
+              "applicationCategory": "BusinessApplication",
+              "operatingSystem": "Web",
+              "url": "https://assetflow.africa",
+              "offers": {
+                "@type": "Offer",
+                "description": "Property operations platform for landlords, property managers and managing agents."
+              }
+            })
+          }}
+        />
+        <PlatformProvider>
+          <RouteGuard>{children}</RouteGuard>
+        </PlatformProvider>
+      </body>
+    </html>
+  );
 }

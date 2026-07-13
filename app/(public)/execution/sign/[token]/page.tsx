@@ -15,6 +15,7 @@ export default function SigningPage() {
   const [isSigning, setIsSigning] = useState(false);
   const [signed, setSigned] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string; details?: string } | null>(null);
 
   useEffect(() => {
     loadSigningData();
@@ -22,44 +23,62 @@ export default function SigningPage() {
 
   async function loadSigningData() {
     try {
-      // Find participant by token
+      console.log('Token from URL:', token);
+      
+      // Find the participant
       const { data: participantData, error: pError } = await supabase
         .from('execution_participants')
-        .select('*, execution:executions(*)')
+        .select('*')
         .eq('otp_code', token)
         .single();
 
       if (pError || !participantData) {
+        console.error('Participant not found:', pError);
         setError('Invalid or expired signing link');
         setLoading(false);
         return;
       }
 
-      // Check if already signed
-      if (participantData.status === 'signed') {
-        setSigned(true);
-        setParticipant(participantData);
-        setExecution(participantData.execution);
+      console.log('Found participant:', participantData.name);
+
+      // Get the execution
+      const { data: executionData, error: eError } = await supabase
+        .from('executions')
+        .select('*')
+        .eq('id', participantData.execution_id)
+        .single();
+
+      if (eError || !executionData) {
+        console.error('Execution not found:', eError);
+        setError('Execution not found');
         setLoading(false);
         return;
       }
 
-      // Check if execution is still active
-      if (participantData.execution?.status === 'cancelled') {
+      console.log('Found execution:', executionData.id, 'Status:', executionData.status);
+
+      if (participantData.status === 'signed') {
+        setSigned(true);
+        setParticipant(participantData);
+        setExecution(executionData);
+        setLoading(false);
+        return;
+      }
+
+      if (executionData.status === 'cancelled') {
         setError('This execution has been cancelled');
         setLoading(false);
         return;
       }
 
       setParticipant(participantData);
-      setExecution(participantData.execution);
+      setExecution(executionData);
 
-      // Load source data (lease details)
-      if (participantData.execution?.source_type === 'lease') {
+      if (executionData.source_type === 'lease') {
         const { data: source } = await supabase
           .from('leases')
           .select('*')
-          .eq('id', participantData.execution.source_id)
+          .eq('id', executionData.source_id)
           .single();
         setSourceData(source);
       }
@@ -74,7 +93,11 @@ export default function SigningPage() {
 
   async function handleSign() {
     if (!signature.trim()) {
-      alert('Please enter your signature');
+      setNotification({
+        type: 'error',
+        message: 'Please enter your signature',
+        details: 'Type your full name in the signature field.'
+      });
       return;
     }
 
@@ -82,6 +105,8 @@ export default function SigningPage() {
     setError(null);
 
     try {
+      console.log('Signing with:', { execution_id: execution.id, participant_id: participant.id });
+
       const response = await fetch(`/api/execution/${execution.id}/sign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -92,6 +117,7 @@ export default function SigningPage() {
       });
 
       const data = await response.json();
+      console.log('Sign response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to sign');
@@ -100,13 +126,21 @@ export default function SigningPage() {
       setSigned(true);
       setSignature('');
       
-      // Show success message
       if (data.status === 'executed') {
-        alert('🎉 All parties have signed! The lease has been executed.');
+        setNotification({
+          type: 'success',
+          message: '🎉 All parties have signed!',
+          details: 'The lease has been executed.'
+        });
       } else {
-        alert('✅ Signature recorded! Waiting for other parties to sign.');
+        setNotification({
+          type: 'success',
+          message: '✅ Signature recorded!',
+          details: 'Waiting for other parties to sign.'
+        });
       }
     } catch (err) {
+      console.error('Sign error:', err);
       setError(err instanceof Error ? err.message : 'Failed to sign');
     } finally {
       setIsSigning(false);
@@ -115,7 +149,7 @@ export default function SigningPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)]">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-[var(--text-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-[var(--text-muted)]">Loading execution...</p>
@@ -126,7 +160,7 @@ export default function SigningPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg-primary)]">
         <div className="max-w-md w-full bg-[var(--bg-secondary)] rounded-2xl border border-red-500/20 p-8 text-center">
           <XCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
           <h2 className="text-lg font-semibold text-[var(--text-primary)]">Link Invalid</h2>
@@ -139,7 +173,7 @@ export default function SigningPage() {
 
   if (signed) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg-primary)]">
         <div className="max-w-md w-full bg-[var(--bg-secondary)] rounded-2xl border border-emerald-500/20 p-8 text-center">
           <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
           <h2 className="text-lg font-semibold text-emerald-400">Already Signed</h2>
@@ -155,9 +189,21 @@ export default function SigningPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] py-12 px-4">
+    <div className="min-h-screen py-12 px-4 bg-[var(--bg-primary)]">
       <div className="max-w-3xl mx-auto">
-        {/* Header */}
+        {notification && (
+          <div className={`mb-6 p-4 rounded-xl ${
+            notification.type === 'success' 
+              ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
+              : 'bg-red-500/10 border border-red-500/20 text-red-400'
+          }`}>
+            <p className="text-sm font-medium">{notification.message}</p>
+            {notification.details && (
+              <p className="text-xs mt-1 opacity-80">{notification.details}</p>
+            )}
+          </div>
+        )}
+
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Review & Sign Lease</h1>
           <p className="text-sm text-[var(--text-muted)] mt-1">
@@ -165,7 +211,6 @@ export default function SigningPage() {
           </p>
         </div>
 
-        {/* Execution Status */}
         <div className="bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-default)] p-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
@@ -181,7 +226,6 @@ export default function SigningPage() {
           </div>
         </div>
 
-        {/* Lease Summary */}
         {sourceData && (
           <div className="bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-default)] p-6 mb-6">
             <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Lease Summary</h3>
@@ -214,7 +258,6 @@ export default function SigningPage() {
           </div>
         )}
 
-        {/* Participant Info */}
         <div className="bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-default)] p-6 mb-6">
           <div className="flex items-center gap-3">
             <User className="w-5 h-5 text-[var(--text-muted)]" />
@@ -226,7 +269,6 @@ export default function SigningPage() {
           </div>
         </div>
 
-        {/* Signature Input */}
         <div className="bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-default)] p-6 mb-6">
           <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
             <PenLine className="w-4 h-4 text-[var(--text-muted)]" />
@@ -278,7 +320,6 @@ export default function SigningPage() {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="text-center">
           <p className="text-xs text-[var(--text-muted)]">
             This is a legally binding agreement. By signing, you agree to the terms and conditions.
