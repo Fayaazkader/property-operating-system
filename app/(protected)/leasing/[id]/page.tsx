@@ -3,7 +3,27 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft, Save, Send, CheckCircle, FileText, AlertTriangle, Clock, Loader2, X } from "lucide-react";
+import { createExecutionEngine } from "@/lib/execution";
+import { 
+  ArrowLeft, 
+  Save, 
+  Send, 
+  CheckCircle, 
+  FileText, 
+  AlertTriangle, 
+  Clock, 
+  Loader2, 
+  X,
+  Users,
+  Building2,
+  Calendar,
+  DollarSign,
+  Percent,
+  Car,
+  Mail,
+  Phone,
+  User
+} from "lucide-react";
 
 export default function LeaseIntakeWorkspace() {
   const { id } = useParams();
@@ -15,12 +35,54 @@ export default function LeaseIntakeWorkspace() {
   const [showActivationModal, setShowActivationModal] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string; details?: string } | null>(null);
 
-  useEffect(() => { loadIntake(); }, [id]);
+  // Execution state
+  const [execution, setExecution] = useState<any>(null);
+  const [executionParticipants, setExecutionParticipants] = useState<any[]>([]);
+  const [executionReadyScore, setExecutionReadyScore] = useState<any>(null);
+  const [executionLoading, setExecutionLoading] = useState(true);
+  const [showSendModal, setShowSendModal] = useState(false);
+
+  useEffect(() => {
+    loadIntake();
+  }, [id]);
+
+  // After intake loads, load execution
+  useEffect(() => {
+    if (intake?.lease_id) {
+      loadExecution();
+    }
+  }, [intake?.lease_id]);
 
   async function loadIntake() {
     const { data } = await supabase.from("lease_intake").select("*").eq("id", id).single();
     setIntake(data);
     setLoading(false);
+  }
+
+  async function loadExecution() {
+    if (!intake?.lease_id) return;
+    
+    setExecutionLoading(true);
+    try {
+      const engine = createExecutionEngine(supabase);
+      
+      const active = await engine.getActiveExecution('lease', intake.lease_id);
+      if (active) {
+        setExecution(active);
+        const participants = await engine.getParticipants(active.id);
+        setExecutionParticipants(participants);
+        const score = await engine.getReadyScore(active.id);
+        setExecutionReadyScore(score);
+      } else {
+        setExecution(null);
+        setExecutionParticipants([]);
+        setExecutionReadyScore(null);
+      }
+    } catch (err) {
+      console.error('Error loading execution:', err);
+    } finally {
+      setExecutionLoading(false);
+    }
   }
 
   async function updateField(field: string, value: any) {
@@ -53,67 +115,143 @@ export default function LeaseIntakeWorkspace() {
   }
 
   async function handleActivate() {
-  setActivating(true);
-  setNotification(null);
-  
-  try {
-    // Get the session using the imported supabase client
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    setActivating(true);
+    setNotification(null);
     
-    if (sessionError) {
-      console.error('Session error:', sessionError);
-      throw new Error(`Session error: ${sessionError.message}`);
-    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
 
-    if (!session) {
-      throw new Error("Not authenticated. Please log in again.");
-    }
-
-    const token = session.access_token;
-    console.log('Token obtained, length:', token.length);
-
-    const response = await fetch(`/api/leasing/intake/${id}/activate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
+      if (!token) {
+        throw new Error("Not authenticated. Please log in again.");
       }
-    });
-    
-    const data = await response.json();
-    console.log('API Response:', data);
-    
-    if (!response.ok) {
-      const errorMessage = data?.error || data?.message || data?.details || "Activation failed";
-      throw new Error(errorMessage);
+
+      const response = await fetch(`/api/leasing/intake/${id}/activate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      console.log('API Response:', data);
+      
+      if (!response.ok) {
+        const errorMessage = data?.error || data?.message || data?.details || "Activation failed";
+        throw new Error(errorMessage);
+      }
+      
+      setShowActivationModal(false);
+      await loadIntake();
+      
+      setNotification({
+        type: 'success',
+        message: '✅ Lease activated successfully!',
+        details: data.lease_id ? `Lease ID: ${data.lease_id}` : 'Revenue operations have been initiated.'
+      });
+      
+      setTimeout(() => {
+        setNotification(null);
+        router.refresh();
+      }, 5000);
+      
+    } catch (error) {
+      console.error("Activation error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Activation failed";
+      setNotification({
+        type: 'error',
+        message: errorMessage,
+        details: 'Check the console for more details.'
+      });
+    } finally {
+      setActivating(false);
     }
-    
-    setShowActivationModal(false);
-    await loadIntake();
-    
-    setNotification({
-      type: 'success',
-      message: '✅ Lease activated successfully!',
-      details: data.lease_id ? `Lease ID: ${data.lease_id}` : 'Revenue operations have been initiated.'
-    });
-    
-    setTimeout(() => {
-      setNotification(null);
-      router.refresh();
-    }, 5000);
-    
-  } catch (error) {
-    console.error("Activation error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Activation failed";
-    setNotification({
-      type: 'error',
-      message: errorMessage,
-      details: 'Check the console for more details.'
-    });
-  } finally {
-    setActivating(false);
   }
-}
+
+  async function createExecution() {
+    if (!intake?.lease_id) return;
+    
+    try {
+      const engine = createExecutionEngine(supabase);
+      
+      const result = await engine.create({
+        source_type: 'lease',
+        source_id: intake.lease_id,
+        effective_date: intake.commencement_date,
+        metadata: {
+          intake_id: intake.id,
+          applicant_name: intake.applicant_name,
+        },
+      });
+      
+      if (result.success) {
+        await loadExecution();
+        setNotification({
+          type: 'success',
+          message: '✅ Execution draft created',
+          details: 'You can now add participants and send for execution.'
+        });
+      } else {
+        throw new Error(result.errors?.[0] || 'Failed to create execution');
+      }
+    } catch (err) {
+      console.error('Error creating execution:', err);
+      setNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to create execution',
+        details: 'Please try again'
+      });
+    }
+  }
+
+  async function sendExecution() {
+    if (!execution) return;
+    
+    try {
+      const engine = createExecutionEngine(supabase);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const participants = executionParticipants.length > 0 ? executionParticipants : [
+        { participant_type: 'tenant', name: intake.applicant_name || 'Tenant', email: intake.contact_email },
+        { participant_type: 'landlord', name: 'Landlord' },
+      ];
+      
+      const result = await engine.send({
+        execution_id: execution.id,
+        participants: participants.map((p: any) => ({
+          participant_type: p.participant_type,
+          name: p.name,
+          email: p.email,
+          phone: p.phone,
+          company: p.company,
+        })),
+        message: 'Please review and sign the lease agreement.',
+        send_whatsapp: true,
+        send_email: true,
+      });
+      
+      if (result.success) {
+        await loadExecution();
+        setShowSendModal(false);
+        setNotification({
+          type: 'success',
+          message: '✅ Execution sent!',
+          details: 'Participants have been notified to sign.'
+        });
+      } else {
+        throw new Error(result.errors?.[0] || 'Failed to send execution');
+      }
+    } catch (err) {
+      console.error('Error sending execution:', err);
+      setNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to send execution',
+        details: 'Please check the validation errors and try again.'
+      });
+    }
+  }
 
   const statusFlow = [
     { key: "awaiting_review", label: "Review", icon: Clock },
@@ -131,7 +269,7 @@ export default function LeaseIntakeWorkspace() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-6 pt-8 pb-12">
-      {/* Notification - Center Screen Overlay */}
+      {/* Notification */}
       {notification && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className={`max-w-md w-full rounded-3xl border p-6 shadow-2xl ${
@@ -180,6 +318,7 @@ export default function LeaseIntakeWorkspace() {
         </div>
       )}
 
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={() => router.back()} className="p-2 rounded-xl hover:bg-[var(--bg-elevated)] transition-colors"><ArrowLeft className="w-5 h-5 text-[var(--text-muted)]" /></button>
@@ -231,7 +370,135 @@ export default function LeaseIntakeWorkspace() {
         })}
       </div>
 
-      {/* Activation Review Section - Only show if not activated */}
+      {/* ⭐ EXECUTION SECTION — NEW */}
+      {intake.lease_id && (
+        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
+              <FileText className="w-4 h-4 text-[var(--text-muted)]" />
+              Lease Execution
+            </h3>
+            {execution ? (
+              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                execution.status === 'executed' ? 'bg-emerald-500/20 text-emerald-400' :
+                execution.status === 'sent' ? 'bg-blue-500/20 text-blue-400' :
+                execution.status === 'draft' ? 'bg-amber-500/20 text-amber-400' :
+                'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
+              }`}>
+                {execution.status?.replace('_', ' ').toUpperCase()}
+              </span>
+            ) : (
+              <button
+                onClick={createExecution}
+                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                Create Execution Draft
+              </button>
+            )}
+          </div>
+
+          {execution ? (
+            <div className="space-y-4">
+              {/* Status Timeline */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {['draft', 'ready', 'sent', 'executed', 'activated'].map((stage, idx) => {
+                  const statuses = ['draft', 'ready', 'sent', 'executed', 'activated'];
+                  const isActive = statuses.indexOf(stage) <= statuses.indexOf(execution.status);
+                  const isCurrent = stage === execution.status;
+                  return (
+                    <div key={stage} className="flex items-center gap-2">
+                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                        isCurrent ? 'bg-[var(--text-primary)] text-[var(--bg-primary)]' :
+                        isActive ? 'bg-emerald-500/10 text-emerald-300' :
+                        'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
+                      }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${
+                          isActive ? 'bg-emerald-400' : 'bg-[var(--text-muted)]'
+                        }`} />
+                        {stage.replace('_', ' ')}
+                      </div>
+                      {idx < 4 && <span className="text-[var(--text-muted)] text-xs">→</span>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Ready Score */}
+              {executionReadyScore && (
+                <div className="flex items-center gap-4 text-xs">
+                  <span className="text-[var(--text-muted)]">Ready Score:</span>
+                  <div className="flex-1 max-w-xs h-1.5 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all ${
+                        executionReadyScore.score >= 80 ? 'bg-emerald-400' :
+                        executionReadyScore.score >= 50 ? 'bg-amber-400' :
+                        'bg-red-400'
+                      }`}
+                      style={{ width: `${executionReadyScore.score}%` }}
+                    />
+                  </div>
+                  <span className={`font-medium ${
+                    executionReadyScore.score >= 80 ? 'text-emerald-400' :
+                    executionReadyScore.score >= 50 ? 'text-amber-400' :
+                    'text-red-400'
+                  }`}>
+                    {executionReadyScore.score}%
+                  </span>
+                  {executionReadyScore.can_proceed ? (
+                    <span className="text-emerald-400">✅ Ready to send</span>
+                  ) : (
+                    <span className="text-amber-400">⚠️ Review required</span>
+                  )}
+                </div>
+              )}
+
+              {/* Participants */}
+              {executionParticipants.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs text-[var(--text-muted)]">Participants:</p>
+                  {executionParticipants.map((p: any) => (
+                    <div key={p.id} className="flex items-center gap-2 text-xs">
+                      <span className="text-[var(--text-secondary)]">
+                        {p.participant_type === 'tenant' ? '👤' : '🏢'} {p.name}
+                      </span>
+                      <span className={`text-xs ${
+                        p.status === 'signed' ? 'text-emerald-400' :
+                        p.status === 'sent' ? 'text-blue-400' :
+                        'text-[var(--text-muted)]'
+                      }`}>
+                        {p.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Actions */}
+              {execution.status === 'draft' && (
+                <button
+                  onClick={() => setShowSendModal(true)}
+                  className="mt-2 flex items-center gap-2 rounded-xl bg-blue-600 text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Send for Execution
+                </button>
+              )}
+              {execution.status === 'sent' && (
+                <p className="text-xs text-[var(--text-muted)]">⏳ Awaiting signatures...</p>
+              )}
+              {execution.status === 'executed' && (
+                <p className="text-xs text-emerald-400">✅ Fully executed</p>
+              )}
+              {execution.status === 'activated' && (
+                <p className="text-xs text-emerald-400">✅ Activated</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--text-muted)]">No execution in progress. Create a draft to start.</p>
+          )}
+        </div>
+      )}
+
+      {/* Activation Review Section */}
       {!isActivated && intake.status === "ready_for_activation" && (
         <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6">
           <div className="flex items-start justify-between">
@@ -279,18 +546,20 @@ export default function LeaseIntakeWorkspace() {
             </p>
           )}
           <button 
-  onClick={() => router.push('/financials/revenue')}
-  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 text-white px-6 py-2.5 text-sm font-semibold hover:bg-emerald-700 transition-colors"
->
-  Go to Revenue Operations
-</button>
+            onClick={() => router.push('/financials/revenue')}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 text-white px-6 py-2.5 text-sm font-semibold hover:bg-emerald-700 transition-colors"
+          >
+            Go to Revenue Operations
+          </button>
         </div>
       )}
 
-      {/* Commercial Terms - Disabled when activated */}
+      {/* Commercial Terms */}
       <div className={`grid grid-cols-2 gap-6 ${isActivated ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="space-y-4">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Applicant Details</h2>
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
+            <User className="w-4 h-4 text-[var(--text-muted)]" /> Applicant Details
+          </h2>
           <div className="space-y-3">
             <div>
               <label className="text-xs text-[var(--text-muted)]">Company Name</label>
@@ -314,7 +583,9 @@ export default function LeaseIntakeWorkspace() {
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Commercial Terms</h2>
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-[var(--text-muted)]" /> Commercial Terms
+          </h2>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -350,7 +621,7 @@ export default function LeaseIntakeWorkspace() {
         </div>
       </div>
 
-      {/* Notes - Disabled when activated */}
+      {/* Notes */}
       <div className={isActivated ? 'opacity-50 pointer-events-none' : ''}>
         <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-2">Negotiation Notes</h2>
         <textarea value={intake.negotiation_notes || ""} onChange={(e) => updateField("negotiation_notes", e.target.value)} disabled={isActivated} rows={3} className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-2.5 text-sm outline-none focus:border-[var(--border-hover)] resize-none disabled:opacity-50 disabled:cursor-not-allowed" placeholder="Notes about negotiations, special terms, or tenant requests..." />
@@ -392,6 +663,53 @@ export default function LeaseIntakeWorkspace() {
                 ) : (
                   "Confirm Activation"
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send for Execution Modal */}
+      {showSendModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-[var(--bg-secondary)] rounded-3xl p-6 max-w-md w-full border border-[var(--border-default)] shadow-2xl">
+            <h3 className="text-lg font-semibold text-[var(--text-primary)]">Send for Execution</h3>
+            
+            {executionReadyScore && !executionReadyScore.can_proceed && (
+              <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <p className="text-xs text-amber-400 font-medium">⚠️ Validation Issues</p>
+                <ul className="text-xs text-[var(--text-muted)] mt-1 space-y-0.5">
+                  {executionReadyScore.checks
+                    .filter((c: any) => c.required && !c.passed)
+                    .map((c: any) => (
+                      <li key={c.key}>• {c.label}</li>
+                    ))}
+                </ul>
+              </div>
+            )}
+            
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-[var(--text-secondary)]">
+                This will send the lease to all participants for execution.
+              </p>
+              <p className="text-xs text-[var(--text-muted)]">
+                Participants will receive notifications via WhatsApp and email.
+              </p>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowSendModal(false)}
+                className="flex-1 rounded-xl border border-[var(--border-default)] px-4 py-2.5 text-sm text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={sendExecution}
+                disabled={executionReadyScore && !executionReadyScore.can_proceed}
+                className="flex-1 rounded-xl bg-blue-600 text-white px-4 py-2.5 text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Send for Execution
               </button>
             </div>
           </div>
