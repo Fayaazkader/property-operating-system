@@ -2,14 +2,14 @@
 // Telemetry Service — Observes events and persists logs
 
 import { supabase } from "@/lib/supabase";
-import { EventContract, EventTelemetry } from './types';
+import { PlatformEvent, EventTelemetry } from './types';
 import { logger } from './logger.service';
 
 // ============================================================
 // LOG EVENT — Persist event to database
 // ============================================================
 
-export async function logEvent(event: EventContract): Promise<void> {
+export async function logEvent(event: PlatformEvent): Promise<void> {
   try {
     await supabase.from('event_logs').insert({
       event_id: event.eventId,
