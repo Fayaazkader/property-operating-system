@@ -15,6 +15,14 @@ export * from './brokers/broker.service';
 export * from './mandates/mandate.types';
 export * from './mandates/mandate.service';
 
-// Vacancy Engine (Day 2)
+// Enquiries
+export * from './enquiries/enquiry.types';
+export * from './enquiries/enquiry.service';
+
+// Viewings
+export * from './viewings/viewing.types';
+export * from './viewings/viewing.service';
+
+// Vacancy Engine
 export * from './engine';
 export * from './queries/vacancy.queries';
