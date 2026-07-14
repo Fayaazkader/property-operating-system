@@ -24,7 +24,7 @@ export class OfferLifecycle {
       };
     }
 
-    // Step 2: Create the negotiation
+    // Step 2: Create the negotiation with all required fields
     const negotiationParams: CreateNegotiationParams = {
       offer_id: offerResult.data!.id,
       vacancy_id: params.vacancy_id,
@@ -35,6 +35,8 @@ export class OfferLifecycle {
         proposed_commencement: params.proposed_commencement,
         special_conditions: params.special_conditions,
         proposed_by: 'tenant',
+        status: 'sent',      // Required by NegotiationRound
+        type: 'initial_offer', // Required by NegotiationRound
       },
     };
 
