@@ -1,6 +1,7 @@
 // lib/brokerage/brokerage.orchestrator.ts
 // Brokerage Orchestrator — Composes all lifecycles
 
+import { OperationResult } from "@/lib/platform/types";
 import { brokerLifecycle } from './lifecycles/broker.lifecycle';
 import { mandateLifecycle } from './lifecycles/mandate.lifecycle';
 import { offerLifecycle } from './lifecycles/offer.lifecycle';
@@ -9,7 +10,6 @@ import { vacancyOrchestrator } from './engine/vacancy.orchestrator';
 import { enquiryService } from './enquiries/enquiry.service';
 import { viewingService } from './viewings/viewing.service';
 import { negotiationService } from './negotiations/negotiation.service';
-import { OperationResult } from '@/lib/platform/types';
 import {
   CreateCompanyParams,
   CreateBrokerParams,
@@ -17,7 +17,6 @@ import {
   CreateEnquiryParams,
   CreateViewingParams,
   CreateOfferParams,
-  CreateNegotiationParams,
   AddNegotiationRoundParams,
 } from './index';
 
@@ -117,9 +116,27 @@ export class BrokerageOrchestrator {
       vacancy_date: string;
       reason: 'lease_expired' | 'tenant_terminated' | 'eviction';
     },
-    correlationId?: string
+    correlationId: string = crypto.randomUUID()
   ): Promise<OperationResult<any>> {
-    return vacancyOrchestrator.createFromLeaseEnd(params);
+    const result = await vacancyOrchestrator.createFromLeaseEnd(params);
+    
+    // Convert OrchestratorResult to OperationResult
+    if (result.error) {
+      return {
+        success: false,
+        error: {
+          code: result.error.code || 'VACANCY_CREATE_FAILED',
+          message: result.error.message,
+        },
+        correlationId,
+      };
+    }
+
+    return {
+      success: true,
+      data: result.data,
+      correlationId,
+    };
   }
 
   // ============================================================
@@ -128,10 +145,11 @@ export class BrokerageOrchestrator {
 
   async createEnquiry(params: CreateEnquiryParams, entityId: string, correlationId?: string): Promise<OperationResult<any>> {
     const result = await enquiryService.create(params, entityId);
+    const cid = correlationId || crypto.randomUUID();
     if (result.error) {
-      return { success: false, error: result.error, correlationId: correlationId || crypto.randomUUID() };
+      return { success: false, error: { code: result.error.code, message: result.error.message }, correlationId: cid };
     }
-    return { success: true, data: result.data, correlationId: correlationId || crypto.randomUUID() };
+    return { success: true, data: result.data, correlationId: cid };
   }
 
   // ============================================================
@@ -140,18 +158,20 @@ export class BrokerageOrchestrator {
 
   async scheduleViewing(params: CreateViewingParams, entityId: string, correlationId?: string): Promise<OperationResult<any>> {
     const result = await viewingService.create(params, entityId);
+    const cid = correlationId || crypto.randomUUID();
     if (result.error) {
-      return { success: false, error: result.error, correlationId: correlationId || crypto.randomUUID() };
+      return { success: false, error: { code: result.error.code, message: result.error.message }, correlationId: cid };
     }
-    return { success: true, data: result.data, correlationId: correlationId || crypto.randomUUID() };
+    return { success: true, data: result.data, correlationId: cid };
   }
 
   async completeViewing(viewingId: string, outcome: string, feedback?: string, correlationId?: string): Promise<OperationResult<any>> {
     const result = await viewingService.complete(viewingId, outcome, feedback);
+    const cid = correlationId || crypto.randomUUID();
     if (result.error) {
-      return { success: false, error: result.error, correlationId: correlationId || crypto.randomUUID() };
+      return { success: false, error: { code: result.error.code, message: result.error.message }, correlationId: cid };
     }
-    return { success: true, data: result.data, correlationId: correlationId || crypto.randomUUID() };
+    return { success: true, data: result.data, correlationId: cid };
   }
 
   // ============================================================
@@ -160,10 +180,11 @@ export class BrokerageOrchestrator {
 
   async addNegotiationRound(params: AddNegotiationRoundParams, correlationId?: string): Promise<OperationResult<any>> {
     const result = await negotiationService.addRound(params.negotiation_id, params);
+    const cid = correlationId || crypto.randomUUID();
     if (result.error) {
-      return { success: false, error: result.error, correlationId: correlationId || crypto.randomUUID() };
+      return { success: false, error: { code: result.error.code, message: result.error.message }, correlationId: cid };
     }
-    return { success: true, data: result.data, correlationId: correlationId || crypto.randomUUID() };
+    return { success: true, data: result.data, correlationId: cid };
   }
 
   async acceptNegotiation(
@@ -174,10 +195,11 @@ export class BrokerageOrchestrator {
     correlationId?: string
   ): Promise<OperationResult<any>> {
     const result = await negotiationService.acceptCounterOffer(negotiationId, roundId);
+    const cid = correlationId || crypto.randomUUID();
     if (result.error) {
-      return { success: false, error: result.error, correlationId: correlationId || crypto.randomUUID() };
+      return { success: false, error: { code: result.error.code, message: result.error.message }, correlationId: cid };
     }
-    return { success: true, data: result.data, correlationId: correlationId || crypto.randomUUID() };
+    return { success: true, data: result.data, correlationId: cid };
   }
 }
 
