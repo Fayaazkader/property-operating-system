@@ -136,6 +136,92 @@ export class OfferService {
       };
     }
   }
+
+  // ============================================================
+  // ACCEPT OFFER — Update offer to accepted status
+  // ============================================================
+
+  async accept(id: string, finalRental: number, finalTerms?: string): Promise<ServiceResult<Offer>> {
+    try {
+      // Get the offer to know the vacancy
+      const { data: offer, error: getError } = await this.supabase
+        .from('offers')
+        .select('vacancy_id')
+        .eq('id', id)
+        .single();
+
+      if (getError || !offer) {
+        return {
+          error: { code: 'OFFER_NOT_FOUND', message: 'Offer not found' },
+        };
+      }
+
+      // Update offer
+      const { data, error } = await this.supabase
+        .from('offers')
+        .update({
+          status: 'accepted',
+          final_rental: finalRental,
+          final_terms: finalTerms,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error || !data) {
+        return {
+          error: { code: 'OFFER_ACCEPT_FAILED', message: error?.message || 'Failed to accept offer' },
+        };
+      }
+
+      // Update vacancy status
+      await this.supabase
+        .from('vacancies')
+        .update({ status: 'under_offer' })
+        .eq('id', offer.vacancy_id);
+
+      return { data: data as Offer };
+    } catch (error) {
+      return {
+        error: {
+          code: 'OFFER_ACCEPT_FAILED',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      };
+    }
+  }
+
+  // ============================================================
+  // DECLINE OFFER — Update offer to declined status
+  // ============================================================
+
+  async decline(id: string, reason?: string): Promise<ServiceResult<Offer>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('offers')
+        .update({
+          status: 'declined',
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error || !data) {
+        return {
+          error: { code: 'OFFER_DECLINE_FAILED', message: error?.message || 'Failed to decline offer' },
+        };
+      }
+
+      return { data: data as Offer };
+    } catch (error) {
+      return {
+        error: {
+          code: 'OFFER_DECLINE_FAILED',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      };
+    }
+  }
 }
 
 export const offerService = new OfferService();
