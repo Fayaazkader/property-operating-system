@@ -15,6 +15,9 @@ import {
 } from './types';
 import { logExecutionEvent } from './events';
 import { generateSigningLink } from './links';
+import { publish, Events } from "@/lib/platform/events";
+import { LeaseExecutedPayload } from "@/lib/platform/events/contract";
+import { logger } from "@/lib/platform/events/logger.service";
 
 export class ExecutionEngine {
   private supabase: SupabaseClient;
@@ -566,7 +569,39 @@ for (const p of allParticipants) {
         userAgent: this.userAgent,
         userId: this.userId,
       });
+// At the end of the execute method, right before the return:
+try {
+  // Get source data for the event
+  const { data: sourceData } = await this.supabase
+    .from('leases')
+    .select('tenant_id, property_id')
+    .eq('id', execution.source_id)
+    .single();
 
+  const payload: LeaseExecutedPayload = {
+    executionId: execution.id,
+    leaseId: execution.source_id,
+    executedAt: new Date().toISOString(),
+    version: execution.version || 1,
+    participants: participants.length,
+  };
+
+  await publish(Events.Lease.Executed, {
+    correlationId: executionId,
+    source: 'execution-engine',
+    version: '1.0',
+    actor: this.userId ? { id: this.userId, type: 'user' } : undefined,
+    entity: {
+      id: execution.source_id,
+      type: 'lease',
+      tenantId: sourceData?.tenant_id || undefined,
+      propertyId: sourceData?.property_id || undefined,
+    },
+    payload,
+  });
+} catch (error) {
+  console.error('Failed to publish lease.executed event:', error);
+}
       return {
         success: true,
         execution_id: data.id,
