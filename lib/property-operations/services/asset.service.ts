@@ -9,8 +9,7 @@ export class AssetService {
   private repository = assetRepository;
 
   async create(params: CreateAssetParams, entityId: string): Promise<ServiceResult<Asset>> {
-    // Calculate next service date
-    let nextServiceDate = null;
+    let nextServiceDate: string | undefined = undefined;
     if (params.installation_date && params.service_interval_days) {
       const date = new Date(params.installation_date);
       date.setDate(date.getDate() + params.service_interval_days);
@@ -41,7 +40,6 @@ export class AssetService {
     });
 
     if (result.data && params.installation_date) {
-      // Add timeline entry
       await this.repository.addTimelineEntry(result.data.id, {
         event: 'commissioned',
         description: `Asset "${params.name}" commissioned`,
@@ -70,7 +68,6 @@ export class AssetService {
   }
 
   async update(id: string, params: UpdateAssetParams): Promise<ServiceResult<Asset>> {
-    // If service_interval_days changed, recalculate next_service_date
     let updateData: any = { ...params };
     
     if (params.service_interval_days !== undefined) {
@@ -96,8 +93,7 @@ export class AssetService {
       };
     }
 
-    // Calculate next service date
-    let nextServiceDate = null;
+    let nextServiceDate: string | undefined = undefined;
     if (current.data.service_interval_days) {
       const date = new Date(serviceDate);
       date.setDate(date.getDate() + current.data.service_interval_days);
