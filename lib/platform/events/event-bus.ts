@@ -50,7 +50,8 @@ export async function publish(
         await handler(fullEvent);
         return { success: true, duration: performance.now() - startTime };
       } catch (error) {
-        return { success: false, duration: performance.now() - startTime, error };
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return { success: false, duration: performance.now() - startTime, error: errorMessage };
       }
     })
   );
@@ -68,7 +69,7 @@ export async function publish(
         logger.error(`Handler failed for event ${eventName}:`, {
           eventId,
           correlationId,
-          error: result.value.error?.message || 'Unknown error',
+          error: result.value.error || 'Unknown error',
         });
       }
     } else {
@@ -76,7 +77,7 @@ export async function publish(
       logger.error(`Handler rejected for event ${eventName}:`, {
         eventId,
         correlationId,
-        error: result.reason?.message || 'Unknown error',
+        error: result.reason instanceof Error ? result.reason.message : 'Unknown error',
       });
     }
   }
