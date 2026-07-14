@@ -188,10 +188,14 @@ export class VacancyService {
         return { success: false, error: error?.message || 'Vacancy not found' };
       }
 
+      // Fix: data.property and data.unit are objects from the join
+      const propertyData = data.property as { property_name: string } | null;
+      const unitData = data.unit as { unit_number: string } | null;
+
       const analytics: VacancyAnalytics = {
         id: data.id,
-        property_name: data.property?.property_name || 'Unknown',
-        unit_number: data.unit?.unit_number || 'Unknown',
+        property_name: propertyData?.property_name || 'Unknown',
+        unit_number: unitData?.unit_number || 'Unknown',
         status: data.status,
         days_vacant: data.days_vacant || 0,
         enquiry_count: data.enquiry_count || 0,
