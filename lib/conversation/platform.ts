@@ -14,7 +14,7 @@ export class ConversationPlatform {
 
   async process(request: ConversationRequest): Promise<ConversationResponse> {
     const startTime = performance.now();
-    const correlationId = request.correlationId || crypto.randomUUID();
+    const correlationId = request.context?.correlationId || crypto.randomUUID();
 
     logger.info(`💬 Processing conversation request`, {
       correlationId,
@@ -27,10 +27,11 @@ export class ConversationPlatform {
       const tenant = await this.resolveTenant(request);
 
       // 2. Get or create context
-      let context = await getOrCreateContext(tenant?.id || 'unknown', {
-        userId: request.userId,
-        entityId: request.entityId,
-        role: request.role || 'tenant',
+      const tenantId = tenant?.id || request.context?.tenantId || 'unknown';
+      let context = await getOrCreateContext(tenantId, {
+        userId: request.context?.userId,
+        entityId: request.context?.entityId,
+        role: request.actor?.role || 'tenant',
       });
 
       if (!context) {
@@ -38,13 +39,14 @@ export class ConversationPlatform {
       }
 
       // 3. Classify intent
-      const intentResult = intentRegistry.classify(request.message, request.role || 'tenant');
+      const userRole = request.actor?.role || 'tenant';
+      const intentResult = intentRegistry.classify(request.message, userRole);
 
       // 4. Check permissions
       if (intentResult.intent) {
-        const hasPermission = this.checkPermission(request.role || 'tenant', intentResult.intent.roles[0]);
+        const hasPermission = this.checkPermission(userRole, intentResult.intent.roles[0]);
         if (!hasPermission) {
-          logger.warn(`Permission denied for user ${request.userId} on intent ${intentResult.intent.id}`, {
+          logger.warn(`Permission denied for user ${request.actor?.id} on intent ${intentResult.intent.id}`, {
             correlationId,
           });
           return this.buildResponse({
@@ -66,16 +68,11 @@ export class ConversationPlatform {
         const handler = this.getIntentHandler(intentResult.intent.id);
         if (handler) {
           try {
-            // Get tenant summary for handlers that need it
             const summary = await this.getTenantSummary(tenant?.id);
-            
-            // Call handler with correct signature
-            // Different handlers have different signatures
-            let result;
             const intentId = intentResult.intent.id;
+            let result;
             
             if (intentId === 'maintenance_request') {
-              // handleMaintenanceRequest(tenantId, tenantName, message, mediaUrls, summary)
               result = await handler(
                 tenant?.id || 'unknown',
                 tenant?.tenant_name || 'Tenant',
@@ -84,27 +81,22 @@ export class ConversationPlatform {
                 summary
               );
             } else if (intentId === 'emergency') {
-              // handleEmergency(tenantId, message)
               result = await handler(
                 tenant?.id || 'unknown',
                 request.message
               );
             } else if (intentId === 'renewal_request') {
-              // handleRenewalRequest(tenantId, message, summary)
               result = await handler(
                 tenant?.id || 'unknown',
                 request.message,
                 summary
               );
             } else if (intentId === 'payment_allocation') {
-              // handlePaymentAllocation(tenantId, supabaseClient)
               result = await handler(
                 tenant?.id || 'unknown',
                 this.supabase
               );
             } else {
-              // Default: handleBalanceEnquiry, handleStatementRequest, handleLeaseEnquiry
-              // All take (tenantId, supabaseClient)
               result = await handler(
                 tenant?.id || 'unknown',
                 this.supabase
@@ -172,20 +164,22 @@ export class ConversationPlatform {
   // ============================================================
 
   private async resolveTenant(request: ConversationRequest): Promise<any> {
-    if (request.tenantId) {
+    const tenantId = request.context?.tenantId;
+    if (tenantId) {
       const { data } = await this.supabase
         .from('tenants')
         .select('id, tenant_name, entity_id')
-        .eq('id', request.tenantId)
+        .eq('id', tenantId)
         .single();
       return data;
     }
 
-    if (request.channelMetadata?.from) {
+    const from = request.channelMetadata?.from;
+    if (from) {
       const { data } = await this.supabase
         .from('tenants')
         .select('id, tenant_name, entity_id')
-        .eq('whatsapp_number', request.channelMetadata.from)
+        .eq('whatsapp_number', from)
         .single();
       return data;
     }
@@ -203,7 +197,6 @@ export class ConversationPlatform {
       const { getTenantSummary } = await import('@/lib/intelligence/tenant-summary');
       return await getTenantSummary(this.supabase, tenantId);
     } catch (error) {
-      logger.warn('Failed to get tenant summary:', { error });
       return null;
     }
   }
@@ -225,7 +218,7 @@ export class ConversationPlatform {
   }
 
   // ============================================================
-  // INTENT HANDLER - Maps intent to engine function
+  // INTENT HANDLER
   // ============================================================
 
   private getIntentHandler(intentId: string): any {
@@ -264,7 +257,7 @@ export class ConversationPlatform {
         message_body: request.message,
         status: 'received',
         source_type: request.channel,
-        source_id: request.channelMetadata?.messageId,
+        source_id: request.context?.conversationId,
         external_message_id: request.channelMetadata?.messageId,
         media_urls: request.channelMetadata?.mediaUrls,
         intent: intent,
@@ -288,7 +281,7 @@ export class ConversationPlatform {
   ): Promise<void> {
     try {
       await publish('conversation.message.processed', {
-        correlationId: request.correlationId,
+        correlationId: request.context?.correlationId || crypto.randomUUID(),
         source: 'conversation-platform',
         version: '1.0',
         actor: tenant?.id ? { id: tenant.id, type: 'tenant' } : undefined,
