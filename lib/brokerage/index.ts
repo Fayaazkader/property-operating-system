@@ -1,7 +1,13 @@
 // lib/brokerage/index.ts
 
-// Engine
-export * from './brokerage.engine';
+// Orchestrator
+export * from './brokerage.orchestrator';
+
+// Lifecycles
+export * from './lifecycles/broker.lifecycle';
+export * from './lifecycles/mandate.lifecycle';
+export * from './lifecycles/offer.lifecycle';
+export * from './lifecycles/commission.lifecycle';
 
 // Companies
 export * from './companies/company.types';
