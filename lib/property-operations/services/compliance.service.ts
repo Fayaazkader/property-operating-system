@@ -126,7 +126,6 @@ export class ComplianceService {
     future.setDate(future.getDate() + 30);
     const futureStr = future.toISOString().split('T')[0];
 
-    // Get all active items expiring within 30 days
     const { data: items } = await this.repository.findByEntity('*', {});
     if (!items) {
       return { data: { updated: 0 } };
