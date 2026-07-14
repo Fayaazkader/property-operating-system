@@ -169,6 +169,7 @@ export class VacancyService {
 
   async getAnalytics(id: string): Promise<{ success: boolean; data?: VacancyAnalytics; error?: string }> {
     try {
+      // Fetch vacancy with joins
       const { data, error } = await this.supabase
         .from('vacancies')
         .select(`
@@ -178,8 +179,8 @@ export class VacancyService {
           enquiry_count,
           viewing_count,
           offer_count,
-          property:properties(property_name),
-          unit:units(unit_number)
+          property_id,
+          unit_id
         `)
         .eq('id', id)
         .single();
@@ -188,9 +189,19 @@ export class VacancyService {
         return { success: false, error: error?.message || 'Vacancy not found' };
       }
 
-      // Fix: data.property and data.unit are objects from the join
-      const propertyData = data.property as { property_name: string } | null;
-      const unitData = data.unit as { unit_number: string } | null;
+      // Fetch property name separately
+      const { data: propertyData } = await this.supabase
+        .from('properties')
+        .select('property_name')
+        .eq('id', data.property_id)
+        .single();
+
+      // Fetch unit number separately
+      const { data: unitData } = await this.supabase
+        .from('units')
+        .select('unit_number')
+        .eq('id', data.unit_id)
+        .single();
 
       const analytics: VacancyAnalytics = {
         id: data.id,
