@@ -6,10 +6,6 @@ import { logger } from './logger.service';
 
 const handlers: Map<string, EventHandler[]> = new Map();
 
-// ============================================================
-// SUBSCRIBE — Register a handler for an event
-// ============================================================
-
 export function subscribe(eventName: string, handler: EventHandler): void {
   if (!handlers.has(eventName)) {
     handlers.set(eventName, []);
@@ -18,11 +14,10 @@ export function subscribe(eventName: string, handler: EventHandler): void {
   logger.debug(`Handler registered for event: ${eventName}`);
 }
 
-// ============================================================
-// PUBLISH — Dispatch event to all registered handlers
-// ============================================================
-
-export async function publish(eventName: string, event: Omit<EventContract, 'eventId' | 'timestamp'>): Promise<void> {
+export async function publish(
+  eventName: string,
+  event: Omit<EventContract, 'eventId' | 'timestamp' | 'eventName'>
+): Promise<void> {
   const eventId = crypto.randomUUID();
   const correlationId = event.correlationId || crypto.randomUUID();
   const timestamp = new Date().toISOString();
@@ -48,7 +43,6 @@ export async function publish(eventName: string, event: Omit<EventContract, 'eve
     return;
   }
 
-  // Execute all handlers in parallel
   const results = await Promise.allSettled(
     eventHandlers.map(async (handler) => {
       const startTime = performance.now();
@@ -61,7 +55,6 @@ export async function publish(eventName: string, event: Omit<EventContract, 'eve
     })
   );
 
-  // Log results
   let successCount = 0;
   let failureCount = 0;
 
