@@ -1,8 +1,9 @@
 // lib/platform/events/event-bus.ts
 // Lightweight Event Bus — publishes only, no persistence, no retries
 
-import { EventContract, EventHandler } from './types';
+import { PlatformEvent, EventHandler } from './types';
 import { logger } from './logger.service';
+import { logEvent, recordTelemetry } from './telemetry.service';
 
 const handlers: Map<string, EventHandler[]> = new Map();
 
@@ -14,27 +15,30 @@ export function subscribe(eventName: string, handler: EventHandler): void {
   logger.debug(`Handler registered for event: ${eventName}`);
 }
 
-export async function publish(
+export async function publish<T>(
   eventName: string,
-  event: Omit<EventContract, 'eventId' | 'timestamp' | 'eventName'>
+  event: Omit<PlatformEvent<T>, 'eventId' | 'timestamp' | 'eventName'>
 ): Promise<void> {
   const eventId = crypto.randomUUID();
   const correlationId = event.correlationId || crypto.randomUUID();
   const timestamp = new Date().toISOString();
 
-  const fullEvent: EventContract = {
+  const fullEvent: PlatformEvent<T> = {
     ...event,
     eventId,
     correlationId,
     eventName,
     timestamp,
-  };
+  } as PlatformEvent<T>;
 
   logger.info(`📡 Publishing event: ${eventName}`, {
     eventId,
     correlationId,
     source: event.source,
   });
+
+  // Log event to database
+  await logEvent(fullEvent);
 
   const eventHandlers = handlers.get(eventName) || [];
 
@@ -48,10 +52,33 @@ export async function publish(
       const startTime = performance.now();
       try {
         await handler(fullEvent);
-        return { success: true, duration: performance.now() - startTime };
+        const duration = performance.now() - startTime;
+        // Record telemetry for successful handler
+        await recordTelemetry({
+          eventId,
+          correlationId,
+          eventName,
+          handlerName: handler.name || 'anonymous',
+          success: true,
+          durationMs: Math.round(duration),
+          timestamp: new Date().toISOString(),
+        });
+        return { success: true, duration };
       } catch (error) {
+        const duration = performance.now() - startTime;
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        return { success: false, duration: performance.now() - startTime, error: errorMessage };
+        // Record telemetry for failed handler
+        await recordTelemetry({
+          eventId,
+          correlationId,
+          eventName,
+          handlerName: handler.name || 'anonymous',
+          success: false,
+          durationMs: Math.round(duration),
+          timestamp: new Date().toISOString(),
+          error: errorMessage,
+        });
+        return { success: false, duration, error: errorMessage };
       }
     })
   );
@@ -59,26 +86,11 @@ export async function publish(
   let successCount = 0;
   let failureCount = 0;
 
-  for (let i = 0; i < results.length; i++) {
-    const result = results[i];
-    if (result.status === 'fulfilled') {
-      if (result.value.success) {
-        successCount++;
-      } else {
-        failureCount++;
-        logger.error(`Handler failed for event ${eventName}:`, {
-          eventId,
-          correlationId,
-          error: result.value.error || 'Unknown error',
-        });
-      }
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value.success) {
+      successCount++;
     } else {
       failureCount++;
-      logger.error(`Handler rejected for event ${eventName}:`, {
-        eventId,
-        correlationId,
-        error: result.reason instanceof Error ? result.reason.message : 'Unknown error',
-      });
     }
   }
 

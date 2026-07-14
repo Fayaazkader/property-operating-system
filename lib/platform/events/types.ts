@@ -1,43 +1,15 @@
 // lib/platform/events/types.ts
-// Event Bus Type Definitions — Shared Contract
+// Event Bus Type Definitions — Uses PlatformEvent Contract
 
-export interface EventContract {
-  // Unique identifiers
-  eventId: string;
-  correlationId: string;
-  
-  // Event metadata
-  eventName: string;
-  version: string;
-  source: string;
-  
-  // Who/what triggered this
-  actor?: {
-    id: string;
-    type: 'user' | 'system' | 'tenant';
-    email?: string;
-  };
-  
-  // What entity this relates to
-  entity?: {
-    id: string;
-    type: string;
-    tenantId?: string;
-    propertyId?: string;
-  };
-  
-  // When it happened
-  timestamp: string;
-  
-  // The actual data
-  payload: Record<string, any>;
-  
-  // Additional metadata
-  metadata?: Record<string, any>;
-}
+import { PlatformEvent } from './contract';
 
-export type EventHandler = (event: EventContract) => Promise<void>;
+// Re-export the contract types
+export type { PlatformEvent } from './contract';
 
+// Event handler type
+export type EventHandler = (event: PlatformEvent) => Promise<void>;
+
+// Telemetry type
 export interface EventTelemetry {
   eventId: string;
   correlationId: string;
@@ -49,3 +21,6 @@ export interface EventTelemetry {
   error?: string;
   retryCount?: number;
 }
+
+// Event status
+export type EventStatus = 'received' | 'processing' | 'completed' | 'failed' | 'retrying' | 'dead_letter';
