@@ -62,6 +62,8 @@ export async function requeueFromDeadLetter(deadLetterId: string): Promise<void>
       correlationId: item.correlation_id,
       source: 'dead-letter-requeue',
       version: '1.0',
+      actor: undefined,
+      entity: undefined,
       payload: item.payload || {},
       metadata: { requeuedFromDeadLetter: true },
     });
