@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       estimated_cost: body.estimated_cost,
       tenant_notes: body.tenant_notes,
     }, context.entityId);
-    if (!result.success) {
+    if (result.error) {
       return errorResponse(result.error!.code, result.error!.message, context.correlationId);
     }
     return successResponse(result.data, context.correlationId);

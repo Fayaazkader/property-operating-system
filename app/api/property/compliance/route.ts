@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       reminder_days: body.reminder_days || 30,
       document_url: body.document_url,
     }, context.entityId);
-    if (!result.success) {
+    if (result.error) {
       return errorResponse(result.error!.code, result.error!.message, context.correlationId);
     }
     return successResponse(result.data, context.correlationId);

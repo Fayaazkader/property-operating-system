@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       categories: body.categories || [],
       payment_terms_days: body.payment_terms_days || 30,
     }, context.entityId);
-    if (!result.success) {
+    if (result.error) {
       return errorResponse(result.error!.code, result.error!.message, context.correlationId);
     }
     return successResponse(result.data, context.correlationId);

@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       preferred_supplier_id: body.preferred_supplier_id,
       location_notes: body.location_notes,
     }, context.entityId);
-    if (!result.success) {
+    if (result.error) {
       return errorResponse(result.error!.code, result.error!.message, context.correlationId);
     }
     return successResponse(result.data, context.correlationId);

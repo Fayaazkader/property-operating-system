@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       inspector_company: body.inspector_company,
       checklist: body.checklist || [],
     }, context.entityId);
-    if (!result.success) {
+    if (result.error) {
       return errorResponse(result.error!.code, result.error!.message, context.correlationId);
     }
     return successResponse(result.data, context.correlationId);

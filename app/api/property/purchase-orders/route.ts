@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       description: body.description,
       amount: body.amount,
     }, context.entityId);
-    if (!result.success) {
+    if (result.error) {
       return errorResponse(result.error!.code, result.error!.message, context.correlationId);
     }
     return successResponse(result.data, context.correlationId);
