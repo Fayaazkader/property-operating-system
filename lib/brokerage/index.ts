@@ -31,6 +31,11 @@ export * from './offers/offer.service';
 export * from './negotiations/negotiation.types';
 export * from './negotiations/negotiation.service';
 
+// Commissions
+export * from './commissions/commission.types';
+export * from './commissions/commission.service';
+export * from './commissions/commission-calculator';
+
 // Vacancy Engine
 export * from './engine';
 export * from './queries/vacancy.queries';
