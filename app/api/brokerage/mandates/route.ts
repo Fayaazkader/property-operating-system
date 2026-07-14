@@ -14,7 +14,10 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const vacancyId = searchParams.get('vacancyId');
 
-    const result = await mandateService.list(context.entityId, { vacancy_id: vacancyId || undefined });
+    // Pass vacancy_id as part of options
+    const result = await mandateService.list(context.entityId, { 
+      vacancy_id: vacancyId || undefined 
+    });
 
     if (result.error) {
       return errorResponse(result.error.code, result.error.message, context.correlationId);

@@ -2,7 +2,6 @@
 // Mandate Service — Persistence Layer
 
 import { supabase } from "@/lib/supabase";
-import { logger } from "@/lib/platform/events/logger.service";
 import { ServiceResult } from "@/lib/platform/types";
 import { CreateMandateParams, UpdateMandateParams, Mandate } from './mandate.types';
 
@@ -71,11 +70,11 @@ export class MandateService {
     }
   }
 
-  async list(entityId: string, options?: { status?: string; broker_id?: string }): Promise<ServiceResult<Mandate[]>> {
+  async list(entityId: string, options?: { status?: string; broker_id?: string; vacancy_id?: string }): Promise<ServiceResult<Mandate[]>> {
     try {
       let query = this.supabase
         .from('broker_mandates')
-        .select('*, broker:brokers(name), vacancy:vacancies(id, status)')
+        .select('*, broker:brokers(name), vacancy:vacancies(id, status, property_id)')
         .eq('entity_id', entityId)
         .order('created_at', { ascending: false });
 
@@ -85,6 +84,10 @@ export class MandateService {
 
       if (options?.broker_id) {
         query = query.eq('broker_id', options.broker_id);
+      }
+
+      if (options?.vacancy_id) {
+        query = query.eq('vacancy_id', options.vacancy_id);
       }
 
       const { data, error } = await query;
