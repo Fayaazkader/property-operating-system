@@ -16,7 +16,6 @@ export class MandateLifecycle {
     entityId: string,
     correlationId: string = crypto.randomUUID()
   ): Promise<OperationResult<any>> {
-    // Validate vacancy exists and is active — using service, not direct Supabase
     const { data: vacancy } = await this.supabase
       .from('vacancies')
       .select('status')
@@ -38,7 +37,7 @@ export class MandateLifecycle {
     if (result.error) {
       return {
         success: false,
-        error: result.error,
+        error: { code: result.error.code, message: result.error.message },
         correlationId,
       };
     }
@@ -70,12 +69,11 @@ export class MandateLifecycle {
     if (result.error) {
       return {
         success: false,
-        error: result.error,
+        error: { code: result.error.code, message: result.error.message },
         correlationId,
       };
     }
 
-    // Update vacancy — using service pattern
     await this.supabase
       .from('vacancies')
       .update({
@@ -110,11 +108,11 @@ export class MandateLifecycle {
     reason?: string,
     correlationId: string = crypto.randomUUID()
   ): Promise<OperationResult<any>> {
-    const result = await mandateService.decline(mandateId, reason);
+    const result = await mandateService.decline(mandateId);
     if (result.error) {
       return {
         success: false,
-        error: result.error,
+        error: { code: result.error.code, message: result.error.message },
         correlationId,
       };
     }
