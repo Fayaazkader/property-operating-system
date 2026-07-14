@@ -2,12 +2,12 @@
 // Conversation Platform — Orchestrates all conversations
 
 import { supabase } from "@/lib/supabase";
-import { publish, Events } from "@/lib/platform/events";
+import { publish } from "@/lib/platform/events";
 import { logger } from "@/lib/platform/events/logger.service";
 import { ConversationRequest, ConversationResponse, ConversationContext } from './contract';
 import { getOrCreateContext, updateContext, addToHistory } from './context';
 import { intentRegistry } from './intent-registry';
-import { transitionState, getStatePrompt } from './state-machine';
+import { transitionState } from './state-machine';
 
 export class ConversationPlatform {
   private supabase = supabase;
@@ -58,27 +58,36 @@ export class ConversationPlatform {
         }
       }
 
-      // 5. Update state machine
-      const newState = transitionState(
-        context.status === 'active' ? 'idle' : 'idle',
-        intentResult.intent?.id || 'unknown',
-        context.context
-      );
-
-      // 6. Execute the intent
-      let reply = "I'm not sure how to help with that.";
+      // 5. Execute the intent
+      let reply = "I'm not sure how to help with that. Could you clarify?";
       let cards: ConversationResponse['cards'] = undefined;
 
       if (intentResult.intent && intentResult.confidence > 70) {
-        const handler = await this.getIntentHandler(intentResult.intent.id);
+        const handler = this.getIntentHandler(intentResult.intent.id);
         if (handler) {
-          const result = await handler(request, context);
-          reply = result.reply;
-          cards = result.cards;
+          try {
+            // Call handler with the correct signature
+            const result = await handler(
+              tenant?.id || 'unknown',
+              tenant?.tenant_name || 'Tenant',
+              this.supabase,
+              request.message,
+              request.channelMetadata?.mediaUrls || []
+            );
+            reply = result.reply || 'No response';
+            cards = result.workflowCard ? [{
+              title: result.workflowCard.title,
+              status: result.workflowCard.status,
+              details: result.workflowCard.details || [],
+            }] : undefined;
+          } catch (handlerError) {
+            logger.error('Handler execution error:', { handlerError, intent: intentResult.intent.id });
+            reply = "I'm sorry, I encountered an error processing your request.";
+          }
         }
       }
 
-      // 7. Update context with history
+      // 6. Update context with history
       context = addToHistory(context, request.message, intentResult.intent?.id || 'unknown');
       await updateContext(context.id, {
         lastIntent: intentResult.intent?.id,
@@ -87,13 +96,13 @@ export class ConversationPlatform {
         context: context.context,
       });
 
-      // 8. Store communication
+      // 7. Store communication
       await this.storeCommunication(request, tenant, intentResult.intent?.id || 'unknown');
 
-      // 9. Publish event
+      // 8. Publish event
       await this.publishEvent(request, tenant, intentResult.intent?.id || 'unknown', 'success');
 
-      // 10. Build response
+      // 9. Build response
       return this.buildResponse({
         success: true,
         status: 'success',
@@ -108,7 +117,6 @@ export class ConversationPlatform {
     } catch (error) {
       logger.error('Conversation platform error:', { error, correlationId });
 
-      // Publish failure event
       await this.publishEvent(request, null, 'unknown', 'error', error);
 
       return this.buildResponse({
@@ -165,22 +173,26 @@ export class ConversationPlatform {
   }
 
   // ============================================================
-  // INTENT HANDLER
+  // INTENT HANDLER - Maps intent to engine function
   // ============================================================
 
-  private async getIntentHandler(intentId: string): Promise<any> {
-    // Map intent to handler
-    const handlers: Record<string, any> = {
+  private getIntentHandler(intentId: string): any {
+    // Import engine dynamically to avoid circular dependencies
+    const engine = require('./engine');
+    
+    const handlers: Record<string, string> = {
       'balance_enquiry': 'handleBalanceEnquiry',
       'statement_request': 'handleStatementRequest',
       'lease_enquiry': 'handleLeaseEnquiry',
-      // Add more as needed
+      'payment_allocation': 'handlePaymentAllocation',
+      'maintenance_request': 'handleMaintenanceRequest',
+      'renewal_request': 'handleRenewalRequest',
+      'emergency': 'handleEmergency',
     };
 
     const handlerName = handlers[intentId];
     if (!handlerName) return null;
 
-    const { engine } = await import('./engine');
     return engine[handlerName] || null;
   }
 
