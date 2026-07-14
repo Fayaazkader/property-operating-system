@@ -23,6 +23,14 @@ export * from './enquiries/enquiry.service';
 export * from './viewings/viewing.types';
 export * from './viewings/viewing.service';
 
+// Offers
+export * from './offers/offer.types';
+export * from './offers/offer.service';
+
+// Negotiations
+export * from './negotiations/negotiation.types';
+export * from './negotiations/negotiation.service';
+
 // Vacancy Engine
 export * from './engine';
 export * from './queries/vacancy.queries';
