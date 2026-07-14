@@ -1,5 +1,5 @@
 // lib/brokerage/negotiations/negotiation.service.ts
-// Negotiation Service — Pure Persistence (No Business Logic)
+// Negotiation Service — Persistence Layer
 
 import { supabase } from "@/lib/supabase";
 import { ServiceResult } from "@/lib/platform/types";
@@ -17,7 +17,7 @@ export class NegotiationService {
     try {
       const initialRound: NegotiationRound = {
         id: crypto.randomUUID(),
-        negotiation_id: '', // Will be set after negotiation creation
+        negotiation_id: '',
         round_number: 1,
         type: 'initial_offer',
         proposed_rental: params.initial_round.proposed_rental,
@@ -235,6 +235,73 @@ export class NegotiationService {
       return {
         error: {
           code: 'NEGOTIATION_UPDATE_ROUND_FAILED',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      };
+    }
+  }
+
+  // ============================================================
+  // ACCEPT COUNTER OFFER — Accept a specific counter-offer round
+  // ============================================================
+
+  async acceptCounterOffer(negotiationId: string, roundId: string): Promise<ServiceResult<Negotiation>> {
+    try {
+      const { data: negotiation, error: getError } = await this.supabase
+        .from('negotiations')
+        .select('rounds, status')
+        .eq('id', negotiationId)
+        .single();
+
+      if (getError || !negotiation) {
+        return {
+          error: { code: 'NEGOTIATION_NOT_FOUND', message: 'Negotiation not found' },
+        };
+      }
+
+      // Find the round
+      const rounds = negotiation.rounds || [];
+      const targetRound = rounds.find((r: NegotiationRound) => r.id === roundId);
+      
+      if (!targetRound) {
+        return {
+          error: { code: 'ROUND_NOT_FOUND', message: 'Counter-offer round not found' },
+        };
+      }
+
+      // Update the round status to accepted
+      const updatedRounds = rounds.map((r: NegotiationRound) => {
+        if (r.id === roundId) {
+          return { ...r, status: 'accepted' };
+        }
+        return r;
+      });
+
+      // Update negotiation status to accepted
+      const { data, error } = await this.supabase
+        .from('negotiations')
+        .update({
+          rounds: updatedRounds,
+          status: 'accepted',
+          accepted_round_id: roundId,
+          final_rental: targetRound.proposed_rental,
+          final_terms: targetRound.special_conditions,
+        })
+        .eq('id', negotiationId)
+        .select()
+        .single();
+
+      if (error || !data) {
+        return {
+          error: { code: 'NEGOTIATION_ACCEPT_FAILED', message: error?.message || 'Failed to accept counter-offer' },
+        };
+      }
+
+      return { data: data as Negotiation };
+    } catch (error) {
+      return {
+        error: {
+          code: 'NEGOTIATION_ACCEPT_FAILED',
           message: error instanceof Error ? error.message : 'Unknown error',
         },
       };
