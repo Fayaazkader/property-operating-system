@@ -6,8 +6,8 @@ import { PlatformEvent } from './contract';
 // Re-export the contract types
 export type { PlatformEvent } from './contract';
 
-// Event handler type
-export type EventHandler = (event: PlatformEvent) => Promise<void>;
+// Event handler type — generic for strong typing
+export type EventHandler<T = any> = (event: PlatformEvent<T>) => Promise<void>;
 
 // Telemetry type
 export interface EventTelemetry {

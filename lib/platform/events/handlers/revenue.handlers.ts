@@ -3,30 +3,26 @@
 
 import { subscribe } from '../event-bus';
 import { logger } from '../logger.service';
+import { Events } from '../events';
 import { StatementGeneratedPayload, PaymentReceivedPayload } from '../contract';
 
-subscribe('statement.generated', async (event) => {
-  const payload = event.payload as StatementGeneratedPayload;
+subscribe<StatementGeneratedPayload>(Events.Statement.Generated, async (event) => {
+  const { statementId, tenantId, amount } = event.payload;
   logger.info('📄 Statement generated', {
-    statementId: payload.statementId,
-    tenantId: payload.tenantId,
-    period: payload.period,
-    amount: payload.amount,
+    statementId,
+    tenantId,
+    amount,
     eventId: event.eventId,
   });
-  // TODO: Send statement notification via Email/WhatsApp
 });
 
-subscribe('payment.received', async (event) => {
-  const payload = event.payload as PaymentReceivedPayload;
+subscribe<PaymentReceivedPayload>(Events.Payment.Received, async (event) => {
+  const { paymentId, tenantId, amount, reference } = event.payload;
   logger.info('💳 Payment received', {
-    paymentId: payload.paymentId,
-    tenantId: payload.tenantId,
-    amount: payload.amount,
-    reference: payload.reference,
+    paymentId,
+    tenantId,
+    amount,
+    reference,
     eventId: event.eventId,
   });
-  // TODO: Update ledger
-  // TODO: Send payment confirmation
-  // TODO: Update Morning Brief
 });

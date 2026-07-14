@@ -6,8 +6,12 @@ import { logger } from './logger.service';
 import { logEvent, recordTelemetry } from './telemetry.service';
 
 const handlers: Map<string, EventHandler[]> = new Map();
+const WILDCARD = '*';
 
-export function subscribe(eventName: string, handler: EventHandler): void {
+export function subscribe<T = any>(
+  eventName: string,
+  handler: EventHandler<T>
+): void {
   if (!handlers.has(eventName)) {
     handlers.set(eventName, []);
   }
@@ -37,23 +41,23 @@ export async function publish<T>(
     source: event.source,
   });
 
-  // Log event to database
   await logEvent(fullEvent);
 
   const eventHandlers = handlers.get(eventName) || [];
+  const wildcardHandlers = handlers.get(WILDCARD) || [];
+  const allHandlers = [...eventHandlers, ...wildcardHandlers];
 
-  if (eventHandlers.length === 0) {
+  if (allHandlers.length === 0) {
     logger.warn(`No handlers registered for event: ${eventName}`, { eventId, correlationId });
     return;
   }
 
   const results = await Promise.allSettled(
-    eventHandlers.map(async (handler) => {
+    allHandlers.map(async (handler) => {
       const startTime = performance.now();
       try {
         await handler(fullEvent);
         const duration = performance.now() - startTime;
-        // Record telemetry for successful handler
         await recordTelemetry({
           eventId,
           correlationId,
@@ -67,7 +71,6 @@ export async function publish<T>(
       } catch (error) {
         const duration = performance.now() - startTime;
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        // Record telemetry for failed handler
         await recordTelemetry({
           eventId,
           correlationId,
@@ -99,6 +102,6 @@ export async function publish<T>(
     correlationId,
     successCount,
     failureCount,
-    totalHandlers: eventHandlers.length,
+    totalHandlers: allHandlers.length,
   });
 }

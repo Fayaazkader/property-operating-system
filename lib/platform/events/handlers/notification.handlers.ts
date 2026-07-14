@@ -3,16 +3,15 @@
 
 import { subscribe } from '../event-bus';
 import { logger } from '../logger.service';
+import { Events } from '../events';
 import { MaintenanceCompletedPayload } from '../contract';
 
-subscribe('maintenance.completed', async (event) => {
-  const payload = event.payload as MaintenanceCompletedPayload;
+subscribe<MaintenanceCompletedPayload>(Events.Maintenance.Completed, async (event) => {
+  const { ticketId, tenantId, completedAt } = event.payload;
   logger.info('🔧 Maintenance completed', {
-    ticketId: payload.ticketId,
-    tenantId: payload.tenantId,
-    completedAt: payload.completedAt,
+    ticketId,
+    tenantId,
+    completedAt,
     eventId: event.eventId,
   });
-  // TODO: Notify tenant
-  // TODO: Close work order
 });

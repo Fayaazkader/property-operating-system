@@ -3,41 +3,35 @@
 
 import { subscribe } from '../event-bus';
 import { logger } from '../logger.service';
+import { Events } from '../events';
 import { LeaseExecutedPayload, LeaseActivatedPayload, LeaseExpiringPayload } from '../contract';
 
-subscribe('lease.executed', async (event) => {
-  const payload = event.payload as LeaseExecutedPayload;
+subscribe<LeaseExecutedPayload>(Events.Lease.Executed, async (event) => {
+  const { leaseId, executionId, executedAt } = event.payload;
   logger.info('📄 Lease executed', {
-    leaseId: payload.leaseId,
-    executionId: payload.executionId,
+    leaseId,
+    executionId,
+    executedAt,
     eventId: event.eventId,
   });
-  // TODO: Trigger revenue operations (only if you want revenue on execution)
 });
 
-subscribe('lease.activated', async (event) => {
-  const payload = event.payload as LeaseActivatedPayload;
+subscribe<LeaseActivatedPayload>(Events.Lease.Activated, async (event) => {
+  const { leaseId, intakeId, monthlyRental } = event.payload;
   logger.info('✅ Lease activated', {
-    leaseId: payload.leaseId,
-    intakeId: payload.intakeId,
-    monthlyRental: payload.monthlyRental,
+    leaseId,
+    intakeId,
+    monthlyRental,
     eventId: event.eventId,
   });
-  // TODO: Start billing
-  // 1. Create billing rules
-  // 2. Generate first invoice
-  // 3. Update Morning Brief
-  // 4. Notify tenant
 });
 
-subscribe('lease.expiring', async (event) => {
-  const payload = event.payload as LeaseExpiringPayload;
+subscribe<LeaseExpiringPayload>(Events.Lease.Expiring, async (event) => {
+  const { leaseId, tenantId, daysRemaining } = event.payload;
   logger.info('⚠️ Lease expiring', {
-    leaseId: payload.leaseId,
-    tenantId: payload.tenantId,
-    daysRemaining: payload.daysRemaining,
+    leaseId,
+    tenantId,
+    daysRemaining,
     eventId: event.eventId,
   });
-  // TODO: Send expiring notification
-  // TODO: Create renewal opportunity
 });
