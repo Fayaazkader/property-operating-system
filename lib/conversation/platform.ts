@@ -66,16 +66,53 @@ export class ConversationPlatform {
         const handler = this.getIntentHandler(intentResult.intent.id);
         if (handler) {
           try {
-            // Call handler with the correct signature
-            const result = await handler(
-              tenant?.id || 'unknown',
-              tenant?.tenant_name || 'Tenant',
-              this.supabase,
-              request.message,
-              request.channelMetadata?.mediaUrls || []
-            );
-            reply = result.reply || 'No response';
-            cards = result.workflowCard ? [{
+            // Get tenant summary for handlers that need it
+            const summary = await this.getTenantSummary(tenant?.id);
+            
+            // Call handler with correct signature
+            // Different handlers have different signatures
+            let result;
+            const intentId = intentResult.intent.id;
+            
+            if (intentId === 'maintenance_request') {
+              // handleMaintenanceRequest(tenantId, tenantName, message, mediaUrls, summary)
+              result = await handler(
+                tenant?.id || 'unknown',
+                tenant?.tenant_name || 'Tenant',
+                request.message,
+                request.channelMetadata?.mediaUrls || [],
+                summary
+              );
+            } else if (intentId === 'emergency') {
+              // handleEmergency(tenantId, message)
+              result = await handler(
+                tenant?.id || 'unknown',
+                request.message
+              );
+            } else if (intentId === 'renewal_request') {
+              // handleRenewalRequest(tenantId, message, summary)
+              result = await handler(
+                tenant?.id || 'unknown',
+                request.message,
+                summary
+              );
+            } else if (intentId === 'payment_allocation') {
+              // handlePaymentAllocation(tenantId, supabaseClient)
+              result = await handler(
+                tenant?.id || 'unknown',
+                this.supabase
+              );
+            } else {
+              // Default: handleBalanceEnquiry, handleStatementRequest, handleLeaseEnquiry
+              // All take (tenantId, supabaseClient)
+              result = await handler(
+                tenant?.id || 'unknown',
+                this.supabase
+              );
+            }
+            
+            reply = result?.reply || 'No response';
+            cards = result?.workflowCard ? [{
               title: result.workflowCard.title,
               status: result.workflowCard.status,
               details: result.workflowCard.details || [],
@@ -157,6 +194,21 @@ export class ConversationPlatform {
   }
 
   // ============================================================
+  // GET TENANT SUMMARY
+  // ============================================================
+
+  private async getTenantSummary(tenantId?: string): Promise<any> {
+    if (!tenantId) return null;
+    try {
+      const { getTenantSummary } = await import('@/lib/intelligence/tenant-summary');
+      return await getTenantSummary(this.supabase, tenantId);
+    } catch (error) {
+      logger.warn('Failed to get tenant summary:', { error });
+      return null;
+    }
+  }
+
+  // ============================================================
   // PERMISSION CHECK
   // ============================================================
 
@@ -177,7 +229,6 @@ export class ConversationPlatform {
   // ============================================================
 
   private getIntentHandler(intentId: string): any {
-    // Import engine dynamically to avoid circular dependencies
     const engine = require('./engine');
     
     const handlers: Record<string, string> = {
