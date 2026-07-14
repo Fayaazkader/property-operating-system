@@ -26,6 +26,11 @@ export const Events = {
     Updated: 'portfolio.updated',
     Reported: 'portfolio.reported',
   },
+  Conversation: {
+  MessageProcessed: 'conversation.message.processed',
+  IntentResolved: 'conversation.intent.resolved',
+  Escalated: 'conversation.escalated',
+},
 } as const;
 
 export type EventName = typeof Events[keyof typeof Events];
