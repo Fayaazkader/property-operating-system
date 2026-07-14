@@ -14,7 +14,7 @@ export class WorkOrderService {
   async create(params: CreateWorkOrderParams, entityId: string): Promise<ServiceResult<WorkOrder>> {
     const slaDeadline = slaEngine.calculateResponseDeadline(
       params.priority || 'medium',
-      undefined // TODO: Pass entityId when entity policies are available
+      undefined
     );
 
     const result = await this.repository.create({
@@ -106,10 +106,6 @@ export class WorkOrderService {
     return this.repository.update(id, params);
   }
 
-  // ============================================================
-  // STATUS TRANSITIONS
-  // ============================================================
-
   async transition(id: string, status: WorkOrderStatus, note?: string): Promise<ServiceResult<WorkOrder>> {
     const current = await this.repository.findById(id);
     if (!current.data) {
@@ -183,7 +179,7 @@ export class WorkOrderService {
     const slaStatus = slaEngine.getSLAStatus(
       current.data.created_at,
       current.data.priority || 'medium',
-      undefined // TODO: Pass entityId when entity policies are available
+      undefined
     );
 
     return { data: slaStatus };
