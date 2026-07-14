@@ -9,8 +9,7 @@ export class ContractService {
   private repository = contractRepository;
 
   async create(params: CreateContractParams, entityId: string): Promise<ServiceResult<ServiceContract>> {
-    // Calculate next service date
-    let nextServiceDate = null;
+    let nextServiceDate: string | undefined = undefined;
     const daysMap: Record<ContractFrequency, number> = {
       daily: 1,
       weekly: 7,
@@ -84,8 +83,7 @@ export class ContractService {
       };
     }
 
-    // Calculate next service date
-    let nextServiceDate = null;
+    let nextServiceDate: string | undefined = undefined;
     if (current.data.frequency_days) {
       const date = new Date(serviceDate);
       date.setDate(date.getDate() + current.data.frequency_days);
