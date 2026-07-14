@@ -18,6 +18,9 @@ export * from './services/supplier.service';
 export * from './services/po.service';
 export * from './services/compliance.service';
 
+// Orchestrator
+export * from './orchestrator';
+
 // Timeline
 export * from './timeline/timeline.service';
 
