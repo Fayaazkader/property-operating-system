@@ -10,10 +10,6 @@ import { logger } from './logger.service';
 const MAX_RETRIES = 3;
 const RETRY_BATCH_SIZE = 10;
 
-// ============================================================
-// PROCESS RETRIES — Fetch and reprocess failed events
-// ============================================================
-
 export async function processRetries(): Promise<void> {
   logger.info('🔄 Retry worker started');
 
@@ -45,11 +41,9 @@ export async function processRetries(): Promise<void> {
         await updateEventStatus(event.event_id, 'retrying', { retryCount });
 
         await publish(event.event_name, {
-          correlationId: event.correlation_id,
+          correlationId: event.correlation_id || crypto.randomUUID(),
           source: 'retry-worker',
           version: event.version || '1.0',
-          actor: event.actor_id ? { id: event.actor_id, type: event.actor_type || 'system' } : undefined,
-          entity: event.entity_id ? { id: event.entity_id, type: event.entity_type || 'unknown' } : undefined,
           payload: event.payload || {},
           metadata: { retryCount },
         });

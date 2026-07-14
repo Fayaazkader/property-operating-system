@@ -13,10 +13,6 @@ export interface DeadLetterItem {
   reason: string;
 }
 
-// ============================================================
-// MOVE TO DEAD LETTER QUEUE
-// ============================================================
-
 export async function moveToDeadLetter(item: DeadLetterItem): Promise<void> {
   try {
     await supabase.from('dead_letter_queue').insert({
@@ -39,10 +35,6 @@ export async function moveToDeadLetter(item: DeadLetterItem): Promise<void> {
   }
 }
 
-// ============================================================
-// REQUEUE FROM DEAD LETTER — Manually replay events
-// ============================================================
-
 export async function requeueFromDeadLetter(deadLetterId: string): Promise<void> {
   try {
     const { data: item, error } = await supabase
@@ -56,19 +48,15 @@ export async function requeueFromDeadLetter(deadLetterId: string): Promise<void>
       return;
     }
 
-    // Republish the event
     const { publish } = await import('./event-bus');
     await publish(item.event_name, {
-      correlationId: item.correlation_id,
+      correlationId: item.correlation_id || crypto.randomUUID(),
       source: 'dead-letter-requeue',
       version: '1.0',
-      actor: undefined,
-      entity: undefined,
       payload: item.payload || {},
       metadata: { requeuedFromDeadLetter: true },
     });
 
-    // Delete from dead letter queue
     await supabase
       .from('dead_letter_queue')
       .delete()
