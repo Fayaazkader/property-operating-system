@@ -2,7 +2,7 @@
 // Command Channel — Web/UI conversations (Command Palette)
 
 import { conversationPlatform } from "@/lib/conversation/platform";
-import { ConversationRequest, ConversationResponse } from "@/lib/conversation/contract";
+import { ConversationRequest } from "@/lib/conversation/contract";
 import { logger } from "@/lib/platform/events/logger.service";
 
 export interface CommandRequest {

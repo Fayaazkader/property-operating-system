@@ -34,10 +34,17 @@ export class WhatsAppChannel {
     });
 
     const request: ConversationRequest = {
-      entityId: 'whatsapp',
-      role: 'tenant', // Will be resolved by platform
-      message: message.body,
       channel: 'whatsapp',
+      actor: {
+        id: 'whatsapp',
+        type: 'tenant',
+        role: 'tenant',
+      },
+      message: message.body,
+      context: {
+        conversationId: message.id,
+        correlationId: message.id,
+      },
       channelMetadata: {
         messageId: message.id,
         from: message.from,
@@ -45,8 +52,6 @@ export class WhatsAppChannel {
         provider: this.provider,
         direction: 'inbound',
       },
-      conversationId: message.id,
-      correlationId: message.id,
       timestamp: message.timestamp || new Date().toISOString(),
     };
 
@@ -62,13 +67,6 @@ export class WhatsAppChannel {
     let twiml = '<?xml version="1.0" encoding="UTF-8"?>';
     twiml += '<Response>';
     twiml += `<Message>${this.escapeXml(response.reply)}</Message>`;
-
-    if (response.buttons && response.buttons.length > 0) {
-      // Add quick replies if needed
-      // Twilio doesn't support buttons in the same way as Meta
-      // This is placeholder for future
-    }
-
     twiml += '</Response>';
     return twiml;
   }

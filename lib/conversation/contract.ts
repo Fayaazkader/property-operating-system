@@ -4,21 +4,14 @@
 export type ChannelType = 'whatsapp' | 'command' | 'morning-brief' | 'mobile' | 'email' | 'api';
 
 export interface ConversationRequest {
-  // Channel
   channel: ChannelType;
-  
-  // Who is asking
   actor?: {
     id: string;
     type: 'user' | 'tenant' | 'system';
     email?: string;
     role?: 'tenant' | 'property_manager' | 'finance' | 'executive' | 'unknown';
   };
-  
-  // What they said
   message: string;
-  
-  // Context
   context?: {
     sessionId?: string;
     conversationId: string;
@@ -28,11 +21,7 @@ export interface ConversationRequest {
     entityId?: string;
     userId?: string;
   };
-  
-  // Channel metadata (channel-specific)
   channelMetadata?: Record<string, any>;
-  
-  // Timestamp
   timestamp: string;
 }
 
