@@ -21,8 +21,8 @@ export interface RoleConfig {
   permissions: Permission[];
   is_custom: boolean;
   base_role?: string;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Permission {
@@ -40,8 +40,8 @@ export interface ApprovalPolicy {
   approvers: ApprovalStep[];
   is_active: boolean;
   priority: number;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ApprovalCondition {
