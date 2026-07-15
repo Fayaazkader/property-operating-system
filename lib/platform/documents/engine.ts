@@ -225,9 +225,12 @@ export class DocumentEngine {
     };
     if (corrections) updates.extracted_fields = corrections;
 
-    await supabase.from('documents').update(updates).eq('id', id);
+       await supabase.from('documents').update(updates).eq('id', id);
 
-    await this.transitionStage(await this.getDocument(id)!, approved ? 'approved' : 'rejected');
+    const reviewDoc = await this.getDocument(id);
+    if (reviewDoc) {
+      await this.transitionStage(reviewDoc, approved ? 'approved' : 'rejected');
+    }
 
     await publish('document.reviewed', {
       correlationId: crypto.randomUUID(),
