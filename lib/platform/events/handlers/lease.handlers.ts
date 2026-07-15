@@ -16,7 +16,7 @@ subscribe<LeaseExecutedPayload>(Events.Lease.Executed, async (event) => {
     version: '1.0',
     payload: {
       event: 'lease.executed',
-      recipient: event.payload.tenantId || 'system',
+      recipient: event.entity?.tenantId || event.actor?.id || 'system',
       recipient_type: 'tenant',
       data: { leaseId, executedAt, link: `/leasing/${leaseId}` },
     },
@@ -33,7 +33,7 @@ subscribe<LeaseActivatedPayload>(Events.Lease.Activated, async (event) => {
     version: '1.0',
     payload: {
       event: 'lease.activated',
-      recipient: event.payload.tenantId || 'system',
+      recipient: event.entity?.tenantId || event.actor?.id || 'system',
       recipient_type: 'tenant',
       data: { leaseId, monthlyRental, link: `/leasing/${leaseId}` },
     },
@@ -50,7 +50,7 @@ subscribe<LeaseExpiringPayload>(Events.Lease.Expiring, async (event) => {
     version: '1.0',
     payload: {
       event: 'lease.expiring',
-      recipient: tenantId || 'system',
+      recipient: tenantId,
       recipient_type: 'tenant',
       data: { leaseId, daysRemaining, link: `/leasing/${leaseId}` },
       priority: 'high',
