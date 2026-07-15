@@ -38,7 +38,7 @@ export function CommandPalette({ open, onClose }: Props) {
     if (searchTerm.length < 2) { setResults([]); setLoading(false); setIntent(""); return; }
     setLoading(true);
     const timer = setTimeout(async () => {
-      const res = await fetch(`/api/intelligence/search/federated?q=${encodeURIComponent(searchTerm)}`);
+      const res = await fetch(`/api/command?q=${encodeURIComponent(searchTerm)}`);
       const data = await res.json();
       setResults(data.results || []);
       setIntent(data.intent || "");

@@ -7,34 +7,65 @@ import {
   PlatformSettings, 
   RoleConfig, 
   ApprovalPolicy, 
-  FeatureFlags,
-  CommunicationSettings,
+  FeatureConfig,
+  NotificationSettings,
   FinancialSettings,
   BrandingSettings,
-  TemplateSettings
+  TemplateSettings,
+  CommunicationSettings,
+  SecuritySettings,
+  AutomationSettings,
+  IntegrationSettings,
+  NotificationChannel,
+  NotificationDefaults
 } from './types';
 
-const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
-  execution_engine: true,
-  conversation_platform: true,
-  brokerage_operations: true,
-  property_operations: true,
-  disbursement_operations: true,
-  portfolio_intelligence: false,
-  document_intelligence: false,
-  maintenance_module: true,
-  mobile_app: false,
-  whatsapp_chat: true,
-  api_access: false,
+// ============================================================
+// DEFAULTS
+// ============================================================
+
+const DEFAULT_SECURITY: SecuritySettings = {
+  mfa_required: false,
+  session_timeout_minutes: 480,
+  password_policy: {
+    min_length: 8,
+    require_uppercase: true,
+    require_lowercase: true,
+    require_numbers: true,
+    require_special: false,
+    expiry_days: 90,
+  },
 };
 
-const DEFAULT_COMMUNICATION: CommunicationSettings = {
-  default_whatsapp: true,
-  default_email: true,
-  whatsapp_template_enabled: true,
-  email_signature: 'AssetFlow Team',
-  from_email: 'noreply@assetflow.africa',
-  from_name: 'AssetFlow',
+const DEFAULT_NOTIFICATIONS: NotificationSettings = {
+  rules: [],
+  channels: [
+    { type: 'whatsapp', enabled: true, config: {} },
+    { type: 'email', enabled: true, config: {} },
+    { type: 'in_app', enabled: true, config: {} },
+    { type: 'morning_brief', enabled: true, config: {} },
+  ],
+  defaults: {
+    whatsapp: true,
+    email: true,
+    in_app: true,
+    morning_brief: true,
+  },
+};
+
+const DEFAULT_AUTOMATIONS: AutomationSettings = {
+  rules: [],
+  enabled: true,
+};
+
+const DEFAULT_BRANDING: BrandingSettings = {
+  logo_url: '/logo.png',
+  favicon_url: '/favicon.ico',
+  primary_color: '#34d399',
+  secondary_color: '#1a1a1a',
+  accent_color: '#3b82f6',
+  company_name: 'AssetFlow',
+  company_tagline: 'Commercial Property Operating System',
 };
 
 const DEFAULT_FINANCIAL: FinancialSettings = {
@@ -43,14 +74,16 @@ const DEFAULT_FINANCIAL: FinancialSettings = {
   default_payment_terms: 30,
   trust_account_enabled: false,
   disbursement_approval_required: true,
+  auto_allocate_payments: false,
 };
 
-const DEFAULT_BRANDING: BrandingSettings = {
-  logo_url: '/logo.png',
-  primary_color: '#34d399',
-  secondary_color: '#1a1a1a',
-  company_name: 'AssetFlow',
-  favicon_url: '/favicon.ico',
+const DEFAULT_COMMUNICATIONS: CommunicationSettings = {
+  default_whatsapp: true,
+  default_email: true,
+  whatsapp_template_enabled: true,
+  email_signature: 'AssetFlow Team',
+  from_email: 'noreply@assetflow.africa',
+  from_name: 'AssetFlow',
 };
 
 const DEFAULT_TEMPLATES: TemplateSettings = {
@@ -60,6 +93,27 @@ const DEFAULT_TEMPLATES: TemplateSettings = {
   work_order_template: 'default_work_order',
   purchase_order_template: 'default_purchase_order',
   commission_template: 'default_commission',
+  email_templates: {},
+  whatsapp_templates: {},
+};
+
+const DEFAULT_FEATURES: FeatureConfig[] = [
+  { id: 'execution_engine', name: 'Execution Engine', description: 'Agreement execution and signing', enabled: true, status: 'production' },
+  { id: 'conversation_platform', name: 'Conversation Platform', description: 'WhatsApp, Search, Morning Brief', enabled: true, status: 'production' },
+  { id: 'brokerage_operations', name: 'Brokerage Operations', description: 'Broker and commission management', enabled: true, status: 'production' },
+  { id: 'property_operations', name: 'Property Operations', description: 'Maintenance, inspections, suppliers', enabled: true, status: 'production' },
+  { id: 'disbursement_operations', name: 'Disbursement Operations', description: 'Payments and disbursements', enabled: false, status: 'development' },
+  { id: 'portfolio_intelligence', name: 'Portfolio Intelligence', description: 'Analytics and forecasting', enabled: false, status: 'development' },
+  { id: 'document_intelligence', name: 'Document Intelligence', description: 'OCR and document processing', enabled: false, status: 'development' },
+  { id: 'mobile_app', name: 'Mobile App', description: 'Tenant and manager mobile apps', enabled: false, status: 'development' },
+  { id: 'api_access', name: 'API Access', description: 'REST API and webhooks', enabled: false, status: 'development' },
+];
+
+const DEFAULT_INTEGRATIONS: IntegrationSettings = {
+  twilio: { enabled: false },
+  sendgrid: { enabled: false },
+  banks: [],
+  webhooks: [],
 };
 
 const DEFAULT_ROLES: RoleConfig[] = [
@@ -183,11 +237,43 @@ const DEFAULT_APPROVAL_POLICIES: ApprovalPolicy[] = [
     is_active: true,
     priority: 1,
   },
+  {
+    id: 'approval.supplier.new',
+    name: 'New Supplier Approval',
+    description: 'New suppliers require finance review',
+    entity_type: 'supplier',
+    action: 'create',
+    conditions: [],
+    approvers: [{ order: 1, role: 'finance', type: 'role', required: true }],
+    is_active: true,
+    priority: 1,
+  },
 ];
+
+// ============================================================
+// SETTINGS ENGINE
+// ============================================================
 
 export class SettingsEngine {
   private supabase = supabase;
   private cache: Map<string, PlatformSettings> = new Map();
+
+  getDefaults(entityId: string): PlatformSettings {
+    return {
+      entity_id: entityId,
+      security: DEFAULT_SECURITY,
+      roles: DEFAULT_ROLES,
+      approval_policies: DEFAULT_APPROVAL_POLICIES,
+      notifications: DEFAULT_NOTIFICATIONS,
+      automations: DEFAULT_AUTOMATIONS,
+      branding: DEFAULT_BRANDING,
+      financial: DEFAULT_FINANCIAL,
+      communications: DEFAULT_COMMUNICATIONS,
+      templates: DEFAULT_TEMPLATES,
+      features: DEFAULT_FEATURES,
+      integrations: DEFAULT_INTEGRATIONS,
+    };
+  }
 
   async getSettings(entityId: string): Promise<PlatformSettings> {
     if (this.cache.has(entityId)) {
@@ -214,21 +300,6 @@ export class SettingsEngine {
       logger.error('Failed to get settings:', { error, entityId });
       return this.getDefaults(entityId);
     }
-  }
-
-  getDefaults(entityId: string): PlatformSettings {
-    return {
-      entity_id: entityId,
-      roles: DEFAULT_ROLES,
-      approval_policies: DEFAULT_APPROVAL_POLICIES,
-      notification_rules: [],
-      automation_rules: [],
-      communication_settings: DEFAULT_COMMUNICATION,
-      financial_settings: DEFAULT_FINANCIAL,
-      feature_flags: DEFAULT_FEATURE_FLAGS,
-      branding: DEFAULT_BRANDING,
-      templates: DEFAULT_TEMPLATES,
-    };
   }
 
   async createSettings(entityId: string, settings: PlatformSettings): Promise<void> {
@@ -259,6 +330,7 @@ export class SettingsEngine {
     }
   }
 
+  // Domain-specific getters
   async getRoles(entityId: string): Promise<RoleConfig[]> {
     const settings = await this.getSettings(entityId);
     return settings.roles;
@@ -269,14 +341,94 @@ export class SettingsEngine {
     return settings.approval_policies;
   }
 
-  async getFeatureFlags(entityId: string): Promise<FeatureFlags> {
+  async getFeatures(entityId: string): Promise<FeatureConfig[]> {
     const settings = await this.getSettings(entityId);
-    return settings.feature_flags;
+    return settings.features;
   }
 
-  async isFeatureEnabled(entityId: string, feature: keyof FeatureFlags): Promise<boolean> {
-    const flags = await this.getFeatureFlags(entityId);
-    return flags[feature] || false;
+  async isFeatureEnabled(entityId: string, featureId: string): Promise<boolean> {
+    const features = await this.getFeatures(entityId);
+    const feature = features.find(f => f.id === featureId);
+    return feature?.enabled || false;
+  }
+
+  async getBranding(entityId: string): Promise<BrandingSettings> {
+    const settings = await this.getSettings(entityId);
+    return settings.branding;
+  }
+
+  async getFinancialSettings(entityId: string): Promise<FinancialSettings> {
+    const settings = await this.getSettings(entityId);
+    return settings.financial;
+  }
+
+  async getCommunicationSettings(entityId: string): Promise<CommunicationSettings> {
+    const settings = await this.getSettings(entityId);
+    return settings.communications;
+  }
+
+  async getTemplates(entityId: string): Promise<TemplateSettings> {
+    const settings = await this.getSettings(entityId);
+    return settings.templates;
+  }
+
+  async getNotificationSettings(entityId: string): Promise<NotificationSettings> {
+    const settings = await this.getSettings(entityId);
+    return settings.notifications;
+  }
+
+  async getAutomationSettings(entityId: string): Promise<AutomationSettings> {
+    const settings = await this.getSettings(entityId);
+    return settings.automations;
+  }
+
+  async getSecuritySettings(entityId: string): Promise<SecuritySettings> {
+    const settings = await this.getSettings(entityId);
+    return settings.security;
+  }
+
+  async getIntegrations(entityId: string): Promise<IntegrationSettings> {
+    const settings = await this.getSettings(entityId);
+    return settings.integrations;
+  }
+
+  // Role management
+  async addRole(entityId: string, role: RoleConfig): Promise<void> {
+    const settings = await this.getSettings(entityId);
+    settings.roles.push({ ...role, is_custom: true });
+    await this.updateSettings(entityId, { roles: settings.roles });
+  }
+
+  async updateRole(entityId: string, roleId: string, updates: Partial<RoleConfig>): Promise<void> {
+    const settings = await this.getSettings(entityId);
+    const index = settings.roles.findIndex(r => r.id === roleId);
+    if (index === -1) return;
+    settings.roles[index] = { ...settings.roles[index], ...updates };
+    await this.updateSettings(entityId, { roles: settings.roles });
+  }
+
+  // Approval policy management
+  async addApprovalPolicy(entityId: string, policy: ApprovalPolicy): Promise<void> {
+    const settings = await this.getSettings(entityId);
+    settings.approval_policies.push(policy);
+    await this.updateSettings(entityId, { approval_policies: settings.approval_policies });
+  }
+
+  async updateApprovalPolicy(entityId: string, policyId: string, updates: Partial<ApprovalPolicy>): Promise<void> {
+    const settings = await this.getSettings(entityId);
+    const index = settings.approval_policies.findIndex(p => p.id === policyId);
+    if (index === -1) return;
+    settings.approval_policies[index] = { ...settings.approval_policies[index], ...updates };
+    await this.updateSettings(entityId, { approval_policies: settings.approval_policies });
+  }
+
+  // Feature management
+  async updateFeature(entityId: string, featureId: string, updates: Partial<FeatureConfig>): Promise<void> {
+    const settings = await this.getSettings(entityId);
+    const index = settings.features.findIndex(f => f.id === featureId);
+    if (index === -1) return;
+    settings.features[index] = { ...settings.features[index], ...updates };
+    await this.updateSettings(entityId, { features: settings.features });
   }
 }
 

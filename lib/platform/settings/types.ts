@@ -1,18 +1,44 @@
 // lib/platform/settings/types.ts
-// Platform Settings Type Definitions
+// Platform Settings Type Definitions — Split by Domain
 
 export interface PlatformSettings {
   entity_id: string;
+  security: SecuritySettings;
   roles: RoleConfig[];
   approval_policies: ApprovalPolicy[];
-  notification_rules: NotificationRule[];
-  automation_rules: AutomationRule[];
-  communication_settings: CommunicationSettings;
-  financial_settings: FinancialSettings;
-  feature_flags: FeatureFlags;
+  notifications: NotificationSettings;
+  automations: AutomationSettings;
   branding: BrandingSettings;
+  financial: FinancialSettings;
+  communications: CommunicationSettings;
   templates: TemplateSettings;
+  features: FeatureConfig[];
+  integrations: IntegrationSettings;
 }
+
+// ============================================================
+// SECURITY
+// ============================================================
+
+export interface SecuritySettings {
+  mfa_required: boolean;
+  session_timeout_minutes: number;
+  password_policy: PasswordPolicy;
+  ip_whitelist?: string[];
+}
+
+export interface PasswordPolicy {
+  min_length: number;
+  require_uppercase: boolean;
+  require_lowercase: boolean;
+  require_numbers: boolean;
+  require_special: boolean;
+  expiry_days: number;
+}
+
+// ============================================================
+// ROLES
+// ============================================================
 
 export interface RoleConfig {
   id: string;
@@ -30,6 +56,10 @@ export interface Permission {
   actions: string[];
 }
 
+// ============================================================
+// APPROVAL POLICIES
+// ============================================================
+
 export interface ApprovalPolicy {
   id: string;
   name: string;
@@ -46,7 +76,7 @@ export interface ApprovalPolicy {
 
 export interface ApprovalCondition {
   field: string;
-  operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'in';
+  operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'in' | 'startsWith' | 'endsWith';
   value: any;
 }
 
@@ -58,6 +88,16 @@ export interface ApprovalStep {
   timeout_hours?: number;
   escalation_role?: string;
   escalation_hours?: number;
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+export interface NotificationSettings {
+  rules: NotificationRule[];
+  channels: NotificationChannel[];
+  defaults: NotificationDefaults;
 }
 
 export interface NotificationRule {
@@ -75,6 +115,28 @@ export interface NotificationCondition {
   field: string;
   operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains';
   value: any;
+}
+
+export interface NotificationChannel {
+  type: 'whatsapp' | 'email' | 'push' | 'in_app' | 'morning_brief' | 'daily_digest' | 'webhook';
+  enabled: boolean;
+  config: Record<string, any>;
+}
+
+export interface NotificationDefaults {
+  whatsapp: boolean;
+  email: boolean;
+  in_app: boolean;
+  morning_brief: boolean;
+}
+
+// ============================================================
+// AUTOMATIONS
+// ============================================================
+
+export interface AutomationSettings {
+  rules: AutomationRule[];
+  enabled: boolean;
 }
 
 export interface AutomationRule {
@@ -95,10 +157,41 @@ export interface AutomationCondition {
 }
 
 export interface AutomationAction {
-  type: 'publish_event' | 'create_task' | 'send_notification' | 'update_field' | 'execute_workflow';
+  type: 'publish_event' | 'create_task' | 'send_notification' | 'update_field' | 'execute_workflow' | 'create_work_order' | 'send_reminder';
   target: string;
   config: Record<string, any>;
 }
+
+// ============================================================
+// BRANDING
+// ============================================================
+
+export interface BrandingSettings {
+  logo_url: string;
+  favicon_url: string;
+  primary_color: string;
+  secondary_color: string;
+  accent_color?: string;
+  company_name: string;
+  company_tagline?: string;
+}
+
+// ============================================================
+// FINANCIAL
+// ============================================================
+
+export interface FinancialSettings {
+  currency: string;
+  vat_rate: number;
+  default_payment_terms: number;
+  trust_account_enabled: boolean;
+  disbursement_approval_required: boolean;
+  auto_allocate_payments: boolean;
+}
+
+// ============================================================
+// COMMUNICATIONS
+// ============================================================
 
 export interface CommunicationSettings {
   default_whatsapp: boolean;
@@ -107,37 +200,12 @@ export interface CommunicationSettings {
   email_signature: string;
   from_email: string;
   from_name: string;
+  allowed_domains?: string[];
 }
 
-export interface FinancialSettings {
-  currency: string;
-  vat_rate: number;
-  default_payment_terms: number;
-  trust_account_enabled: boolean;
-  disbursement_approval_required: boolean;
-}
-
-export interface FeatureFlags {
-  execution_engine: boolean;
-  conversation_platform: boolean;
-  brokerage_operations: boolean;
-  property_operations: boolean;
-  disbursement_operations: boolean;
-  portfolio_intelligence: boolean;
-  document_intelligence: boolean;
-  maintenance_module: boolean;
-  mobile_app: boolean;
-  whatsapp_chat: boolean;
-  api_access: boolean;
-}
-
-export interface BrandingSettings {
-  logo_url: string;
-  primary_color: string;
-  secondary_color: string;
-  company_name: string;
-  favicon_url: string;
-}
+// ============================================================
+// TEMPLATES
+// ============================================================
 
 export interface TemplateSettings {
   lease_template: string;
@@ -146,4 +214,64 @@ export interface TemplateSettings {
   work_order_template: string;
   purchase_order_template: string;
   commission_template: string;
+  email_templates: Record<string, string>;
+  whatsapp_templates: Record<string, string>;
+}
+
+// ============================================================
+// FEATURES (with rollout support)
+// ============================================================
+
+export interface FeatureConfig {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  rollout_percentage?: number;
+  min_plan?: string;
+  requires?: string[];
+  beta?: boolean;
+  dependencies?: string[];
+  status: 'development' | 'beta' | 'production' | 'deprecated';
+}
+
+// ============================================================
+// INTEGRATIONS
+// ============================================================
+
+export interface IntegrationSettings {
+  twilio: TwilioConfig;
+  sendgrid: SendGridConfig;
+  banks: BankConfig[];
+  webhooks: WebhookConfig[];
+}
+
+export interface TwilioConfig {
+  enabled: boolean;
+  account_sid?: string;
+  auth_token?: string;
+  whatsapp_number?: string;
+}
+
+export interface SendGridConfig {
+  enabled: boolean;
+  api_key?: string;
+  from_email?: string;
+  from_name?: string;
+}
+
+export interface BankConfig {
+  id: string;
+  name: string;
+  enabled: boolean;
+  integration_type: 'api' | 'file' | 'manual';
+  config: Record<string, any>;
+}
+
+export interface WebhookConfig {
+  id: string;
+  url: string;
+  events: string[];
+  secret: string;
+  enabled: boolean;
 }
