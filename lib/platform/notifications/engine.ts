@@ -2,7 +2,7 @@
 // Notification Engine - Core notification orchestration
 
 import { v4 as uuidv4 } from 'uuid';
-import { subscribe, publish } from '../events/event-bus';
+import { subscribe } from '../events/event-bus';
 import { WhatsAppChannel } from './channels/whatsapp';
 import { EmailChannel } from './channels/email';
 import { InAppChannel } from './channels/in-app';
@@ -17,8 +17,8 @@ export class NotificationEngine {
   private initialized = false;
 
   constructor() {
-    this.whatsappChannel = new WhatsAppChannel();
-    this.emailChannel = new EmailChannel();
+    this.whatsappChannel = new WhatsAppChannel({ enabled: true });
+    this.emailChannel = new EmailChannel({ enabled: true });
     this.inAppChannel = new InAppChannel();
   }
 
@@ -56,6 +56,8 @@ export class NotificationEngine {
       }
     }
 
+    const content = template.channels?.email?.body || template.channels?.whatsapp || JSON.stringify(request.data);
+
     for (const channel of allowedChannels) {
       const notification: Notification = {
         id: uuidv4(),
@@ -73,21 +75,21 @@ export class NotificationEngine {
       };
 
       await this.storeNotification(notification);
-      await this.deliver(notification);
+      await this.deliver(notification, content);
     }
   }
 
-  private async deliver(notification: Notification): Promise<void> {
+  private async deliver(notification: Notification, content: string): Promise<void> {
     try {
       switch (notification.channel) {
         case 'whatsapp':
-          await this.whatsappChannel.send(notification);
+          await this.whatsappChannel.send(notification, content);
           break;
         case 'email':
-          await this.emailChannel.send(notification);
+          await this.emailChannel.send(notification, content);
           break;
         case 'in_app':
-          await this.inAppChannel.send(notification);
+          await this.inAppChannel.send(notification, content);
           break;
         default:
           console.warn(`Unknown channel: ${notification.channel}`);
