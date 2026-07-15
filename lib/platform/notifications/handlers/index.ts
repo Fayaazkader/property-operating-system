@@ -2,8 +2,8 @@
 // Notification Event Handlers
 
 import { subscribe } from '../../event-bus';
+import { publish } from '../../event-bus';
 import { logger } from '../../events/logger.service';
-import { notificationEngine } from '../engine';
 
 // ============================================================
 // WORK ORDER EVENTS
@@ -11,12 +11,19 @@ import { notificationEngine } from '../engine';
 
 subscribe('property.work_order.created', async (event) => {
   const payload = event.payload || {};
-  const propertyManagerId = payload.propertyManagerId;
+  logger.info('📨 Work order created — requesting notification', {
+    workOrderId: payload.workOrderId,
+    propertyManagerId: payload.propertyManagerId,
+  });
 
-  if (propertyManagerId) {
-    await notificationEngine.send({
+  // Publish notification request instead of calling engine directly
+  await publish('notification.requested', {
+    correlationId: event.correlationId,
+    source: 'notification-handler',
+    version: '1.0',
+    payload: {
       event: 'work.order.created',
-      recipient: propertyManagerId,
+      recipient: payload.propertyManagerId,
       recipient_type: 'user',
       data: {
         title: payload.title,
@@ -25,19 +32,24 @@ subscribe('property.work_order.created', async (event) => {
         description: payload.description,
         link: `/property-operations/work-orders/${payload.workOrderId}`,
       },
-      correlation_id: event.correlationId,
-    });
-  }
+    },
+  });
 });
 
 subscribe('property.work_order.completed', async (event) => {
   const payload = event.payload || {};
-  const tenantId = payload.tenantId;
+  logger.info('📨 Work order completed — requesting notification', {
+    workOrderId: payload.workOrderId,
+    tenantId: payload.tenantId,
+  });
 
-  if (tenantId) {
-    await notificationEngine.send({
+  await publish('notification.requested', {
+    correlationId: event.correlationId,
+    source: 'notification-handler',
+    version: '1.0',
+    payload: {
       event: 'work.order.completed',
-      recipient: tenantId,
+      recipient: payload.tenantId,
       recipient_type: 'tenant',
       data: {
         title: payload.title,
@@ -45,19 +57,23 @@ subscribe('property.work_order.completed', async (event) => {
         completedAt: payload.completedAt,
         link: `/property-operations/work-orders/${payload.workOrderId}`,
       },
-      correlation_id: event.correlationId,
-    });
-  }
+    },
+  });
 });
 
 subscribe('property.work_order.sla.breached', async (event) => {
   const payload = event.payload || {};
-  const propertyManagerId = payload.propertyManagerId;
+  logger.info('🚨 SLA breached — requesting notification', {
+    workOrderId: payload.workOrderId,
+  });
 
-  if (propertyManagerId) {
-    await notificationEngine.send({
+  await publish('notification.requested', {
+    correlationId: event.correlationId,
+    source: 'notification-handler',
+    version: '1.0',
+    payload: {
       event: 'work.order.sla.breached',
-      recipient: propertyManagerId,
+      recipient: payload.propertyManagerId,
       recipient_type: 'user',
       data: {
         title: payload.title,
@@ -66,10 +82,9 @@ subscribe('property.work_order.sla.breached', async (event) => {
         createdAt: payload.createdAt,
         link: `/property-operations/work-orders/${payload.workOrderId}`,
       },
-      correlation_id: event.correlationId,
       priority: 'high',
-    });
-  }
+    },
+  });
 });
 
 // ============================================================
@@ -78,12 +93,17 @@ subscribe('property.work_order.sla.breached', async (event) => {
 
 subscribe('property.inspection.completed', async (event) => {
   const payload = event.payload || {};
-  const propertyManagerId = payload.propertyManagerId;
+  logger.info('📨 Inspection completed — requesting notification', {
+    inspectionId: payload.inspectionId,
+  });
 
-  if (propertyManagerId) {
-    await notificationEngine.send({
+  await publish('notification.requested', {
+    correlationId: event.correlationId,
+    source: 'notification-handler',
+    version: '1.0',
+    payload: {
       event: 'inspection.completed',
-      recipient: propertyManagerId,
+      recipient: payload.propertyManagerId,
       recipient_type: 'user',
       data: {
         title: payload.title,
@@ -92,9 +112,8 @@ subscribe('property.inspection.completed', async (event) => {
         completedAt: payload.completedAt,
         link: `/property-operations/inspections/${payload.inspectionId}`,
       },
-      correlation_id: event.correlationId,
-    });
-  }
+    },
+  });
 });
 
 // ============================================================
@@ -103,12 +122,17 @@ subscribe('property.inspection.completed', async (event) => {
 
 subscribe('property.compliance.expiring', async (event) => {
   const payload = event.payload || {};
-  const propertyManagerId = payload.propertyManagerId;
+  logger.info('📨 Compliance expiring — requesting notification', {
+    complianceId: payload.complianceId,
+  });
 
-  if (propertyManagerId) {
-    await notificationEngine.send({
+  await publish('notification.requested', {
+    correlationId: event.correlationId,
+    source: 'notification-handler',
+    version: '1.0',
+    payload: {
       event: 'compliance.expiring',
-      recipient: propertyManagerId,
+      recipient: payload.propertyManagerId,
       recipient_type: 'user',
       data: {
         name: payload.name,
@@ -116,20 +140,24 @@ subscribe('property.compliance.expiring', async (event) => {
         propertyName: payload.propertyName,
         link: `/property-operations/compliance/${payload.complianceId}`,
       },
-      correlation_id: event.correlationId,
       priority: 'high',
-    });
-  }
+    },
+  });
 });
 
 subscribe('property.compliance.expired', async (event) => {
   const payload = event.payload || {};
-  const propertyManagerId = payload.propertyManagerId;
+  logger.info('📨 Compliance expired — requesting notification', {
+    complianceId: payload.complianceId,
+  });
 
-  if (propertyManagerId) {
-    await notificationEngine.send({
+  await publish('notification.requested', {
+    correlationId: event.correlationId,
+    source: 'notification-handler',
+    version: '1.0',
+    payload: {
       event: 'compliance.expired',
-      recipient: propertyManagerId,
+      recipient: payload.propertyManagerId,
       recipient_type: 'user',
       data: {
         name: payload.name,
@@ -137,10 +165,9 @@ subscribe('property.compliance.expired', async (event) => {
         propertyName: payload.propertyName,
         link: `/property-operations/compliance/${payload.complianceId}`,
       },
-      correlation_id: event.correlationId,
       priority: 'high',
-    });
-  }
+    },
+  });
 });
 
 // ============================================================
@@ -149,12 +176,18 @@ subscribe('property.compliance.expired', async (event) => {
 
 subscribe('lease.activated', async (event) => {
   const payload = event.payload || {};
-  const tenantId = payload.tenantId;
+  logger.info('📨 Lease activated — requesting notification', {
+    leaseId: payload.leaseId,
+    tenantId: payload.tenantId,
+  });
 
-  if (tenantId) {
-    await notificationEngine.send({
+  await publish('notification.requested', {
+    correlationId: event.correlationId,
+    source: 'notification-handler',
+    version: '1.0',
+    payload: {
       event: 'lease.activated',
-      recipient: tenantId,
+      recipient: payload.tenantId,
       recipient_type: 'tenant',
       data: {
         tenantName: payload.tenantName,
@@ -163,9 +196,8 @@ subscribe('lease.activated', async (event) => {
         commencementDate: payload.commencementDate,
         link: `/leases/${payload.leaseId}`,
       },
-      correlation_id: event.correlationId,
-    });
-  }
+    },
+  });
 });
 
 // ============================================================
@@ -174,12 +206,18 @@ subscribe('lease.activated', async (event) => {
 
 subscribe('broker.commission.approved', async (event) => {
   const payload = event.payload || {};
-  const brokerId = payload.brokerId;
+  logger.info('📨 Commission approved — requesting notification', {
+    commissionId: payload.commissionId,
+    brokerId: payload.brokerId,
+  });
 
-  if (brokerId) {
-    await notificationEngine.send({
+  await publish('notification.requested', {
+    correlationId: event.correlationId,
+    source: 'notification-handler',
+    version: '1.0',
+    payload: {
       event: 'commission.approved',
-      recipient: brokerId,
+      recipient: payload.brokerId,
       recipient_type: 'broker',
       data: {
         brokerName: payload.brokerName,
@@ -188,204 +226,8 @@ subscribe('broker.commission.approved', async (event) => {
         approvedBy: payload.approvedBy,
         link: `/brokerage/commissions/${payload.commissionId}`,
       },
-      correlation_id: event.correlationId
-
-
-mkdir -p lib/platform/notifications/handlers
-cat > lib/platform/notifications/handlers/index.ts << 'ENDOFFILE'
-// lib/platform/notifications/handlers/index.ts
-// Notification Event Handlers
-
-import { subscribe } from '../../event-bus';
-import { logger } from '../../events/logger.service';
-import { notificationEngine } from '../engine';
-
-// ============================================================
-// WORK ORDER EVENTS
-// ============================================================
-
-subscribe('property.work_order.created', async (event) => {
-  const payload = event.payload || {};
-  const propertyManagerId = payload.propertyManagerId;
-
-  if (propertyManagerId) {
-    await notificationEngine.send({
-      event: 'work.order.created',
-      recipient: propertyManagerId,
-      recipient_type: 'user',
-      data: {
-        title: payload.title,
-        priority: payload.priority,
-        propertyName: payload.propertyName,
-        description: payload.description,
-        link: `/property-operations/work-orders/${payload.workOrderId}`,
-      },
-      correlation_id: event.correlationId,
-    });
-  }
-});
-
-subscribe('property.work_order.completed', async (event) => {
-  const payload = event.payload || {};
-  const tenantId = payload.tenantId;
-
-  if (tenantId) {
-    await notificationEngine.send({
-      event: 'work.order.completed',
-      recipient: tenantId,
-      recipient_type: 'tenant',
-      data: {
-        title: payload.title,
-        propertyName: payload.propertyName,
-        completedAt: payload.completedAt,
-        link: `/property-operations/work-orders/${payload.workOrderId}`,
-      },
-      correlation_id: event.correlationId,
-    });
-  }
-});
-
-subscribe('property.work_order.sla.breached', async (event) => {
-  const payload = event.payload || {};
-  const propertyManagerId = payload.propertyManagerId;
-
-  if (propertyManagerId) {
-    await notificationEngine.send({
-      event: 'work.order.sla.breached',
-      recipient: propertyManagerId,
-      recipient_type: 'user',
-      data: {
-        title: payload.title,
-        priority: payload.priority,
-        propertyName: payload.propertyName,
-        createdAt: payload.createdAt,
-        link: `/property-operations/work-orders/${payload.workOrderId}`,
-      },
-      correlation_id: event.correlationId,
-      priority: 'high',
-    });
-  }
-});
-
-// ============================================================
-// INSPECTION EVENTS
-// ============================================================
-
-subscribe('property.inspection.completed', async (event) => {
-  const payload = event.payload || {};
-  const propertyManagerId = payload.propertyManagerId;
-
-  if (propertyManagerId) {
-    await notificationEngine.send({
-      event: 'inspection.completed',
-      recipient: propertyManagerId,
-      recipient_type: 'user',
-      data: {
-        title: payload.title,
-        propertyName: payload.propertyName,
-        severity: payload.severity,
-        completedAt: payload.completedAt,
-        link: `/property-operations/inspections/${payload.inspectionId}`,
-      },
-      correlation_id: event.correlationId,
-    });
-  }
-});
-
-// ============================================================
-// COMPLIANCE EVENTS
-// ============================================================
-
-subscribe('property.compliance.expiring', async (event) => {
-  const payload = event.payload || {};
-  const propertyManagerId = payload.propertyManagerId;
-
-  if (propertyManagerId) {
-    await notificationEngine.send({
-      event: 'compliance.expiring',
-      recipient: propertyManagerId,
-      recipient_type: 'user',
-      data: {
-        name: payload.name,
-        expiryDate: payload.expiryDate,
-        propertyName: payload.propertyName,
-        link: `/property-operations/compliance/${payload.complianceId}`,
-      },
-      correlation_id: event.correlationId,
-      priority: 'high',
-    });
-  }
-});
-
-subscribe('property.compliance.expired', async (event) => {
-  const payload = event.payload || {};
-  const propertyManagerId = payload.propertyManagerId;
-
-  if (propertyManagerId) {
-    await notificationEngine.send({
-      event: 'compliance.expired',
-      recipient: propertyManagerId,
-      recipient_type: 'user',
-      data: {
-        name: payload.name,
-        expiryDate: payload.expiryDate,
-        propertyName: payload.propertyName,
-        link: `/property-operations/compliance/${payload.complianceId}`,
-      },
-      correlation_id: event.correlationId,
-      priority: 'high',
-    });
-  }
-});
-
-// ============================================================
-// LEASE EVENTS
-// ============================================================
-
-subscribe('lease.activated', async (event) => {
-  const payload = event.payload || {};
-  const tenantId = payload.tenantId;
-
-  if (tenantId) {
-    await notificationEngine.send({
-      event: 'lease.activated',
-      recipient: tenantId,
-      recipient_type: 'tenant',
-      data: {
-        tenantName: payload.tenantName,
-        propertyName: payload.propertyName,
-        monthlyRental: payload.monthlyRental,
-        commencementDate: payload.commencementDate,
-        link: `/leases/${payload.leaseId}`,
-      },
-      correlation_id: event.correlationId,
-    });
-  }
-});
-
-// ============================================================
-// COMMISSION EVENTS
-// ============================================================
-
-subscribe('broker.commission.approved', async (event) => {
-  const payload = event.payload || {};
-  const brokerId = payload.brokerId;
-
-  if (brokerId) {
-    await notificationEngine.send({
-      event: 'commission.approved',
-      recipient: brokerId,
-      recipient_type: 'broker',
-      data: {
-        brokerName: payload.brokerName,
-        leaseRef: payload.leaseRef,
-        amount: payload.amount,
-        approvedBy: payload.approvedBy,
-        link: `/brokerage/commissions/${payload.commissionId}`,
-      },
-      correlation_id: event.correlationId,
-    });
-  }
+    },
+  });
 });
 
 // ============================================================
@@ -394,12 +236,18 @@ subscribe('broker.commission.approved', async (event) => {
 
 subscribe('payment.received', async (event) => {
   const payload = event.payload || {};
-  const tenantId = payload.tenantId;
+  logger.info('📨 Payment received — requesting notification', {
+    paymentId: payload.paymentId,
+    tenantId: payload.tenantId,
+  });
 
-  if (tenantId) {
-    await notificationEngine.send({
+  await publish('notification.requested', {
+    correlationId: event.correlationId,
+    source: 'notification-handler',
+    version: '1.0',
+    payload: {
       event: 'payment.received',
-      recipient: tenantId,
+      recipient: payload.tenantId,
       recipient_type: 'tenant',
       data: {
         amount: payload.amount,
@@ -408,7 +256,6 @@ subscribe('payment.received', async (event) => {
         date: payload.date,
         link: `/financials/payments/${payload.paymentId}`,
       },
-      correlation_id: event.correlationId,
-    });
-  }
+    },
+  });
 });
