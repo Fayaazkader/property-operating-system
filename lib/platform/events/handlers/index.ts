@@ -1,4 +1,5 @@
 // lib/platform/events/handlers/index.ts
+// Import and register all domain event handlers
 
 import './lease.handlers';
 import './vacancy.handlers';

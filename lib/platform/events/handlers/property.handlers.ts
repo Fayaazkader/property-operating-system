@@ -2,8 +2,8 @@
 // Property Operations Event Handlers
 
 import { subscribe } from '../event-bus';
-import { logger } from '../logger.service';
 import { publish } from '../event-bus';
+import { logger } from '../logger.service';
 import { timelineService } from '@/lib/property-operations/timeline/timeline.service';
 
 // ============================================================
@@ -19,7 +19,6 @@ subscribe('property.work_order.created', async (event) => {
     eventId: event.eventId,
   });
 
-  // Use timeline service
   if (payload.propertyId && payload.entityId) {
     await timelineService.addEntry({
       entity_id: payload.entityId,
@@ -33,31 +32,21 @@ subscribe('property.work_order.created', async (event) => {
     });
   }
 
-  // Publish notification request instead of hardcoding WhatsApp
   await publish('notification.requested', {
     correlationId: event.correlationId,
     source: 'property-handler',
     version: '1.0',
     payload: {
-      type: 'work_order_created',
+      event: 'work.order.created',
       recipient: payload.propertyManagerId,
-      channels: ['whatsapp', 'email'],
+      recipient_type: 'user',
       data: {
-        workOrderId: payload.workOrderId,
         title: payload.title,
         priority: payload.priority,
+        propertyName: payload.propertyName,
+        description: payload.description,
+        link: `/property-operations/work-orders/${payload.workOrderId}`,
       },
-    },
-  });
-
-  // Publish Morning Brief refresh
-  await publish('morning.brief.refresh.requested', {
-    correlationId: event.correlationId,
-    source: 'property-handler',
-    version: '1.0',
-    payload: {
-      entityId: payload.entityId,
-      reason: 'work_order_created',
     },
   });
 });
@@ -83,33 +72,24 @@ subscribe('property.work_order.completed', async (event) => {
     });
   }
 
-  // Notify tenant that work is complete
   if (payload.tenantId) {
     await publish('notification.requested', {
       correlationId: event.correlationId,
       source: 'property-handler',
       version: '1.0',
       payload: {
-        type: 'work_order_completed',
+        event: 'work.order.completed',
         recipient: payload.tenantId,
-        channels: ['whatsapp', 'email'],
+        recipient_type: 'tenant',
         data: {
-          workOrderId: payload.workOrderId,
           title: payload.title,
+          propertyName: payload.propertyName,
+          completedAt: payload.completedAt,
+          link: `/property-operations/work-orders/${payload.workOrderId}`,
         },
       },
     });
   }
-
-  await publish('morning.brief.refresh.requested', {
-    correlationId: event.correlationId,
-    source: 'property-handler',
-    version: '1.0',
-    payload: {
-      entityId: payload.entityId,
-      reason: 'work_order_completed',
-    },
-  });
 });
 
 // ============================================================
@@ -161,13 +141,7 @@ subscribe('property.inspection.completed', async (event) => {
     });
   }
 
-  // If critical finding, request work order creation
   if (payload.severity === 'critical' || payload.severity === 'high') {
-    logger.info('🚨 Critical inspection finding — requesting work order', {
-      inspectionId: payload.inspectionId,
-      severity: payload.severity,
-    });
-
     await publish('work.order.creation.requested', {
       correlationId: event.correlationId,
       source: 'property-handler',
@@ -183,16 +157,6 @@ subscribe('property.inspection.completed', async (event) => {
       },
     });
   }
-
-  await publish('morning.brief.refresh.requested', {
-    correlationId: event.correlationId,
-    source: 'property-handler',
-    version: '1.0',
-    payload: {
-      entityId: payload.entityId,
-      reason: 'inspection_completed',
-    },
-  });
 });
 
 // ============================================================
@@ -213,24 +177,16 @@ subscribe('property.compliance.expiring', async (event) => {
     source: 'property-handler',
     version: '1.0',
     payload: {
-      type: 'compliance_expiring',
+      event: 'compliance.expiring',
       recipient: payload.propertyManagerId,
-      channels: ['whatsapp', 'email'],
+      recipient_type: 'user',
       data: {
-        complianceId: payload.complianceId,
         name: payload.name,
         expiryDate: payload.expiryDate,
+        propertyName: payload.propertyName,
+        link: `/property-operations/compliance/${payload.complianceId}`,
       },
-    },
-  });
-
-  await publish('morning.brief.refresh.requested', {
-    correlationId: event.correlationId,
-    source: 'property-handler',
-    version: '1.0',
-    payload: {
-      entityId: payload.entityId,
-      reason: 'compliance_expiring',
+      priority: 'high',
     },
   });
 });
@@ -249,15 +205,16 @@ subscribe('property.compliance.expired', async (event) => {
     source: 'property-handler',
     version: '1.0',
     payload: {
-      type: 'compliance_expired',
+      event: 'compliance.expired',
       recipient: payload.propertyManagerId,
-      channels: ['whatsapp', 'email'],
-      priority: 'high',
+      recipient_type: 'user',
       data: {
-        complianceId: payload.complianceId,
         name: payload.name,
         expiryDate: payload.expiryDate,
+        propertyName: payload.propertyName,
+        link: `/property-operations/compliance/${payload.complianceId}`,
       },
+      priority: 'high',
     },
   });
 
@@ -273,16 +230,6 @@ subscribe('property.compliance.expired', async (event) => {
       entityId: payload.entityId,
       reference_id: payload.complianceId,
       reference_type: 'compliance',
-    },
-  });
-
-  await publish('morning.brief.refresh.requested', {
-    correlationId: event.correlationId,
-    source: 'property-handler',
-    version: '1.0',
-    payload: {
-      entityId: payload.entityId,
-      reason: 'compliance_expired',
     },
   });
 });
