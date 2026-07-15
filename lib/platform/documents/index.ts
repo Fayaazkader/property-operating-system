@@ -3,4 +3,5 @@
 export * from './types';
 export * from './engine';
 export * from './classification-engine';
-export * from './ocr';
+export { getOCRAdapter, registerOCRAdapter } from './ocr';
+export type { OCRResult } from './ocr';
