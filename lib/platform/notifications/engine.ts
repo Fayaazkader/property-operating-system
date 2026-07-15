@@ -8,6 +8,7 @@ import { EmailChannel } from './channels/email';
 import { InAppChannel } from './channels/in-app';
 import { getTemplate } from './templates';
 import { notificationPreferences } from './preferences';
+import { supabase } from '@/lib/supabase';
 import type { Notification, NotificationRequest, NotificationChannel, NotificationStatus } from './types';
 
 export class NotificationEngine {
@@ -105,9 +106,6 @@ export class NotificationEngine {
 
   private async storeNotification(notification: Notification): Promise<void> {
     try {
-      const { createClient } = await import('@/lib/supabase/server');
-      const supabase = createClient();
-      
       const { error } = await supabase
         .from('notifications_log')
         .insert({
@@ -139,9 +137,6 @@ export class NotificationEngine {
     error?: string
   ): Promise<void> {
     try {
-      const { createClient } = await import('@/lib/supabase/server');
-      const supabase = createClient();
-      
       const updates: Record<string, any> = {
         status,
         updated_at: new Date().toISOString(),
