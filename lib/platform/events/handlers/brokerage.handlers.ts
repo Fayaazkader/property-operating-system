@@ -3,25 +3,27 @@
 
 import { subscribe } from '../event-bus';
 import { logger } from '../logger.service';
-import { Events } from '../events';
 
-subscribe(Events.Vacancy.Created, async (event) => {
+subscribe('vacancy.created', async (event) => {
+  const payload = event.payload || {};
   logger.info('📊 Vacancy created — updating portfolio stats', {
     vacancyId: event.entity?.id,
-    propertyId: event.payload?.property_id,
+    propertyId: payload.property_id,
   });
 });
 
-subscribe(Events.Broker.OfferAccepted, async (event) => {
+subscribe('broker.offer.accepted', async (event) => {
+  const payload = event.payload || {};
   logger.info('📄 Offer accepted — ready for execution', {
     offerId: event.entity?.id,
-    vacancyId: event.payload?.vacancyId,
+    vacancyId: payload.vacancyId,
   });
 });
 
-subscribe(Events.Broker.CommissionApproved, async (event) => {
+subscribe('broker.commission.approved', async (event) => {
+  const payload = event.payload || {};
   logger.info('💰 Commission approved — preparing payment request', {
     commissionId: event.entity?.id,
-    amount: event.payload?.amount,
+    amount: payload.amount,
   });
 });

@@ -1,8 +1,7 @@
 // lib/platform/events/handlers/property.handlers.ts
 // Property Operations Event Handlers
 
-import { subscribe } from '../event-bus';
-import { publish } from '../event-bus';
+import { subscribe, publish } from '../event-bus';
 import { logger } from '../logger.service';
 import { timelineService } from '@/lib/property-operations/timeline/timeline.service';
 
