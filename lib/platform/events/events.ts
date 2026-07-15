@@ -61,6 +61,7 @@ export const Events = {
   },
   WorkOrder: {
     Created: 'work.order.created',
+    Assigned: 'work.order.assigned',
     Completed: 'work.order.completed',
     SLABreached: 'work.order.sla.breached',
   },
@@ -87,6 +88,22 @@ export const Events = {
     RequestApproved: 'approval.request.approved',
     RequestRejected: 'approval.request.rejected',
   },
+  Property: {
+    AssetCreated: 'property.asset.created',
+    AssetUpdated: 'property.asset.updated',
+    AssetServiced: 'property.asset.serviced',
+    ContractCreated: 'property.contract.created',
+    ContractUpdated: 'property.contract.updated',
+    WorkOrderCreated: 'property.work_order.created',
+    WorkOrderCompleted: 'property.work_order.completed',
+    InspectionCreated: 'property.inspection.created',
+    InspectionCompleted: 'property.inspection.completed',
+    SupplierCreated: 'property.supplier.created',
+    SupplierUpdated: 'property.supplier.updated',
+    POApproved: 'property.po.approved',
+    ComplianceExpiring: 'property.compliance.expiring',
+    ComplianceExpired: 'property.compliance.expired',
+  },
 } as const;
 
 export type EventName = typeof Events[keyof typeof Events];
@@ -105,3 +122,25 @@ export type SupplierEvent = typeof Events.Supplier[keyof typeof Events.Supplier]
 export type PurchaseOrderEvent = typeof Events.PurchaseOrder[keyof typeof Events.PurchaseOrder];
 export type ComplianceEvent = typeof Events.Compliance[keyof typeof Events.Compliance];
 export type ApprovalEvent = typeof Events.Approval[keyof typeof Events.Approval];
+export type PropertyEvent = typeof Events.Property[keyof typeof Events.Property];
+
+// ============================================================
+// PROPERTY OPERATIONS EVENTS
+// ============================================================
+
+export const PropertyEvents = {
+  AssetCreated: 'property.asset.created',
+  AssetUpdated: 'property.asset.updated',
+  AssetServiced: 'property.asset.serviced',
+  ContractCreated: 'property.contract.created',
+  ContractUpdated: 'property.contract.updated',
+  WorkOrderCreated: 'property.work_order.created',
+  WorkOrderCompleted: 'property.work_order.completed',
+  InspectionCreated: 'property.inspection.created',
+  InspectionCompleted: 'property.inspection.completed',
+  SupplierCreated: 'property.supplier.created',
+  SupplierUpdated: 'property.supplier.updated',
+  POApproved: 'property.po.approved',
+  ComplianceExpiring: 'property.compliance.expiring',
+  ComplianceExpired: 'property.compliance.expired',
+} as const;
