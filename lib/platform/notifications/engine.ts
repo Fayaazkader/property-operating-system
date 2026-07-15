@@ -7,7 +7,7 @@ import { WhatsAppChannel } from './channels/whatsapp';
 import { EmailChannel } from './channels/email';
 import { InAppChannel } from './channels/in-app';
 import { getTemplate } from './templates';
-import { getUserPreferences } from './preferences';
+import { notificationPreferences } from './preferences';
 import type { Notification, NotificationRequest, NotificationChannel, NotificationStatus } from './types';
 
 export class NotificationEngine {
@@ -35,7 +35,6 @@ export class NotificationEngine {
 
   async send(request: NotificationRequest): Promise<void> {
     const channels = request.channels || ['in_app'];
-    const priority = request.priority || 'medium';
     const correlationId = request.correlation_id || uuidv4();
 
     const template = getTemplate(request.event);
@@ -44,12 +43,18 @@ export class NotificationEngine {
       return;
     }
 
-    const userPrefs = await getUserPreferences(request.recipient);
-    const allowedChannels = channels.filter(channel => {
-      if (userPrefs?.channels[channel] === false) return false;
-      if (userPrefs?.events?.[request.event]?.enabled === false) return false;
-      return true;
-    });
+    const allowedChannels: NotificationChannel[] = [];
+    for (const channel of channels) {
+      const shouldSend = await notificationPreferences.shouldSend(
+        request.recipient,
+        request.recipient,
+        request.event,
+        channel as NotificationChannel
+      );
+      if (shouldSend) {
+        allowedChannels.push(channel as NotificationChannel);
+      }
+    }
 
     for (const channel of allowedChannels) {
       const notification: Notification = {
@@ -97,7 +102,6 @@ export class NotificationEngine {
   }
 
   private async storeNotification(notification: Notification): Promise<void> {
-    // Store in Supabase - implementation depends on your Supabase client setup
     try {
       const { createClient } = await import('@/lib/supabase/server');
       const supabase = createClient();
