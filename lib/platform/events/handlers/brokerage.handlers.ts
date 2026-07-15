@@ -28,3 +28,28 @@ subscribe(Events.Broker.CommissionApproved, async (event) => {
     amount: event.payload?.amount,
   });
 });
+
+// When work order is created
+subscribe(Events.WorkOrder.Created, async (event) => {
+  logger.info('🔧 Work order created', {
+    workOrderId: event.entity?.id,
+    propertyId: event.payload?.propertyId,
+    priority: event.payload?.priority,
+  });
+});
+
+// When work order is completed
+subscribe(Events.WorkOrder.Completed, async (event) => {
+  logger.info('✅ Work order completed', {
+    workOrderId: event.entity?.id,
+    propertyId: event.payload?.propertyId,
+  });
+});
+
+// When inspection is completed
+subscribe(Events.Inspection.Completed, async (event) => {
+  logger.info('📋 Inspection completed', {
+    inspectionId: event.entity?.id,
+    propertyId: event.payload?.propertyId,
+  });
+});
