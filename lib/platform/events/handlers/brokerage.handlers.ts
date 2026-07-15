@@ -1,7 +1,7 @@
 // lib/platform/events/handlers/brokerage.handlers.ts
 // Brokerage Event Handlers
 
-import { subscribe } from '../event-bus';
+import { subscribe, publish } from '../event-bus';
 import { logger } from '../logger.service';
 
 subscribe('vacancy.created', async (event) => {
@@ -18,6 +18,22 @@ subscribe('broker.offer.accepted', async (event) => {
     offerId: event.entity?.id,
     vacancyId: payload.vacancyId,
   });
+
+  await publish('notification.requested', {
+    correlationId: event.correlationId,
+    source: 'brokerage-handler',
+    version: '1.0',
+    payload: {
+      event: 'broker.offer.accepted',
+      recipient: payload.tenantId || 'system',
+      recipient_type: 'tenant',
+      data: {
+        offerId: event.entity?.id,
+        vacancyId: payload.vacancyId,
+        link: `/brokerage/offers/${event.entity?.id}`,
+      },
+    },
+  });
 });
 
 subscribe('broker.commission.approved', async (event) => {
@@ -25,5 +41,21 @@ subscribe('broker.commission.approved', async (event) => {
   logger.info('💰 Commission approved — preparing payment request', {
     commissionId: event.entity?.id,
     amount: payload.amount,
+  });
+
+  await publish('notification.requested', {
+    correlationId: event.correlationId,
+    source: 'brokerage-handler',
+    version: '1.0',
+    payload: {
+      event: 'broker.commission.approved',
+      recipient: payload.brokerId || 'system',
+      recipient_type: 'broker',
+      data: {
+        commissionId: event.entity?.id,
+        amount: payload.amount,
+        link: `/brokerage/commissions/${event.entity?.id}`,
+      },
+    },
   });
 });
