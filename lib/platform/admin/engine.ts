@@ -71,7 +71,7 @@ export class AdminEngine {
 
     if (!role) return false;
 
-    return role.role_permissions.includes(permissionKey) || role.role_permissions.includes('*');
+    return role.permissions.includes(permissionKey) || role.permissions.includes('*');
   }
 
   // ============================================================
