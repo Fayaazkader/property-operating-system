@@ -1,8 +1,7 @@
 // lib/platform/notifications/handlers/index.ts
-// Notification Event Handlers
+// Notification Engine - Event Subscribers
 
-import { subscribe } from '../../event-bus';
-import { publish } from '../../event-bus';
+import { subscribe, publish } from '../../events/event-bus';
 import { logger } from '../../events/logger.service';
 
 // ============================================================
@@ -13,10 +12,8 @@ subscribe('property.work_order.created', async (event) => {
   const payload = event.payload || {};
   logger.info('📨 Work order created — requesting notification', {
     workOrderId: payload.workOrderId,
-    propertyManagerId: payload.propertyManagerId,
   });
 
-  // Publish notification request instead of calling engine directly
   await publish('notification.requested', {
     correlationId: event.correlationId,
     source: 'notification-handler',
@@ -40,7 +37,6 @@ subscribe('property.work_order.completed', async (event) => {
   const payload = event.payload || {};
   logger.info('📨 Work order completed — requesting notification', {
     workOrderId: payload.workOrderId,
-    tenantId: payload.tenantId,
   });
 
   await publish('notification.requested', {
@@ -178,7 +174,6 @@ subscribe('lease.activated', async (event) => {
   const payload = event.payload || {};
   logger.info('📨 Lease activated — requesting notification', {
     leaseId: payload.leaseId,
-    tenantId: payload.tenantId,
   });
 
   await publish('notification.requested', {
@@ -208,7 +203,6 @@ subscribe('broker.commission.approved', async (event) => {
   const payload = event.payload || {};
   logger.info('📨 Commission approved — requesting notification', {
     commissionId: payload.commissionId,
-    brokerId: payload.brokerId,
   });
 
   await publish('notification.requested', {
@@ -238,7 +232,6 @@ subscribe('payment.received', async (event) => {
   const payload = event.payload || {};
   logger.info('📨 Payment received — requesting notification', {
     paymentId: payload.paymentId,
-    tenantId: payload.tenantId,
   });
 
   await publish('notification.requested', {
@@ -259,3 +252,5 @@ subscribe('payment.received', async (event) => {
     },
   });
 });
+
+logger.info('✅ Notification handlers registered');
