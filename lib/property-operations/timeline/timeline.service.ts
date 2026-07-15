@@ -3,12 +3,25 @@
 
 import { supabase } from "@/lib/supabase";
 import { ServiceResult } from "@/lib/platform/types";
-import { PropertyTimelineEntry } from '../types';
+
+export interface TimelineEntry {
+  id: string;
+  entity_id: string;
+  property_id: string;
+  event_type: string;
+  title: string;
+  description?: string;
+  reference_id?: string;
+  reference_type?: string;
+  source: string;
+  created_at: string;
+  created_by?: string;
+}
 
 export class TimelineService {
   private supabase = supabase;
 
-  async addEntry(entry: Omit<PropertyTimelineEntry, 'id' | 'created_at'>): Promise<ServiceResult<PropertyTimelineEntry>> {
+  async addEntry(entry: Omit<TimelineEntry, 'id' | 'created_at'>): Promise<ServiceResult<TimelineEntry>> {
     try {
       const { data, error } = await this.supabase
         .from('property_timeline')
@@ -32,7 +45,7 @@ export class TimelineService {
         };
       }
 
-      return { data: data as PropertyTimelineEntry };
+      return { data: data as TimelineEntry };
     } catch (error) {
       return {
         error: {
@@ -43,7 +56,7 @@ export class TimelineService {
     }
   }
 
-  async getByProperty(propertyId: string): Promise<ServiceResult<PropertyTimelineEntry[]>> {
+  async getByProperty(propertyId: string): Promise<ServiceResult<TimelineEntry[]>> {
     try {
       const { data, error } = await this.supabase
         .from('property_timeline')
@@ -57,7 +70,38 @@ export class TimelineService {
         };
       }
 
-      return { data: data as PropertyTimelineEntry[] };
+      return { data: data as TimelineEntry[] };
+    } catch (error) {
+      return {
+        error: {
+          code: 'TIMELINE_GET_FAILED',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      };
+    }
+  }
+
+  async getByEntity(entityId: string, limit?: number): Promise<ServiceResult<TimelineEntry[]>> {
+    try {
+      let query = this.supabase
+        .from('property_timeline')
+        .select('*')
+        .eq('entity_id', entityId)
+        .order('created_at', { ascending: false });
+
+      if (limit) {
+        query = query.limit(limit);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        return {
+          error: { code: 'TIMELINE_GET_FAILED', message: error.message },
+        };
+      }
+
+      return { data: data as TimelineEntry[] };
     } catch (error) {
       return {
         error: {
