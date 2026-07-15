@@ -3,7 +3,7 @@ import { PlatformProvider } from "./context/PlatformContext";
 import RouteGuard from "./components/RouteGuard";
 import Script from "next/script";
 import "@/lib/platform/validation/registry";
-import "@/lib/platform/notifications/handlers";
+import "@/lib/platform/bootstrap";
 
 export const metadata = {
   title: "AssetFlow | Property Operating System",

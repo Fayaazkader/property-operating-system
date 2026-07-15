@@ -1,7 +1,10 @@
 // lib/platform/notifications/handlers/index.ts
-// Notification Engine - Event Subscribers
+// Notification Handlers — SINGLE source of truth for notification routing
+// Domain handlers do NOT publish notification.requested directly.
+// They publish domain events. This file routes them to notifications.
 
-import { subscribe, publish } from '../../events/event-bus';
+import { subscribe } from '../../events/event-bus';
+import { publish } from '../../events/event-bus';
 import { logger } from '../../events/logger.service';
 
 // ============================================================
@@ -10,17 +13,13 @@ import { logger } from '../../events/logger.service';
 
 subscribe('property.work_order.created', async (event) => {
   const payload = event.payload || {};
-  logger.info('📨 Work order created — requesting notification', {
-    workOrderId: payload.workOrderId,
-  });
-
   await publish('notification.requested', {
     correlationId: event.correlationId,
     source: 'notification-handler',
     version: '1.0',
     payload: {
       event: 'work.order.created',
-      recipient: payload.propertyManagerId,
+      recipient: payload.propertyManagerId || 'system',
       recipient_type: 'user',
       data: {
         title: payload.title,
@@ -35,41 +34,35 @@ subscribe('property.work_order.created', async (event) => {
 
 subscribe('property.work_order.completed', async (event) => {
   const payload = event.payload || {};
-  logger.info('📨 Work order completed — requesting notification', {
-    workOrderId: payload.workOrderId,
-  });
-
-  await publish('notification.requested', {
-    correlationId: event.correlationId,
-    source: 'notification-handler',
-    version: '1.0',
-    payload: {
-      event: 'work.order.completed',
-      recipient: payload.tenantId,
-      recipient_type: 'tenant',
-      data: {
-        title: payload.title,
-        propertyName: payload.propertyName,
-        completedAt: payload.completedAt,
-        link: `/property-operations/work-orders/${payload.workOrderId}`,
+  if (payload.tenantId) {
+    await publish('notification.requested', {
+      correlationId: event.correlationId,
+      source: 'notification-handler',
+      version: '1.0',
+      payload: {
+        event: 'work.order.completed',
+        recipient: payload.tenantId,
+        recipient_type: 'tenant',
+        data: {
+          title: payload.title,
+          propertyName: payload.propertyName,
+          completedAt: payload.completedAt,
+          link: `/property-operations/work-orders/${payload.workOrderId}`,
+        },
       },
-    },
-  });
+    });
+  }
 });
 
 subscribe('property.work_order.sla.breached', async (event) => {
   const payload = event.payload || {};
-  logger.info('🚨 SLA breached — requesting notification', {
-    workOrderId: payload.workOrderId,
-  });
-
   await publish('notification.requested', {
     correlationId: event.correlationId,
     source: 'notification-handler',
     version: '1.0',
     payload: {
       event: 'work.order.sla.breached',
-      recipient: payload.propertyManagerId,
+      recipient: payload.propertyManagerId || 'system',
       recipient_type: 'user',
       data: {
         title: payload.title,
@@ -89,17 +82,13 @@ subscribe('property.work_order.sla.breached', async (event) => {
 
 subscribe('property.inspection.completed', async (event) => {
   const payload = event.payload || {};
-  logger.info('📨 Inspection completed — requesting notification', {
-    inspectionId: payload.inspectionId,
-  });
-
   await publish('notification.requested', {
     correlationId: event.correlationId,
     source: 'notification-handler',
     version: '1.0',
     payload: {
       event: 'inspection.completed',
-      recipient: payload.propertyManagerId,
+      recipient: payload.propertyManagerId || 'system',
       recipient_type: 'user',
       data: {
         title: payload.title,
@@ -118,17 +107,13 @@ subscribe('property.inspection.completed', async (event) => {
 
 subscribe('property.compliance.expiring', async (event) => {
   const payload = event.payload || {};
-  logger.info('📨 Compliance expiring — requesting notification', {
-    complianceId: payload.complianceId,
-  });
-
   await publish('notification.requested', {
     correlationId: event.correlationId,
     source: 'notification-handler',
     version: '1.0',
     payload: {
       event: 'compliance.expiring',
-      recipient: payload.propertyManagerId,
+      recipient: payload.propertyManagerId || 'system',
       recipient_type: 'user',
       data: {
         name: payload.name,
@@ -143,17 +128,13 @@ subscribe('property.compliance.expiring', async (event) => {
 
 subscribe('property.compliance.expired', async (event) => {
   const payload = event.payload || {};
-  logger.info('📨 Compliance expired — requesting notification', {
-    complianceId: payload.complianceId,
-  });
-
   await publish('notification.requested', {
     correlationId: event.correlationId,
     source: 'notification-handler',
     version: '1.0',
     payload: {
       event: 'compliance.expired',
-      recipient: payload.propertyManagerId,
+      recipient: payload.propertyManagerId || 'system',
       recipient_type: 'user',
       data: {
         name: payload.name,
@@ -170,19 +151,34 @@ subscribe('property.compliance.expired', async (event) => {
 // LEASE EVENTS
 // ============================================================
 
+subscribe('lease.executed', async (event) => {
+  const payload = event.payload || {};
+  await publish('notification.requested', {
+    correlationId: event.correlationId,
+    source: 'notification-handler',
+    version: '1.0',
+    payload: {
+      event: 'lease.executed',
+      recipient: event.entity?.tenantId || event.actor?.id || 'system',
+      recipient_type: 'tenant',
+      data: {
+        leaseId: payload.leaseId,
+        executedAt: payload.executedAt,
+        link: `/leasing/${payload.leaseId}`,
+      },
+    },
+  });
+});
+
 subscribe('lease.activated', async (event) => {
   const payload = event.payload || {};
-  logger.info('📨 Lease activated — requesting notification', {
-    leaseId: payload.leaseId,
-  });
-
   await publish('notification.requested', {
     correlationId: event.correlationId,
     source: 'notification-handler',
     version: '1.0',
     payload: {
       event: 'lease.activated',
-      recipient: payload.tenantId,
+      recipient: payload.tenantId || 'system',
       recipient_type: 'tenant',
       data: {
         tenantName: payload.tenantName,
@@ -195,23 +191,58 @@ subscribe('lease.activated', async (event) => {
   });
 });
 
+subscribe('lease.expiring', async (event) => {
+  const payload = event.payload || {};
+  await publish('notification.requested', {
+    correlationId: event.correlationId,
+    source: 'notification-handler',
+    version: '1.0',
+    payload: {
+      event: 'lease.expiring',
+      recipient: payload.tenantId || 'system',
+      recipient_type: 'tenant',
+      data: {
+        leaseId: payload.leaseId,
+        daysRemaining: payload.daysRemaining,
+        link: `/leasing/${payload.leaseId}`,
+      },
+      priority: 'high',
+    },
+  });
+});
+
 // ============================================================
-// COMMISSION EVENTS
+// BROKERAGE EVENTS
 // ============================================================
+
+subscribe('broker.offer.accepted', async (event) => {
+  const payload = event.payload || {};
+  await publish('notification.requested', {
+    correlationId: event.correlationId,
+    source: 'notification-handler',
+    version: '1.0',
+    payload: {
+      event: 'broker.offer.accepted',
+      recipient: payload.tenantId || 'system',
+      recipient_type: 'tenant',
+      data: {
+        offerId: event.entity?.id,
+        vacancyId: payload.vacancyId,
+        link: `/brokerage/offers/${event.entity?.id}`,
+      },
+    },
+  });
+});
 
 subscribe('broker.commission.approved', async (event) => {
   const payload = event.payload || {};
-  logger.info('📨 Commission approved — requesting notification', {
-    commissionId: payload.commissionId,
-  });
-
   await publish('notification.requested', {
     correlationId: event.correlationId,
     source: 'notification-handler',
     version: '1.0',
     payload: {
       event: 'commission.approved',
-      recipient: payload.brokerId,
+      recipient: payload.brokerId || 'system',
       recipient_type: 'broker',
       data: {
         brokerName: payload.brokerName,
@@ -230,17 +261,13 @@ subscribe('broker.commission.approved', async (event) => {
 
 subscribe('payment.received', async (event) => {
   const payload = event.payload || {};
-  logger.info('📨 Payment received — requesting notification', {
-    paymentId: payload.paymentId,
-  });
-
   await publish('notification.requested', {
     correlationId: event.correlationId,
     source: 'notification-handler',
     version: '1.0',
     payload: {
       event: 'payment.received',
-      recipient: payload.tenantId,
+      recipient: payload.tenantId || 'system',
       recipient_type: 'tenant',
       data: {
         amount: payload.amount,
