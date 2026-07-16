@@ -137,18 +137,6 @@ export interface FinancialIntegrityScore {
   checks: Array<{ name: string; passed: boolean; message: string }>;
 }
 
-export interface SubLedgerEntry {
-  id: string; entity_id: string; journal_line_id: string;
-  ledger_type: string; account_id: string;
-  debit_amount: number; credit_amount: number; running_balance: number;
-  dimensions: FinancialEventDimensions;
-  posted_at: string;
-}
-
-// Sprint 11B Types
-
-export interface BankAccount {
-  id: string; entity_id: string; property_id?: string;
   bank_name: string; account_name: string; account_number: string;
   branch_code?: string; account_type: string; currency: string;
   gl_account_id?: string; is_active: boolean;
