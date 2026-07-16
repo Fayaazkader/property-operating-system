@@ -76,7 +76,7 @@ export class PostingEngine {
         created_at: new Date().toISOString(),
       };
 
-      journal.lines.push(line);
+      journal.lines!.push(line);
 
       if (account) {
         resolvedAccounts.push({
