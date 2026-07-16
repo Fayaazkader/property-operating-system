@@ -69,7 +69,7 @@ export class FinancialGovernanceEngine {
     const maxScore = checks.length;
 
     return {
-      score, maxScore,
+      score, max_score: maxScore,
       percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 100,
       checks: checks.map(c => ({ name: c.check_type, passed: c.acknowledged, message: c.message })),
     };
