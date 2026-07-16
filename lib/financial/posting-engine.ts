@@ -4,6 +4,8 @@
 
 import { supabase } from '@/lib/supabase';
 import { publish } from '../platform/events/event-bus';
+import { subLedgerEngine } from './sub-ledger-engine';
+import { financialTimelineEngine } from './timeline-engine';
 import { logger } from '../platform/events/logger.service';
 import { financialRulesEngine } from './rules-engine';
 import { financialGovernanceEngine } from './governance-engine';
@@ -149,6 +151,10 @@ export class PostingEngine {
           credit_amount: line.credit_amount, posted_at: new Date().toISOString(),
         });
       }
+
+      await subLedgerEngine.postToSubLedgers(journal);
+
+      await financialTimelineEngine.recordJournalLifecycle(journalId, event.entity_id, 'posted', event.metadata?.created_by, event.correlation_id);
 
       await publish('financial.journal.posted', {
         correlationId: event.correlation_id || crypto.randomUUID(),
