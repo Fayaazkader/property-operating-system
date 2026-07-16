@@ -3,7 +3,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { publish } from '../platform/events/event-bus';
-import type { IncomeStatement, BalanceSheet, CashFlowStatement, TrialBalanceLine, DrillDownResult } from './types';
+import type { IncomeStatement, BalanceSheet, CashFlowStatement, TrialBalanceLine, DrillDownResult, FinancialStatement } from './types';
 
 export class FinancialStatementsEngine {
   async generateTrialBalance(entityId: string, periodId: string): Promise<TrialBalanceLine[]> {
