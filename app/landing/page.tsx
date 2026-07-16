@@ -1,434 +1,390 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 
-export default function LandingPage() {
+export default function HomePage() {
   const [betaEmail, setBetaEmail] = useState('');
   const [betaCompany, setBetaCompany] = useState('');
   const [betaPortfolio, setBetaPortfolio] = useState('');
-  const [betaSystem, setBetaSystem] = useState('');
-  const [betaHeadache, setBetaHeadache] = useState('');
   const [betaSubmitted, setBetaSubmitted] = useState(false);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    setVisible(true);
+  }, []);
 
   const handleBetaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beta_waitlist`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        "Authorization": `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-      },
-      body: JSON.stringify({
-        name: betaEmail.split('@')[0] || "Unknown",
-        company_name: betaCompany,
-        email: betaEmail,
-        portfolio_size: betaPortfolio,
-        pain_point: betaHeadache,
-        status: "new",
-      }),
-    });
-    if (res.ok) {
-  setBetaSubmitted(true);
-  
-  await fetch("/api/communications/send-email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      to: betaEmail,
-      subject: "Your AssetFlow Beta Application — Received",
-           html: `
-<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #111827; line-height: 1.6;">
-  
-  <div style="padding-bottom: 24px; border-bottom: 1px solid #e5e7eb;">
-    <h1 style="margin: 0; font-size: 28px; color: #111827;">
-      Welcome to AssetFlow Beta
-    </h1>
-    <p style="margin-top: 8px; color: #6b7280;">
-      Your application has been received successfully.
-    </p>
-  </div>
-
-  <div style="padding: 32px 0;">
-    <p>Hi ${betaEmail.split('@')[0]},</p>
-
-    <p>
-      Thank you for your interest in AssetFlow.
-    </p>
-
-    <p>
-      AssetFlow is a commercial property operating system designed to help teams spend less time operating software and more time operating property.
-    </p>
-
-    <p>
-      Your beta application is currently being reviewed and we'll be in touch shortly regarding access and onboarding.
-    </p>
-
-    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px; margin: 28px 0;">
-      <p style="margin-top: 0; font-weight: 600; color: #111827;">
-        During beta you'll have access to:
-      </p>
-      <ul style="padding-left: 20px; color: #4b5563; margin-bottom: 0;">
-        <li>Morning Brief operational intelligence</li>
-        <li>Revenue Operations and billing workflows</li>
-        <li>Cash Book reconciliation and allocation</li>
-        <li>Tenant communications and WhatsApp workflows</li>
-        <li>Portfolio reporting and analytics</li>
-      </ul>
-    </div>
-
-    <p>
-      We're intentionally onboarding a limited number of portfolios during beta to ensure every customer receives the support and attention needed for a successful rollout.
-    </p>
-
-    <p>
-      We appreciate your interest and look forward to welcoming you to the platform.
-    </p>
-
-    <p>
-      The AssetFlow Team
-    </p>
-  </div>
-
-  <div style="border-top: 1px solid #e5e7eb; padding-top: 24px; color: #6b7280; font-size: 12px;">
-    <strong>AssetFlow</strong><br />
-    The Commercial Property Operating System<br />
-    Johannesburg, South Africa
-  </div>
-
-</div>
-      `,
-    }),
-  });
-}
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beta_waitlist`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          "Authorization": `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+        },
+        body: JSON.stringify({
+          name: betaEmail.split('@')[0] || "Unknown",
+          company_name: betaCompany,
+          email: betaEmail,
+          portfolio_size: betaPortfolio,
+          status: "new",
+        }),
+      });
+      setBetaSubmitted(true);
+    } catch {}
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Navigation */}
-      <nav className="sticky top-0 z-50 w-full border-b border-white/5 bg-black/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <h1 className="text-xl font-bold tracking-tight text-white">AssetFlow</h1>
-          <div className="flex items-center gap-4">
-            <Link href="/login" className="text-sm text-gray-400 transition-colors hover:text-white">Sign In</Link>
-            <a href="#beta" className="rounded-full border border-white/20 px-5 py-2 text-sm font-medium text-white transition hover:bg-white hover:text-black">Request Access</a>
+    <div className="min-h-screen bg-black text-white selection:bg-white/10" style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}>
+      
+      {/* NAV */}
+      <nav className="fixed top-0 z-50 w-full bg-black/70 backdrop-blur-2xl border-b border-white/[0.03]">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
+          <Link href="/" className="text-[13px] font-medium tracking-tight">AssetFlow</Link>
+          <div className="flex items-center gap-5">
+            <Link href="/login" className="text-[12px] text-gray-500 hover:text-white transition-colors duration-700">Sign in</Link>
+            <a href="#apply" className="rounded-full bg-white px-4 py-1.5 text-[12px] font-medium text-black hover:bg-gray-100 transition-all duration-300">
+              Apply for access
+            </a>
           </div>
         </div>
       </nav>
 
-      {/* ============================================================ */}
       {/* HERO */}
-      {/* ============================================================ */}
-      <section className="relative overflow-hidden px-6 pt-32 pb-20 md:pt-40">
-        <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-emerald-500/5 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-[500px] w-[500px] rounded-full bg-blue-500/5 blur-3xl" />
+      <section className="relative min-h-screen flex flex-col justify-center px-6">
+        <div className={`transition-all duration-1000 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          
+          {/* Ambient */}
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1400px] h-[900px] bg-gradient-to-b from-white/[0.012] via-transparent to-transparent pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-b from-white/[0.008] via-transparent to-transparent rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative mx-auto max-w-5xl">
-          <div className="space-y-6 text-center">
-            <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Commercial Property Operating System</p>
-            <h1 className="text-5xl font-bold leading-tight tracking-tight md:text-7xl">
-              Good Morning.
+          <div className="relative mx-auto max-w-5xl text-center pt-20">
+            <h1 className="text-[3.25rem] font-light leading-[1.04] tracking-[-0.02em] md:text-[5.5rem] lg:text-[7rem]">
+              Commercial property.
               <br />
-              <span className="text-gray-400">Your portfolio is talking.</span>
+              <span className="text-gray-400">Finally connected.</span>
             </h1>
-            <p className="mx-auto max-w-2xl text-lg text-gray-400">
-              The commercial property operating system. Leases, billing, cash books and communications — finally working together.
+            
+            <p className="mx-auto mt-8 max-w-lg text-[15px] leading-relaxed text-gray-500 font-light">
+              One operating system for leases, billing, financials, and operations.
             </p>
-            <div className="flex flex-wrap justify-center gap-4 pt-4">
-              <a href="#beta" className="rounded-full bg-white px-8 py-3.5 text-sm font-medium text-black transition hover:bg-white/90">Request Beta Access</a>
-              <Link href="/login" className="rounded-full border border-white/10 px-8 py-3.5 text-sm font-medium text-white transition hover:border-white/30">Sign In</Link>
+            
+            <div className="mt-10">
+              <a href="#apply" className="inline-flex items-center gap-2 rounded-full bg-white px-7 py-3 text-[13px] font-medium text-black hover:bg-gray-100 transition-all duration-300">
+                Apply for access
+                <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5">→</span>
+              </a>
             </div>
-            <p className="text-xs text-gray-600 pt-4">Built for: Portfolio Managers · Property Managers · Finance Teams · Asset Managers · Managing Agents</p>
           </div>
 
-          <div className="mt-16 overflow-hidden rounded-2xl border border-white/5 bg-white/5 shadow-2xl">
-            <img src="/screenshots/morning-brief-1.png" alt="AssetFlow Morning Brief — Commercial Property Operating System" className="w-full h-auto" />
+          {/* Preview card */}
+          <div className="relative mx-auto mt-16 max-w-5xl w-full">
+            <div className="rounded-2xl border border-white/[0.04] bg-gradient-to-b from-white/[0.01] to-transparent p-[0.5px] shadow-2xl shadow-black/80">
+              <div className="rounded-2xl bg-black/60 backdrop-blur-md overflow-hidden">
+                <div className="flex items-center gap-2 px-5 py-3 border-b border-white/[0.02]">
+                  <div className="flex gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-white/12" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-white/12" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-white/12" />
+                  </div>
+                </div>
+                <div className="p-10 md:p-14">
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-8">Good morning. Today.</p>
+                  <div className="grid gap-10 md:grid-cols-3">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-[0.25em] text-gray-700 mb-2">Occupancy</p>
+                      <p className="text-5xl font-light tracking-[-0.02em]">94<span className="text-gray-600 text-xl font-light">%</span></p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase tracking-[0.25em] text-gray-700 mb-2">Collected today</p>
+                      <p className="text-5xl font-light tracking-[-0.02em]">R842<span className="text-gray-600 text-xl font-light">k</span></p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase tracking-[0.25em] text-gray-700 mb-2">Needs attention</p>
+                      <p className="text-5xl font-light tracking-[-0.02em] text-amber-400/80">3</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ============================================================ */}
-      {/* THE PROBLEM */}
-      {/* ============================================================ */}
-      <section className="mx-auto max-w-6xl px-6 py-20">
-        <div className="mb-12 text-center">
-          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">The Problem</p>
-          <h2 className="mt-3 text-3xl font-bold text-white md:text-4xl">Your team works in five different systems.</h2>
-          <p className="mt-2 text-gray-400">That's five places for things to go wrong.</p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-4">
-          {[
-            { label: "Leasing", tool: "Excel", color: "border-l-emerald-500/40" },
-            { label: "Finance", tool: "MRI / MDA", color: "border-l-amber-500/40" },
-            { label: "Maintenance", tool: "Email", color: "border-l-blue-500/40" },
-            { label: "Reporting", tool: "Power BI", color: "border-l-purple-500/40" },
-          ].map(card => (
-            <div key={card.label} className={`rounded-xl border border-white/5 bg-white/5 p-5 border-l-2 ${card.color}`}>
-              <p className="text-xs text-gray-500 uppercase tracking-[0.2em]">{card.label}</p>
-              <p className="text-lg text-white mt-1">{card.tool}</p>
-            </div>
-          ))}
-        </div>
-        <div className="mt-8 text-center">
-          <p className="text-2xl text-white font-semibold">One portfolio. One team. One operating system.</p>
-        </div>
-      </section>
-
-      {/* ============================================================ */}
-      {/* THE OPERATING SYSTEM */}
-      {/* ============================================================ */}
-      <section className="mx-auto max-w-4xl px-6 py-20">
-        <div className="mb-12 text-center">
-          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">The Operating System</p>
-          <h2 className="mt-3 text-3xl font-bold text-white md:text-4xl">Every workspace. One platform.</h2>
-        </div>
-        <div className="space-y-3">
-          {[
-            { workspace: "Morning Brief", purpose: "Start your day with priorities, risks, and actions" },
-            { workspace: "Revenue Operations", purpose: "Billing, statements, utilities, and distribution" },
-            { workspace: "Cash Book", purpose: "Bank import, reconciliation, and allocation" },
-            { workspace: "Communications", purpose: "WhatsApp, email, and tenant messaging" },
-            { workspace: "Tasks", purpose: "Workflow orchestration across your portfolio" },
-            { workspace: "Properties", purpose: "Asset management, occupancy, and financials" },
-            { workspace: "Tenants", purpose: "Customer accounts, leases, and communications" },
-          ].map(item => (
-            <div key={item.workspace} className="flex justify-between items-center py-3 border-b border-white/5 text-sm">
-              <span className="text-white font-medium">{item.workspace}</span>
-              <span className="text-gray-500 text-right max-w-xs">{item.purpose}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ============================================================ */}
-      {/* PRODUCT TOUR — 3 screenshots */}
-      {/* ============================================================ */}
-      <section className="mx-auto max-w-6xl px-6 py-20">
-        <div className="mb-12 text-center">
-          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Product Tour</p>
-          <h2 className="mt-3 text-3xl font-bold text-white md:text-4xl">See AssetFlow in action.</h2>
-        </div>
-
-        <div className="space-y-16">
+      {/* PROBLEM */}
+      <section className="mx-auto max-w-5xl px-6 py-56">
+        <div className="grid gap-24 md:grid-cols-2 items-center">
           <div>
-            <div className="mb-4">
-              <p className="text-sm font-semibold text-white">Revenue Operations</p>
-              <p className="text-sm text-gray-400">Scope-driven billing with real-time health metrics. Know exactly what's billed, what's not, and what needs attention.</p>
-            </div>
-            <div className="overflow-hidden rounded-2xl border border-white/5 bg-white/5 shadow-2xl">
-              <img src="/screenshots/revenue-ops.png" alt="AssetFlow Revenue Operations" className="w-full h-auto" />
-            </div>
+            <p className="text-[9px] uppercase tracking-[0.3em] text-gray-700 mb-6">The problem</p>
+            <h2 className="text-2xl font-light tracking-[-0.02em] md:text-4xl leading-[1.12]">
+              Your portfolio runs
+              <br />
+              <span className="text-gray-400">on five systems.</span>
+            </h2>
+            <p className="mt-6 text-[13px] text-gray-500 font-light leading-relaxed max-w-sm">
+              Leasing in spreadsheets. Billing in legacy software. Payments in a bank portal. 
+              Reports built manually. None of them talk to each other.
+            </p>
           </div>
-
-          <div>
-            <div className="mb-4">
-              <p className="text-sm font-semibold text-white">Cash Book</p>
-              <p className="text-sm text-gray-400">Import bank statements, auto-match transactions, and allocate with confidence scores. Post when ready.</p>
-            </div>
-            <div className="overflow-hidden rounded-2xl border border-white/5 bg-white/5 shadow-2xl">
-              <img src="/screenshots/cash-book.png" alt="AssetFlow Cash Book" className="w-full h-auto" />
-            </div>
-          </div>
-
-          <div>
-            <div className="mb-4">
-              <p className="text-sm font-semibold text-white">Property Intelligence Workspace</p>
-              <p className="text-sm text-gray-400">Asset health scoring, tenant concentration, occupancy metrics, and financial performance — per property.</p>
-            </div>
-            <div className="overflow-hidden rounded-2xl border border-white/5 bg-white/5 shadow-2xl">
-              <img src="/screenshots/property-workspace.png" alt="AssetFlow Property Workspace" className="w-full h-auto" />
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-12 rounded-2xl border border-white/5 bg-white/5 p-6 text-center">
-          <p className="text-sm text-gray-400">Also included:</p>
-          <div className="mt-3 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-300">
-            <span>✓ Tenant Workspace</span>
-            <span>✓ Communications Engine</span>
-            <span>✓ Tasks & Workflows</span>
-            <span>✓ Audit Trail</span>
-            <span>✓ Document Management</span>
-            <span>✓ Operational Calendar</span>
+          <div className="space-y-[0.5px]">
+            {[
+              { label: "Leasing", tool: "Excel. Email. Memory." },
+              { label: "Billing", tool: "MRI / MDA. Complex." },
+              { label: "Payments", tool: "Bank portal. No trace." },
+              { label: "Maintenance", tool: "WhatsApp. No audit." },
+              { label: "Reports", tool: "Built by hand. Days lost." },
+            ].map(item => (
+              <div key={item.label} className="flex justify-between items-center py-3 border-b border-white/[0.02] last:border-0">
+                <p className="text-[11px] text-gray-700 font-light w-24">{item.label}</p>
+                <p className="text-[13px] text-gray-400 font-light">{item.tool}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ============================================================ */}
-      {/* INTELLIGENCE */}
-      {/* ============================================================ */}
-      <section className="mx-auto max-w-6xl px-6 py-20">
-        <div className="mb-12 text-center">
-          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Intelligence</p>
-          <h2 className="mt-3 text-3xl font-bold text-white md:text-4xl">What your portfolio is trying to tell you.</h2>
-        </div>
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="rounded-3xl border border-amber-500/10 bg-amber-500/5 p-8">
-            <div className="text-4xl font-bold text-amber-400">3</div>
-            <p className="mt-2 text-lg font-medium text-white">Parking bays have no billing rule</p>
-            <p className="mt-1 text-sm text-gray-400">Potential loss: R31,500 annually. Flagged before it hits your P&L.</p>
-          </div>
-          <div className="rounded-3xl border border-amber-500/10 bg-amber-500/5 p-8">
-            <div className="text-4xl font-bold text-amber-400">44</div>
-            <p className="mt-2 text-lg font-medium text-white">Vacant units across your portfolio</p>
-            <p className="mt-1 text-sm text-gray-400">Daily revenue loss: R30,247. Vacancy cost clock tracks every day.</p>
-          </div>
-          <div className="rounded-3xl border border-red-500/10 bg-red-500/5 p-8">
-            <div className="text-4xl font-bold text-red-400">5</div>
-            <p className="mt-2 text-lg font-medium text-white">Leases expire within 90 days</p>
-            <p className="mt-1 text-sm text-gray-400">Revenue exposed: R2.1m annually. Renewal alerts before it's too late.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* ============================================================ */}
-      {/* COMPARISON */}
-      {/* ============================================================ */}
-      <section className="mx-auto max-w-3xl px-6 py-20">
-        <div className="mb-12 text-center">
-          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Why AssetFlow</p>
-          <h2 className="mt-3 text-3xl font-bold text-white md:text-4xl">Built for how property teams actually work.</h2>
-        </div>
-        <div className="rounded-2xl border border-white/5 bg-white/5 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/5">
-                <th className="text-left py-3 px-5 text-gray-400 font-normal">Capability</th>
-                <th className="text-center py-3 px-5 text-emerald-400 font-normal">AssetFlow</th>
-                <th className="text-center py-3 px-5 text-gray-600 font-normal">Traditional</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ["Single Operating Workspace", "✓", "×"],
-                ["Morning Brief", "✓", "×"],
-                ["Revenue Leakage Detection", "✓", "×"],
-                ["Vacancy Cost Clock", "✓", "×"],
-                ["WhatsApp Communications", "✓", "×"],
-                ["Universal Search", "✓", "×"],
-                ["AI-Powered Insights", "✓", "×"],
-              ].map(row => (
-                <tr key={row[0]} className="border-b border-white/5 last:border-0">
-                  <td className="py-3 px-5 text-white">{row[0]}</td>
-                  <td className="py-3 px-5 text-center text-emerald-400">{row[1]}</td>
-                  <td className="py-3 px-5 text-center text-gray-600">{row[2]}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* ============================================================ */}
-      {/* TRUST */}
-      {/* ============================================================ */}
-      <section className="mx-auto max-w-3xl px-6 py-20 text-center">
-        <div className="border-t border-white/5 pt-16">
-          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Built by property professionals</p>
-          <p className="mt-4 text-lg text-gray-400 leading-relaxed">
-            Designed by people who have worked in administration, leasing, property management, and portfolio management.
-          </p>
-          <p className="mt-2 text-white font-medium">
-            Not software people trying to understand property. Property people building software.
-          </p>
-        </div>
-      </section>
-
-      {/* ============================================================ */}
-      {/* PHILOSOPHY */}
-      {/* ============================================================ */}
-      <section className="mx-auto max-w-3xl px-6 py-20 text-center">
-        <div className="border-t border-white/5 pt-16">
-          <p className="text-2xl font-light italic text-gray-400 md:text-3xl">
-            "Simple on top.
+      {/* MORNING BRIEF */}
+      <section className="mx-auto max-w-5xl px-6 py-40">
+        <div className="mb-16">
+          <p className="text-[9px] uppercase tracking-[0.3em] text-gray-700 mb-6">Your morning</p>
+          <h2 className="text-2xl font-light tracking-[-0.02em] md:text-5xl leading-[1.08]">
+            Good morning.
             <br />
-            Enterprise underneath."
+            <span className="text-gray-400">Your portfolio is talking.</span>
+          </h2>
+          <p className="mt-4 text-[13px] text-gray-500 font-light max-w-sm">
+            Every day starts with clarity. Not a dashboard. Not widgets. Just what matters.
           </p>
-          <div className="mt-6 space-y-2 text-sm text-gray-500">
-            <p>Most systems expose complexity.</p>
-            <p className="text-white">AssetFlow hides it until you need it.</p>
-            <p>The system recommends. <span className="text-white">The human approves.</span></p>
+        </div>
+
+        <div className="rounded-2xl border border-white/[0.04] bg-gradient-to-b from-white/[0.008] to-transparent overflow-hidden">
+          <div className="p-10 md:p-14">
+            <p className="text-[9px] uppercase tracking-[0.3em] text-gray-700 mb-8">Today — 15 July 2027</p>
+            <div className="space-y-6">
+              <div className="border-l border-l-amber-400/30 pl-5">
+                <p className="text-[10px] text-gray-700 font-light mb-1">07:00</p>
+                <p className="text-base font-light text-amber-400/90">3 leases expire within 90 days</p>
+                <p className="text-[12px] text-gray-600 font-light mt-0.5">Combined annual value: R2.1m</p>
+              </div>
+              <div className="border-l border-l-white/[0.06] pl-5">
+                <p className="text-[10px] text-gray-700 font-light mb-1">07:00</p>
+                <p className="text-base font-light">R842,000 collected overnight</p>
+                <p className="text-[12px] text-gray-600 font-light mt-0.5">312 tenants. 3 payments outstanding.</p>
+              </div>
+              <div className="border-l border-l-white/[0.06] pl-5">
+                <p className="text-[10px] text-gray-700 font-light mb-1">07:01</p>
+                <p className="text-base font-light">Municipality invoice awaiting approval</p>
+                <p className="text-[12px] text-gray-600 font-light mt-0.5">Rosebank Office Park. R120,000 due 22 July.</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ============================================================ */}
-      {/* BETA FORM */}
-      {/* ============================================================ */}
-      <section id="beta" className="mx-auto max-w-2xl px-6 py-16 pb-24">
-        <div className="rounded-3xl border border-white/5 bg-white/5 p-8 backdrop-blur-sm md:p-12">
-          <div className="mb-8 text-center">
-            <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Early Access</p>
-            <h2 className="mt-2 text-2xl font-bold text-white">Request Beta Access</h2>
-            <p className="mt-1 text-sm text-gray-400">Be among the first to use AssetFlow.</p>
+      {/* ONE WORKFLOW */}
+      <section className="mx-auto max-w-4xl px-6 py-40">
+        <div className="mb-20">
+          <p className="text-[9px] uppercase tracking-[0.3em] text-gray-700 mb-6">How it works</p>
+          <h2 className="text-2xl font-light tracking-[-0.02em] md:text-5xl leading-[1.08]">
+            One lease.
+            <br />
+            <span className="text-gray-400">End to end.</span>
+          </h2>
+        </div>
+
+        <div className="relative">
+          <div className="absolute left-[14px] top-0 bottom-0 w-px bg-white/[0.04]" />
+          <div className="space-y-16">
+            {[
+              { step: "1", title: "Lease activated", detail: "Tenant signs. AssetFlow schedules billing, registers the deposit, updates portfolio occupancy." },
+              { step: "2", title: "Invoice generated", detail: "R115,000 billed. VAT invoice for commercial. Tax-exempt for residential. Statement produced automatically." },
+              { step: "3", title: "Payment received", detail: "Tenant pays. Bank import matches the transaction. One click confirms. Cash Book and GL update." },
+              { step: "4", title: "Supplier paid", detail: "Municipality bill arrives. OCR extracts details. Routed for approval. Added to payment batch." },
+              { step: "5", title: "Period closed", detail: "Financial Close Assistant verifies everything. Bank reconciled. VAT complete. Trial balance verified. July closed." },
+            ].map(item => (
+              <div key={item.step} className="relative pl-10">
+                <div className="absolute left-0 top-1.5 w-[4px] h-[4px] rounded-full bg-white/15 ring-4 ring-black" />
+                <p className="text-[9px] font-medium uppercase tracking-[0.25em] text-gray-700 mb-1">{item.step}</p>
+                <p className="text-[15px] font-light">{item.title}</p>
+                <p className="mt-1 text-[12px] text-gray-500 font-light leading-relaxed max-w-md">{item.detail}</p>
+              </div>
+            ))}
           </div>
+        </div>
+      </section>
+
+      {/* FINANCIAL PLATFORM */}
+      <section className="relative overflow-hidden px-6 py-40">
+        <div className="absolute inset-0 bg-gradient-to-b from-white/[0.004] via-transparent to-white/[0.004] pointer-events-none" />
+        <div className="relative mx-auto max-w-4xl">
+          <div className="mb-16">
+            <p className="text-[9px] uppercase tracking-[0.3em] text-gray-700 mb-6">Under the surface</p>
+            <h2 className="text-2xl font-light tracking-[-0.02em] md:text-5xl leading-[1.08]">
+              The galaxy beneath.
+            </h2>
+            <p className="mt-5 text-[13px] text-gray-500 font-light max-w-md leading-relaxed">
+              Most property systems stop at billing. AssetFlow includes a complete financial operating system.
+            </p>
+          </div>
+
+          <div className="grid gap-[0.5px] bg-white/[0.025] rounded-xl overflow-hidden">
+            {[
+              "General Ledger — built from posted journals. Always in balance.",
+              "Trial Balance — derived in real time. Must balance before period close.",
+              "Income Statement — revenue, expenses, NOI. Per property or consolidated.",
+              "Balance Sheet — assets, liabilities, equity. Period-end snapshot.",
+              "Cash Flow — operating, investing, financing. From bank ledger.",
+              "VAT Engine — output, input, VAT201. Residential income automatically exempt.",
+              "Budgeting — annual and monthly. Variance analysis with explanations.",
+              "Financial Close Assistant — month-end intelligence. Warnings, not blocks.",
+            ].map(item => (
+              <div key={item} className="px-6 py-3.5 bg-black">
+                <p className="text-[12px] text-gray-400 font-light">{item}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* WHY */}
+      <section className="mx-auto max-w-4xl px-6 py-40">
+        <p className="text-[9px] uppercase tracking-[0.3em] text-gray-700 mb-6">Why we exist</p>
+        <h2 className="text-2xl font-light tracking-[-0.02em] md:text-4xl leading-[1.12]">
+          Built because commercial
+          <br />
+          <span className="text-gray-400">property deserved better.</span>
+        </h2>
+        <p className="mt-6 text-[13px] text-gray-500 font-light leading-relaxed max-w-lg">
+          One of the world's largest asset classes still operates on disconnected software, 
+          spreadsheets, and manual processes. We built AssetFlow to change that.
+        </p>
+        <div className="mt-10 grid gap-[0.5px] bg-white/[0.025] rounded-lg overflow-hidden">
+          {[
+            { left: "Traditional", right: "Separate systems for leasing, billing, maintenance, and reporting. They don't talk." },
+            { left: "AssetFlow", right: "One operating system. Every event updates operations, financials, and intelligence simultaneously." },
+          ].map(item => (
+            <div key={item.left} className="flex flex-col md:flex-row md:items-center gap-1 md:gap-8 px-5 py-3.5 bg-black">
+              <p className="text-[10px] text-gray-700 font-light w-24 flex-shrink-0 uppercase tracking-wider">{item.left}</p>
+              <p className="text-[12px] text-gray-400 font-light">{item.right}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* TRUST */}
+      <section className="mx-auto max-w-4xl px-6 py-32">
+        <p className="text-[9px] uppercase tracking-[0.3em] text-gray-700 mb-6">Trust</p>
+        <h2 className="text-2xl font-light tracking-[-0.02em] md:text-4xl leading-[1.12]">
+          Built for the
+          <br />
+          <span className="text-gray-400">numbers that matter.</span>
+        </h2>
+        <div className="mt-10 grid gap-[0.5px] bg-white/[0.025] rounded-lg overflow-hidden">
+          {[
+            "Role-based permissions — control what every user can see and do",
+            "Complete audit trail — every action logged with actor, timestamp, and correlation ID",
+            "Every financial number is explainable — drill down to the source business event",
+            "Enterprise-grade security — encryption at rest and in transit, row-level security, MFA",
+            "Financial integrity checks — trial balance must balance before period close",
+            "Daily backups — your data is safe, always",
+          ].map(item => (
+            <div key={item} className="px-5 py-3 bg-black">
+              <p className="text-[12px] text-gray-400 font-light">{item}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* PRICING */}
+      <section className="mx-auto max-w-5xl px-6 py-40">
+        <div className="mb-16 text-center">
+          <p className="text-[9px] uppercase tracking-[0.3em] text-gray-700 mb-4">Pricing</p>
+          <h2 className="text-2xl font-light tracking-[-0.02em] md:text-4xl">One platform. Everything included.</h2>
+          <p className="mt-3 text-[13px] text-gray-500 font-light">No feature tiers. No modules to unlock. Priced by portfolio.</p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-4">
+          {[
+            { leases: "1–100", price: "2,995", users: "4" },
+            { leases: "101–250", price: "4,995", users: "6", featured: true },
+            { leases: "251–500", price: "8,995", users: "10" },
+            { leases: "501–1,000", price: "18,995", users: "12" },
+          ].map(tier => (
+            <div key={tier.leases} className={`rounded-xl border p-6 text-center transition-all duration-500 ${tier.featured ? 'border-white/12 bg-white/[0.015]' : 'border-white/[0.03] bg-transparent hover:border-white/[0.06]'}`}>
+              <p className="text-[11px] text-gray-500 font-light">{tier.leases} active leases</p>
+              <p className="mt-3 text-4xl font-light tracking-[-0.02em]">R{tier.price}</p>
+              <p className="text-[11px] text-gray-600 mt-1 font-light">per month</p>
+              <p className="text-[11px] text-gray-600 mt-3 font-light">{tier.users} users included</p>
+              <a href="#apply" className={`mt-5 block w-full rounded-full py-2 text-[11px] font-medium transition-all duration-300 ${tier.featured ? 'bg-white text-black hover:bg-gray-100' : 'border border-white/[0.06] hover:border-white/15'}`}>
+                {tier.featured ? 'Apply for access' : 'Get started'}
+              </a>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 text-center space-y-2">
+          <p className="text-[11px] text-gray-600 font-light">1,000+ leases? <Link href="/contact" className="text-white hover:text-gray-300 underline underline-offset-4">Enterprise pricing</Link></p>
+          <p className="text-[10px] text-gray-700 font-light">Additional users R175/mo · Tenants, suppliers, and brokers always free</p>
+        </div>
+      </section>
+
+      {/* PHILOSOPHY */}
+      <section className="mx-auto max-w-2xl px-6 py-32 text-center">
+        <p className="text-xl font-light italic text-gray-400 leading-relaxed md:text-3xl">
+          "Simple on top.
+          <br />
+          <span className="text-white">Galaxy beneath."</span>
+        </p>
+        <p className="mt-5 text-[11px] text-gray-700 font-light">The system recommends. The human approves. Everything is explainable.</p>
+      </section>
+
+      {/* APPLY */}
+      <section id="apply" className="mx-auto max-w-lg px-6 py-20 pb-44">
+        <div className="rounded-2xl border border-white/[0.04] bg-gradient-to-b from-white/[0.008] to-transparent p-10 text-center">
+          <h2 className="text-lg font-light tracking-[-0.02em]">Apply for access</h2>
+          <p className="mt-2 text-[12px] text-gray-500 font-light leading-relaxed">
+            We're inviting a limited number of commercial portfolios to become our founding customers.
+          </p>
 
           {betaSubmitted ? (
-            <div className="py-8 text-center">
-              <div className="mb-4 text-4xl">✓</div>
-              <p className="font-medium text-white">Thank you for your interest.</p>
-              <p className="mt-1 text-sm text-gray-400">We'll reach out soon.</p>
+            <div className="mt-8">
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/[0.04] mb-4">
+                <span className="text-base">✓</span>
+              </div>
+              <p className="text-[13px] font-light">Application received.</p>
+              <p className="text-[11px] text-gray-500 font-light mt-1">We'll be in touch within 48 hours.</p>
             </div>
           ) : (
-            <form onSubmit={handleBetaSubmit} className="space-y-4">
-  <div>
-    <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">Company Name</label>
-    <input type="text" value={betaCompany} onChange={(e) => setBetaCompany(e.target.value)} required className="w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30" placeholder="Acme Property Group" />
-  </div>
-  <div>
-    <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">Email</label>
-    <input type="email" value={betaEmail} onChange={(e) => setBetaEmail(e.target.value)} required className="w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30" placeholder="you@company.com" />
-  </div>
-  <div>
-    <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">Portfolio Size</label>
-    <div className="relative">
-      <select value={betaPortfolio} onChange={(e) => setBetaPortfolio(e.target.value)} required className="w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30 appearance-none">
-        <option value="">Select...</option>
-        <option value="1-50">1-50 properties</option>
-        <option value="51-200">51-200 properties</option>
-        <option value="201-500">201-500 properties</option>
-        <option value="500+">500+ properties</option>
-      </select>
-      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs pointer-events-none">▼</span>
-    </div>
-  </div>
-  <div>
-    <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">Current System</label>
-    <div className="relative">
-      <select value={betaSystem} onChange={(e) => setBetaSystem(e.target.value)} required className="w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30 appearance-none">
-        <option value="">Select...</option>
-        <option value="mda">MDA</option>
-        <option value="mri">MRI</option>
-        <option value="yardi">Yardi</option>
-        <option value="re-leased">Re-Leased</option>
-        <option value="excel">Excel / Spreadsheets</option>
-        <option value="other">Other</option>
-      </select>
-      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs pointer-events-none">▼</span>
-    </div>
-  </div>
-  <div>
-    <label className="mb-1.5 block text-xs uppercase tracking-[0.2em] text-gray-500">What's your biggest operational headache?</label>
-    <textarea value={betaHeadache} onChange={(e) => setBetaHeadache(e.target.value)} rows={2} className="w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-sm text-white outline-none focus:border-white/30" placeholder="Reconciliation, billing, arrears, lease renewals, reporting..." />
-  </div>
-  <button type="submit" className="w-full rounded-full bg-white py-3.5 text-sm font-medium text-black transition hover:bg-white/90">Request Early Access</button>
-</form>
+            <form onSubmit={handleBetaSubmit} className="mt-6 space-y-3">
+              <input type="text" value={betaCompany} onChange={(e) => setBetaCompany(e.target.value)} required className="w-full rounded-lg border border-white/[0.05] bg-white/[0.01] px-4 py-2.5 text-[12px] text-white outline-none focus:border-white/12 transition-all duration-500 font-light" placeholder="Company name" />
+              <input type="email" value={betaEmail} onChange={(e) => setBetaEmail(e.target.value)} required className="w-full rounded-lg border border-white/[0.05] bg-white/[0.01] px-4 py-2.5 text-[12px] text-white outline-none focus:border-white/12 transition-all duration-500 font-light" placeholder="Work email" />
+              <select value={betaPortfolio} onChange={(e) => setBetaPortfolio(e.target.value)} required className="w-full rounded-lg border border-white/[0.05] bg-white/[0.01] px-4 py-2.5 text-[12px] text-white outline-none focus:border-white/12 transition-all duration-500 font-light appearance-none">
+                <option value="">Portfolio size</option>
+                <option value="1-50">1–50 properties</option>
+                <option value="51-200">51–200 properties</option>
+                <option value="201-500">201–500 properties</option>
+                <option value="500+">500+ properties</option>
+              </select>
+              <button type="submit" className="w-full rounded-lg bg-white py-2.5 text-[12px] font-medium text-black hover:bg-gray-100 transition-all duration-300">
+                Submit application
+              </button>
+            </form>
           )}
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/5 py-8">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 md:flex-row">
-          <p className="text-sm text-gray-500">© 2026 AssetFlow — The Commercial Property Operating System</p>
-          <div className="flex items-center gap-6 text-sm text-gray-500">
-  <a href="/about" className="transition-colors hover:text-white">About</a>
-  <a href="/security" className="transition-colors hover:text-white">Security</a>
-  <a href="/contact" className="transition-colors hover:text-white">Contact</a>
-  <a href="/privacy" className="transition-colors hover:text-white">Privacy</a>
-  <a href="/terms" className="transition-colors hover:text-white">Terms</a>
-</div>
+      {/* FOOTER */}
+      <footer className="border-t border-white/[0.02] py-8">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-6 md:flex-row">
+          <p className="text-[10px] text-gray-800 font-light">© 2026 AssetFlow</p>
+          <div className="flex items-center gap-6 text-[10px] text-gray-800 font-light">
+            <Link href="/about" className="hover:text-gray-500 transition-colors">About</Link>
+            <Link href="/pricing" className="hover:text-gray-500 transition-colors">Pricing</Link>
+            <Link href="/security" className="hover:text-gray-500 transition-colors">Security</Link>
+            <Link href="/contact" className="hover:text-gray-500 transition-colors">Contact</Link>
+          </div>
         </div>
       </footer>
     </div>
