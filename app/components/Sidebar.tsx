@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useCommandPalette } from "@/lib/platform/CommandPaletteContext";
 import { supabase } from "@/lib/supabase";
 import { 
-  Home, Receipt, Landmark, FileText, MessageSquare, CheckSquare,
-  Building2, Users, Briefcase, Calendar, BarChart3, Search
+  Home, Receipt, Landmark, MessageSquare, CheckSquare,
+  Building2, Users, Briefcase, Calendar, Search, Pin, PinOff, FileText, BarChart3
 } from "lucide-react";
 
 type NavItem = {
@@ -24,18 +24,22 @@ export default function Sidebar() {
   const [pinned, setPinned] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const sidebarRef = useRef<HTMLElement>(null);
 
   const isExpanded = pinned || hovered;
 
+  // Load attention counts
   useEffect(() => {
     async function loadCounts() {
       const { count: unallocated } = await supabase.from("bank_transactions").select("id", { count: "exact", head: true }).eq("allocation_status", "unallocated");
       const { count: expiring } = await supabase.from("leases").select("id", { count: "exact", head: true }).eq("lease_status", "Active").lte("lease_end_date", new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
       const { count: pendingTasks } = await supabase.from("tasks").select("id", { count: "exact", head: true }).neq("status", "completed");
+      const { count: unreadComms } = await supabase.from("communications").select("id", { count: "exact", head: true }).eq("status", "sent");
       setCounts({
         revenue: (unallocated || 0),
         cashbook: (unallocated || 0),
         tasks: (pendingTasks || 0),
+        communications: (unreadComms || 0),
         tenants: (expiring || 0),
       });
     }
@@ -43,22 +47,22 @@ export default function Sidebar() {
   }, [pathname]);
 
   const operationsItems: NavItem[] = [
-    { label: "Revenue Ops", href: "/financials/revenue", icon: Receipt, desc: "Billing · Statements", count: counts.revenue },
-    { label: "Cash Book", href: "/financials/cash-book", icon: Landmark, desc: "Banking · Reconciliation", count: counts.cashbook },
-    { label: "Leasing", href: "/leasing", icon: FileText, desc: "Opportunities · Brokers" },
-    { label: "Communications", href: "/communications", icon: MessageSquare, desc: "Email · WhatsApp" },
-    { label: "Tasks", href: "/tasks", icon: CheckSquare, desc: "Workflows · Approvals", count: counts.tasks },
+    { label: "Revenue Ops", href: "/financials/revenue", icon: Receipt, desc: "Billing · Statements · Utilities", count: counts.revenue },
+    { label: "Cash Book", href: "/financials/cash-book", icon: Landmark, desc: "Banking · Reconciliation · Allocation", count: counts.cashbook },
+    { label: "Commercial Leasing", href: "/leasing", icon: FileText, desc: "Opportunities · Brokers · Deals" },
+    { label: "Communications", href: "/communications", icon: MessageSquare, desc: "Email · WhatsApp · Statements", count: counts.communications },
+    { label: "Tasks", href: "/tasks", icon: CheckSquare, desc: "Workflows · Approvals · Follow Ups", count: counts.tasks },
   ];
 
   const portfolioItems: NavItem[] = [
-    { label: "Properties", href: "/properties", icon: Building2, desc: "Occupancy · Financials" },
-    { label: "Tenants", href: "/tenants", icon: Users, desc: "Accounts · Statements", count: counts.tenants },
-    { label: "Suppliers", href: "/suppliers", icon: Briefcase, desc: "Invoices · Payments" },
+    { label: "Properties", href: "/properties", icon: Building2, desc: "Buildings · Occupancy · Units" },
+    { label: "Tenants", href: "/tenants", icon: Users, desc: "Accounts · Statements · Communications", count: counts.tenants },
+    { label: "Suppliers", href: "/suppliers", icon: Briefcase, desc: "Invoices · Payments · Contracts" },
   ];
 
   const systemItems: NavItem[] = [
-    { label: "Periods", href: "/financials/periods", icon: Calendar, desc: "Billing · Governance" },
-    { label: "Reports", href: "/reports", icon: BarChart3, desc: "Rent Roll · Portfolio" },
+    { label: "Periods", href: "/financials/periods", icon: Calendar, desc: "Billing Cycles · Governance" },
+    { label: "Reports", href: "/reports", icon: BarChart3, desc: "Rent Roll · Arrears · Portfolio" },
   ];
 
   function NavItemRow({ item, showLabel }: { item: NavItem; showLabel: boolean }) {
@@ -68,98 +72,122 @@ export default function Sidebar() {
     return (
       <Link
         href={item.href}
-        className={`flex items-center h-9 rounded-xl transition-all duration-200 group relative ${
-          showLabel ? "px-3" : "justify-center px-0 w-9 mx-auto"
+        className={`flex items-center h-10 rounded-2xl transition-all duration-200 group relative ${
+          showLabel ? "px-3" : "justify-center px-0 w-10 mx-auto"
         } ${
           isActive
-            ? "bg-white/[0.06] text-white"
-            : "text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300"
+            ? "bg-white/5 border border-white/10 text-white"
+            : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
         }`}
       >
         <div className="relative flex-shrink-0">
-          <Icon className="w-4.5 h-4.5" strokeWidth={1.5} />
+          <Icon className="w-5 h-5" />
           {(item.count ?? 0) > 0 && (
-            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400" />
-          )}
+  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500" />
+)}
         </div>
         {showLabel && (
           <div className="ml-3 min-w-0 flex-1">
             <div className="flex items-center justify-between">
-              <p className="text-[13px] font-light truncate">{item.label}</p>
+              <p className="text-sm font-medium truncate">{item.label}</p>
               {(item.count ?? 0) > 0 && (
-                <span className="text-[10px] text-amber-400 font-light ml-2">{item.count}</span>
-              )}
+  <span className="text-[10px] text-amber-400 font-medium ml-2">{item.count}</span>
+)}
             </div>
-            {item.desc && <p className="text-[10px] text-zinc-600 truncate mt-0.5 font-light">{item.desc}</p>}
+            {item.desc && <p className="text-[10px] text-zinc-500 truncate mt-0.5">{item.desc}</p>}
           </div>
         )}
-        {!showLabel && (item.count ?? 0) > 0 && (
-          <span className="absolute top-1 right-1 text-[9px] text-amber-400 font-medium">{item.count}</span>
+        {!showLabel && (
+          <div className="pointer-events-none absolute left-14 z-50 whitespace-nowrap rounded-xl border border-zinc-800 bg-black px-3 py-2 text-xs shadow-2xl opacity-0 transition-all duration-200 group-hover:opacity-100">
+            <p className="font-medium text-white">{item.label}</p>
+            {item.desc && <p className="text-zinc-500 mt-0.5">{item.desc}</p>}
+            {item.count && item.count > 0 && <p className="text-amber-400 mt-0.5">{item.count} attention items</p>}
+          </div>
         )}
       </Link>
-    );
-  }
-
-  function NavSection({ title, items, showLabel }: { title: string; items: NavItem[]; showLabel: boolean }) {
-    return (
-      <div className="space-y-1">
-        {showLabel && (
-          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-700 font-medium px-3 pt-4 pb-2 first:pt-0">
-            {title}
-          </p>
-        )}
-        {items.map(item => (
-          <NavItemRow key={item.href} item={item} showLabel={showLabel} />
-        ))}
-      </div>
     );
   }
 
   return (
     <aside
-      className="fixed left-0 top-0 h-full z-40 flex flex-col bg-black border-r border-white/[0.04] transition-all duration-200"
-      style={{ width: isExpanded ? 240 : 60 }}
+      ref={sidebarRef}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      className={`${isExpanded ? "w-80" : "w-[72px]"} min-h-screen bg-[var(--bg-primary)] text-white flex flex-col relative z-50 border-r border-[var(--border-default)] transition-all duration-200`}
     >
       {/* Logo */}
-      <Link href="/" className="flex items-center h-14 px-3 border-b border-white/[0.04]">
-        <span className="text-sm font-medium tracking-tight text-white">AssetFlow</span>
-      </Link>
-
-      {/* Nav items */}
-      <div className="flex-1 overflow-y-auto py-3 px-2 space-y-6">
-        {/* Home */}
-        <NavItemRow item={{ label: "Morning Brief", href: "/", icon: Home }} showLabel={isExpanded} />
-        
-        <NavSection title="Operations" items={operationsItems} showLabel={isExpanded} />
-        <NavSection title="Portfolio" items={portfolioItems} showLabel={isExpanded} />
-        <NavSection title="System" items={systemItems} showLabel={isExpanded} />
+      <div className={`px-5 pt-6 pb-4 border-b border-[var(--border-default)] ${isExpanded ? "" : "text-center"}`}>
+        {isExpanded ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="AssetFlow" className="w-7 h-7 rounded-lg" />
+              <h1 className="text-lg font-bold tracking-tight">AssetFlow</h1>
+            </div>
+            <button onClick={() => setPinned(!pinned)} className={`text-xs p-1.5 rounded-lg transition-colors ${pinned ? 'bg-white text-black' : 'text-zinc-500 hover:text-white hover:bg-zinc-900'}`} title={pinned ? "Unpin" : "Pin"}>
+  {pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+</button>
+          </div>
+        ) : (
+          <img src="/logo.png" alt="AssetFlow" className="w-7 h-7 rounded-lg mx-auto" />
+        )}
       </div>
 
       {/* Search */}
-      <div className="px-2 pb-3">
+      <div className="px-3 pt-3 pb-1">
         <button
           onClick={open}
-          className={`flex items-center rounded-xl transition-all duration-200 text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300 ${
-            isExpanded ? "h-9 px-3 w-full" : "justify-center px-0 w-9 h-9 mx-auto"
+          className={`w-full flex items-center rounded-2xl border border-zinc-800 bg-black/40 text-sm text-zinc-500 transition-colors hover:border-zinc-700 ${
+            isExpanded ? "px-4 py-2.5 gap-3" : "justify-center h-10 w-10 mx-auto px-0"
           }`}
         >
-          <Search className="w-4.5 h-4.5" strokeWidth={1.5} />
-          {isExpanded && <span className="ml-3 text-[13px] font-light">Search</span>}
+          <Search className="w-4 h-4 flex-shrink-0" />
+          {isExpanded && <span className="flex-1 text-left">Search anything...</span>}
         </button>
       </div>
 
-      {/* Pin button */}
-      <div className="px-2 pb-4">
-        <button
-          onClick={() => setPinned(!pinned)}
-          className={`flex items-center rounded-xl transition-all duration-200 ${
-            isExpanded ? "h-9 px-3 w-full text-zinc-500 hover:bg-white/[0.03]" : "justify-center px-0 w-9 h-9 mx-auto text-zinc-600 hover:text-zinc-400"
-          }`}
+      {/* Home */}
+      <div className="px-3 py-1">
+        <Link
+          href="/"
+          className={`flex items-center h-10 rounded-2xl transition-all duration-200 ${
+            isExpanded ? "px-3" : "justify-center px-0 w-10 mx-auto"
+          } ${pathname === "/" ? "bg-white/5 border border-white/10 text-white" : "text-zinc-400 hover:bg-zinc-900 hover:text-white"}`}
         >
-          <span className="text-[10px] font-light">{isExpanded ? (pinned ? "Unpin" : "Pin open") : " "}</span>
-        </button>
+          <Home className="w-5 h-5 flex-shrink-0" />
+          {isExpanded && <span className="ml-3 text-sm font-medium">Morning Brief</span>}
+          {!isExpanded && (
+            <div className="pointer-events-none absolute left-14 z-50 whitespace-nowrap rounded-xl border border-zinc-800 bg-black px-3 py-2 text-xs shadow-2xl opacity-0 transition-all duration-200 group-hover:opacity-100">
+              <p className="font-medium text-white">Morning Brief</p>
+            </div>
+          )}
+        </Link>
+      </div>
+
+      {/* Navigation Sections */}
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-5">
+        {/* Operations */}
+        <div>
+          {isExpanded && <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600 px-3 mb-1">Operations</p>}
+          <div className="space-y-1">
+            {operationsItems.map(item => <NavItemRow key={item.href} item={item} showLabel={isExpanded} />)}
+          </div>
+        </div>
+
+        {/* Portfolio */}
+        <div>
+          {isExpanded && <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600 px-3 mb-1">Portfolio</p>}
+          <div className="space-y-1">
+            {portfolioItems.map(item => <NavItemRow key={item.href} item={item} showLabel={isExpanded} />)}
+          </div>
+        </div>
+
+        {/* System */}
+        <div>
+          {isExpanded && <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600 px-3 mb-1">System</p>}
+          <div className="space-y-1">
+            {systemItems.map(item => <NavItemRow key={item.href} item={item} showLabel={isExpanded} />)}
+          </div>
+        </div>
       </div>
     </aside>
   );

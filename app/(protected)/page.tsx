@@ -136,14 +136,14 @@ if (profile?.first_login) setIsFirstLogin(true);
   if (unallocatedTotal > 0) attentionItems.push({ level: "HIGH", text: `Unallocated receipts: R${unallocatedTotal.toLocaleString()}`, detail: "Requires reconciliation", action: "Open Cash Book", href: "/financials/cash-book" });
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
   const portfolioHealthy = criticalLeases.length === 0 && unallocatedTotal < 100000;
 
   return (
     <div className="mx-auto max-w-7xl space-y-10 px-6 pt-12 pb-20">
       <div className="space-y-2">
         <p className="text-sm tracking-[0.2em] uppercase text-[var(--text-muted)]">Morning Brief</p>
-        <h1 className="text-4xl font-light tracking-[-0.02em] text-[var(--text-primary)]">
+        <h1 className="text-4xl font-semibold tracking-tight text-[var(--text-primary)]">
   {greeting}{displayName ? `, ${displayName}` : ""}
 </h1>
 {isFirstLogin && (
@@ -182,7 +182,7 @@ if (profile?.first_login) setIsFirstLogin(true);
           {portfolioHealthy ? "Your portfolio is healthy. A few items need attention." : `${attentionItems.length} items require attention. ${criticalLeases.length} ${criticalLeases.length === 1 ? "is" : "are"} critical.`}
         </p>
         <div className="pt-2">
-          <button onClick={open} className="w-full rounded-xl border border-[var(--border-default)] bg-white/[0.01] px-4 py-3 text-sm text-[var(--text-muted)] text-left hover:border-[var(--border-hover)] transition-colors">
+          <button onClick={open} className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-3 text-sm text-[var(--text-muted)] text-left hover:border-[var(--border-hover)] transition-colors">
             🔍 Search tenants, leases, statements, receipts...
           </button>
         </div>
@@ -190,13 +190,13 @@ if (profile?.first_login) setIsFirstLogin(true);
 
       <div className="flex gap-3">
         {stmtPeriod && (
-          <div className="rounded-xl border border-[var(--border-default)] bg-white/[0.01] px-4 py-2 text-xs">
+          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-2 text-xs">
             <span className="text-[var(--text-muted)]">Statement: </span>
             <span className={stmtPeriod.status === "open" ? "text-emerald-400" : "text-[var(--text-muted)]"}>{stmtPeriod.period_name} · {stmtPeriod.status === "open" ? "Open" : "Closed"}</span>
           </div>
         )}
         {finPeriod && (
-          <div className="rounded-xl border border-[var(--border-default)] bg-white/[0.01] px-4 py-2 text-xs">
+          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-2 text-xs">
             <span className="text-[var(--text-muted)]">Financial: </span>
             <span className={finPeriod.status === "open" ? "text-emerald-400" : "text-[var(--text-muted)]"}>{finPeriod.period_name} · {finPeriod.status === "open" ? "Open" : "Closed"}</span>
           </div>
@@ -212,14 +212,14 @@ if (profile?.first_login) setIsFirstLogin(true);
       )}
 
       <div className="grid grid-cols-5 gap-3">
-        <div className="rounded-xl border border-[var(--border-default)] bg-white/[0.01] p-3 text-center"><p className="text-xs text-[var(--text-muted)]">Monthly Revenue</p><p className="text-xl font-bold text-[var(--text-primary)] tabular-nums">R{totalContractedRevenue.toLocaleString()}</p></div>
-        <div className="rounded-xl border border-[var(--border-default)] bg-white/[0.01] p-3 text-center"><p className="text-xs text-[var(--text-muted)]">Occupancy</p><p className="text-xl font-bold text-[var(--text-primary)]">{occupancyPct}%</p></div>
-        <div className="rounded-xl border border-[var(--border-default)] bg-white/[0.01] p-3 text-center"><p className="text-xs text-[var(--text-muted)]">Arrears</p><p className="text-xl font-bold tabular-nums text-[var(--text-primary)]">R{arrearsTotal.toLocaleString()}</p></div>
-        <div className="rounded-xl border border-[var(--border-default)] bg-white/[0.01] p-3 text-center"><p className="text-xs text-[var(--text-muted)]">Vacancy Cost</p><p className="text-xl font-bold tabular-nums text-[var(--text-primary)]">R{Math.round(vacancyCost).toLocaleString()}/mo</p></div>
-        <div className="rounded-xl border border-[var(--border-default)] bg-white/[0.01] p-3 text-center"><p className="text-xs text-[var(--text-muted)]">Comms Health</p><p className={`text-xl font-bold ${commsHealthPct >= 95 ? 'text-emerald-400' : 'text-amber-400'}`}>{commsHealthPct}%</p><p className="text-xs text-[var(--text-muted)]">{commsDelivered}/{commsSent} del · {commsRead} read</p></div>
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-xs text-[var(--text-muted)]">Monthly Revenue</p><p className="text-xl font-bold text-[var(--text-primary)] tabular-nums">R{totalContractedRevenue.toLocaleString()}</p></div>
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-xs text-[var(--text-muted)]">Occupancy</p><p className="text-xl font-bold text-[var(--text-primary)]">{occupancyPct}%</p></div>
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-xs text-[var(--text-muted)]">Arrears</p><p className="text-xl font-bold tabular-nums text-[var(--text-primary)]">R{arrearsTotal.toLocaleString()}</p></div>
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-xs text-[var(--text-muted)]">Vacancy Cost</p><p className="text-xl font-bold tabular-nums text-[var(--text-primary)]">R{Math.round(vacancyCost).toLocaleString()}/mo</p></div>
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-xs text-[var(--text-muted)]">Comms Health</p><p className={`text-xl font-bold ${commsHealthPct >= 95 ? 'text-emerald-400' : 'text-amber-400'}`}>{commsHealthPct}%</p><p className="text-xs text-[var(--text-muted)]">{commsDelivered}/{commsSent} del · {commsRead} read</p></div>
       </div>
 
-      <div className="rounded-xl border border-[var(--border-default)] bg-white/[0.01] p-4">
+      <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4">
         <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)] mb-2">Portfolio Pulse</p>
         <div className="flex gap-6 text-sm flex-wrap">
           <span className={pulse.revenue.trend === 'up' ? 'text-emerald-400' : 'text-amber-400'}>{pulse.revenue.trend === 'up' ? '▲' : '▼'} Revenue {pulse.revenue.variance > 0 ? '+' : ''}{pulse.revenue.variance}%</span>
@@ -230,7 +230,7 @@ if (profile?.first_login) setIsFirstLogin(true);
         <p className="text-xs text-[var(--text-muted)] mt-2">Trend data building — accuracy improves as history accumulates</p>
       </div>
 
-      <div className="rounded-2xl border border-white/[0.05] bg-white/[0.01] p-5">
+      <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5">
         <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)] mb-3">My Work</p>
         <div className="space-y-2">
           <div className="flex justify-between text-sm"><span className="text-[var(--text-primary)]">Open Tasks</span><span className="text-[var(--text-primary)] font-medium">{transactions.filter((t: any) => t.allocation_status !== 'posted' && t.queue !== 'posted').length}</span></div>
@@ -244,7 +244,7 @@ if (profile?.first_login) setIsFirstLogin(true);
           <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)]">What Needs Attention</p>
           <div className="space-y-3">
             {attentionItems.map((item, i) => (
-              <Link key={i} href={item.href} className="block rounded-2xl border border-white/[0.05] bg-white/[0.01] p-5 hover:border-[var(--border-hover)] transition-all group">
+              <Link key={i} href={item.href} className="block rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5 hover:border-[var(--border-hover)] transition-all group">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1">
                     <span className={`text-[10px] tracking-[0.2em] uppercase font-semibold ${item.level === "CRITICAL" ? "text-[var(--danger)]" : item.level === "HIGH" ? "text-[var(--warning)]" : "text-[var(--text-muted)]"}`}>{item.level}</span>
@@ -278,7 +278,7 @@ if (profile?.first_login) setIsFirstLogin(true);
         )}
       </div>
 
-      <div className="rounded-2xl border border-white/[0.05] bg-white/[0.01] p-5">
+      <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5">
         <p className="text-xs tracking-[0.2em] uppercase text-[var(--text-muted)] mb-4">Lease Expiry Heat Map</p>
         <div className="space-y-2">
           {expiryBuckets.map((bucket) => (
