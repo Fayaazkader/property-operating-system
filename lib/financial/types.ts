@@ -64,10 +64,10 @@ export interface JournalLine {
   id: string; journal_id: string; account_id: string; description?: string;
   debit_amount: number; credit_amount: number; vat_amount: number;
   vat_rate?: number;
-  entity_id?: string; property_id?: string; building_id?: string;
-  unit_id?: string; lease_id?: string; tenant_id?: string;
-  supplier_id?: string; broker_id?: string; cost_centre?: string;
-  department_id?: string; project_id?: string; portfolio_id?: string; region_id?: string;
+  entity_id?: string; property_id?: string | null; building_id?: string | null;
+  unit_id?: string | null; lease_id?: string | null; tenant_id?: string | null;
+  supplier_id?: string | null; broker_id?: string | null; cost_centre?: string | null;
+  department_id?: string | null; project_id?: string | null; portfolio_id?: string | null; region_id?: string | null;
   created_at: string;
 }
 
@@ -98,10 +98,10 @@ export interface FinancialEvent {
 }
 
 export interface FinancialEventDimensions {
-  property_id?: string; building_id?: string; unit_id?: string;
-  lease_id?: string; tenant_id?: string; supplier_id?: string;
-  broker_id?: string; cost_centre?: string; department_id?: string;
-  project_id?: string; portfolio_id?: string; region_id?: string;
+  property_id?: string | null; building_id?: string | null; unit_id?: string | null;
+  lease_id?: string | null; tenant_id?: string | null; supplier_id?: string | null;
+  broker_id?: string | null; cost_centre?: string | null; department_id?: string | null;
+  project_id?: string | null; portfolio_id?: string | null; region_id?: string | null;
 }
 
 export interface PostingResult {
