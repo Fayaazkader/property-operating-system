@@ -88,8 +88,8 @@ export class PostingEngine {
       if (event.metadata?.override_reason) overridesApplied.push(event.metadata.override_reason);
     }
 
-    const totalDr = journal.lines.reduce((s, l) => s + l.debit_amount, 0);
-    const totalCr = journal.lines.reduce((s, l) => s + l.credit_amount, 0);
+    const totalDr = journal.lines!.reduce((s, l) => s + l.debit_amount, 0);
+    const totalCr = journal.lines!.reduce((s, l) => s + l.credit_amount, 0);
     if (Math.abs(totalDr - totalCr) > 0.01) throw new Error(`Journal unbalanced: Dr ${totalDr}, Cr ${totalCr}`);
 
     const explanation: PostingExplanation = {
@@ -130,7 +130,7 @@ export class PostingEngine {
         explanation, created_by: journal.created_by, created_at: journal.created_at,
       });
 
-      for (const line of journal.lines) {
+      for (const line of journal.lines!) {
         await supabase.from('journal_lines').insert({
           id: line.id, journal_id: line.journal_id, account_id: line.account_id,
           description: line.description, debit_amount: line.debit_amount,
