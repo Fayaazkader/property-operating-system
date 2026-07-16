@@ -8,7 +8,7 @@ import { logger } from '../platform/events/logger.service';
 import { financialRulesEngine } from './rules-engine';
 import { financialGovernanceEngine } from './governance-engine';
 import { formulaEngine } from './formula-engine';
-import type { FinancialEvent, Journal, JournalLine, PostingResult, PostingExplanation, VatCategory } from './types';
+import type { FinancialEvent, Journal, JournalLine, JournalType, PostingResult, PostingExplanation, VatCategory } from './types';
 
 export class PostingEngine {
   async post(event: FinancialEvent): Promise<PostingResult> {
@@ -165,7 +165,7 @@ export class PostingEngine {
     return { journal, balanced: true, explanation };
   }
 
-  private mapEventType(event: string): string {
+  private mapEventType(event: string): JournalType {
     if (event.includes('rental_invoice')) return 'sales_invoice';
     if (event.includes('credit_note')) return 'sales_credit_note';
     if (event.includes('receipt')) return 'cash_receipt';
