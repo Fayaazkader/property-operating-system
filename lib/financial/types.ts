@@ -8,7 +8,6 @@ export type VatCategory = 'standard' | 'zero_rated' | 'exempt' | 'non_vatable';
 export type JournalType = 'sales_invoice' | 'sales_credit_note' | 'cash_receipt' | 'purchase_invoice' | 'purchase_credit_note' | 'cash_payment' | 'bank_transfer' | 'bank_charge' | 'bank_interest' | 'general_journal' | 'opening_balance' | 'closing_entry' | 'accrual' | 'reversal';
 export type DepositStatus = 'requested' | 'held' | 'partially_applied' | 'refunded' | 'closed';
 export type IntegrityLevel = 'info' | 'warning' | 'critical';
-export type FinancialDimension = 'entity' | 'property' | 'building' | 'unit' | 'lease' | 'tenant' | 'supplier' | 'broker' | 'cost_centre' | 'department' | 'project' | 'portfolio' | 'region';
 
 export interface ChartAccount {
   id: string; entity_id: string; gl_code: string; account_name: string;
@@ -48,15 +47,12 @@ export interface Journal {
 }
 
 export interface PostingExplanation {
-  business_event: string;
-  template_id: string;
-  template_version: number;
+  business_event: string; template_id: string; template_version: number;
   resolved_accounts: Array<{ account_name: string; gl_code: string; direction: string; amount: number }>;
   vat_decision: { treatment: string; rate: number; reason: string };
   period: { id: string; name?: string };
   dimensions: Record<string, string | null>;
-  overrides_applied: string[];
-  settings_used: Record<string, any>;
+  overrides_applied: string[]; settings_used: Record<string, any>;
   natural_language: string;
 }
 
@@ -64,44 +60,30 @@ export interface JournalLine {
   id: string; journal_id: string; account_id: string; description?: string;
   debit_amount: number; credit_amount: number; vat_amount: number;
   vat_rate?: number;
-  entity_id?: string; property_id?: string | null; building_id?: string | null;
-  unit_id?: string | null; lease_id?: string | null; tenant_id?: string | null;
-  supplier_id?: string | null; broker_id?: string | null; cost_centre?: string | null;
-  department_id?: string | null; project_id?: string | null; portfolio_id?: string | null; region_id?: string | null;
-  created_at: string;
+  entity_id?: string; property_id?: string | null;
+  lease_id?: string | null; tenant_id?: string | null;
+  supplier_id?: string | null; broker_id?: string | null;
+  cost_centre?: string | null; created_at: string;
 }
 
 export interface GeneralLedgerEntry {
   id: string; entity_id: string; account_id: string; period_id: string;
-  journal_line_id: string; debit_amount: number; credit_amount: number;
-  posted_at: string;
+  journal_line_id: string; debit_amount: number; credit_amount: number; posted_at: string;
 }
 
 export interface FinancialEvent {
-  id?: string;
-  source_engine: string;
-  business_event: string;
-  entity_id: string;
-  amount: number;
-  vat_amount?: number;
-  vat_treatment?: VatCategory;
-  currency?: string;
-  occurred_at?: string;
-  effective_date?: string;
-  correlation_id?: string;
-  causation_id?: string;
-  reference?: string;
-  description?: string;
-  period_id?: string;
-  dimensions: FinancialEventDimensions;
-  metadata?: Record<string, any>;
+  id?: string; source_engine: string; business_event: string;
+  entity_id: string; amount: number; vat_amount?: number;
+  vat_treatment?: VatCategory; currency?: string;
+  occurred_at?: string; effective_date?: string;
+  correlation_id?: string; causation_id?: string;
+  reference?: string; description?: string; period_id?: string;
+  dimensions: FinancialEventDimensions; metadata?: Record<string, any>;
 }
 
 export interface FinancialEventDimensions {
-  property_id?: string | null; building_id?: string | null; unit_id?: string | null;
-  lease_id?: string | null; tenant_id?: string | null; supplier_id?: string | null;
-  broker_id?: string | null; cost_centre?: string | null; department_id?: string | null;
-  project_id?: string | null; portfolio_id?: string | null; region_id?: string | null;
+  property_id?: string; lease_id?: string; tenant_id?: string;
+  supplier_id?: string; broker_id?: string; cost_centre?: string;
 }
 
 export interface PostingResult {
@@ -117,8 +99,7 @@ export interface Deposit {
 
 export interface IntegrityLogEntry {
   id: string; entity_id: string; period_id?: string;
-  check_type: string; level: IntegrityLevel; message: string;
-  acknowledged: boolean;
+  check_type: string; level: IntegrityLevel; message: string; acknowledged: boolean;
 }
 
 export interface CloseChecklistItem {
@@ -137,6 +118,8 @@ export interface FinancialIntegrityScore {
   checks: Array<{ name: string; passed: boolean; message: string }>;
 }
 
+export interface BankAccount {
+  id: string; entity_id: string; property_id?: string;
   bank_name: string; account_name: string; account_number: string;
   branch_code?: string; account_type: string; currency: string;
   gl_account_id?: string; is_active: boolean;
@@ -206,41 +189,4 @@ export interface ReversalResult {
   original_journal_id: string;
   reversal_journal: Journal;
   explanation: PostingExplanation;
-}
-
-export interface BankAccount {
-  id: string; entity_id: string; property_id?: string;
-  bank_name: string; account_name: string; account_number: string;
-  branch_code?: string; account_type: string; currency: string;
-  gl_account_id?: string; is_active: boolean;
-  opening_balance: number; current_balance: number;
-}
-
-export interface BankStatement {
-  id: string; bank_account_id: string; entity_id: string;
-  statement_date: string; opening_balance: number; closing_balance: number;
-  status: string; imported_at: string;
-}
-
-export interface BankTransaction {
-  id: string; bank_account_id: string; statement_id?: string;
-  entity_id: string; transaction_date: string; description?: string;
-  reference?: string; amount: number; type: string;
-  is_reconciled: boolean; statement_running_balance?: number;
-  matched_invoice_id?: string; matched_payment_id?: string; matched_journal_id?: string;
-}
-
-export interface Recovery {
-  id: string; entity_id: string; property_id: string; lease_id?: string;
-  recovery_category: string; budgeted_amount: number;
-  actual_expense: number; recovered_amount: number;
-  recovery_rate?: number; period_id?: string;
-  status: string; true_up_status: string;
-}
-
-export interface FinancialTimelineEntry {
-  id: string; entity_id: string; reference_type: string;
-  reference_id: string; event_type: string; description?: string;
-  actor_id?: string; correlation_id?: string; event_id?: string;
-  source_engine?: string; metadata: Record<string, any>; created_at: string;
 }
