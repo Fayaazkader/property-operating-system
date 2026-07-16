@@ -190,3 +190,79 @@ export interface ReversalResult {
   reversal_journal: Journal;
   explanation: PostingExplanation;
 }
+
+// Sprint 11C Types
+
+export interface Budget {
+  id: string; entity_id: string; period_id: string; account_id: string;
+  budgeted_amount: number; budget_type: 'annual' | 'monthly';
+  property_id?: string; cost_centre?: string; department_id?: string; project_id?: string;
+  created_at: string; updated_at: string;
+}
+
+export interface BudgetVsActual {
+  account_id: string; account_name: string; gl_code: string;
+  budgeted: number; actual: number; variance: number; variance_pct: number;
+}
+
+export interface FinancialExpectation {
+  id: string; entity_id: string; expectation_type: string;
+  reference_type?: string; reference_id?: string;
+  expected_amount?: number; expected_date?: string;
+  actual_amount?: number; actual_date?: string;
+  variance_pct?: number; status: string; period_id?: string;
+  seasonality_month?: number; confidence_score?: number;
+}
+
+export interface VatReturn {
+  id: string; entity_id: string; period_id: string;
+  output_vat: number; input_vat: number; net_vat: number;
+  status: string; filed_at?: string;
+}
+
+export interface FinancialStatement {
+  id: string; entity_id: string; period_id: string;
+  statement_type: string; statement_data: Record<string, any>;
+  is_locked: boolean; generated_at: string;
+}
+
+export interface IncomeStatement {
+  revenue: Array<{ account: string; amount: number }>;
+  expenses: Array<{ account: string; amount: number }>;
+  total_revenue: number; total_expenses: number; net_income: number;
+}
+
+export interface BalanceSheet {
+  assets: Array<{ account: string; amount: number }>;
+  liabilities: Array<{ account: string; amount: number }>;
+  equity: Array<{ account: string; amount: number }>;
+  total_assets: number; total_liabilities: number; total_equity: number;
+  balanced: boolean;
+}
+
+export interface CashFlowStatement {
+  operating: Array<{ description: string; amount: number }>;
+  investing: Array<{ description: string; amount: number }>;
+  financing: Array<{ description: string; amount: number }>;
+  net_cash_flow: number; opening_cash: number; closing_cash: number;
+}
+
+export interface Forecast {
+  id: string; entity_id: string; period_id: string; account_id: string;
+  actual_to_date: number; expected_remaining: number; forecast_total: number;
+  forecast_type: string; property_id?: string;
+}
+
+export interface DrillDownResult {
+  target_type: string; target_id: string;
+  journal?: Journal; transaction?: BankTransaction;
+  invoice?: any; lease?: any; tenant?: any; property?: any;
+  timeline: FinancialTimelineEntry[];
+  documents: any[];
+}
+
+export interface ReportingCatalogue {
+  financial: string[];
+  operational: string[];
+  executive: string[];
+}
