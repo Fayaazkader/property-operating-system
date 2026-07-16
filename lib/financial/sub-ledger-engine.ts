@@ -50,7 +50,7 @@ export class SubLedgerEngine {
       supplier_id: supplierId || line.supplier_id || null,
       broker_id: brokerId || line.broker_id || null,
       property_id: line.property_id || null, lease_id: line.lease_id || null,
-      posted_at: new Date().toISOString(), created_at: new Date().toISOString(),
+      posted_at: new Date().toISOString(),
     };
   }
 
