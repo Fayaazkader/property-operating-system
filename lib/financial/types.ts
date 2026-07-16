@@ -207,3 +207,40 @@ export interface ReversalResult {
   reversal_journal: Journal;
   explanation: PostingExplanation;
 }
+
+export interface BankAccount {
+  id: string; entity_id: string; property_id?: string;
+  bank_name: string; account_name: string; account_number: string;
+  branch_code?: string; account_type: string; currency: string;
+  gl_account_id?: string; is_active: boolean;
+  opening_balance: number; current_balance: number;
+}
+
+export interface BankStatement {
+  id: string; bank_account_id: string; entity_id: string;
+  statement_date: string; opening_balance: number; closing_balance: number;
+  status: string; imported_at: string;
+}
+
+export interface BankTransaction {
+  id: string; bank_account_id: string; statement_id?: string;
+  entity_id: string; transaction_date: string; description?: string;
+  reference?: string; amount: number; type: string;
+  is_reconciled: boolean; statement_running_balance?: number;
+  matched_invoice_id?: string; matched_payment_id?: string; matched_journal_id?: string;
+}
+
+export interface Recovery {
+  id: string; entity_id: string; property_id: string; lease_id?: string;
+  recovery_category: string; budgeted_amount: number;
+  actual_expense: number; recovered_amount: number;
+  recovery_rate?: number; period_id?: string;
+  status: string; true_up_status: string;
+}
+
+export interface FinancialTimelineEntry {
+  id: string; entity_id: string; reference_type: string;
+  reference_id: string; event_type: string; description?: string;
+  actor_id?: string; correlation_id?: string; event_id?: string;
+  source_engine?: string; metadata: Record<string, any>; created_at: string;
+}
