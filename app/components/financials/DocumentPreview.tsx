@@ -30,10 +30,6 @@ export default function DocumentPreview({ data, mode, onAction }: DocumentPrevie
         <p className={`text-[10px] font-semibold uppercase tracking-[0.3em] ${status.text}`}>{status.label}</p>
       </div>
 
-      {/* Watermark */}
-      <div className="absolute bottom-8 left-8 pointer-events-none select-none opacity-[0.04]">
-        <p className="text-sm font-medium text-black tracking-wider">Powered by AssetFlow</p>
-      </div>
 
       <div className="relative p-8 md:p-12 space-y-6">
         {/* Header */}
@@ -105,6 +101,9 @@ export default function DocumentPreview({ data, mode, onAction }: DocumentPrevie
 
         {/* Powered by */}
         <div className="border-t border-gray-200 pt-4 text-center">
+          <p className="text-[9px] text-gray-300">Powered by AssetFlow — Commercial Property Operating System</p>
+        </div>
+      </div>
 
       {/* Actions */}
       {onAction && (
