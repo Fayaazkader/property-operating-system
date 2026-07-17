@@ -5,11 +5,36 @@ import { revenueApi } from '@/lib/revenue/api';
 import { DocumentRenderer } from '@/lib/documents/renderers/react-renderer';
 
 function adaptToModel(data: any, from: string, to: string): any {
-  const lines = data.posted_lines || [];
-  const charges = lines.filter((l: any) => l.debit > 0);
-  const payments = lines.filter((l: any) => l.credit > 0);
-  const openingBal = lines[0]?.balance || 0;
-  const closingBal = lines[lines.length - 1]?.balance || 0;
+  const rawLines = data.posted_lines || [];
+  
+  // Build ledger with B/F and C/F
+  const ledger: any[] = [];
+  
+  // Opening B/F
+  const openingBal = rawLines.length > 0 ? (rawLines[0].balance || 0) - (rawLines[0].debit || 0) + (rawLines[0].credit || 0) : 0;
+  if (openingBal !== 0) {
+    ledger.push({ date: from, reference: 'B/F', description: 'Balance Brought Forward', debit: 0, credit: 0, balance: openingBal });
+  }
+  
+  // All transactions
+  for (const l of rawLines) {
+    ledger.push({
+      date: l.date || '',
+      reference: l.reference || '',
+      description: l.description || '',
+      debit: l.debit || 0,
+      credit: l.credit || 0,
+      balance: l.balance || 0,
+    });
+  }
+  
+  // Closing C/F  
+  const closingBal = rawLines.length > 0 ? rawLines[rawLines.length - 1].balance || 0 : 0;
+  
+  const charges = rawLines.filter((l: any) => l.debit > 0);
+  const payments = rawLines.filter((l: any) => l.credit > 0);
+  const totalCharges = charges.reduce((s: number, l: any) => s + l.debit, 0);
+  const totalPayments = payments.reduce((s: number, l: any) => s + l.credit, 0);
 
   return {
     metadata: { document_type: 'statement', document_number: `STMT-${Date.now()}`, issue_date: to, billing_period: `${from} — ${to}`, currency: 'ZAR', version: data.version || 1, status: data.status || 'draft', generated_at: data.generated_at || '' },
@@ -17,9 +42,9 @@ function adaptToModel(data: any, from: string, to: string): any {
     customer: { name: data.tenant_name || 'Tenant', code: 'TNT-001', account_number: 'ACC-00001', property_name: data.property_name || 'Alice Lane Towers', lease_ref: data.lease_ref || 'L-001' },
     branding: { watermark_enabled: false, show_powered_by: true },
     footer_message: 'This is a statement of account.',
-    sections: [{ type: 'ledger', title: 'Transaction History', data: lines.map((l: any) => ({ date: l.date, reference: l.reference || '', description: l.description, debit: l.debit || 0, credit: l.credit || 0, balance: l.balance || 0 })) }],
-    totals: { subtotal: 0, vat_total: 0, total: 0, payments_received: payments.reduce((s: number, l: any) => s + l.credit, 0), credits_applied: 0, balance_due: closingBal, opening_balance: openingBal, closing_balance: closingBal },
-    account_summary: { opening_balance: openingBal, current_charges: charges.reduce((s: number, l: any) => s + l.debit, 0), payments_received: payments.reduce((s: number, l: any) => s + l.credit, 0), credit_notes: 0, adjustments: 0, interest: 0, closing_balance: closingBal, amount_due: closingBal },
+    sections: [{ type: 'ledger', title: 'Transaction History', data: ledger }],
+    totals: { subtotal: 0, vat_total: 0, total: 0, payments_received: totalPayments, credits_applied: 0, balance_due: closingBal, opening_balance: openingBal, closing_balance: closingBal },
+    account_summary: { opening_balance: openingBal, current_charges: totalCharges, payments_received: totalPayments, credit_notes: 0, adjustments: 0, interest: 0, closing_balance: closingBal, amount_due: closingBal },
     aging: [{ label: 'Current', amount: closingBal }, { label: '30 Days', amount: 0 }, { label: '60 Days', amount: 0 }, { label: '90 Days', amount: 0 }, { label: '120+ Days', amount: 0 }],
     contacts: { accounts_email: 'accounts@sandtonoffice.co.za', accounts_phone: '+27 11 234 5678', property_manager: 'John Doe' },
   };
@@ -46,7 +71,8 @@ export default function StatementView({ tenantId, entityId }: { tenantId: string
     if (!fromDate || !toDate) return;
     setLoading(true);
     try {
-      const result = await revenueApi.generateStatement({ entityId, tenantId, options: { includeBalanceBf: true, includeDeposit: true, includeProjected: true } });
+      const result = await revenueApi.generateStatement({ entityId, tenantId, options: { includeBalanceBf: true, includeDeposit: true, includeProjected: false } });
+      console.log('Statement data:', result);
       setGeneratedDoc(adaptToModel(result, fromDate, toDate));
     } catch (err) { console.error(err); }
     setLoading(false);
