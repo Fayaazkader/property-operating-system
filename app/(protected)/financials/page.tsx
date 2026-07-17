@@ -16,6 +16,7 @@ export default function FinancialWorkspacePage() {
 
   useEffect(() => {
     async function init() {
+      try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const { data: entities } = await supabase.rpc('auth_entities');
@@ -24,6 +25,10 @@ export default function FinancialWorkspacePage() {
       const per = await financialApi.periods({ entityId: entities[0] });
       setPeriods(per);
       if (per?.length) setPeriodId(per[0].id);
+      } catch (err) {
+        console.error("Financials init error:", err);
+        setLoading(false);
+      }
     }
     init();
   }, []);
@@ -34,6 +39,7 @@ export default function FinancialWorkspacePage() {
   }, [entityId, periodId, section]);
 
   async function loadSection() {
+    try {
     setLoading(true);
     const d: any = {};
     switch (section) {
@@ -62,6 +68,9 @@ export default function FinancialWorkspacePage() {
         break;
     }
     setData(d);
+    } catch (err) {
+      console.error("Load section error:", err);
+    }
     setLoading(false);
   }
 
