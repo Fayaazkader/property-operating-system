@@ -62,3 +62,12 @@ export interface InvoiceBranding {
 
 export interface FullInvoiceConfig extends InvoiceConfig, InvoiceBranding {}
 export interface FullStatementConfig extends StatementConfig, InvoiceBranding {}
+
+  async getTenantOverrides(entityId: string, tenantId: string): Promise<Array<{ setting_key: string; setting_value: string }>> {
+    const { data } = await supabase
+      .from('statement_overrides')
+      .select('setting_key, setting_value')
+      .eq('entity_id', entityId)
+      .eq('tenant_id', tenantId);
+    return data || [];
+  },
