@@ -345,14 +345,11 @@ export default function TenantWorkspace() {
         {activeTab === "invoices" && (
           <DocumentHistory tenantId={id as string} entityId={entityId} mode="invoice" />
         )}
-        )}
 
         {/* Statements */}
         {activeTab === "statements" && (
-          <div className="space-y-4">
-            <p className="text-sm text-[var(--text-muted)]">Statement history for this tenant.</p>
-            <Link href={`/financials/revenue/invoices?tenant=${id}`} className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-xs font-medium text-white hover:border-white/40 transition-all">
-        {activeTab === "statements" && (
+          <DocumentHistory tenantId={id as string} entityId={entityId} mode="statement" />
+        )}
           <DocumentHistory tenantId={id as string} entityId={entityId} mode="statement" />
         )}
         {activeTab === "financial" && (
