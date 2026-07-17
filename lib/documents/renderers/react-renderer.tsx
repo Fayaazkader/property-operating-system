@@ -9,7 +9,7 @@ interface RenderProps {
 }
 
 export function DocumentRenderer({ model, onAction }: RenderProps) {
-  const isInvoice = (model.metadata?.document_type || model.mode) === 'invoice';
+  const isInvoice = (model.metadata?.document_type) === 'invoice';
 
   return (
     <div className="bg-white text-neutral-800 rounded-lg shadow-2xl max-w-2xl mx-auto font-sans print:shadow-none print:rounded-none">
