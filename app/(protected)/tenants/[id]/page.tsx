@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ArrowLeft, Building2, Mail, Phone, FileText, Calendar, AlertTriangle, Download, Send, Plus, FilePlus, Eye, CheckCircle, Clock } from "lucide-react";
 
 export default function TenantWorkspace() {
