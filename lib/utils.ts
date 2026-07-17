@@ -20,3 +20,6 @@ export function exportToCSV(data: any[], filename: string) {
   a.click();
   URL.revokeObjectURL(url);
 }
+export function cn(...classes: (string | undefined | false | null)[]): string {
+  return classes.filter(Boolean).join(' ');
+}
