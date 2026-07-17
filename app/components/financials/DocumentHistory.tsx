@@ -15,17 +15,17 @@ interface DocumentHistoryProps {
 export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHistoryProps) {
   const [history, setHistory] = useState<any[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<any>(null);
-  async function handleDocumentAction(action: string) {
-    if (action === "email") alert("Email sending — coming soon");
-    if (action === "whatsapp") alert("WhatsApp sending — coming soon");
-    if (action === "download") alert("PDF download — coming soon");
-    if (action === "print") window.print();
-  }
   const [loading, setLoading] = useState(true);
 
   const isInvoice = mode === 'invoice';
   const label = isInvoice ? 'invoice' : 'statement';
-  const viewLabel = isInvoice ? 'View' : 'View';
+
+  async function handleDocumentAction(action: string) {
+    if (action === 'email') alert('Email sending — coming soon');
+    if (action === 'whatsapp') alert('WhatsApp sending — coming soon');
+    if (action === 'download') alert('PDF download — coming soon');
+    if (action === 'print') window.print();
+  }
 
   useEffect(() => {
     async function load() {
@@ -43,19 +43,17 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-zinc-300">{history.length} {label}{history.length !== 1 ? 's' : ''} generated</p>
+        <p className="text-sm text-zinc-300">{history.length} {label}{history.length !== 1 ? 's' : ''}</p>
         <Link
-          href={`/financials/revenue`}
-          className={`rounded-full px-4 py-2 text-xs font-medium transition-all ${
-            isInvoice ? 'bg-white text-black hover:bg-gray-100' : 'border border-white/20 text-white hover:border-white/40'
-          }`}
+          href="/financials/revenue"
+          className="rounded-full border border-white/20 px-4 py-2 text-xs font-medium text-white hover:border-white/40 transition-all"
         >
-          {viewLabel}
+          Revenue Ops →
         </Link>
       </div>
 
       {history.length === 0 ? (
-        <p className="text-sm text-zinc-500 py-4">No {label}s generated yet.</p>
+        <p className="text-sm text-zinc-500 py-4">No {label}s yet. Run a billing cycle in Revenue Ops.</p>
       ) : (
         <div className="space-y-2">
           {history.map((h: any) => (
@@ -66,7 +64,9 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-white font-light">{h.statement_data?.lease_ref ? `${label.toUpperCase()}-${h.statement_data.lease_ref}-v${h.version}` : `${label} v${h.version}`}</p>
+                  <p className="text-sm text-white font-light">
+                    {h.statement_data?.lease_ref ? `${h.statement_data.lease_ref} — v${h.version}` : `${label} v${h.version}`}
+                  </p>
                   <p className="text-xs text-zinc-500 mt-0.5">{h.generated_at?.split('T')[0]}</p>
                 </div>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full ${
@@ -83,7 +83,6 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
         </div>
       )}
 
-      {/* Document Preview Modal */}
       {selectedDoc && (
         <>
           <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedDoc(null)} />
@@ -92,11 +91,7 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
               <div className="flex justify-end mb-2">
                 <button onClick={() => setSelectedDoc(null)} className="text-white/60 hover:text-white text-sm">Close ✕</button>
               </div>
-              <DocumentPreview
-                data={selectedDoc}
-                mode={mode}
-                onAction={handleDocumentAction}('Document action:', action, selectedDoc)}
-              />
+              <DocumentPreview data={selectedDoc} mode={mode} onAction={handleDocumentAction} />
             </div>
           </div>
         </>
