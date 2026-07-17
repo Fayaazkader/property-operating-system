@@ -38,6 +38,7 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
 
       // Load existing documents
       try {
+        console.log("Fetching history for", { entityId, tenantId });
         const hist = await revenueApi.getStatementHistory({ entityId, tenantId });
         setHistory(hist || []);
       } catch (err) { console.error("getStatementHistory error:", err); }
