@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Building2, Mail, Phone, FileText, Calendar, AlertTriangle, Download, Send, Plus, FilePlus, Eye, CheckCircle, Clock } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import DocumentHistory from "@/app/components/financials/DocumentHistory";
+import InvoiceView from "@/app/components/financials/DocumentHistory";
 
 export default function TenantWorkspace() {
   const { id } = useParams();
@@ -352,7 +352,7 @@ export default function TenantWorkspace() {
 
         {/* Statements */}
         {activeTab === "statements" && (
-          entityId ? <DocumentHistory tenantId={id as string} entityId={entityId} mode="statement" /> : <p className="text-sm text-zinc-500 py-4">Loading...</p>
+          entityId ? <StatementView tenantId={id as string} entityId={entityId} /> : <p className="text-sm text-zinc-500 py-4">Loading...</p>
         )}
 
         {activeTab === "financial" && (
