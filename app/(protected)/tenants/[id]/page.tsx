@@ -20,7 +20,8 @@ export default function TenantWorkspace() {
     async function load() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        const { data: entities } = await supabase.rpc('auth_entities');
+        const { data: userEntities } = await supabase.from('user_entities').select('entity_id').eq('user_id', session.user.id);
+        const entities = userEntities?.map((e: any) => e.entity_id) || [];
         if (entities?.length) setEntityId(entities[0]);
       }
       const res = await fetch(`/api/intelligence/tenants/${id}/workspace`);
