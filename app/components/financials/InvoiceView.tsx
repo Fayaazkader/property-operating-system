@@ -6,7 +6,7 @@ import { revenueApi } from '@/lib/revenue/api';
 import { DocumentRenderer } from '@/lib/documents/renderers/react-renderer';
 
 function adaptToModel(data: any): any {
-  const lines = data.posted_lines || [];
+  const lines = (data.posted_lines || []).filter((l: any) => l.debit > 0);
   const charges = lines.filter((l: any) => l.debit > 0).map((l: any) => ({
     charge_code: l.reference || undefined, description: l.description,
     amount: l.debit, vat_rate: 15, vat_amount: Math.round(l.debit * 0.15), total: l.debit + Math.round(l.debit * 0.15),
@@ -78,7 +78,7 @@ export default function InvoiceView({ tenantId, entityId }: { tenantId: string; 
         <div className="flex gap-3 items-end">
           <select value={selectedPeriodId} onChange={(e) => setSelectedPeriodId(e.target.value)} className="flex-1 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none">
             <option value="">Select period...</option>
-            {periods.map(p => (<option key={p.id} value={p.id} className="bg-zinc-900 text-white">{p.period_name} — {p.status}</option>))}
+            {periods.map(p => (<option key={p.id} value={p.id} className="bg-zinc-900 text-white">{new Date(p.period_start).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })} — {p.status}</option>))}
           </select>
           <button onClick={handleView} disabled={!selectedPeriodId || loading} className="rounded-lg bg-white px-5 py-2.5 text-xs font-medium text-black hover:bg-gray-100 disabled:opacity-40">
             {loading ? 'Loading...' : 'View Invoice'}
