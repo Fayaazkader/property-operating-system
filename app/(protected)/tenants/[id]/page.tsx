@@ -345,14 +345,10 @@ export default function TenantWorkspace() {
         {activeTab === "invoices" && (
           <DocumentHistory tenantId={id as string} entityId={entityId} mode="invoice" />
         )}
-
         {/* Statements */}
         {activeTab === "statements" && (
           <DocumentHistory tenantId={id as string} entityId={entityId} mode="statement" />
         )}
-          <DocumentHistory tenantId={id as string} entityId={entityId} mode="statement" />
-        )}
-        {activeTab === "financial" && (
           <div className="space-y-6">
             <div className="grid grid-cols-4 gap-3">
               <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-center"><p className="text-xs text-[var(--text-muted)]">Balance B/F</p><p className="text-lg font-bold text-[var(--text-primary)]">R0.00</p></div>
