@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Building2, Mail, Phone, FileText, Calendar, AlertTriangle, Download, Send, Plus, FilePlus, Eye, CheckCircle, Clock } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import InvoiceView from "@/app/components/financials/DocumentHistory";
+import InvoiceView from "@/app/components/financials/InvoiceView";
+import StatementView from "@/app/components/financials/StatementView";
 
 export default function TenantWorkspace() {
   const { id } = useParams();
