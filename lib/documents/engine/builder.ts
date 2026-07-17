@@ -3,7 +3,7 @@
 
 import type { DocumentModel, DocumentMetadata, DocumentSection } from '../types';
 
-interface BuilderParams {
+export interface BuilderParams {
   metadata: DocumentMetadata;
   company: DocumentModel['company'];
   customer: DocumentModel['customer'];
@@ -16,11 +16,19 @@ interface BuilderParams {
 }
 
 export class DocumentBuilder {
-  private model: Partial<DocumentModel>;
+  private model: DocumentModel;
 
   constructor(params: BuilderParams) {
     this.model = {
-      ...params,
+      metadata: params.metadata,
+      company: params.company,
+      customer: params.customer,
+      branding: params.branding,
+      banking: params.banking,
+      header_message: params.header_message,
+      footer_message: params.footer_message,
+      deposit_held: params.deposit_held,
+      payment_terms: params.payment_terms,
       sections: [],
       totals: {
         subtotal: 0,
@@ -34,7 +42,7 @@ export class DocumentBuilder {
   }
 
   addSection(type: string, title: string | undefined, data: any): this {
-    this.model.sections!.push({ type, title, data });
+    this.model.sections.push({ type, title, data });
     return this;
   }
 
@@ -44,6 +52,6 @@ export class DocumentBuilder {
   }
 
   build(): DocumentModel {
-    return this.model as DocumentModel;
+    return this.model;
   }
 }
