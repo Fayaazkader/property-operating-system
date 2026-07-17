@@ -1,5 +1,5 @@
 // lib/documents/types.ts
-// Document Engine — Renderer-agnostic document model
+// Document Engine — Complete enterprise document model
 
 export type DocumentType = 'invoice' | 'statement' | 'credit_note' | 'debit_note' | 'receipt' | 'owner_statement' | 'remittance' | 'lease_schedule';
 
@@ -8,12 +8,14 @@ export interface DocumentMetadata {
   document_number: string;
   issue_date: string;
   due_date?: string;
-  period_start?: string;
-  period_end?: string;
+  billing_period?: string;
+  statement_period?: string;
+  currency: string;
   version: number;
   status: 'draft' | 'preview' | 'issued' | 'cancelled' | 'superseded';
   generated_at: string;
   generated_by?: string;
+  prepared_by?: string;
 }
 
 export interface CompanyInfo {
@@ -35,10 +37,13 @@ export interface CustomerInfo {
   building?: string;
   unit?: string;
   lease_ref?: string;
+  entity?: string;
+  portfolio?: string;
 }
 
 export interface BankingDetails {
   bank_name: string;
+  branch_name?: string;
   branch_code?: string;
   account_number: string;
   account_type?: string;
@@ -60,8 +65,8 @@ export interface BrandingConfig {
 }
 
 export interface ChargeLine {
-  gl_code?: string;
   charge_code?: string;
+  gl_code?: string;
   description: string;
   billing_period?: string;
   quantity?: number;
@@ -76,6 +81,8 @@ export interface ChargeLine {
 export interface LedgerLine {
   date: string;
   reference: string;
+  transaction_type?: string;
+  document_number?: string;
   description: string;
   debit: number;
   credit: number;
@@ -112,6 +119,18 @@ export interface DocumentSection {
   type: string;
   title?: string;
   data: any;
+  variant?: 'default' | 'credit' | 'receipt' | 'summary';
+}
+
+export interface AccountSummary {
+  opening_balance: number;
+  current_charges: number;
+  payments_received: number;
+  credit_notes: number;
+  adjustments: number;
+  interest: number;
+  closing_balance: number;
+  amount_due: number;
 }
 
 export interface DocumentModel {
@@ -133,10 +152,13 @@ export interface DocumentModel {
     opening_balance?: number;
     closing_balance?: number;
   };
+  account_summary?: AccountSummary;
   deposit_held?: number;
   payment_terms?: string;
+  aging?: AgingBucket[];
   contacts?: {
-    accounts?: string;
+    accounts_email?: string;
+    accounts_phone?: string;
     property_manager?: string;
     leasing?: string;
     maintenance?: string;

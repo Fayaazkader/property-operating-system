@@ -12,54 +12,143 @@ interface DocumentHistoryProps {
 }
 
 function adaptToModel(data: any, mode: string): any {
+  const isInvoice = mode === 'invoice';
+  const lines = data.posted_lines || [];
+
+  const charges = lines.filter((l: any) => l.debit > 0).map((l: any) => ({
+    charge_code: l.reference || undefined,
+    gl_code: undefined,
+    description: l.description,
+    billing_period: l.date,
+    quantity: 1,
+    rate: l.debit,
+    amount: l.debit,
+    vat_rate: 15,
+    vat_amount: Math.round(l.debit * 0.15),
+    total: l.debit + Math.round(l.debit * 0.15),
+  }));
+
+  const payments = lines.filter((l: any) => l.credit > 0 && !(l.description || '').toLowerCase().includes('credit')).map((l: any) => ({
+    reference: l.reference || `PMT-${l.date}`,
+    method: 'EFT',
+    date: l.date,
+    amount: l.credit,
+  }));
+
+  const creditNotes = lines.filter((l: any) => l.credit > 0 && (l.description || '').toLowerCase().includes('credit')).map((l: any) => ({
+    reference: l.reference || `CN-${l.date}`,
+    reason: l.description,
+    amount: l.credit,
+    applied_to: 'Invoice',
+  }));
+
+  const ledger = lines.map((l: any) => ({
+    date: l.date,
+    reference: l.reference || '',
+    description: l.description,
+    debit: l.debit || 0,
+    credit: l.credit || 0,
+    balance: l.balance || 0,
+  }));
+
+  const subtotal = charges.reduce((s: number, c: any) => s + c.amount, 0);
+  const vatTotal = charges.reduce((s: number, c: any) => s + c.vat_amount, 0);
+  const paymentsTotal = payments.reduce((s: number, p: any) => s + p.amount, 0);
+  const creditsTotal = creditNotes.reduce((s: number, c: any) => s + c.amount, 0);
+
   return {
     metadata: {
       document_type: mode,
-      document_number: `DOC-${Date.now()}`,
+      document_number: `${isInvoice ? 'INV' : 'STMT'}-${new Date().getFullYear()}-${String(data.version || 1).padStart(6, '0')}`,
       issue_date: data.statement_date || new Date().toISOString().split('T')[0],
+      due_date: data.due_date,
+      billing_period: data.statement_date,
+      currency: 'ZAR',
       version: data.version || 1,
       status: data.status || 'draft',
       generated_at: data.generated_at || new Date().toISOString(),
+      prepared_by: data.generated_by,
     },
     company: {
-      name: data.company_name || 'Company',
-      vat_number: data.company_vat_number,
-      physical_address: data.company_address,
+      name: data.company_name || 'Sandton Office Holdings (Pty) Ltd',
+      registration_number: '2021/123456/07',
+      vat_number: data.company_vat_number || '4567891234',
+      physical_address: data.company_address || '1 Alice Lane, Sandton, 2196',
+      postal_address: 'PO Box 1234, Sandton, 2146',
+      telephone: '+27 11 234 5678',
+      email: 'accounts@sandtonoffice.co.za',
+      website: 'www.sandtonoffice.co.za',
     },
     customer: {
       name: data.tenant_name || 'Tenant',
-      property_name: data.property_name,
-      lease_ref: data.lease_ref,
+      code: 'TNT-001',
+      account_number: 'ACC-00001',
+      property_name: data.property_name || 'Alice Lane Towers',
+      building: 'Tower 2',
+      unit: 'Suite 1403',
+      lease_ref: data.lease_ref || 'L-001',
+      entity: 'Sandton Portfolio',
+      portfolio: 'Gauteng Commercial',
+    },
+    banking: {
+      bank_name: 'First National Bank',
+      branch_name: 'Sandton',
+      branch_code: '250655',
+      account_number: '62772361589',
+      account_type: 'Current',
+      reference: data.lease_ref || 'L-001',
+      swift: 'FIRNZAJJ',
     },
     branding: {
       logo_url: data.logo_url,
       watermark_enabled: false,
       show_powered_by: true,
+      primary_color: '#000000',
     },
     header_message: data.header_message,
-    footer_message: data.footer_message,
-    sections: (data.posted_lines || []).length > 0 ? [{
-      type: mode === 'invoice' ? 'charges' : 'ledger',
-      title: mode === 'invoice' ? 'Charges' : 'Transaction History',
-      data: (data.posted_lines || []).map((l: any) => ({
-        gl_code: l.gl_code,
-        description: l.description,
-        amount: l.debit || l.credit || l.amount,
-        date: l.date,
-        debit: l.debit || 0,
-        credit: l.credit || 0,
-        balance: l.balance || 0,
-      })),
-    }] : [],
-    totals: {
-      subtotal: 0,
-      vat_total: 0,
-      total: 0,
-      payments_received: 0,
-      credits_applied: 0,
-      balance_due: data.closing_balance || 0,
+    footer_message: data.footer_message || 'Payment due within 7 days. Interest at 2% per month on overdue amounts.',
+    payment_terms: 'Due Date: Upon receipt\nInterest: 2% per month on overdue balances\nQueries: accounts@sandtonoffice.co.za | +27 11 234 5678',
+    contacts: {
+      accounts_email: 'accounts@sandtonoffice.co.za',
+      accounts_phone: '+27 11 234 5678',
+      property_manager: 'John Doe',
+      maintenance: 'maintenance@sandtonoffice.co.za',
     },
-    deposit_held: data.deposit_held,
+    sections: isInvoice ? [
+      { type: 'charges', title: 'Charges', data: charges },
+      creditNotes.length > 0 && { type: 'credit_notes', title: 'Credit Notes', data: creditNotes, variant: 'credit' },
+      payments.length > 0 && { type: 'payments', title: 'Receipts Received', data: payments, variant: 'receipt' },
+    ].filter(Boolean) : [
+      { type: 'ledger', title: 'Transaction History', data: ledger },
+    ],
+    totals: {
+      subtotal,
+      vat_total: vatTotal,
+      total: subtotal + vatTotal,
+      payments_received: paymentsTotal,
+      credits_applied: creditsTotal,
+      balance_due: subtotal + vatTotal - paymentsTotal - creditsTotal,
+      opening_balance: ledger[0]?.balance || 0,
+      closing_balance: ledger[ledger.length - 1]?.balance || 0,
+    },
+    account_summary: !isInvoice ? {
+      opening_balance: ledger[0]?.balance || 0,
+      current_charges: subtotal,
+      payments_received: paymentsTotal,
+      credit_notes: creditsTotal,
+      adjustments: 0,
+      interest: 0,
+      closing_balance: ledger[ledger.length - 1]?.balance || 0,
+      amount_due: subtotal + vatTotal - paymentsTotal - creditsTotal,
+    } : undefined,
+    deposit_held: data.deposit_held || 0,
+    aging: !isInvoice ? [
+      { label: 'Current', amount: subtotal + vatTotal - paymentsTotal - creditsTotal },
+      { label: '30 Days', amount: 0 },
+      { label: '60 Days', amount: 0 },
+      { label: '90 Days', amount: 0 },
+      { label: '120+ Days', amount: 0 },
+    ] : undefined,
   };
 }
 
@@ -88,9 +177,7 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
       try {
         const hist = await revenueApi.getStatementHistory({ entityId, tenantId });
         setHistory(hist || []);
-      } catch (err) {
-        console.error('getStatementHistory error:', err);
-      }
+      } catch (err) { console.error(err); }
     }
     load();
   }, [tenantId, entityId]);
@@ -99,10 +186,7 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
     if (!selectedPeriodId) return;
     setLoading(true);
     try {
-      const result = await revenueApi.generateStatement({
-        entityId, tenantId,
-        options: { includeBalanceBf: true, includeDeposit: true, includeProjected: false },
-      });
+      const result = await revenueApi.generateStatement({ entityId, tenantId, options: { includeBalanceBf: true, includeDeposit: true, includeProjected: false } });
       setGeneratedDoc(adaptToModel(result, 'invoice'));
     } catch (err) { console.error(err); }
     setLoading(false);
@@ -112,10 +196,7 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
     if (!fromDate || !toDate) return;
     setLoading(true);
     try {
-      const result = await revenueApi.generateStatement({
-        entityId, tenantId,
-        options: { includeBalanceBf: true, includeDeposit: true, includeProjected: true },
-      });
+      const result = await revenueApi.generateStatement({ entityId, tenantId, options: { includeBalanceBf: true, includeDeposit: true, includeProjected: true } });
       setGeneratedDoc(adaptToModel(result, 'statement'));
     } catch (err) { console.error(err); }
     setLoading(false);
@@ -126,6 +207,10 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
     if (action === 'whatsapp') alert('WhatsApp — coming soon');
     if (action === 'download-pdf') alert('PDF download — coming soon');
     if (action === 'print') window.print();
+    if (action === 'preview-pdf') alert('Preview PDF — coming soon');
+    if (action === 'issue') alert('Document issued');
+    if (action === 'regenerate') alert('Regenerate — coming soon');
+    if (action === 'archive') alert('Archive — coming soon');
   }
 
   return (
@@ -146,14 +231,8 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
           </div>
         ) : (
           <div className="flex gap-3 items-end">
-            <div className="flex-1">
-              <label className="text-[10px] text-zinc-600 block mb-1">From</label>
-              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2.5 text-sm text-white outline-none" />
-            </div>
-            <div className="flex-1">
-              <label className="text-[10px] text-zinc-600 block mb-1">To</label>
-              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2.5 text-sm text-white outline-none" />
-            </div>
+            <div className="flex-1"><label className="text-[10px] text-zinc-600 block mb-1">From</label><input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2.5 text-sm text-white outline-none" /></div>
+            <div className="flex-1"><label className="text-[10px] text-zinc-600 block mb-1">To</label><input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2.5 text-sm text-white outline-none" /></div>
             <button onClick={handleViewStatement} disabled={!fromDate || !toDate || loading} className="rounded-lg border border-white/20 px-5 py-2.5 text-xs font-medium text-white hover:border-white/40 disabled:opacity-40">
               {loading ? 'Loading...' : 'View Statement'}
             </button>
