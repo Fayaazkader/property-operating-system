@@ -79,7 +79,7 @@ export const statementData = {
   async getStatementHistory(entityId: string, tenantId: string) {
     const { data } = await supabase
       .from('statements_generated')
-      .select('id, version, status, generated_at, change_reason, generated_by')
+      .select('*')
       .eq('entity_id', entityId)
       .eq('tenant_id', tenantId)
       .order('version', { ascending: false });
