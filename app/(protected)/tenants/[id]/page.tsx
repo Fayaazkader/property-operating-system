@@ -41,6 +41,8 @@ export default function TenantWorkspace() {
     { key: "contacts", label: "Contacts" },
     { key: "leases", label: "Leases" },
     { key: "billing", label: "Billing Rules" },
+    { key: "invoices", label: "Invoices" },
+    { key: "statements", label: "Statements" },
     { key: "financial", label: "Financial" },
     { key: "communications", label: "Communications" },
     { key: "documents", label: "Documents" },
@@ -331,6 +333,26 @@ export default function TenantWorkspace() {
             )}
           </div>
         )}
+        {/* Invoices */}
+        {activeTab === "invoices" && (
+          <div className="space-y-4">
+            <p className="text-sm text-[var(--text-muted)]">Invoice history and generation for this tenant.</p>
+            <Link href={`/financials/revenue/invoices?tenant=${id}`} className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100 transition-all">
+              Generate Invoice →
+            </Link>
+          </div>
+        )}
+
+        {/* Statements */}
+        {activeTab === "statements" && (
+          <div className="space-y-4">
+            <p className="text-sm text-[var(--text-muted)]">Statement history for this tenant.</p>
+            <Link href={`/financials/revenue/invoices?tenant=${id}`} className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-xs font-medium text-white hover:border-white/40 transition-all">
+              View Statements →
+            </Link>
+          </div>
+        )}
+
 
         {/* Financial */}
         {activeTab === "financial" && (
