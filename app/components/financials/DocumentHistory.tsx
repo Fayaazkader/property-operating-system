@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { revenueApi } from '@/lib/revenue/api';
-import DocumentPreview from './DocumentPreview';
+import { DocumentRenderer } from '@/lib/documents/renderers/react-renderer';
 import type { DocumentMode } from './DocumentPreview';
 
 interface DocumentHistoryProps {
@@ -191,7 +191,7 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
               <div className="flex justify-end mb-2">
                 <button onClick={() => setGeneratedDoc(null)} className="text-white/60 hover:text-white text-sm">Close ✕</button>
               </div>
-              <DocumentPreview data={generatedDoc} mode={mode} onAction={handleDocumentAction} />
+              <DocumentRenderer model={generatedDoc} onAction={handleDocumentAction} />
             </div>
           </div>
         </>
