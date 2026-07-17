@@ -19,8 +19,8 @@ function adaptStatement(data: any, fromDate: string, toDate: string): any {
 
   const openingBal = ledger[0]?.balance || 0;
   const closingBal = ledger[ledger.length - 1]?.balance || 0;
-  const totalCharges = ledger.filter(l => l.debit > 0).reduce((s: number, l: any) => s + l.debit, 0);
-  const totalPayments = ledger.filter(l => l.credit > 0).reduce((s: number, l: any) => s + l.credit, 0);
+  const totalCharges = ledger.filter((l: any) => l.debit > 0).reduce((s: number, l: any) => s + l.debit, 0);
+  const totalPayments = ledger.filter((l: any) => l.credit > 0).reduce((s: number, l: any) => s + l.credit, 0);
   const totalCredits = ledger.filter(l => l.credit > 0 && (l.description || '').toLowerCase().includes('credit')).reduce((s: number, l: any) => s + l.credit, 0);
   const amountDue = closingBal;
 
