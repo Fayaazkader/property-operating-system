@@ -40,7 +40,7 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
       try {
         const hist = await revenueApi.getStatementHistory({ entityId, tenantId });
         setHistory(hist || []);
-      } catch {}
+      } catch (err) { console.error("getStatementHistory error:", err); }
     }
     load();
   }, [tenantId, entityId]);
