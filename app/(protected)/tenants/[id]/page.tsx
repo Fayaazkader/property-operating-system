@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Building2, Mail, Phone, FileText, Calendar, AlertTriangle, Download, Send, Plus, FilePlus, Eye, CheckCircle, Clock } from "lucide-react";
 
 export default function TenantWorkspace() {
@@ -11,10 +12,16 @@ export default function TenantWorkspace() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const [entityId, setEntityId] = useState("");
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
     async function load() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: entities } = await supabase.rpc('auth_entities');
+        if (entities?.length) setEntityId(entities[0]);
+      }
       const res = await fetch(`/api/intelligence/tenants/${id}/workspace`);
       const json = await res.json();
       setData(json);
@@ -336,12 +343,8 @@ export default function TenantWorkspace() {
         )}
         {/* Invoices */}
         {activeTab === "invoices" && (
-          <div className="space-y-4">
-            <p className="text-sm text-[var(--text-muted)]">Invoice history and generation for this tenant.</p>
-            <Link href={`/financials/revenue/invoices?tenant=${id}`} className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100 transition-all">
-              Generate Invoice →
-            </Link>
-          </div>
+          <DocumentHistory tenantId={id as string} entityId={entityId} mode="invoice" />
+        )}
         )}
 
         {/* Statements */}
@@ -349,13 +352,9 @@ export default function TenantWorkspace() {
           <div className="space-y-4">
             <p className="text-sm text-[var(--text-muted)]">Statement history for this tenant.</p>
             <Link href={`/financials/revenue/invoices?tenant=${id}`} className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-xs font-medium text-white hover:border-white/40 transition-all">
-              View Statements →
-            </Link>
-          </div>
+        {activeTab === "statements" && (
+          <DocumentHistory tenantId={id as string} entityId={entityId} mode="statement" />
         )}
-
-
-        {/* Financial */}
         {activeTab === "financial" && (
           <div className="space-y-6">
             <div className="grid grid-cols-4 gap-3">
