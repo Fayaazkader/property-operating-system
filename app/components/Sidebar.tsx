@@ -62,6 +62,7 @@ export default function Sidebar() {
 
   const systemItems: NavItem[] = [
     { label: "Periods", href: "/financials/periods", icon: Calendar, desc: "Billing Cycles · Governance" },
+    { label: "Financials", href: "/financials", icon: BarChart3, desc: "GL · Statements · VAT" },
     { label: "Reports", href: "/reports", icon: BarChart3, desc: "Rent Roll · Arrears · Portfolio" },
   ];
 
