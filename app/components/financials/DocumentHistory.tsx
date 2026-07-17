@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { revenueApi } from '@/lib/revenue/api';
-import Link from 'next/link';
 import DocumentPreview from './DocumentPreview';
 import type { DocumentMode } from './DocumentPreview';
 
@@ -42,18 +41,10 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-zinc-300">{history.length} {label}{history.length !== 1 ? 's' : ''}</p>
-        <Link
-          href="/financials/revenue"
-          className="rounded-full border border-white/20 px-4 py-2 text-xs font-medium text-white hover:border-white/40 transition-all"
-        >
-          Revenue Ops →
-        </Link>
-      </div>
+      <p className="text-sm text-zinc-300">{history.length} {label}{history.length !== 1 ? 's' : ''}</p>
 
       {history.length === 0 ? (
-        <p className="text-sm text-zinc-500 py-4">No {label}s yet. Run a billing cycle in Revenue Ops.</p>
+        <p className="text-sm text-zinc-500 py-4">No {label}s yet. Run a billing cycle in Revenue Ops to generate {label}s.</p>
       ) : (
         <div className="space-y-2">
           {history.map((h: any) => (
