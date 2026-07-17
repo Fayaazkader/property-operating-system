@@ -346,12 +346,12 @@ export default function TenantWorkspace() {
         {/* Financial */}
         {/* Invoices */}
         {activeTab === "invoices" && (
-          <DocumentHistory tenantId={id as string} entityId={entityId} mode="invoice" />
+          {entityId && <DocumentHistory tenantId={id as string} entityId={entityId} mode="invoice" />}
         )}
 
         {/* Statements */}
         {activeTab === "statements" && (
-          <DocumentHistory tenantId={id as string} entityId={entityId} mode="statement" />
+          {entityId && <DocumentHistory tenantId={id as string} entityId={entityId} mode="statement" />}
         )}
 
         {activeTab === "financial" && (
