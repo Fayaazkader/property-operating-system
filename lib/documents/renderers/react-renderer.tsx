@@ -8,9 +8,9 @@ interface RenderProps {
 }
 
 export function DocumentRenderer({ model, onAction }: RenderProps) {
-  if (!model?.metadata) return null;
+  if (!model) return null;
 
-  const isInvoice = model.metadata.document_type === 'invoice';
+  const isInvoice = (model.metadata?.document_type || model.mode || 'invoice') === 'invoice';
   const m = model;
 
   return (
