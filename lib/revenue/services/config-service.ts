@@ -49,3 +49,16 @@ export const configService = {
     await supabase.from('statement_overrides').upsert({ entity_id: entityId, tenant_id: tenantId, setting_key: key, setting_value: value }, { onConflict: 'entity_id,tenant_id,setting_key' });
   }
 };
+
+// Extended config with branding
+export interface InvoiceBranding {
+  logo_url?: string;
+  company_name?: string;
+  company_address?: string;
+  company_contact?: string;
+  company_vat_number?: string;
+  company_reg_number?: string;
+}
+
+export interface FullInvoiceConfig extends InvoiceConfig, InvoiceBranding {}
+export interface FullStatementConfig extends StatementConfig, InvoiceBranding {}
