@@ -24,6 +24,7 @@ export const documentEngine = {
     const companyInfo = await brandingService.getCompanyInfo(params.entityId);
 
     const metadata: DocumentMetadata = {
+      currency: 'ZAR',
       document_type: params.documentType,
       document_number: `${params.documentType.toUpperCase()}-${Date.now()}`,
       issue_date: new Date().toISOString().split('T')[0],
