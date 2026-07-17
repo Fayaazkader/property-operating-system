@@ -15,11 +15,17 @@ interface DocumentHistoryProps {
 export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHistoryProps) {
   const [history, setHistory] = useState<any[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<any>(null);
+  async function handleDocumentAction(action: string) {
+    if (action === "email") alert("Email sending — coming soon");
+    if (action === "whatsapp") alert("WhatsApp sending — coming soon");
+    if (action === "download") alert("PDF download — coming soon");
+    if (action === "print") window.print();
+  }
   const [loading, setLoading] = useState(true);
 
   const isInvoice = mode === 'invoice';
   const label = isInvoice ? 'invoice' : 'statement';
-  const generateLabel = isInvoice ? 'Generate Invoice' : 'Generate Statement';
+  const viewLabel = isInvoice ? 'View' : 'View';
 
   useEffect(() => {
     async function load() {
@@ -39,12 +45,12 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
       <div className="flex items-center justify-between">
         <p className="text-sm text-zinc-300">{history.length} {label}{history.length !== 1 ? 's' : ''} generated</p>
         <Link
-          href={`/financials/revenue/invoices`}
+          href={`/financials/revenue`}
           className={`rounded-full px-4 py-2 text-xs font-medium transition-all ${
             isInvoice ? 'bg-white text-black hover:bg-gray-100' : 'border border-white/20 text-white hover:border-white/40'
           }`}
         >
-          {generateLabel}
+          {viewLabel}
         </Link>
       </div>
 
@@ -89,7 +95,7 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
               <DocumentPreview
                 data={selectedDoc}
                 mode={mode}
-                onAction={(action) => console.log('Document action:', action, selectedDoc)}
+                onAction={handleDocumentAction}('Document action:', action, selectedDoc)}
               />
             </div>
           </div>
