@@ -347,7 +347,7 @@ export default function TenantWorkspace() {
         {/* Financial */}
         {/* Invoices */}
         {activeTab === "invoices" && (
-          entityId ? <DocumentHistory tenantId={id as string} entityId={entityId} mode="invoice" /> : <p className="text-sm text-zinc-500 py-4">Loading...</p>
+          entityId ? <DocumentHistory key={`inv-${entityId}-${id}`} tenantId={id as string} entityId={entityId} mode="invoice" /> : <p className="text-sm text-zinc-500 py-4">Loading...</p>
         )}
 
         {/* Statements */}
