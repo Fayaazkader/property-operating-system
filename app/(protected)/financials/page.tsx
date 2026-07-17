@@ -22,7 +22,13 @@ export default function FinancialWorkspacePage() {
       const { data: entities } = await supabase.rpc('auth_entities');
       if (!entities?.length) return;
       setEntityId(entities[0]);
-      const per = await financialApi.periods({ entityId: entities[0] });
+      let per: any[] = [];
+      try {
+        per = await financialApi.periods({ entityId: entities[0] });
+      } catch (e) {
+        console.warn("No financial periods for entity, using defaults");
+        per = [];
+      }
       setPeriods(per);
       if (per?.length) setPeriodId(per[0].id);
       } catch (err) {
