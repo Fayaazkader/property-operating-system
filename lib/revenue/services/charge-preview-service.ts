@@ -1,19 +1,20 @@
 // lib/revenue/services/charge-preview-service.ts
-// Sources next period charges from the billing engine, not the lease
+// Sources upcoming charges from billing engine. Returns posted vs projected.
 
 import { supabase } from '@/lib/supabase';
 
-export interface UpcomingCharge {
+export interface ProjectedCharge {
   description: string;
   amount: number;
-  vat_applicable: boolean;
-  vat_amount: number;
-  total: number;
+  source: string;
+  category: string;
+  status: 'projected_fixed' | 'projected_variable' | 'pending';
+  confidence: string;
+  billing_period: string;
 }
 
 export const chargePreviewService = {
-  async getUpcomingCharges(tenantId: string, leaseId: string): Promise<UpcomingCharge[]> {
-    // Source from billing rules/charge generator, not the lease directly
+  async getUpcomingCharges(tenantId: string, leaseId: string): Promise<ProjectedCharge[]> {
     const { data: lease } = await supabase
       .from('leases')
       .select('monthly_rental, parking_bays, parking_rate, lease_type')
@@ -22,36 +23,35 @@ export const chargePreviewService = {
 
     if (!lease) return [];
 
-    const charges: UpcomingCharge[] = [];
-    const isCommercial = lease.lease_type !== 'residential';
-    const vatRate = isCommercial ? 0.15 : 0;
+    const charges: ProjectedCharge[] = [];
+    const period = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
-    // Base rent
+    // Fixed charges from lease rules
     if (lease.monthly_rental) {
-      const vat = Math.round(lease.monthly_rental * vatRate * 100) / 100;
       charges.push({
         description: 'Base Rent',
         amount: lease.monthly_rental,
-        vat_applicable: isCommercial,
-        vat_amount: vat,
-        total: lease.monthly_rental + vat,
+        source: 'Lease Rule',
+        category: 'rent',
+        status: 'projected_fixed',
+        confidence: 'Confirmed',
+        billing_period: period,
       });
     }
 
-    // Parking
     if (lease.parking_bays && lease.parking_rate) {
-      const parkingTotal = lease.parking_bays * lease.parking_rate;
-      const vat = Math.round(parkingTotal * vatRate * 100) / 100;
       charges.push({
         description: `Parking (${lease.parking_bays} bays)`,
-        amount: parkingTotal,
-        vat_applicable: isCommercial,
-        vat_amount: vat,
-        total: parkingTotal + vat,
+        amount: lease.parking_bays * lease.parking_rate,
+        source: 'Lease Rule',
+        category: 'parking',
+        status: 'projected_fixed',
+        confidence: 'Confirmed',
+        billing_period: period,
       });
     }
 
-    // Recoveries — sourced from recovery engine, not lease
+    // Variable charges — pending billing run
     const { data: recoveries } = await supabase
       .from('recoveries')
       .select('recovery_category, budgeted_amount')
@@ -59,13 +59,27 @@ export const chargePreviewService = {
       .eq('status', 'budgeted');
 
     for (const r of (recoveries || [])) {
-      const vat = Math.round(r.budgeted_amount * vatRate * 100) / 100;
       charges.push({
         description: r.recovery_category.replace(/_/g, ' '),
         amount: r.budgeted_amount,
-        vat_applicable: isCommercial,
-        vat_amount: vat,
-        total: r.budgeted_amount + vat,
+        source: 'Recovery Engine',
+        category: 'recovery',
+        status: 'projected_variable',
+        confidence: 'Estimate',
+        billing_period: period,
+      });
+    }
+
+    // Add utility placeholder if no recoveries exist yet
+    if (!recoveries?.length) {
+      charges.push({
+        description: 'Utilities',
+        amount: 0,
+        source: 'Utility Billing',
+        category: 'utilities',
+        status: 'pending',
+        confidence: 'Awaiting meter reading',
+        billing_period: period,
       });
     }
 
