@@ -134,7 +134,7 @@ export class PostingEngine {
       if (insertErr) { logger.error('Journal insert failed', { error: insertErr }); throw new Error(insertErr.message); }
 
       for (const line of journal.lines!) {
-        await supabase.from('journal_lines').insert({
+        const { error: lineErr } = await supabase.from('journal_lines').insert({
           id: line.id, journal_id: line.journal_id, account_id: line.account_id,
           description: line.description, debit_amount: line.debit_amount,
           credit_amount: line.credit_amount, vat_amount: line.vat_amount,
@@ -143,6 +143,8 @@ export class PostingEngine {
           lease_id: line.lease_id, tenant_id: line.tenant_id,
           supplier_id: line.supplier_id, broker_id: line.broker_id,
           cost_centre: line.cost_centre, created_at: line.created_at,
+      });
+      if (lineErr) { logger.error('Journal line insert failed', { error: lineErr, line }); throw new Error(lineErr.message); }
         });
 
         await supabase.from('general_ledger').insert({
