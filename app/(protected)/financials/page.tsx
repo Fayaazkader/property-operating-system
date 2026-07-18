@@ -96,7 +96,7 @@ export default function FinancialWorkspacePage() {
 
       <div className="flex-1 p-8 overflow-y-auto">
         <div className="flex items-center gap-3 mb-8">
-          <select value={periodId} onChange={(e) => setPeriodId(e.target.value)} className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-sm text-white outline-none">
+          <select value={periodId} onChange={(e) => setPeriodId(e.target.value)} className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none">
             {periods.length === 0 && <option value="">No periods</option>}
             {periods.map(p => (<option key={p.id} value={p.id}>{p.period_name} — {p.status}</option>))}
           </select>
