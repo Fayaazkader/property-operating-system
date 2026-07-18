@@ -145,7 +145,6 @@ export class PostingEngine {
           cost_centre: line.cost_centre, created_at: line.created_at,
       });
       if (lineErr) { logger.error('Journal line insert failed', { error: lineErr, line }); throw new Error(lineErr.message); }
-        });
 
         await supabase.from('general_ledger').insert({
           id: crypto.randomUUID(), entity_id: journal.entity_id,
