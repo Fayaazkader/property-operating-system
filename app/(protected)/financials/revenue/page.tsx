@@ -137,7 +137,7 @@ export default function RevenueOperationsPage() {
         setSendProgress({ current: i + 1, total: ready.length, stage: 'Generating invoices...' });
         const leaseAmount = t.charges.filter(c => c.source === 'lease').reduce((s, c) => s + c.amount, 0);
         if (leaseAmount > 0) {
-          await postingEngine.post({ source_engine: 'revenue', business_event: 'rental_invoice_raised', entity_id: entityId, amount: leaseAmount, period_id: finPeriodId, occurred_at: new Date().toISOString(), effective_date: new Date().toISOString().split('T')[0], dimensions: { tenant_id: t.tenantId, lease_id: t.leaseRef }, metadata: { source_id: `INV-${currentPeriod}-${t.tenantName}`, created_by: 'system' } });
+          await postingEngine.post({ source_engine: 'revenue', business_event: 'rental_invoice_raised', entity_id: entityId, amount: leaseAmount, period_id: finPeriodId, occurred_at: new Date().toISOString(), effective_date: new Date().toISOString().split('T')[0], dimensions: { tenant_id: t.tenantId, lease_id: t.leaseId }, metadata: { source_id: `INV-${currentPeriod}-${t.tenantName}`, created_by: 'system' } });
         }
         setSendProgress({ current: i + 1, total: ready.length, stage: 'Sending communications...' });
         await triggerCommunication({ tenant_id: t.tenantId, event_type: 'statement_available', source_type: 'statement', source_id: `INV-${currentPeriod}`, merge_data: { period: currentPeriod } });

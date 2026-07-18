@@ -27,6 +27,7 @@ export interface BillingTenant {
   tenantId: string;
   tenantName: string;
   propertyName: string;
+  leaseId: string;
   leaseRef: string;
   charges: BillingCharge[];
   documents: BillingDocument[];
@@ -114,7 +115,8 @@ export const billingAssembly = {
       (propertyDocs || []).forEach(d => docs.push({ name: d.file_name, level: 'property', url: d.file_url, type: 'property_document' }));
 
       const total = charges.reduce((s, c) => s + c.total, 0);
-      tenants.push({ tenantId: lease.tenant_id, tenantName: lease.tenant_name, propertyName: lease.property_name, leaseRef: lease.lease_id, charges, documents: docs, warnings, total, ready: warnings.length === 0 });
+      tenants.push({ tenantId: lease.tenant_id, tenantName: lease.tenant_name, propertyName: lease.property_name, leaseId: lease.id,
+      leaseRef: lease.lease_id, charges, documents: docs, warnings, total, ready: warnings.length === 0 });
     }
 
     return { propertyName, tenants, totalCharges: tenants.reduce((s, t) => s + t.total, 0), readyCount: tenants.filter(t => t.ready).length, warningCount: tenants.filter(t => !t.ready).length };
