@@ -36,14 +36,12 @@ export default function RevenueOperationsPage() {
   const [sendProgress, setSendProgress] = useState({ current: 0, total: 0, stage: '' });
   const [sendResult, setSendResult] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
   const [searchType, setSearchType] = useState<'entity' | 'property' | 'tenant'>('entity');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedSearchId, setSelectedSearchId] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-
   const [chargeTenant, setChargeTenant] = useState('');
   const [chargeDescription, setChargeDescription] = useState('');
   const [chargeAmount, setChargeAmount] = useState('');
@@ -51,18 +49,19 @@ export default function RevenueOperationsPage() {
   const [chargeGlCode, setChargeGlCode] = useState('');
   const [chargeSearchQuery, setChargeSearchQuery] = useState('');
   const [chargeResults, setChargeResults] = useState<any[]>([]);
-
   const [docScope, setDocScope] = useState<'entity' | 'property' | 'tenant'>('entity');
   const [docMessage, setDocMessage] = useState('');
   const [docPropertyId, setDocPropertyId] = useState('');
+  const [docTenantSearch, setDocTenantSearch] = useState('');
+  const [docTenantResults, setDocTenantResults] = useState<any[]>([]);
   const [docTenantId, setDocTenantId] = useState('');
 
   useEffect(() => {
     async function init() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setPreviewLoading(true); return; }
+      if (!session) { setLoading(false); return; }
       const { data: entities } = await supabase.rpc('auth_entities');
-      if (!entities?.length) { setPreviewLoading(true); return; }
+      if (!entities?.length) { setLoading(false); return; }
       const eid = entities[0];
       setEntityId(eid);
       const { data: period } = await supabase.from('financial_periods').select('id, period_name, status').eq('entity_id', eid).eq('period_type', 'statement').eq('status', 'open').order('period_start').limit(1).single();
@@ -77,17 +76,19 @@ export default function RevenueOperationsPage() {
       setActiveTenancies(count || 0);
       const { data: leases } = await supabase.from('leases').select('monthly_rental').eq('lease_status', 'Active').eq('owner_entity_id', eid);
       setExpectedRevenue((leases || []).reduce((s: number, l: any) => s + (l.monthly_rental || 0), 0));
-      const snaps = await billingAssembly.getSnapshots(eid);
-      setSnapshots(snaps);
-      if (snaps.length > 0) setLastBilling(new Date(snaps[0].generated_at).toLocaleString());
-      setPreviewLoading(true);
+      await refreshHistory(eid);
+      setLoading(false);
     }
     init();
   }, []);
 
-  // Live preview — fires immediately when search result selected
+  async function refreshHistory(eid: string) {
+    const snaps = await billingAssembly.getSnapshots(eid);
+    setSnapshots(snaps);
+    if (snaps.length > 0) setLastBilling(new Date(snaps[0].generated_at).toLocaleString());
+  }
+
   async function loadPreview(propId?: string, tenantId?: string) {
-    setBillingTenants([]);
     setPreviewLoading(true);
     try {
       const worksheet = await billingAssembly.assembleWorksheet(entityId, propId || undefined);
@@ -95,7 +96,7 @@ export default function RevenueOperationsPage() {
       if (tenantId) tenants = tenants.filter(t => t.tenantId === tenantId);
       setBillingTenants(tenants);
     } catch (err) { console.error(err); }
-    setPreviewLoading(true);
+    setPreviewLoading(false);
   }
 
   function handleSearchChange(q: string) {
@@ -115,7 +116,6 @@ export default function RevenueOperationsPage() {
     setSearchQuery(name);
     setShowSearchResults(false);
     setHasSearched(true);
-    // Load preview immediately
     if (searchType === 'property') loadPreview(id);
     else if (searchType === 'tenant') loadPreview(undefined, id);
     else loadPreview();
@@ -144,13 +144,11 @@ export default function RevenueOperationsPage() {
         delivered++;
       } catch (err) { console.error('Send failed', t.tenantName, err); failed++; }
     }
-    try {
-      await billingAssembly.saveSnapshot({ entityId, period: currentPeriod, propertyId: searchType === 'property' ? selectedSearchId : '', propertyName: billingTenants[0]?.propertyName || '', tenantCount: ready.length, invoicesGenerated: delivered, statementsGenerated: delivered, emailsDelivered: delivered, whatsappDelivered: Math.floor(delivered * 0.8), failed });
-    } catch (e) { console.error('Snapshot save failed:', e); }
+    try { await billingAssembly.saveSnapshot({ entityId, period: currentPeriod, propertyId: searchType === 'property' ? selectedSearchId : '', propertyName: billingTenants[0]?.propertyName || '', tenantCount: ready.length, invoicesGenerated: delivered, statementsGenerated: delivered, emailsDelivered: delivered, whatsappDelivered: Math.floor(delivered * 0.8), failed }); } catch (e) { console.error('Snapshot save failed:', e); }
     setSendResult({ delivered, failed, total: ready.length });
     setSending(false);
     setLastBilling(new Date().toLocaleString());
-    try { const snaps = await billingAssembly.getSnapshots(entityId); setSnapshots(snaps); } catch (e) {}
+    await refreshHistory(entityId);
     logAudit({ action: 'create', resource_type: 'billing', resource_label: `Billing sent for ${currentPeriod}`, new_values: { period: currentPeriod, delivered, failed } });
     trackEvent(AnalyticsEvents.STATEMENT_GENERATED, 'revenue', { count: delivered, failed });
   }
@@ -163,6 +161,8 @@ export default function RevenueOperationsPage() {
 
   function handleChargeSearch(q: string) { setChargeSearchQuery(q); if (!q) { setChargeResults([]); return; } setChargeResults(tenants.filter(t => t.tenant_name.toLowerCase().includes(q.toLowerCase())).slice(0, 10)); }
 
+  function handleDocTenantSearch(q: string) { setDocTenantSearch(q); if (!q) { setDocTenantResults([]); return; } setDocTenantResults(tenants.filter(t => t.tenant_name.toLowerCase().includes(q.toLowerCase())).slice(0, 10)); }
+
   async function handleDocumentSend() {
     if (!docMessage) return;
     let targetIds: string[] = [];
@@ -170,7 +170,7 @@ export default function RevenueOperationsPage() {
     else if (docScope === 'property' && docPropertyId) { const { data: leases } = await supabase.from('leases').select('tenant_id').eq('property_id', docPropertyId).eq('lease_status', 'Active'); targetIds = [...new Set((leases || []).map(l => l.tenant_id))]; }
     else if (docScope === 'tenant' && docTenantId) targetIds = [docTenantId];
     for (const tid of targetIds) { await triggerCommunication({ tenant_id: tid, event_type: 'notice', source_type: 'document', source_id: `DOC-${Date.now()}`, merge_data: { message: docMessage } }); }
-    setShowDocuments(false); setDocMessage('');
+    setShowDocuments(false); setDocMessage(''); setDocTenantId('');
   }
 
   if (loading) return <div className="p-8 text-zinc-500 font-light">Loading...</div>;
@@ -213,8 +213,9 @@ export default function RevenueOperationsPage() {
           </div>
         </div>
 
-        {/* LIVE PREVIEW SUMMARY */}
-        {hasSearched && billingTenants.length > 0 && (
+        {/* LIVE PREVIEW — only this area shows loading */}
+        {previewLoading && <p className="text-xs text-zinc-500 py-2">Loading preview...</p>}
+        {!previewLoading && hasSearched && billingTenants.length > 0 && (
           <div className="border-t border-white/[0.06] pt-4">
             <div className="flex items-center justify-between mb-3"><p className="text-xs text-zinc-400">{billingTenants.length} tenants · R{totalPreviewAmount.toLocaleString()} total</p></div>
             <table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06]"><th className="text-left py-2 text-[10px] font-medium text-zinc-500 uppercase">Tenant</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Rent</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Utils</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Manual</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-10">Docs</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-16">Status</th><th className="text-right py-2 text-[10px] font-medium text-zinc-500 uppercase w-28">Total</th></tr></thead>
@@ -222,7 +223,7 @@ export default function RevenueOperationsPage() {
             <button onClick={handleSendBilling} disabled={billingTenants.filter(t => t.ready).length === 0} className="mt-4 w-full rounded-lg bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40 transition-all">Send Billing ({billingTenants.filter(t => t.ready).length} ready)</button>
           </div>
         )}
-        {hasSearched && billingTenants.length === 0 && <p className="text-xs text-zinc-500 py-4 text-center">No tenants found. Try a different search.</p>}
+        {!previewLoading && hasSearched && billingTenants.length === 0 && <p className="text-xs text-zinc-500 py-4 text-center">No tenants found. Try a different search.</p>}
       </div>
 
       {/* DETAIL MODAL */}
@@ -236,10 +237,7 @@ export default function RevenueOperationsPage() {
                 <button onClick={() => setShowDetailModal(false)} className="text-zinc-500 hover:text-white">Close ✕</button>
               </div>
               <div className="p-6 space-y-4">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Charges</p>
-                  {selectedTenantDetail.charges.map((c, i) => (<div key={i} className="flex justify-between py-1.5 border-b border-white/[0.03] text-xs"><span className="text-zinc-300">{c.description} <span className="text-zinc-600">({c.source})</span></span><span className="text-white tabular-nums">R{c.total.toLocaleString()}</span></div>))}
-                </div>
+                <div><p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Charges</p>{selectedTenantDetail.charges.map((c, i) => (<div key={i} className="flex justify-between py-1.5 border-b border-white/[0.03] text-xs"><span className="text-zinc-300">{c.description} <span className="text-zinc-600">({c.source})</span></span><span className="text-white tabular-nums">R{c.total.toLocaleString()}</span></div>))}</div>
                 {selectedTenantDetail.documents.length > 0 && (<div><p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Documents</p>{selectedTenantDetail.documents.map((d, i) => (<p key={i} className="text-xs text-zinc-400 py-0.5">📄 {d.name} <span className="text-zinc-600">({d.level})</span></p>))}</div>)}
                 {selectedTenantDetail.warnings.length > 0 && (<div className="text-xs text-amber-400">{selectedTenantDetail.warnings.map((w, i) => <p key={i}>⚠ {w}</p>)}</div>)}
                 <div className="flex justify-between pt-3 border-t border-white/[0.06] text-sm font-medium"><span className="text-white">Total</span><span className="text-white tabular-nums">R{selectedTenantDetail.total.toLocaleString()}</span></div>
@@ -259,10 +257,15 @@ export default function RevenueOperationsPage() {
         {snapshots.length === 0 ? <p className="text-xs text-zinc-500">No billing runs yet.</p> : snapshots.slice(0, 3).map(s => (<div key={s.id} className="flex items-center justify-between py-2 border-b border-white/[0.03] last:border-0 text-xs"><span className="text-white font-light">{s.period}</span><span className="text-zinc-500">{new Date(s.generated_at).toLocaleString()}</span><span className="text-zinc-500">{s.tenantCount} tenants · {s.invoicesGenerated} invoices</span></div>))}
       </div>
 
-      {/* MODALS */}
+      {/* MANUAL CHARGE MODAL */}
       {showManualCharge && <Modal title="Manual Charge" onClose={() => setShowManualCharge(false)}><div className="space-y-3"><input value={chargeSearchQuery} onChange={(e) => handleChargeSearch(e.target.value)} placeholder="Search tenant..." className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" />{chargeResults.length > 0 && <div className="max-h-40 overflow-y-auto space-y-1">{chargeResults.map(t => (<button key={t.id} onClick={() => setChargeTenant(t.id)} className={`w-full text-left px-3 py-1.5 rounded text-xs ${chargeTenant === t.id ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white'}`}>{t.tenant_name}</button>))}</div>}<input value={chargeDescription} onChange={(e) => setChargeDescription(e.target.value)} placeholder="Description" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /><div className="flex gap-3"><input value={chargeAmount} onChange={(e) => setChargeAmount(e.target.value)} placeholder="Amount (excl VAT)" type="number" className="flex-1 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /><input value={chargeVat} onChange={(e) => setChargeVat(e.target.value)} placeholder="VAT %" type="number" className="w-20 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /></div><input value={chargeGlCode} onChange={(e) => setChargeGlCode(e.target.value)} placeholder="GL Code" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /><div className="flex gap-3"><button onClick={handleManualCharge} className="flex-1 rounded-lg bg-white py-2.5 text-sm font-medium text-black hover:bg-gray-100">POST</button><button className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm text-white hover:border-white/20">Save Draft</button></div></div></Modal>}
 
-      {showDocuments && <Modal title="Documents" onClose={() => setShowDocuments(false)}><div className="space-y-3"><div className="grid grid-cols-3 gap-2">{(['entity', 'property', 'tenant'] as const).map(scope => (<button key={scope} onClick={() => setDocScope(scope)} className={`rounded-lg border p-2 text-xs transition-all ${docScope === scope ? 'border-white/30 bg-white/[0.05] text-white' : 'border-white/[0.08] text-zinc-500 hover:border-white/20'}`}>{scope === 'entity' ? 'Entity' : scope === 'property' ? 'Property' : 'Tenant'}</button>))}</div>{docScope === 'property' && <select value={docPropertyId} onChange={(e) => setDocPropertyId(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none"><option value="">Select property...</option>{properties.map(p => (<option key={p.id} value={p.id}>{p.property_name}</option>))}</select>}<textarea value={docMessage} onChange={(e) => setDocMessage(e.target.value)} placeholder="Message..." rows={3} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /><button onClick={handleDocumentSend} className="w-full rounded-lg bg-white py-2.5 text-sm font-medium text-black hover:bg-gray-100">Send</button></div></Modal>}
+      {/* DOCUMENTS MODAL */}
+      {showDocuments && <Modal title="Documents" onClose={() => setShowDocuments(false)}><div className="space-y-3"><div className="grid grid-cols-3 gap-2">{(['entity', 'property', 'tenant'] as const).map(scope => (<button key={scope} onClick={() => { setDocScope(scope); setDocTenantId(''); setDocTenantSearch(''); }} className={`rounded-lg border p-2 text-xs transition-all ${docScope === scope ? 'border-white/30 bg-white/[0.05] text-white' : 'border-white/[0.08] text-zinc-500 hover:border-white/20'}`}>{scope === 'entity' ? 'Entity' : scope === 'property' ? 'Property' : 'Tenant'}</button>))}</div>
+      {docScope === 'entity' && <p className="text-xs text-zinc-500 py-2">This will send to ALL tenants in your entity ({tenants.length} tenants).</p>}
+      {docScope === 'property' && <select value={docPropertyId} onChange={(e) => setDocPropertyId(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none"><option value="">Select property...</option>{properties.map(p => (<option key={p.id} value={p.id}>{p.property_name}</option>))}</select>}
+      {docScope === 'tenant' && (<div><input value={docTenantSearch} onChange={(e) => handleDocTenantSearch(e.target.value)} placeholder="Search tenant..." className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" />{docTenantResults.length > 0 && <div className="max-h-32 overflow-y-auto space-y-1 mt-1">{docTenantResults.map(t => (<button key={t.id} onClick={() => { setDocTenantId(t.id); setDocTenantSearch(t.tenant_name); setDocTenantResults([]); }} className="w-full text-left px-3 py-1.5 rounded text-xs text-zinc-400 hover:bg-white/[0.05] hover:text-white">{t.tenant_name}</button>))}</div>}</div>)}
+      <textarea value={docMessage} onChange={(e) => setDocMessage(e.target.value)} placeholder="Message..." rows={3} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /><button onClick={handleDocumentSend} className="w-full rounded-lg bg-white py-2.5 text-sm font-medium text-black hover:bg-gray-100">Send</button></div></Modal>}
 
       {showSnapshots && <Modal title="Billing History" onClose={() => setShowSnapshots(false)}><div className="space-y-2 max-h-80 overflow-y-auto">{snapshots.map(s => (<div key={s.id} className="rounded-lg border border-white/[0.06] bg-white/[0.01] p-3 text-xs"><div className="flex justify-between"><span className="text-white font-medium">{s.period}</span><span className="text-zinc-500">{new Date(s.generated_at).toLocaleString()}</span></div><div className="flex gap-4 mt-1 text-zinc-400"><span>{s.propertyName}</span><span>{s.tenantCount} tenants</span><span>{s.invoicesGenerated} invoices</span></div></div>))}</div></Modal>}
     </div>
