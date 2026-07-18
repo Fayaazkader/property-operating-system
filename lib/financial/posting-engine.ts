@@ -122,7 +122,7 @@ export class PostingEngine {
     // ATOMIC POSTING — Single transaction
     // ═══════════════════════════════════════
     try {
-      await supabase.from('journals').insert({
+      const { error: insertErr } = await supabase.from('journals').insert({
         id: journal.id, entity_id: journal.entity_id, journal_number: journal.journal_number,
         journal_type: journal.journal_type, description: journal.description,
         period_id: journal.period_id, source_event: journal.source_event,
@@ -130,6 +130,8 @@ export class PostingEngine {
         template_id: journal.template_id, template_version: journal.template_version,
         is_posted: true, posted_at: new Date().toISOString(),
         explanation, created_by: journal.created_by, created_at: journal.created_at,
+      });
+      if (insertErr) { logger.error('Journal insert failed', { error: insertErr }); throw new Error(insertErr.message); }
       });
 
       for (const line of journal.lines!) {
