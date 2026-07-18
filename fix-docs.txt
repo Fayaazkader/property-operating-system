@@ -1,0 +1,5 @@
+Replace the documents modal section with this:
+
+{docScope === 'entity' && <p className="text-xs text-zinc-500">This will send to ALL tenants in your entity.</p>}
+{docScope === 'property' && <select...>}
+{docScope === 'tenant' && <input placeholder="Search tenant..."...>}

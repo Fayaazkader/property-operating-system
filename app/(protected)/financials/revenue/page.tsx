@@ -31,6 +31,7 @@ export default function RevenueOperationsPage() {
   const [showManualCharge, setShowManualCharge] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendProgress, setSendProgress] = useState({ current: 0, total: 0, stage: '' });
   const [sendResult, setSendResult] = useState<any>(null);
@@ -59,9 +60,9 @@ export default function RevenueOperationsPage() {
   useEffect(() => {
     async function init() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setLoading(false); return; }
+      if (!session) { setPreviewLoading(true); return; }
       const { data: entities } = await supabase.rpc('auth_entities');
-      if (!entities?.length) { setLoading(false); return; }
+      if (!entities?.length) { setPreviewLoading(true); return; }
       const eid = entities[0];
       setEntityId(eid);
       const { data: period } = await supabase.from('financial_periods').select('id, period_name, status').eq('entity_id', eid).eq('period_type', 'statement').eq('status', 'open').order('period_start').limit(1).single();
@@ -79,21 +80,22 @@ export default function RevenueOperationsPage() {
       const snaps = await billingAssembly.getSnapshots(eid);
       setSnapshots(snaps);
       if (snaps.length > 0) setLastBilling(new Date(snaps[0].generated_at).toLocaleString());
-      setLoading(false);
+      setPreviewLoading(true);
     }
     init();
   }, []);
 
   // Live preview — fires immediately when search result selected
   async function loadPreview(propId?: string, tenantId?: string) {
-    setLoading(true);
+    setBillingTenants([]);
+    setPreviewLoading(true);
     try {
       const worksheet = await billingAssembly.assembleWorksheet(entityId, propId || undefined);
       let tenants = worksheet.tenants;
       if (tenantId) tenants = tenants.filter(t => t.tenantId === tenantId);
       setBillingTenants(tenants);
     } catch (err) { console.error(err); }
-    setLoading(false);
+    setPreviewLoading(true);
   }
 
   function handleSearchChange(q: string) {
