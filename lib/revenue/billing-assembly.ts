@@ -119,7 +119,7 @@ export const billingAssembly = {
       leaseRef: lease.lease_id, charges, documents: docs, warnings, total, ready: warnings.length === 0 });
     }
 
-    return { property_name: propertyName, totalCharges: tenants.reduce((s, t) => s + t.total, 0), readyCount: tenants.filter(t => t.ready).length, warningCount: tenants.filter(t => !t.ready).length };
+    return { property_name: propertyName, tenants, totalCharges: tenants.reduce((s, t) => s + t.total, 0), readyCount: tenants.filter(t => t.ready).length, warningCount: tenants.filter(t => !t.ready).length };
   },
 
   async saveSnapshot(params: { entity_id: string; period: string; property_id: string; property_name: string; tenant_count: number; invoices_generated: number; statements_generated: number; emails_delivered: number; whatsapp_delivered: number; failed: number }): Promise<void> {
