@@ -75,10 +75,10 @@ export default function RevenueOperationsPage() {
         const missing = ids.filter(id => !leasesWithRules.has(id));
         if (missing.length > 0) items.push({ type: 'missing_rules', count: missing.length, label: 'Missing Billing Rules', action: 'Review' });
       }
-      const { data: drafts } = await supabase.from('manual_charges').select('id', { count: 'exact', head: true }).eq('entity_id', eid).eq('status', 'draft');
-      if ((drafts || 0) > 0) items.push({ type: 'draft_charges', count: drafts as number, label: 'Draft Manual Charges', action: 'Review' });
-      const { data: interestDrafts } = await supabase.from('interest_charges').select('id', { count: 'exact', head: true }).eq('entity_id', eid).eq('status', 'draft');
-      if ((interestDrafts || 0) > 0) items.push({ type: 'interest', count: interestDrafts as number, label: 'Interest Charges Ready', action: 'Approve' });
+      const { count: draftCount } = await supabase.from('manual_charges').select('id', { count: 'exact', head: true }).eq('entity_id', eid).eq('status', 'draft');
+      if ((draftCount || 0) > 0) items.push({ type: 'draft_charges', count: draftCount || 0, label: 'Draft Manual Charges', action: 'Review' });
+      const { count: interestDraftCount } = await supabase.from('interest_charges').select('id', { count: 'exact', head: true }).eq('entity_id', eid).eq('status', 'draft');
+      if ((interestDraftCount || 0) > 0) items.push({ type: 'interest', count: interestDraftCount || 0, label: 'Interest Charges Ready', action: 'Approve' });
       setAttentionItems(items);
       setReadinessScore(items.filter(i => i.type === 'missing_rules').length > 0 ? 'red' : items.length > 0 ? 'yellow' : 'green');
       const snaps = await billingAssembly.getSnapshots(eid);

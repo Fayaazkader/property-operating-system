@@ -49,7 +49,7 @@ export interface BillingSnapshot {
   propertyId: string;
   propertyName: string;
   tenantCount: number;
-  generatedAt: string;
+  generated_at: string;
   invoicesGenerated: number;
   statementsGenerated: number;
   emailsDelivered: number;
