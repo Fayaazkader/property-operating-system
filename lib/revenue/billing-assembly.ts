@@ -59,7 +59,7 @@ export interface BillingSnapshot {
 
 export const billingAssembly = {
   async assembleWorksheet(entityId: string, propertyId?: string): Promise<BillingWorksheet> {
-    let query = supabase.from('leases').select('id, tenant_id, tenant_name, property_name, lease_id').eq('lease_status', 'Active').eq('owner_entity_id', entityId);
+    let query = supabase.from('leases').select('id, tenant_id, tenant_name, property_name, lease_id, property_id').eq('lease_status', 'Active').eq('owner_entity_id', entityId);
     if (propertyId) query = query.eq('property_id', propertyId);
     const { data: leaseList } = await query;
 
