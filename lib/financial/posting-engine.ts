@@ -132,7 +132,6 @@ export class PostingEngine {
         explanation, created_by: journal.created_by, created_at: journal.created_at,
       });
       if (insertErr) { logger.error('Journal insert failed', { error: insertErr }); throw new Error(insertErr.message); }
-      });
 
       for (const line of journal.lines!) {
         await supabase.from('journal_lines').insert({
