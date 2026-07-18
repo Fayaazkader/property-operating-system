@@ -26,7 +26,8 @@ export default function RevenueOperationsPage() {
   const [properties, setProperties] = useState<any[]>([]);
   const [tenants, setTenants] = useState<any[]>([]);
   const [snapshots, setSnapshots] = useState<BillingSnapshot[]>([]);
-  const [showPreview, setShowPreview] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedTenantDetail, setSelectedTenantDetail] = useState<BillingTenant | null>(null);
   const [showManualCharge, setShowManualCharge] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
@@ -35,14 +36,13 @@ export default function RevenueOperationsPage() {
   const [sendResult, setSendResult] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Search
   const [searchType, setSearchType] = useState<'entity' | 'property' | 'tenant'>('entity');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedSearchId, setSelectedSearchId] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
-  // Manual charge
   const [chargeTenant, setChargeTenant] = useState('');
   const [chargeDescription, setChargeDescription] = useState('');
   const [chargeAmount, setChargeAmount] = useState('');
@@ -51,7 +51,6 @@ export default function RevenueOperationsPage() {
   const [chargeSearchQuery, setChargeSearchQuery] = useState('');
   const [chargeResults, setChargeResults] = useState<any[]>([]);
 
-  // Documents
   const [docScope, setDocScope] = useState<'entity' | 'property' | 'tenant'>('entity');
   const [docMessage, setDocMessage] = useState('');
   const [docPropertyId, setDocPropertyId] = useState('');
@@ -77,17 +76,6 @@ export default function RevenueOperationsPage() {
       setActiveTenancies(count || 0);
       const { data: leases } = await supabase.from('leases').select('monthly_rental').eq('lease_status', 'Active').eq('owner_entity_id', eid);
       setExpectedRevenue((leases || []).reduce((s: number, l: any) => s + (l.monthly_rental || 0), 0));
-      const items: AttentionItem[] = [];
-      const { data: leaseIds } = await supabase.from('leases').select('id').eq('lease_status', 'Active').eq('owner_entity_id', eid);
-      const ids = (leaseIds || []).map((l: any) => l.id);
-      if (ids.length > 0) {
-        const { data: rules } = await supabase.from('billing_rules').select('lease_id').in('lease_id', ids).eq('status', 'active');
-        const leasesWithRules = new Set((rules || []).map((r: any) => r.lease_id));
-        const missing = ids.filter(id => !leasesWithRules.has(id));
-        if (missing.length > 0) items.push({ type: 'missing_rules', count: missing.length, label: 'Missing Billing Rules', action: 'Review' });
-      }
-      setAttentionItems(items);
-      setReadinessScore(items.length > 0 ? 'yellow' : 'green');
       const snaps = await billingAssembly.getSnapshots(eid);
       setSnapshots(snaps);
       if (snaps.length > 0) setLastBilling(new Date(snaps[0].generated_at).toLocaleString());
@@ -96,13 +84,24 @@ export default function RevenueOperationsPage() {
     init();
   }, []);
 
-  // Smart search as you type
+  // Live preview — fires immediately when search result selected
+  async function loadPreview(propId?: string, tenantId?: string) {
+    setLoading(true);
+    try {
+      const worksheet = await billingAssembly.assembleWorksheet(entityId, propId || undefined);
+      let tenants = worksheet.tenants;
+      if (tenantId) tenants = tenants.filter(t => t.tenantId === tenantId);
+      setBillingTenants(tenants);
+    } catch (err) { console.error(err); }
+    setLoading(false);
+  }
+
   function handleSearchChange(q: string) {
     setSearchQuery(q);
     if (!q || q.length < 1) { setSearchResults([]); setShowSearchResults(false); return; }
     const lower = q.toLowerCase();
     let results: any[] = [];
-    if (searchType === 'entity') results = [{ id: entityId, name: 'Current Entity' }].filter(e => e.name.toLowerCase().includes(lower));
+    if (searchType === 'entity') results = [{ id: entityId, name: 'All' }].filter(e => e.name.toLowerCase().includes(lower));
     else if (searchType === 'property') results = properties.filter(p => p.property_name.toLowerCase().includes(lower));
     else results = tenants.filter(t => t.tenant_name.toLowerCase().includes(lower));
     setSearchResults(results.slice(0, 10));
@@ -113,22 +112,16 @@ export default function RevenueOperationsPage() {
     setSelectedSearchId(id);
     setSearchQuery(name);
     setShowSearchResults(false);
+    setHasSearched(true);
+    // Load preview immediately
+    if (searchType === 'property') loadPreview(id);
+    else if (searchType === 'tenant') loadPreview(undefined, id);
+    else loadPreview();
   }
 
-  async function handlePreview() {
-    setShowPreview(true);
-    setLoading(true);
-    try {
-      let propId = '';
-      if (searchType === 'property' && selectedSearchId) propId = selectedSearchId;
-      const worksheet = await billingAssembly.assembleWorksheet(entityId, propId || undefined);
-      let tenants = worksheet.tenants;
-      if (searchType === 'tenant' && selectedSearchId) {
-        tenants = tenants.filter(t => t.tenantId === selectedSearchId);
-      }
-      setBillingTenants(tenants);
-    } catch (err) { console.error(err); }
-    setLoading(false);
+  function openDetailModal(tenant: BillingTenant) {
+    setSelectedTenantDetail(tenant);
+    setShowDetailModal(true);
   }
 
   async function handleSendBilling() {
@@ -149,11 +142,13 @@ export default function RevenueOperationsPage() {
         delivered++;
       } catch (err) { console.error('Send failed', t.tenantName, err); failed++; }
     }
-    await billingAssembly.saveSnapshot({ entityId, period: currentPeriod, propertyId: searchType === 'property' ? selectedSearchId : '', propertyName: billingTenants[0]?.propertyName || '', tenantCount: ready.length, invoicesGenerated: delivered, statementsGenerated: delivered, emailsDelivered: delivered, whatsappDelivered: Math.floor(delivered * 0.8), failed });
+    try {
+      await billingAssembly.saveSnapshot({ entityId, period: currentPeriod, propertyId: searchType === 'property' ? selectedSearchId : '', propertyName: billingTenants[0]?.propertyName || '', tenantCount: ready.length, invoicesGenerated: delivered, statementsGenerated: delivered, emailsDelivered: delivered, whatsappDelivered: Math.floor(delivered * 0.8), failed });
+    } catch (e) { console.error('Snapshot save failed:', e); }
     setSendResult({ delivered, failed, total: ready.length });
     setSending(false);
     setLastBilling(new Date().toLocaleString());
-    const snaps = await billingAssembly.getSnapshots(entityId); setSnapshots(snaps);
+    try { const snaps = await billingAssembly.getSnapshots(entityId); setSnapshots(snaps); } catch (e) {}
     logAudit({ action: 'create', resource_type: 'billing', resource_label: `Billing sent for ${currentPeriod}`, new_values: { period: currentPeriod, delivered, failed } });
     trackEvent(AnalyticsEvents.STATEMENT_GENERATED, 'revenue', { count: delivered, failed });
   }
@@ -182,95 +177,83 @@ export default function RevenueOperationsPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
-      {/* HEADER */}
       <div>
         <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 mb-1">Revenue Operations</p>
         <h1 className="text-2xl font-light tracking-[-0.02em] text-white">Billing Control Centre</h1>
         <div className="flex items-center gap-4 mt-3 text-xs">
-          <span className="text-zinc-400">Billing Period: <span className="text-white font-medium">{currentPeriod || '—'}</span></span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] ${periodStatus === 'open' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>Statement {periodStatus?.toUpperCase() || '—'}</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] ${finPeriodStatus === 'open' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>Financial {finPeriodStatus?.toUpperCase() || '—'}</span>
+          <span className="text-zinc-400">Period: <span className="text-white font-medium">{currentPeriod || '—'}</span></span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] ${periodStatus === 'open' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>Stmt {periodStatus?.toUpperCase() || '—'}</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] ${finPeriodStatus === 'open' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>Fin {finPeriodStatus?.toUpperCase() || '—'}</span>
         </div>
       </div>
 
-      {/* READINESS */}
-      <div className={`rounded-xl border p-5 ${readinessScore === 'green' ? 'border-emerald-500/20 bg-emerald-500/5' : readinessScore === 'yellow' ? 'border-amber-500/20 bg-amber-500/5' : 'border-red-500/20 bg-red-500/5'}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4"><div className={`w-3 h-3 rounded-full ${readinessScore === 'green' ? 'bg-emerald-400' : readinessScore === 'yellow' ? 'bg-amber-400' : 'bg-red-400'}`} /><div><p className="text-sm font-medium text-white">{readinessScore === 'green' ? 'Ready to Bill' : readinessScore === 'yellow' ? 'Ready with Warnings' : 'Billing Blocked'}</p><p className="text-xs text-zinc-400 mt-0.5">{activeTenancies} Active Tenancies · R{(expectedRevenue / 1000).toFixed(0)}k Expected Revenue</p></div></div>
-          {lastBilling && <p className="text-xs text-zinc-500">Last: {lastBilling}</p>}
-        </div>
+      <div className={`rounded-xl border p-5 ${readinessScore === 'green' ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-amber-500/20 bg-amber-500/5'}`}>
+        <div className="flex items-center justify-between"><div className="flex items-center gap-4"><div className={`w-3 h-3 rounded-full ${readinessScore === 'green' ? 'bg-emerald-400' : 'bg-amber-400'}`} /><div><p className="text-sm font-medium text-white">{readinessScore === 'green' ? 'Ready to Bill' : 'Ready with Warnings'}</p><p className="text-xs text-zinc-400 mt-0.5">{activeTenancies} Active · R{(expectedRevenue / 1000).toFixed(0)}k Expected</p></div></div>{lastBilling && <p className="text-xs text-zinc-500">Last: {lastBilling}</p>}</div>
       </div>
 
-      {/* ATTENTION */}
-      {attentionItems.length > 0 && (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-          <p className="text-[10px] uppercase tracking-wider text-amber-400 mb-3">⚠ Attention</p>
-          {attentionItems.map((item, i) => (<div key={i} className="flex items-center justify-between text-sm"><span className="text-zinc-300 font-light">{item.count} {item.label}</span><button className="text-xs text-amber-400 hover:text-amber-300">{item.action} →</button></div>))}
-        </div>
-      )}
+      {attentionItems.length > 0 && (<div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4"><p className="text-[10px] uppercase tracking-wider text-amber-400 mb-3">⚠ Attention</p>{attentionItems.map((item, i) => (<div key={i} className="flex items-center justify-between text-sm"><span className="text-zinc-300 font-light">{item.count} {item.label}</span><button className="text-xs text-amber-400 hover:text-amber-300">{item.action} →</button></div>))}</div>)}
 
-      {/* ACTIONS */}
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] uppercase tracking-wider text-zinc-600 w-24">Charges</span>
-          <button onClick={() => setShowManualCharge(true)} className="rounded-lg bg-white px-4 py-2.5 text-xs font-medium text-black hover:bg-gray-100">+ Manual Charge</button>
-          <button className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-xs font-medium text-white hover:border-white/20">Import Utilities</button>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] uppercase tracking-wider text-zinc-600 w-24">Documents</span>
-          <button onClick={() => setShowDocuments(true)} className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-xs font-medium text-white hover:border-white/20">Send Notice / Upload</button>
-        </div>
+        <div className="flex items-center gap-3"><span className="text-[10px] uppercase tracking-wider text-zinc-600 w-24">Charges</span><button onClick={() => setShowManualCharge(true)} className="rounded-lg bg-white px-4 py-2.5 text-xs font-medium text-black hover:bg-gray-100">+ Manual Charge</button><button className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-xs font-medium text-white hover:border-white/20">Import Utilities</button></div>
+        <div className="flex items-center gap-3"><span className="text-[10px] uppercase tracking-wider text-zinc-600 w-24">Documents</span><button onClick={() => setShowDocuments(true)} className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-xs font-medium text-white hover:border-white/20">Send Notice / Upload</button></div>
       </div>
 
-      {/* SEARCH + PREVIEW + SEND */}
+      {/* SEARCH + LIVE PREVIEW */}
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5 space-y-4">
         <div className="flex items-center gap-3">
           <span className="text-[10px] uppercase tracking-wider text-zinc-600 w-24">Billing</span>
-          <select value={searchType} onChange={(e) => { setSearchType(e.target.value as any); setSearchQuery(''); setSelectedSearchId(''); setSearchResults([]); }} className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-xs text-white outline-none">
-            <option value="entity">Entity</option>
-            <option value="property">Property</option>
-            <option value="tenant">Tenant</option>
+          <select value={searchType} onChange={(e) => { setSearchType(e.target.value as any); setSearchQuery(''); setSelectedSearchId(''); setSearchResults([]); setBillingTenants([]); }} className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-xs text-white outline-none">
+            <option value="entity">Entity</option><option value="property">Property</option><option value="tenant">Tenant</option>
           </select>
           <div className="relative flex-1">
             <input value={searchQuery} onChange={(e) => handleSearchChange(e.target.value)} onFocus={() => searchResults.length > 0 && setShowSearchResults(true)} onBlur={() => setTimeout(() => setShowSearchResults(false), 200)} placeholder={`Search ${searchType}...`} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-xs text-white outline-none focus:border-white/20" />
-            {showSearchResults && searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-white/[0.08] rounded-lg overflow-hidden z-30">
-                {searchResults.map(r => (<button key={r.id} onMouseDown={() => selectSearchResult(r.id, r.property_name || r.tenant_name || r.name)} className="w-full text-left px-3 py-2 text-xs text-zinc-400 hover:bg-white/[0.05] hover:text-white">{r.property_name || r.tenant_name || r.name}</button>))}
-              </div>
-            )}
+            {showSearchResults && searchResults.length > 0 && (<div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-white/[0.08] rounded-lg overflow-hidden z-30">{searchResults.map(r => (<button key={r.id} onMouseDown={() => selectSearchResult(r.id, r.property_name || r.tenant_name || r.name)} className="w-full text-left px-3 py-2 text-xs text-zinc-400 hover:bg-white/[0.05] hover:text-white">{r.property_name || r.tenant_name || r.name}</button>))}</div>)}
           </div>
-          <button onClick={handlePreview} className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-xs font-medium text-white hover:border-white/20">Preview</button>
         </div>
 
-        {/* PREVIEW SUMMARY TABLE */}
-        {showPreview && billingTenants.length > 0 && (
+        {/* LIVE PREVIEW SUMMARY */}
+        {hasSearched && billingTenants.length > 0 && (
           <div className="border-t border-white/[0.06] pt-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-zinc-400">{billingTenants.length} tenants · R{totalPreviewAmount.toLocaleString()} total</p>
-              <button onClick={() => setShowPreview(false)} className="text-xs text-zinc-500 hover:text-white">Clear</button>
-            </div>
-            <table className="w-full text-sm">
-              <thead><tr className="border-b border-white/[0.06]"><th className="text-left py-2 text-[10px] font-medium text-zinc-500 uppercase">Tenant</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Rent</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Utils</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Manual</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Int.</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Fee</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-10">Docs</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-16">Status</th><th className="text-right py-2 text-[10px] font-medium text-zinc-500 uppercase w-28">Total</th></tr></thead>
-              <tbody>{billingTenants.map(t => (<tr key={t.tenantId} className="border-b border-white/[0.03] hover:bg-white/[0.01] cursor-pointer" onClick={() => {/* opens full detail */}}><td className="py-2 text-white font-light text-xs">{t.tenantName}</td><td className="py-2 text-center text-xs">{t.charges.some(c => c.source === 'lease') ? '✓' : '—'}</td><td className="py-2 text-center text-xs">{t.charges.some(c => c.source === 'utility') ? '✓' : '—'}</td><td className="py-2 text-center text-xs">{t.charges.filter(c => c.source === 'manual').length || '—'}</td><td className="py-2 text-center text-xs">{t.charges.some(c => c.source === 'interest') ? '✓' : '—'}</td><td className="py-2 text-center text-xs">{t.charges.some(c => c.source === 'late_fee') ? '✓' : '—'}</td><td className="py-2 text-center text-xs text-zinc-500">{t.documents.length || '—'}</td><td className="py-2 text-center">{t.ready ? <span className="text-emerald-400 text-xs">✓</span> : <span className="text-amber-400 text-xs">⚠</span>}</td><td className="py-2 text-right text-white font-medium tabular-nums text-xs">R{t.total.toLocaleString()}</td></tr>))}</tbody>
-            </table>
+            <div className="flex items-center justify-between mb-3"><p className="text-xs text-zinc-400">{billingTenants.length} tenants · R{totalPreviewAmount.toLocaleString()} total</p></div>
+            <table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06]"><th className="text-left py-2 text-[10px] font-medium text-zinc-500 uppercase">Tenant</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Rent</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Utils</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Manual</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-10">Docs</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-16">Status</th><th className="text-right py-2 text-[10px] font-medium text-zinc-500 uppercase w-28">Total</th></tr></thead>
+              <tbody>{billingTenants.map(t => (<tr key={t.tenantId} onClick={() => openDetailModal(t)} className="border-b border-white/[0.03] hover:bg-white/[0.02] cursor-pointer transition-colors"><td className="py-2 text-white font-light text-xs">{t.tenantName}<br /><span className="text-[10px] text-zinc-500">{t.propertyName}</span></td><td className="py-2 text-center text-xs">{t.charges.some(c => c.source === 'lease') ? '✓' : '—'}</td><td className="py-2 text-center text-xs">{t.charges.some(c => c.source === 'utility') ? '✓' : '—'}</td><td className="py-2 text-center text-xs">{t.charges.filter(c => c.source === 'manual').length || '—'}</td><td className="py-2 text-center text-xs text-zinc-500">{t.documents.length || '—'}</td><td className="py-2 text-center">{t.ready ? <span className="text-emerald-400 text-xs">✓</span> : <span className="text-amber-400 text-xs">⚠</span>}</td><td className="py-2 text-right text-white font-medium tabular-nums text-xs">R{t.total.toLocaleString()}</td></tr>))}</tbody></table>
             <button onClick={handleSendBilling} disabled={billingTenants.filter(t => t.ready).length === 0} className="mt-4 w-full rounded-lg bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40 transition-all">Send Billing ({billingTenants.filter(t => t.ready).length} ready)</button>
           </div>
         )}
-        {showPreview && billingTenants.length === 0 && <p className="text-xs text-zinc-500 py-4 text-center">No tenants match your search.</p>}
+        {hasSearched && billingTenants.length === 0 && <p className="text-xs text-zinc-500 py-4 text-center">No tenants found. Try a different search.</p>}
       </div>
 
-      {/* SEND PROGRESS */}
+      {/* DETAIL MODAL */}
+      {showDetailModal && selectedTenantDetail && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowDetailModal(false)} />
+          <div className="fixed inset-4 z-50 overflow-y-auto flex items-start justify-center p-4">
+            <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="sticky top-0 bg-zinc-950 border-b border-white/[0.06] px-6 py-4 flex justify-between items-center rounded-t-2xl">
+                <div><p className="text-sm font-medium text-white">{selectedTenantDetail.tenantName}</p><p className="text-xs text-zinc-500">{selectedTenantDetail.propertyName} · {selectedTenantDetail.leaseRef}</p></div>
+                <button onClick={() => setShowDetailModal(false)} className="text-zinc-500 hover:text-white">Close ✕</button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Charges</p>
+                  {selectedTenantDetail.charges.map((c, i) => (<div key={i} className="flex justify-between py-1.5 border-b border-white/[0.03] text-xs"><span className="text-zinc-300">{c.description} <span className="text-zinc-600">({c.source})</span></span><span className="text-white tabular-nums">R{c.total.toLocaleString()}</span></div>))}
+                </div>
+                {selectedTenantDetail.documents.length > 0 && (<div><p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Documents</p>{selectedTenantDetail.documents.map((d, i) => (<p key={i} className="text-xs text-zinc-400 py-0.5">📄 {d.name} <span className="text-zinc-600">({d.level})</span></p>))}</div>)}
+                {selectedTenantDetail.warnings.length > 0 && (<div className="text-xs text-amber-400">{selectedTenantDetail.warnings.map((w, i) => <p key={i}>⚠ {w}</p>)}</div>)}
+                <div className="flex justify-between pt-3 border-t border-white/[0.06] text-sm font-medium"><span className="text-white">Total</span><span className="text-white tabular-nums">R{selectedTenantDetail.total.toLocaleString()}</span></div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {sending && (<div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5"><p className="text-sm text-white mb-1">{sendProgress.stage}</p><div className="w-full bg-zinc-800 rounded-full h-2"><div className="bg-white h-2 rounded-full transition-all" style={{ width: `${(sendProgress.current / sendProgress.total) * 100}%` }} /></div><p className="text-xs text-zinc-500 mt-2">{sendProgress.current} / {sendProgress.total}</p></div>)}
 
-      {/* SEND RESULT */}
-      {sendResult && (<div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5"><p className="text-sm text-white font-medium">Billing Complete</p><div className="grid grid-cols-5 gap-4 mt-3 text-center text-xs"><div><p className="text-zinc-500">Invoices</p><p className="text-white text-lg font-light">{sendResult.total}</p></div><div><p className="text-zinc-500">Statements</p><p className="text-white text-lg font-light">{sendResult.total}</p></div><div><p className="text-zinc-500">Email</p><p className="text-emerald-400 text-lg font-light">{sendResult.delivered}</p></div><div><p className="text-zinc-500">WhatsApp</p><p className="text-emerald-400 text-lg font-light">{Math.floor(sendResult.delivered * 0.8)}</p></div><div><p className="text-zinc-500">Failed</p><p className={sendResult.failed > 0 ? 'text-red-400 text-lg font-light' : 'text-zinc-500 text-lg font-light'}>{sendResult.failed}</p></div></div>{sendResult.failed > 0 && <button className="text-xs text-amber-400 mt-3 hover:text-amber-300">Retry Failed →</button>}</div>)}
+      {sendResult && (<div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5"><p className="text-sm text-white font-medium">Billing Complete</p><div className="grid grid-cols-5 gap-4 mt-3 text-center text-xs"><div><p className="text-zinc-500">Invoices</p><p className="text-white text-lg font-light">{sendResult.total}</p></div><div><p className="text-zinc-500">Statements</p><p className="text-white text-lg font-light">{sendResult.total}</p></div><div><p className="text-zinc-500">Email</p><p className="text-emerald-400 text-lg font-light">{sendResult.delivered}</p></div><div><p className="text-zinc-500">WhatsApp</p><p className="text-emerald-400 text-lg font-light">{Math.floor(sendResult.delivered * 0.8)}</p></div><div><p className="text-zinc-500">Failed</p><p className={sendResult.failed > 0 ? 'text-red-400 text-lg font-light' : 'text-zinc-500 text-lg font-light'}>{sendResult.failed}</p></div></div></div>)}
 
       {/* HISTORY */}
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[10px] uppercase tracking-wider text-zinc-600">Billing History</p>
-          <button onClick={() => setShowSnapshots(true)} className="text-xs text-zinc-500 hover:text-white">View All →</button>
-        </div>
+        <div className="flex items-center justify-between mb-3"><p className="text-[10px] uppercase tracking-wider text-zinc-600">Billing History</p><button onClick={() => setShowSnapshots(true)} className="text-xs text-zinc-500 hover:text-white">View All →</button></div>
         {snapshots.length === 0 ? <p className="text-xs text-zinc-500">No billing runs yet.</p> : snapshots.slice(0, 3).map(s => (<div key={s.id} className="flex items-center justify-between py-2 border-b border-white/[0.03] last:border-0 text-xs"><span className="text-white font-light">{s.period}</span><span className="text-zinc-500">{new Date(s.generated_at).toLocaleString()}</span><span className="text-zinc-500">{s.tenantCount} tenants · {s.invoicesGenerated} invoices</span></div>))}
       </div>
 
