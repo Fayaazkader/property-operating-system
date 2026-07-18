@@ -26,7 +26,7 @@ export interface BillingDocument {
 export interface BillingTenant {
   tenantId: string;
   tenantName: string;
-  propertyName: string;
+  property_name: string;
   leaseId: string;
   leaseRef: string;
   charges: BillingCharge[];
@@ -37,7 +37,7 @@ export interface BillingTenant {
 }
 
 export interface BillingWorksheet {
-  propertyName: string;
+  property_name: string;
   tenants: BillingTenant[];
   totalCharges: number;
   readyCount: number;
@@ -47,14 +47,14 @@ export interface BillingWorksheet {
 export interface BillingSnapshot {
   id: string;
   period: string;
-  propertyId: string;
-  propertyName: string;
-  tenantCount: number;
+  property_id: string;
+  property_name: string;
+  tenant_count: number;
   generated_at: string;
-  invoicesGenerated: number;
-  statementsGenerated: number;
-  emailsDelivered: number;
-  whatsappDelivered: number;
+  invoices_generated: number;
+  statements_generated: number;
+  emails_delivered: number;
+  whatsapp_delivered: number;
   failed: number;
 }
 
@@ -64,7 +64,7 @@ export const billingAssembly = {
     if (propertyId) query = query.eq('property_id', propertyId);
     const { data: leaseList } = await query;
 
-    if (!leaseList?.length) return { propertyName: '', tenants: [], totalCharges: 0, readyCount: 0, warningCount: 0 };
+    if (!leaseList?.length) return { property_name: '', tenants: [], totalCharges: 0, readyCount: 0, warningCount: 0 };
 
     const propertyName = leaseList[0].property_name;
     const tenants: BillingTenant[] = [];
@@ -115,14 +115,14 @@ export const billingAssembly = {
       (propertyDocs || []).forEach(d => docs.push({ name: d.file_name, level: 'property', url: d.file_url, type: 'property_document' }));
 
       const total = charges.reduce((s, c) => s + c.total, 0);
-      tenants.push({ tenantId: lease.tenant_id, tenantName: lease.tenant_name, propertyName: lease.property_name, leaseId: lease.id,
+      tenants.push({ tenantId: lease.tenant_id, tenantName: lease.tenant_name, property_name: lease.property_name, leaseId: lease.id,
       leaseRef: lease.lease_id, charges, documents: docs, warnings, total, ready: warnings.length === 0 });
     }
 
     return { propertyName, tenants, totalCharges: tenants.reduce((s, t) => s + t.total, 0), readyCount: tenants.filter(t => t.ready).length, warningCount: tenants.filter(t => !t.ready).length };
   },
 
-  async saveSnapshot(params: { entityId: string; period: string; propertyId: string; propertyName: string; tenantCount: number; invoicesGenerated: number; statementsGenerated: number; emailsDelivered: number; whatsappDelivered: number; failed: number }): Promise<void> {
+  async saveSnapshot(params: { entity_id: string; period: string; property_id: string; property_name: string; tenant_count: number; invoices_generated: number; statements_generated: number; emails_delivered: number; whatsapp_delivered: number; failed: number }): Promise<void> {
     await supabase.from('billing_snapshots').insert({ ...params, id: crypto.randomUUID(), generated_at: new Date().toISOString() });
   },
 
