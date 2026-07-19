@@ -10,7 +10,8 @@ export const apApi = {
   createRecurringExpense: (input: RecurringExpenseInput) => apEngine.createRecurringExpense(input),
   matchRecurringExpense: (transaction: { description: string; amount: number; date: string }) => apEngine.matchRecurringExpense(transaction),
   getSupplierLedger: (supplierId: string) => apEngine.getSupplierLedger(supplierId),
-  getInvoicesAwaitingApproval: (entityId: string) => apEngine.getInvoicesAwaitingApproval(entityId),
+  getInvoicesAwaitingApproval: (entityId: string) => apEngine.getApprovalQueue(entityId),
   getOutstandingAP: (entityId: string) => apEngine.getOutstandingAP(entityId),
+  getMonthEndStatus: (entityId: string) => apEngine.getMonthEndStatus(entityId),
   getAging: (entityId: string) => apEngine.getAging(entityId),
 };
