@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { apApi } from '@/lib/accounts-payable/api';
+import SearchableSelect from "@/app/components/ui/SearchableSelect";
 import { apIntelligence } from '@/lib/accounts-payable/intelligence';
 
 const navItems = [
