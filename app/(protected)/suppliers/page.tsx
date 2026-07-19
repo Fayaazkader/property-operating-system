@@ -180,6 +180,15 @@ export default function AccountsPayablePage() {
     setSupplierAccounts(accounts || []);
   }
 
+  async function handleReconcile() {
+    if (!reconSupplier || !reconLines) return;
+    const lines = reconLines.split('\n').filter((l: string) => l.trim()).map((l: string) => {
+      const parts = l.split(',').map((p: string) => p.trim());
+      return { date: parts[0] || '', description: parts[1] || '', debit: parseFloat(parts[2]) || 0, credit: parseFloat(parts[3]) || 0 };
+    });
+    const result = await apApi.getSupplierLedger(reconSupplier);
+    setReconResult({ ledger: result, statementLines: lines });
+  }
   async function refreshData() {
     const [queueList, invList, cnList, payList, warnList] = await Promise.all([
       apApi.getApprovalQueue(entityId),
