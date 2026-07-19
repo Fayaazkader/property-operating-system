@@ -31,7 +31,7 @@ export const apEngine = {
       invoice_date: input.invoiceDate, due_date: input.dueDate, description: input.description,
       total_amount: totalAmount, vat_amount: vatAmount, status: 'draft', lifecycle_status: initialStatus,
       source: input.source || 'manual', ocr_data: input.ocrData, ocr_confidence: input.ocrConfidence,
-      requires_review: initialStatus !== 'approved', duplicate_checked: !!existing, duplicate_of: existing?.id,
+      requires_review: initialStatus !== 'approved' as any, duplicate_checked: !!existing, duplicate_of: existing?.id,
       notes: input.notes, created_by: input.createdBy,
     }).select('*').single();
     if (error) throw error;
