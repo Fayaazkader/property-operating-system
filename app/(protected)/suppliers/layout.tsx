@@ -109,11 +109,12 @@ export default function SuppliersLayout({ children }: { children: React.ReactNod
     setGlResults({ ...glResults, [i]: results });
   }
 
-  function selectGL(i: number, gl: any) {
-    const l = [...invLines]; l[i].glCode = gl.gl_code; l[i].glSearch = `${gl.gl_code} — ${gl.name}`; setInvLines(l);
-    setGlResults({ ...glResults, [i]: [] });
+  async function selectGL(i: number, gl: any) {
+    const l = [...invLines]; l[i].glCode = gl.gl_code; l[i].glSearch = `${gl.gl_code} — ${gl.name}`;
+    const { data: coa } = await supabase.from('chart_of_accounts').select('vat_category, vat_rate').eq('entity_id', entityId).eq('gl_code', gl.gl_code).single();
+    if (coa) { l[i].vatRate = (coa.vat_category === 'non_vatable' || coa.vat_category === 'exempt') ? '0' : String(coa.vat_rate || 15); }
+    setInvLines(l); setGlResults({ ...glResults, [i]: [] });
   }
-
   function recalcLine(i: number, field: 'excl' | 'vat' | 'incl', value: string) {
     const lines = [...invLines]; setActiveField({ line: i, field });
     const raw = unfmtNum(value); const num = parseFloat(raw) || 0;

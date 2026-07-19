@@ -24,15 +24,13 @@ export default function SupplierDetailPage() {
         supabase.from('suppliers').select('*').eq('id', id).single(),
         supabase.from('properties').select('id, property_name').order('property_name'),
       ]);
-      setSupplier(supp);
-      setProperties(propList.data || []);
+      setSupplier(supp); setProperties(propList.data || []);
       if (supp) setForm(supp);
       const [ledgerData, accountsData] = await Promise.all([
         apApi.getSupplierLedger(id as string),
         supabase.from('supplier_accounts').select('*, property:property_id(property_name)').eq('supplier_id', id),
       ]);
-      setLedger(ledgerData);
-      setAccounts(accountsData.data || []);
+      setLedger(ledgerData); setAccounts(accountsData.data || []);
       const invs = ledgerData?.invoices || [];
       setStats({ totalInvoices: invs.length, totalAmount: invs.reduce((s: number, i: any) => s + (i.total_amount || 0), 0) });
       setLoading(false);
@@ -41,17 +39,10 @@ export default function SupplierDetailPage() {
   }, [id]);
 
   async function handleSave() { await supabase.from('suppliers').update(form).eq('id', id); setSupplier(form); setShowEdit(false); }
-  
   async function handleLinkService() {
-    await supabase.from('supplier_accounts').upsert({
-      entity_id: supplier.entity_id, supplier_id: id, property_id: linkForm.property_id,
-      account_number: linkForm.account_number, account_name: linkForm.account_name,
-      default_gl: linkForm.default_gl, default_vat: linkForm.default_vat,
-    }, { onConflict: 'supplier_id,property_id,account_number' });
-    setShowLink(false);
-    setLinkForm({ property_id: '', account_number: '', account_name: '', default_gl: '', default_vat: '15' });
-    const { data } = await supabase.from('supplier_accounts').select('*, property:property_id(property_name)').eq('supplier_id', id);
-    setAccounts(data || []);
+    await supabase.from('supplier_accounts').upsert({ entity_id: supplier.entity_id, supplier_id: id, property_id: linkForm.property_id, account_number: linkForm.account_number, account_name: linkForm.account_name, default_gl: linkForm.default_gl, default_vat: linkForm.default_vat }, { onConflict: 'supplier_id,property_id,account_number' });
+    setShowLink(false); setLinkForm({ property_id: '', account_number: '', account_name: '', default_gl: '', default_vat: '15' });
+    const { data } = await supabase.from('supplier_accounts').select('*, property:property_id(property_name)').eq('supplier_id', id); setAccounts(data || []);
   }
 
   if (loading) return <div className="text-zinc-500 p-8">Loading...</div>;
@@ -90,26 +81,8 @@ export default function SupplierDetailPage() {
 
       {tab === 'services' && (
         <>
-          <div className="flex justify-end mb-3">
-            <button onClick={() => setShowLink(true)} className="rounded-lg bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100">+ Link New Service</button>
-          </div>
-          <div className="space-y-3">
-            {accounts.length === 0 && <p className="text-sm text-zinc-500 py-4 text-center">No linked services.</p>}
-            {accounts.map((a: any) => (
-              <div key={a.id} className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm text-white font-light">{a.account_number}</p>
-                    <p className="text-xs text-zinc-500">{a.property?.property_name || '—'} · {a.account_name || 'No name'}</p>
-                  </div>
-                  <div className="text-right text-[10px] text-zinc-500">
-                    {a.default_gl && <p>Default GL: {a.default_gl}</p>}
-                    {a.default_vat && <p>VAT: {a.default_vat}%</p>}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <div className="flex justify-end mb-3"><button onClick={() => setShowLink(true)} className="rounded-lg bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100">+ Link New Service</button></div>
+          <div className="space-y-3">{accounts.length === 0 && <p className="text-sm text-zinc-500 py-4 text-center">No linked services.</p>}{accounts.map((a: any) => (<div key={a.id} className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4"><div className="flex justify-between items-start"><div><p className="text-sm text-white font-light">{a.account_number}</p><p className="text-xs text-zinc-500">{a.property?.property_name || '—'} · {a.account_name || 'No name'}</p></div><div className="text-right text-[10px] text-zinc-500">{a.default_gl && <p>GL: {a.default_gl}</p>}{a.default_vat && <p>VAT: {a.default_vat}%</p>}</div></div></div>))}</div>
         </>
       )}
 
@@ -117,89 +90,75 @@ export default function SupplierDetailPage() {
         <div className="rounded-xl border border-white/[0.06] overflow-hidden"><table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06] bg-white/[0.02]"><th className="text-left py-2 px-4 text-[10px] text-zinc-500 uppercase">Date</th><th className="text-left py-2 px-4 text-[10px] text-zinc-500 uppercase">Invoice #</th><th className="text-right py-2 px-4 text-[10px] text-zinc-500 uppercase">Amount</th></tr></thead><tbody>{ledger.invoices.map((inv: any) => (<tr key={inv.id} className="border-b border-white/[0.03]"><td className="py-2 px-4 text-zinc-400 text-xs">{inv.invoice_date}</td><td className="py-2 px-4 text-white text-xs">{inv.invoice_number}</td><td className="py-2 px-4 text-right text-white text-xs">R{inv.total_amount?.toLocaleString()}</td></tr>))}</tbody></table></div>
       )}
 
-      {/* EDIT SUPPLIER — Full workspace */}
+      {/* EDIT SUPPLIER — 80% screen */}
       {showEdit && (
-        <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
-            <h1 className="text-lg font-light text-white">Edit Supplier</h1>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setShowEdit(false)} className="rounded-lg border border-white/[0.08] px-4 py-2 text-xs font-medium text-white hover:border-white/20">Cancel</button>
-              <button onClick={handleSave} className="rounded-lg bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100">Update Supplier</button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full space-y-8">
-            <div className="grid grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <p className="text-[10px] uppercase tracking-wider text-zinc-500">General</p>
-                <input value={form.supplier_name || ''} onChange={(e) => setForm({ ...form, supplier_name: e.target.value })} placeholder="Supplier Name *" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                <div className="grid grid-cols-2 gap-2">
-                  <input value={form.trading_name || ''} onChange={(e) => setForm({ ...form, trading_name: e.target.value })} placeholder="Trading Name" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                  <input value={form.registered_name || ''} onChange={(e) => setForm({ ...form, registered_name: e.target.value })} placeholder="Registered Name" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <input value={form.registration_number || ''} onChange={(e) => setForm({ ...form, registration_number: e.target.value })} placeholder="Reg #" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                  <input value={form.vat_number || ''} onChange={(e) => setForm({ ...form, vat_number: e.target.value })} placeholder="VAT #" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                  <input value={form.tax_number || ''} onChange={(e) => setForm({ ...form, tax_number: e.target.value })} placeholder="Tax #" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                </div>
-                <select value={form.category || ''} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0">
-                  <option value="">Category</option>
-                  <option value="municipality">Municipality</option><option value="utility">Utility</option><option value="contractor">Contractor</option>
-                  <option value="security">Security</option><option value="cleaning">Cleaning</option><option value="insurance">Insurance</option>
-                  <option value="maintenance">Maintenance</option><option value="other">Other</option>
-                </select>
-              </div>
-              <div className="space-y-4">
-                <p className="text-[10px] uppercase tracking-wider text-zinc-500">Contact & Banking</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <input value={form.contact_person || ''} onChange={(e) => setForm({ ...form, contact_person: e.target.value })} placeholder="Contact Person" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                  <input value={form.accounts_contact || ''} onChange={(e) => setForm({ ...form, accounts_contact: e.target.value })} placeholder="Accounts Contact" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <input value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                  <input value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                </div>
-                <p className="text-[10px] uppercase tracking-wider text-zinc-500 pt-2">Banking</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <input value={form.bank_name || ''} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} placeholder="Bank" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                  <input value={form.bank_account || ''} onChange={(e) => setForm({ ...form, bank_account: e.target.value })} placeholder="Account" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                  <input value={form.bank_branch || ''} onChange={(e) => setForm({ ...form, bank_branch: e.target.value })} placeholder="Branch" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <select value={form.payment_method || 'eft'} onChange={(e) => setForm({ ...form, payment_method: e.target.value })} className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0">
-                    <option value="eft">EFT</option><option value="debit_order">Debit Order</option><option value="cash">Cash</option>
-                  </select>
-                  <input value={form.default_payment_terms || '30'} onChange={(e) => setForm({ ...form, default_payment_terms: e.target.value })} placeholder="Payment Terms (days)" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowEdit(false)} />
+          <div className="fixed inset-4 z-50 flex items-center justify-center p-4">
+            <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
+                <h1 className="text-lg font-light text-white">Edit Supplier</h1>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowEdit(false)} className="rounded-lg border border-white/[0.08] px-4 py-2 text-xs font-medium text-white hover:border-white/20">Cancel</button>
+                  <button onClick={handleSave} className="rounded-lg bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100">Update Supplier</button>
                 </div>
               </div>
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-500">General</p>
+                    <input value={form.supplier_name || ''} onChange={(e) => setForm({ ...form, supplier_name: e.target.value })} placeholder="Supplier Name *" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input value={form.trading_name || ''} onChange={(e) => setForm({ ...form, trading_name: e.target.value })} placeholder="Trading Name" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+                      <input value={form.registered_name || ''} onChange={(e) => setForm({ ...form, registered_name: e.target.value })} placeholder="Registered Name" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <input value={form.registration_number || ''} onChange={(e) => setForm({ ...form, registration_number: e.target.value })} placeholder="Reg #" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+                      <input value={form.vat_number || ''} onChange={(e) => setForm({ ...form, vat_number: e.target.value })} placeholder="VAT #" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+                      <input value={form.tax_number || ''} onChange={(e) => setForm({ ...form, tax_number: e.target.value })} placeholder="Tax #" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+                    </div>
+                    <select value={form.category || ''} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0">
+                      <option value="">Category</option><option value="municipality">Municipality</option><option value="utility">Utility</option><option value="contractor">Contractor</option><option value="security">Security</option><option value="cleaning">Cleaning</option><option value="insurance">Insurance</option><option value="maintenance">Maintenance</option><option value="other">Other</option>
+                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select value={form.payment_method || 'eft'} onChange={(e) => setForm({ ...form, payment_method: e.target.value })} className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0">
+                        <option value="eft">EFT</option><option value="debit_order">Debit Order</option><option value="cash">Cash</option>
+                      </select>
+                      <input value={form.default_payment_terms || '30'} onChange={(e) => setForm({ ...form, default_payment_terms: e.target.value })} placeholder="Payment Terms (days)" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-500">Contact</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input value={form.contact_person || ''} onChange={(e) => setForm({ ...form, contact_person: e.target.value })} placeholder="Contact Person" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+                      <input value={form.accounts_contact || ''} onChange={(e) => setForm({ ...form, accounts_contact: e.target.value })} placeholder="Accounts Contact" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+                      <input value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+                    </div>
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-500 pt-4">Banking</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <input value={form.bank_name || ''} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} placeholder="Bank" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+                      <input value={form.bank_account || ''} onChange={(e) => setForm({ ...form, bank_account: e.target.value })} placeholder="Account" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+                      <input value={form.bank_branch || ''} onChange={(e) => setForm({ ...form, bank_branch: e.target.value })} placeholder="Branch" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-zinc-400 pt-2">
+                      <input type="checkbox" checked={form.is_active !== false} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} /> Active
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
-      {/* LINK SERVICE MODAL */}
+      {/* LINK SERVICE */}
       {showLink && (
         <>
           <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowLink(false)} />
-          <div className="fixed inset-4 z-50 flex items-center justify-center p-4">
-            <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 w-full max-w-md">
-              <div className="flex justify-between items-center mb-4"><p className="text-sm font-medium text-white">Link New Service</p><button onClick={() => setShowLink(false)} className="text-zinc-500 hover:text-white">✕</button></div>
-              <div className="space-y-3">
-                <select value={linkForm.property_id} onChange={(e) => setLinkForm({ ...linkForm, property_id: e.target.value })} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0">
-                  <option value="">Select property...</option>
-                  {properties.map(p => (<option key={p.id} value={p.id}>{p.property_name}</option>))}
-                </select>
-                <input value={linkForm.account_number} onChange={(e) => setLinkForm({ ...linkForm, account_number: e.target.value })} placeholder="Reference Number *" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                <input value={linkForm.account_name} onChange={(e) => setLinkForm({ ...linkForm, account_name: e.target.value })} placeholder="Account Name (e.g. Electricity)" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                <div className="grid grid-cols-2 gap-2">
-                  <input value={linkForm.default_gl} onChange={(e) => setLinkForm({ ...linkForm, default_gl: e.target.value })} placeholder="Default GL Code" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0" />
-                  <select value={linkForm.default_vat} onChange={(e) => setLinkForm({ ...linkForm, default_vat: e.target.value })} className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0">
-                    <option value="15">VAT 15%</option><option value="0">No VAT</option>
-                  </select>
-                </div>
-                <button onClick={handleLinkService} className="w-full rounded-lg bg-white py-2.5 text-sm font-medium text-black hover:bg-gray-100">Save Service</button>
-              </div>
-            </div>
-          </div>
+          <div className="fixed inset-4 z-50 flex items-center justify-center p-4"><div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 w-full max-w-md"><div className="flex justify-between items-center mb-4"><p className="text-sm font-medium text-white">Link New Service</p><button onClick={() => setShowLink(false)} className="text-zinc-500 hover:text-white">✕</button></div><div className="space-y-3"><select value={linkForm.property_id} onChange={(e) => setLinkForm({ ...linkForm, property_id: e.target.value })} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none"><option value="">Select property...</option>{properties.map(p => (<option key={p.id} value={p.id}>{p.property_name}</option>))}</select><input value={linkForm.account_number} onChange={(e) => setLinkForm({ ...linkForm, account_number: e.target.value })} placeholder="Reference Number *" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /><input value={linkForm.account_name} onChange={(e) => setLinkForm({ ...linkForm, account_name: e.target.value })} placeholder="Account Name (e.g. Electricity)" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /><div className="grid grid-cols-2 gap-2"><input value={linkForm.default_gl} onChange={(e) => setLinkForm({ ...linkForm, default_gl: e.target.value })} placeholder="Default GL" className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /><select value={linkForm.default_vat} onChange={(e) => setLinkForm({ ...linkForm, default_vat: e.target.value })} className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none"><option value="15">VAT 15%</option><option value="0">No VAT</option></select></div><button onClick={handleLinkService} className="w-full rounded-lg bg-white py-2.5 text-sm font-medium text-black hover:bg-gray-100">Save Service</button></div></div></div>
         </>
       )}
     </div>
