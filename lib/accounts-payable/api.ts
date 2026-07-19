@@ -6,6 +6,7 @@ import type { SupplierInvoiceInput, CreditNoteInput, RecurringExpenseInput } fro
 export const apApi = {
   captureInvoice: (input: SupplierInvoiceInput, postImmediately?: boolean) => apEngine.captureInvoice(input, postImmediately),
   postInvoice: (invoiceId: string, postedBy: string) => apEngine.postInvoice(invoiceId, postedBy),
+  rejectInvoice: (invoiceId: string, reason: string) => apEngine.rejectInvoice(invoiceId, reason),
   issueCreditNote: (input: CreditNoteInput) => apEngine.issueCreditNote(input),
   createRecurringExpense: (input: RecurringExpenseInput) => apEngine.createRecurringExpense(input),
   matchRecurringExpense: (transaction: { description: string; amount: number; date: string }) => apEngine.matchRecurringExpense(transaction),
