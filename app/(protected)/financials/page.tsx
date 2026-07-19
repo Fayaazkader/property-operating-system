@@ -91,7 +91,7 @@ export default function FinancialWorkspacePage() {
   async function loadBalanceSheet() {
     const tb = await financialApi.trialBalance({ entityId, periodId });
     if (!tb) return null;
-    const assets = tb.rows.filter((r: any) => r.account_type === 'asset').map((r: any) => ({ account: `${r.gl_code} - ${r.account_name}`, amount: r.net_balance })););
+    const assets = tb.rows.filter((r: any) => r.account_type === 'asset').map((r: any) => ({ account: `${r.gl_code} - ${r.account_name}`, amount: r.net_balance }));
     const liabilities = tb.rows.filter((r: any) => r.account_type === 'liability').map((r: any) => ({ account: `${r.gl_code} - ${r.account_name}`, amount: Math.abs(r.net_balance) })););
     const equity = tb.rows.filter((r: any) => r.account_type === 'equity').map((r: any) => ({ account: `${r.gl_code} - ${r.account_name}`, amount: Math.abs(r.net_balance) })););
     const totalAssets = assets.reduce((s: number, r: any) => s + r.amount, 0);
