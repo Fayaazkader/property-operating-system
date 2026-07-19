@@ -6,8 +6,6 @@ import { supabase } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit/audit-log";
 import { PageHeader } from "@/app/components/layout/PageHeader";
 import { exportToCSV } from "@/lib/utils";
-import ProgressModal from "@/components/ui/ProgressModal";
-import { isReady, isReview, isException, isPosted } from "@/lib/transaction-status";
 
 type Transaction = {
   id: string;
@@ -32,7 +30,6 @@ export default function AccountWorkspacePage() {
   const [activeQueue, setActiveQueue] = useState<"ready" | "review" | "exceptions" | "posted">("ready");
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [progressModal, setProgressModal] = useState<{ title: string; steps: any[] } | null>(null);
 
   useEffect(() => {
   async function load() {
@@ -60,11 +57,11 @@ export default function AccountWorkspacePage() {
   const isBalanced = Math.abs(difference) < 0.01;
 
   const queueCounts = {
-  ready: transactions.filter(t => isReady(t)).length,
-  review: transactions.filter(t => isReview(t)).length,
-  exceptions: transactions.filter(t => isException(t)).length,
-  posted: transactions.filter(t => isPosted(t)).length,
-};
+   ready: transactions.filter(t => t.allocation_status !== "posted" && t.queue !== "posted" && (t.confidence >= 90 || t.matched_tenant_id)).length,
+    review: transactions.filter(t => t.allocation_status !== "posted" && t.confidence >= 70 && t.confidence < 90 && !t.matched_tenant_id).length,
+    exceptions: transactions.filter(t => t.allocation_status !== "posted" && t.confidence < 70 && !t.matched_tenant_id).length,
+    posted: transactions.filter(t => t.allocation_status === "posted" || t.queue === "posted").length,
+  };
 
   const searched = transactions.filter(tx => {
     if (!searchTerm) return true;
@@ -76,15 +73,15 @@ export default function AccountWorkspacePage() {
     );
   });
 
-const filteredTxs = searched.filter(tx => {
-  if (activeQueue === "ready") return isReady(tx);
-  if (activeQueue === "review") return isReview(tx);
-  if (activeQueue === "exceptions") return isException(tx);
-  if (activeQueue === "posted") return isPosted(tx);
-  return true;
-});
+  const filteredTxs = searched.filter(tx => {
+   if (activeQueue === "ready") return tx.allocation_status !== "posted" && tx.queue !== "posted" && (tx.confidence >= 90 || tx.matched_tenant_id);
+    if (activeQueue === "review") return tx.allocation_status !== "posted" && tx.confidence >= 70 && tx.confidence < 90 && !tx.matched_tenant_id;
+    if (activeQueue === "exceptions") return tx.allocation_status !== "posted" && tx.confidence < 70 && !tx.matched_tenant_id;
+    if (activeQueue === "posted") return tx.allocation_status === "posted" || tx.queue === "posted";
+    return true;
+  });
 
- async function handlePostAllReady() {
+  async function handlePostAllReady() {
     const readyTxs = transactions.filter(tx => 
       tx.allocation_status !== "posted" && 
       tx.queue !== "posted" && 
@@ -93,42 +90,18 @@ const filteredTxs = searched.filter(tx => {
 
     if (readyTxs.length === 0) return;
 
-    setProgressModal({
-      title: "Posting Transactions",
-      steps: [
-        { label: `Posting ${readyTxs.length} transactions...`, status: "running", count: 0, total: readyTxs.length },
-      ]
-    });
-
+    setLoading(true);
     const readyIds = readyTxs.map(tx => tx.id);
 
-    for (let i = 0; i < readyIds.length; i += 10) {
-      const batch = readyIds.slice(i, i + 10);
-      await supabase
-        .from("bank_transactions")
-        .update({
-          allocation_status: "posted",
-          queue: "posted",
-          updated_at: new Date().toISOString(),
-        })
-        .in("id", batch);
-      
-      setProgressModal({
-        title: "Posting Transactions",
-        steps: [
-          { label: `Posting ${readyTxs.length} transactions...`, status: "running", count: Math.min(i + 10, readyIds.length), total: readyIds.length },
-        ]
-      });
-    }
+    await supabase
+      .from("bank_transactions")
+      .update({
+        allocation_status: "fully_allocated",
+        queue: "posted",
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", readyIds);
 
-    setProgressModal({
-      title: "Posting Complete",
-      steps: [
-        { label: `${readyTxs.length} transactions posted`, status: "done", count: readyIds.length, total: readyIds.length },
-      ]
-    });
-
-    // Refresh
     const { data: freshData } = await supabase
       .from("bank_transactions")
       .select("*")
@@ -136,7 +109,32 @@ const filteredTxs = searched.filter(tx => {
       .order("transaction_date", { ascending: false })
       .limit(200);
 
-    if (freshData) setTransactions(freshData);
+    if (freshData) {
+      const enriched = freshData.map((tx: any) => {
+        let confidence = 0;
+        const desc = tx.transaction_description?.toLowerCase() || '';
+        const ref = tx.transaction_reference?.toLowerCase() || '';
+
+        if (tx.matched_invoice_id) {
+          confidence = 97;
+        } else if (tx.matched_tenant_id) {
+          confidence = 85;
+        } else if (ref && desc.includes(ref)) {
+          confidence = 95;
+        } else if (desc.match(/rent|invoice|payment|tenant|lease|shop|office|suite/i)) {
+          confidence = 75;
+        } else {
+          confidence = 20;
+        }
+
+        return {
+          ...tx,
+          confidence,
+        };
+      });
+      setTransactions(enriched);
+    }
+    setLoading(false);
   }
 
   if (loading) return <div className="mx-auto max-w-7xl px-6 pt-8 pb-12"><p className="text-[var(--text-muted)]">Loading...</p></div>;
@@ -308,21 +306,15 @@ const filteredTxs = searched.filter(tx => {
   </button>
 )}
 {activeQueue === "posted" && (
-  <span className="text-xs text-[var(--text-muted)]">✓ Posted <a href="#" onClick={(e) => { e.preventDefault(); router.push(`/financials?search=${tx.transaction_reference || tx.id}`); }} className="text-[10px] text-zinc-500 hover:text-white ml-2">GL →</a></span>
-  <button onClick={() => router.push(`/financials?search=${tx.transaction_reference || tx.id}`)} className="text-[10px] text-zinc-500 hover:text-white ml-2">GL →</button>
+  <span className="text-xs text-[var(--text-muted)]">✓ Posted · <a href="#" onClick={(e) => { e.preventDefault(); router.push(`/financials?search=${tx.transaction_reference || tx.id}`); }} style="color: var(--text-muted); font-size: 10px;">View in GL →</a></span>
 )}
-                  </td>              ))
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
-      {progressModal && (
-  <ProgressModal
-    title={progressModal.title}
-    steps={progressModal.steps}
-    onClose={() => setProgressModal(null)}
-  />
-)}
     </div>
   );
 }
