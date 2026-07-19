@@ -85,7 +85,6 @@ export default function Favorites() {
               {search && (
                 <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
                   {['/financials/cash-book', '/suppliers/suppliers', '/financials/revenue', '/financials/imports', '/financials', '/settings', '/leasing', '/tenants', '/properties', '/reports']
-                    { href: '/tenants', label: 'Tenants' }, { href: '/properties', label: 'Properties' }, { href: '/leasing', label: 'Leasing' },                    .filter(h => h.includes(search.toLowerCase()) || routeLabels[h])
                     .map(h => {
                       const label = routeLabels[h] || h.split('/').pop()?.replace(/-/g, ' ') || h;
                       return (
