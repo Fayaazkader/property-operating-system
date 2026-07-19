@@ -40,7 +40,7 @@ export default function AccountsPayablePage() {
         supabase.from('suppliers').select('id, supplier_name').eq('entity_id', eid),
         supabase.from('properties').select('id, property_name').eq('entity_id', eid),
         apIntelligence.getWarnings(eid),
-        apApi.getInvoicesAwaitingApproval(eid),
+        apApi.getApprovalQueue(eid),
       ]);
       setSuppliers(suppList.data || []); setProperties(propList.data || []);
       setWarnings(warnList); setApprovalQueue(queueList);
@@ -81,15 +81,15 @@ export default function AccountsPayablePage() {
   }
 
   async function handleApprove(invoiceId: string) {
-    await apApi.postInvoice(invoiceId, 'user');
-    const queueList = await apApi.getInvoicesAwaitingApproval(entityId);
+    await apApi.approveInvoice(invoiceId, 'user');
+    const queueList = await apApi.getApprovalQueue(entityId);
     setApprovalQueue(queueList);
     await loadDashboard(entityId);
   }
 
   async function handleReject(invoiceId: string) {
     await apApi.rejectInvoice(invoiceId, 'Rejected by user');
-    const queueList = await apApi.getInvoicesAwaitingApproval(entityId);
+    const queueList = await apApi.getApprovalQueue(entityId);
     setApprovalQueue(queueList);
   }
 
