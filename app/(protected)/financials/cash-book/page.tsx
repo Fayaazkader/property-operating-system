@@ -87,7 +87,7 @@ export default function CashBookPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 pt-8 pb-12">
       <PageHeader title="Cash Book" subtitle="Reconcile transactions across your bank accounts." />
-
+      <div className="flex justify-end"><a href="/financials/imports" className="rounded-xl bg-white px-5 py-2.5 text-xs font-medium text-black hover:bg-gray-100 transition-all">Import Transactions</a></div>
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-3">
         <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4">
