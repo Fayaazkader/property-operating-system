@@ -308,10 +308,10 @@ const filteredTxs = searched.filter(tx => {
   </button>
 )}
 {activeQueue === "posted" && (
-  <button onClick={() => router.push(`/financials?search=${tx.transaction_reference || tx.id}`)} className="text-[10px] text-zinc-500 hover:text-white ml-2">GL →</button>  <span className="text-xs text-[var(--text-muted)]">✓ Posted</span>
-)}                  </td>
-                </tr>
-              ))}
+  <span className="text-xs text-[var(--text-muted)]">✓ Posted</span>
+  <button onClick={() => router.push(`/financials?search=${tx.transaction_reference || tx.id}`)} className="text-[10px] text-zinc-500 hover:text-white ml-2">GL →</button>
+)}
+                  </td>              ))}
             </tbody>
           </table>
         </div>
