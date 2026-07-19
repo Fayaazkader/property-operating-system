@@ -76,7 +76,7 @@ export default function SupplierDetailPage() {
         </div>
       )}
 
-      {tab === 'services' {tab === 'services' && ({tab === 'services' && ( (
+      {tab === 'services' && (
         <div className="flex justify-end mb-3"><button onClick={() => setShowLink(true)} className="rounded-lg bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100">+ Link New Service</button></div>
         <div className="space-y-3">
           {accounts.map((a: any) => (<div key={a.id} className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4 flex justify-between items-center"><div><p className="text-sm text-white font-light">{a.account_number}</p><p className="text-xs text-zinc-500">{a.property?.property_name || '—'} · {a.account_name || 'No name'}</p></div>{a.meter_number && <span className="text-[10px] text-zinc-500">Meter: {a.meter_number}</span>}</div>))}
