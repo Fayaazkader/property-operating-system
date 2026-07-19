@@ -1,7 +1,7 @@
 // lib/accounts-payable/api.ts
 
 import { apEngine } from './engine';
-import type { SupplierInvoiceInput, CreditNoteInput, RecurringExpenseInput } from './engine';
+import type { SupplierInvoiceInput } from './engine';
 
 export const apApi = {
   captureInvoice: (input: SupplierInvoiceInput, postImmediately?: boolean) => apEngine.captureInvoice(input, postImmediately),
