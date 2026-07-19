@@ -211,3 +211,15 @@ export const apEngine = {
     return { hasDrafts: (draftCount || 0) === 0, hasDuplicates: (warnings || []).length === 0, pendingCount: draftCount || 0, ready: (draftCount || 0) === 0 };
   }
 };
+
+  async createRecurringExpense(input: { entityId: string; supplierId?: string; propertyId?: string; description: string; glCode: string; amount: number; tolerancePct?: number; vatTreatment?: string; frequency?: string; expectedDay?: number }): Promise<any> {
+    const { data, error } = await supabase.from('recurring_expenses').insert({
+      entity_id: input.entityId, supplier_id: input.supplierId, property_id: input.propertyId,
+      description: input.description, gl_code: input.glCode, amount: input.amount,
+      tolerance_pct: input.tolerancePct || 10, vat_treatment: input.vatTreatment || 'standard',
+      frequency: input.frequency || 'monthly', expected_day: input.expectedDay || new Date().getDate(),
+      next_due_date: new Date().toISOString().split('T')[0], status: 'active',
+    }).select('*').single();
+    if (error) throw error;
+    return data;
+  },
