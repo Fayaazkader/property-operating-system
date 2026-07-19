@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Star, Search } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
@@ -60,7 +61,7 @@ export default function Favorites() {
         className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl hover:scale-110 transition-all text-lg"
         title="Favorites"
       >
-        ⭐
+        <Star className="w-5 h-5" />
       </button>
 
       {open && (
@@ -81,7 +82,7 @@ export default function Favorites() {
               {search && (
                 <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
                   {['/financials/cash-book', '/suppliers/suppliers', '/financials/revenue', '/financials/imports', '/financials', '/settings', '/leasing', '/tenants', '/properties', '/reports']
-                    .filter(h => h.includes(search.toLowerCase()) || routeLabels[h])
+                    { href: '/tenants', label: 'Tenants' }, { href: '/properties', label: 'Properties' }, { href: '/leasing', label: 'Leasing' },                    .filter(h => h.includes(search.toLowerCase()) || routeLabels[h])
                     .map(h => {
                       const label = routeLabels[h] || h.split('/').pop()?.replace(/-/g, ' ') || h;
                       return (
@@ -125,4 +126,4 @@ const routeLabels: Record<string, string> = {
   '/financials/cash-book': 'Cash Book', '/suppliers/suppliers': 'Suppliers', '/financials/revenue': 'Revenue Ops',
   '/financials/imports': 'Imports', '/financials': 'Financials', '/settings': 'Settings',
   '/leasing': 'Leasing', '/tenants': 'Tenants', '/properties': 'Properties', '/reports': 'Reports',
-};
+                    { href: '/tenants', label: 'Tenants' }, { href: '/properties', label: 'Properties' }, { href: '/leasing', label: 'Leasing' },};
