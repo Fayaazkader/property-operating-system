@@ -306,7 +306,7 @@ export default function AccountWorkspacePage() {
   </button>
 )}
 {activeQueue === "posted" && (
-  <span className="text-xs text-[var(--text-muted)]">✓ Posted · <a href="#" onClick={(e) => { e.preventDefault(); router.push(`/financials?search=${tx.transaction_reference || tx.id}`); }} style="color: var(--text-muted); font-size: 10px;">View in GL →</a></span>
+  <span className="text-xs text-[var(--text-muted)]">✓ Posted · <a href="#" onClick={(e) => { e.preventDefault(); router.push(`/financials?search=${tx.transaction_reference || tx.id}`); }} >View in GL →</a></span>
 )}
                   </td>
                 </tr>
