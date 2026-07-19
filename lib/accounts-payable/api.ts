@@ -13,4 +13,5 @@ export const apApi = {
   getAging: (entityId: string) => apEngine.getAging(entityId),
   getMonthEndStatus: (entityId: string) => apEngine.getMonthEndStatus(entityId),
   reconcileStatement: (entityId: string, supplierId: string, lines: Array<{ date: string; description: string; reference?: string; debit?: number; credit?: number }>) => apEngine.reconcileStatement(entityId, supplierId, lines),
+  createRecurringExpense: (input: any) => apEngine.createRecurringExpense(input),
 };
