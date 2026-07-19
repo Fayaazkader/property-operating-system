@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { Star } from 'lucide-react';
 import { Star, Search } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';

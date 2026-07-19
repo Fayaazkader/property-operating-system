@@ -10,8 +10,9 @@ const routeLabels: Record<string, string> = {
   '': 'Dashboard',
   'financials': 'Financials',
   'cash-book': 'Cash Book',
-  'imports': 'Imports',
-  'revenue': 'Revenue Ops',
+const segments = pathname.split('/').filter(Boolean);
+if (displaySegments.length === 0 || (displaySegments.length === 1 && segments[0] === 'financials')) return null;
+const displaySegments = segments[0] === 'financials' && displaySegments.length > 1 ? displaySegments.slice(1) : segments;
   'suppliers': 'Suppliers',
   'invoices': 'Invoices',
   'credit-notes': 'Credit Notes',
@@ -52,7 +53,7 @@ export default function Breadcrumbs() {
 
   // Remove "financials" prefix when it's a workspace, not the financial reports page
   const segments = pathname === '/financials' ? pathname.split('/').filter(Boolean);
-  if (segments.length === 0) return null;
+  if (displaySegments.length === 0) return null;
 
   useEffect(() => {
     async function resolveNames() {
@@ -77,7 +78,7 @@ export default function Breadcrumbs() {
     <nav className="flex items-center gap-1.5 text-[11px] text-zinc-500 font-light py-2 overflow-x-auto">
       {displaySegments.map((seg, i) => {
         const href = '/' + displaySegments.slice(0, i + 1).join('/');
-        const isLast = i === segments.length - 1;
+        const isLast = i === displaySegments.length - 1;
         const label = resolvedNames[seg] || routeLabels[seg] || seg.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
         return (
