@@ -1,2 +1,15 @@
 'use client';
-export default function SupplierCategoriesPage() { return (<div className="space-y-6"><h1 className="text-2xl font-light tracking-[-0.02em] text-white">Supplier Categories</h1><p className="text-sm text-zinc-500">Municipality, utility, contractor, security, cleaning, insurance, maintenance.</p></div>); }
+export default function SupplierCategoriesPage() {
+  const cats = ['municipality','utility','contractor','security','cleaning','insurance','legal','maintenance','other'];
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <h1 className="text-2xl font-light tracking-[-0.02em] text-white">Supplier Categories</h1>
+      <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+        <table className="w-full text-sm">
+          <thead><tr className="border-b border-white/[0.06] bg-white/[0.02]"><th className="text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">Category</th></tr></thead>
+          <tbody>{cats.map(c => (<tr key={c} className="border-b border-white/[0.03]"><td className="py-2.5 px-4 text-white font-light capitalize">{c}</td></tr>))}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
