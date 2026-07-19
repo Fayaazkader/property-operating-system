@@ -34,7 +34,6 @@ const groups = [
     items: [
       { key: '/notifications', label: 'Notifications' },
       { key: '/branding', label: 'Branding' },
-      { key: '/developer', label: 'Developer' },
     ]
   },
 ];
