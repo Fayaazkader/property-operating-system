@@ -41,7 +41,7 @@ export default function Breadcrumbs() {
         const resolver = idResolvers[prev || ''];
         if (resolver && seg && seg.length > 30) {
           const { data } = await supabase.from(resolver.table).select(resolver.select).eq('id', seg).single();
-          if (data) names[seg] = data[resolver.field] || seg.slice(0, 8);
+          if (data) names[seg] = (data as any)[resolver.field] || seg.slice(0, 8);
         }
       }
       setResolvedNames(names);
