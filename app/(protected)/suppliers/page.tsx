@@ -54,7 +54,7 @@ export default function AccountsPayablePage() {
     const [outstanding, aging, monthEnd, recurring] = await Promise.all([
       apApi.getOutstandingAP(eid).catch(() => 0),
       apApi.getAging(eid).catch(() => ({})),
-      apApi.getMonthEndStatus ? null : null,
+      apApi.getMonthEndStatus(eid).catch(() => null),
       supabase.from('recurring_expenses').select('*', { count: 'exact', head: true }).eq('entity_id', eid).eq('status', 'active'),
     ]);
     setData({ outstandingAP: outstanding, aging, recurringCount: (recurring as any)?.count || 0 });
