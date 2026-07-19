@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -23,16 +23,15 @@ export default function CashBookPage() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEntityDropdown, setShowEntityDropdown] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const entityFilterRef = useRef<HTMLDivElement>(null);
-useEffect(() => {
-  supabase.rpc('auth_entities').then(({ data }) => console.log('auth_entities:', data));
-}, []);
+
   useEffect(() => {
     async function load() {
       const { data: entityIds } = await supabase.rpc('auth_entities');
-const { data: ent } = entityIds && entityIds.length > 0 
-  ? await supabase.from("entities").select("id, entity_code, entity_name").in("id", entityIds).order("entity_name")
-  : { data: [] };
+      const { data: ent } = entityIds && entityIds.length > 0 
+        ? await supabase.from("entities").select("id, entity_code, entity_name").in("id", entityIds).order("entity_name")
+        : { data: [] };
       if (ent && ent.length > 0) {
         setEntities(ent);
         setSelectedEntity(ent[0].id);
@@ -45,26 +44,20 @@ const { data: ent } = entityIds && entityIds.length > 0
     async function loadAccounts() {
       if (!selectedEntity) return;
       setLoading(true);
-      console.log('Loading accounts for entity:', selectedEntity);
-console.log('Query:', `bank_accounts where entity_id = ${selectedEntity} and is_active = true`);
-     const { data, error } = await supabase
-  .from("bank_accounts")
-  .select("*")
-  .eq("entity_id", selectedEntity)
-  .eq("is_active", true)
-  .order("is_trust_account", { ascending: false });
-
-console.log('Data:', data);
-console.log('Error:', error);
+      const { data } = await supabase
+        .from("bank_accounts")
+        .select("*")
+        .eq("entity_id", selectedEntity)
+        .eq("is_active", true)
+        .order("is_trust_account", { ascending: false });
 
       if (data) {
-        // Get unreconciled counts per account
         const enriched = await Promise.all(data.map(async (acc: BankAccount) => {
           const { count } = await supabase
-  .from("bank_transactions")
-  .select("id", { count: "exact", head: true })
-  .eq("bank_account_id", acc.id)
-  .neq("allocation_status", "posted");
+            .from("bank_transactions")
+            .select("id", { count: "exact", head: true })
+            .eq("bank_account_id", acc.id)
+            .neq("allocation_status", "posted");
           return { ...acc, unreconciled: count || 0 };
         }));
         setAccounts(enriched as any[]);
@@ -84,15 +77,39 @@ console.log('Error:', error);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const balancedCount = accounts.filter(a => a.statement_balance === a.current_balance).length;
-  const needsReviewCount = accounts.filter(a => a.statement_balance !== a.current_balance).length;
+  const balancedCount = accounts.filter(a => Math.abs((a.statement_balance || 0) - (a.current_balance || 0)) < 0.01).length;
+  const needsReviewCount = accounts.filter(a => Math.abs((a.statement_balance || 0) - (a.current_balance || 0)) >= 0.01).length;
+  const totalStatement = accounts.reduce((s, a) => s + (a.statement_balance || 0), 0);
+  const totalBook = accounts.reduce((s, a) => s + (a.current_balance || 0), 0);
+
+  const filtered = accounts.filter(a => !searchTerm || a.bank_name?.toLowerCase().includes(searchTerm.toLowerCase()) || a.account_name?.toLowerCase().includes(searchTerm.toLowerCase()) || a.account_number?.includes(searchTerm));
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 pt-8 pb-12">
       <PageHeader title="Cash Book" subtitle="Reconcile transactions across your bank accounts." />
 
-      {/* Entity Selector */}
-      <div className="flex items-center gap-2">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-4 gap-3">
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Total Statement</p>
+          <p className="text-xl font-light text-[var(--text-primary)]">R{totalStatement.toLocaleString()}</p>
+        </div>
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Total Book</p>
+          <p className="text-xl font-light text-[var(--text-primary)]">R{totalBook.toLocaleString()}</p>
+        </div>
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Balanced</p>
+          <p className="text-xl font-light text-emerald-400">{balancedCount}</p>
+        </div>
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Needs Review</p>
+          <p className={`text-xl font-light ${needsReviewCount > 0 ? 'text-amber-400' : 'text-[var(--text-muted)]'}`}>{needsReviewCount}</p>
+        </div>
+      </div>
+
+      {/* Entity Selector + Search */}
+      <div className="flex items-center gap-3">
         <span className="text-xs text-[var(--text-muted)]">Entity:</span>
         <div className="relative" ref={entityFilterRef}>
           <button type="button" onClick={() => setShowEntityDropdown(!showEntityDropdown)}
@@ -111,20 +128,21 @@ console.log('Error:', error);
             </div>
           )}
         </div>
-        <span className="text-xs text-[var(--text-muted)] ml-auto">{accounts.length} Accounts · {balancedCount} Balanced · {needsReviewCount} Needs Review</span>
+        <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search accounts..." className="flex-1 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]" />
+        <span className="text-xs text-[var(--text-muted)]">{filtered.length} Accounts · {balancedCount} Balanced · {needsReviewCount} Needs Review</span>
       </div>
 
       {/* Bank Account Cards */}
       {loading ? (
         <div className="text-center py-20"><p className="text-[var(--text-muted)]">Loading accounts...</p></div>
-      ) : accounts.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="text-center py-20 rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)]">
           <p className="text-[var(--text-muted)]">No bank accounts found for this entity.</p>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {accounts.map((acc) => {
-            const difference = acc.statement_balance - acc.current_balance;
+          {filtered.map((acc) => {
+            const difference = (acc.statement_balance || 0) - (acc.current_balance || 0);
             const isBalanced = Math.abs(difference) < 0.01;
             const unreconciled = (acc as any).unreconciled || 0;
 
@@ -150,11 +168,11 @@ console.log('Error:', error);
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-[var(--text-muted)]">Statement</span>
-                    <span className="text-[var(--text-primary)] tabular-nums font-medium">R{acc.statement_balance?.toLocaleString()}</span>
+                    <span className="text-[var(--text-primary)] tabular-nums font-medium">R{acc.statement_balance?.toLocaleString() || '0'}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-[var(--text-muted)]">Book</span>
-                    <span className="text-[var(--text-primary)] tabular-nums font-medium">R{acc.current_balance?.toLocaleString()}</span>
+                    <span className="text-[var(--text-primary)] tabular-nums font-medium">R{acc.current_balance?.toLocaleString() || '0'}</span>
                   </div>
                   <div className="flex justify-between text-sm pt-2 border-t border-[var(--border-default)]">
                     <span className="text-[var(--text-muted)]">Difference</span>
