@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { apApi } from '@/lib/accounts-payable/api';
 import { apIntelligence } from '@/lib/accounts-payable/intelligence';
 
-type APSection = 'dashboard' | 'approval-queue' | 'invoices' | 'suppliers' | 'credit-notes' | 'recurring' | 'aging' | 'payments' | 'month-end';
+type APSection = 'dashboard' | 'approval-queue' | 'invoices' | 'suppliers' | 'supplier-detail' | 'credit-notes' | 'recurring' | 'aging' | 'payments' | 'month-end' | 'reconciliation';
 
 export default function AccountsPayablePage() {
   const [section, setSection] = useState<APSection>('dashboard');
@@ -111,6 +111,7 @@ export default function AccountsPayablePage() {
     { key: 'aging', label: 'Aging' },
     { key: 'payments', label: 'Payments' },
     { key: 'month-end', label: 'Month-End' },
+    { key: 'reconciliation', label: 'Reconciliation' },
   ];
 
   if (loading) return <div className="p-8 text-zinc-500">Loading...</div>;
