@@ -14,6 +14,7 @@ const routeLabels: Record<string, string> = {
   'tenants': 'Tenants', 'reports': 'Reports', 'leasing': 'Leasing', 'trial-balance': 'Trial Balance',
   'income-statement': 'Income Statement', 'balance-sheet': 'Balance Sheet', 'cash-flow': 'Cash Flow',
   'journals': 'Journals', 'vat': 'VAT', 'budget': 'Budget', 'close': 'Close Assistant', 'allocate': 'Allocate',
+  'treasury': 'Treasury',
 };
 
 const idResolvers: Record<string, { table: string; select: string; field: string }> = {

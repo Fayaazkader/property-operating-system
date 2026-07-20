@@ -49,7 +49,7 @@ export default function Sidebar() {
   const operationsItems: NavItem[] = [
     { label: "Revenue Ops", href: "/financials/revenue", icon: Receipt, desc: "Billing · Statements · Utilities", count: counts.revenue },
     { label: "Cash Book", href: "/financials/cash-book", icon: Landmark, desc: "Banking · Reconciliation · Allocation", count: counts.cashbook },
-    { label: 'Payment Hub', href: '/financials/payments', icon: Landmark, desc: 'Treasury · Batches' },
+    { label: 'Payment Hub', href: '/treasury', icon: Landmark, desc: 'Treasury · Batches' },
     { label: 'Imports', href: '/financials/imports', icon: Landmark, desc: 'Bank Import · Presets' },
     { label: "Commercial Leasing", href: "/leasing", icon: FileText, desc: "Opportunities · Brokers · Deals" },
     { label: "Communications", href: "/communications", icon: MessageSquare, desc: "Email · WhatsApp · Statements", count: counts.communications },
@@ -69,7 +69,7 @@ export default function Sidebar() {
   ];
 
   function NavItemRow({ item, showLabel }: { item: NavItem; showLabel: boolean }) {
-  const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
+  const isActive = pathname === item.href;
     const Icon = item.icon;
 
     return (
