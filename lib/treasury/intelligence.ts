@@ -3,8 +3,8 @@ import { supabase } from '@/lib/supabase';
 export interface ScheduledObligation {
   id: string; description: string; expected_amount: number;
   expected_date: string; priority: 'critical' | 'important' | 'flexible';
-  category: string; property_id?: string; bank_account_id?: string;
-  recurrence: 'monthly' | 'quarterly' | 'annually' | 'once';
+  category: string; recurrence: string;
+  avg_12m?: number; highest_12m?: number; lowest_12m?: number;
   last_amount?: number; last_date?: string;
 }
 
@@ -16,60 +16,95 @@ export interface CashForecast {
 
 export interface TreasuryHealth {
   score: number; status: 'green' | 'amber' | 'red';
-  factors: { upcoming_liabilities: number; cash_available: number; overdue_debtors: number; forecast_shortfall: number };
+  factors: { liquidity_ratio: number; collection_rate: number; critical_coverage: number; forecast_stability: number };
   recommendations: string[]; alerts: string[];
 }
 
 export const treasuryIntelligence = {
-  async getScheduledObligations(entityId: string): Promise<ScheduledObligation[]> {
-    const { data: recurring } = await supabase.from('recurring_expenses').select('*').eq('entity_id', entityId).eq('status', 'active');
-    const obligations: ScheduledObligation[] = (recurring || []).map((r: any) => ({
-      id: r.id, description: r.description, expected_amount: r.amount,
-      expected_date: r.next_due_date || new Date().toISOString().split('T')[0],
-      priority: (r.description || '').toLowerCase().includes('bond') ? 'critical' : (r.description || '').toLowerCase().includes('insurance') ? 'critical' : (r.description || '').toLowerCase().includes('municipal') ? 'critical' : 'important',
-      category: r.description || 'other', property_id: r.property_id,
-      recurrence: (r.frequency as any) || 'monthly', last_amount: r.amount,
+  async getObligations(entityId: string): Promise<ScheduledObligation[]> {
+    const { data } = await supabase.from('treasury_obligations').select('*').eq('entity_id', entityId).eq('is_active', true).order('expected_date');
+    return (data || []).map((o: any) => ({
+      id: o.id, description: o.description, expected_amount: o.expected_amount,
+      expected_date: o.expected_date, priority: o.priority, category: o.category,
+      recurrence: o.recurrence, avg_12m: o.avg_12m, highest_12m: o.highest_12m,
+      lowest_12m: o.lowest_12m, last_amount: o.last_amount, last_date: o.last_date,
     }));
-    const { data: requests } = await supabase.from('payment_requests').select('*, supplier:supplier_id(supplier_name)').eq('entity_id', entityId).eq('status', 'approved');
-    for (const req of (requests || [])) {
-      obligations.push({ id: req.id, description: (req as any).supplier?.supplier_name || 'Payment', expected_amount: req.amount, expected_date: req.due_date || new Date().toISOString().split('T')[0], priority: 'important', category: 'supplier_payment', recurrence: 'once', last_amount: req.amount });
+  },
+
+  async learnPatterns(entityId: string): Promise<void> {
+    const { data: obligations } = await supabase.from('treasury_obligations').select('*').eq('entity_id', entityId).eq('is_active', true);
+    const { data: invoices } = await supabase.from('supplier_invoices_new').select('supplier_id, total_amount, invoice_date').eq('entity_id', entityId).order('invoice_date', { ascending: false }).limit(100);
+    
+    for (const obl of (obligations || [])) {
+      const related = (invoices || []).filter((i: any) => {
+        const desc = (obl.description || '').toLowerCase();
+        return desc.includes('bond') || desc.includes('insurance') || desc.includes('municipal');
+      }).slice(0, 12);
+      
+      if (related.length >= 3) {
+        const amounts = related.map((r: any) => r.total_amount);
+        const avg = amounts.reduce((s: number, a: number) => s + a, 0) / amounts.length;
+        await supabase.from('treasury_obligations').update({
+          avg_12m: Math.round(avg), highest_12m: Math.max(...amounts),
+          lowest_12m: Math.min(...amounts), last_amount: amounts[0],
+          last_date: related[0].invoice_date, updated_at: new Date().toISOString(),
+        }).eq('id', obl.id);
+      }
     }
-    return obligations.sort((a, b) => new Date(a.expected_date).getTime() - new Date(b.expected_date).getTime());
   },
 
   async getCashForecast(entityId: string, days: number = 30): Promise<CashForecast[]> {
     const today = new Date(); const forecasts: CashForecast[] = [];
     const { data: bankAccounts } = await supabase.from('bank_accounts').select('current_balance').eq('entity_id', entityId).eq('is_active', true);
-    let currentBalance = (bankAccounts || []).reduce((s: number, b: any) => s + (b.current_balance || 0), 0);
-    const obligations = await this.getScheduledObligations(entityId);
-    const { data: leases } = await supabase.from('leases').select('monthly_rental').eq('lease_status', 'Active').eq('owner_entity_id', entityId);
-    const dailyRental = ((leases || []).reduce((s: number, l: any) => s + (l.monthly_rental || 0), 0)) / 30;
+    let balance = (bankAccounts || []).reduce((s: number, b: any) => s + (b.current_balance || 0), 0);
+    const obligations = await this.getObligations(entityId);
+
+    // Get actual collection patterns from leases
+    const { data: leases } = await supabase.from('leases').select('monthly_rental, billing_day').eq('lease_status', 'Active').eq('owner_entity_id', entityId);
+    
     for (let d = 0; d < days; d++) {
       const date = new Date(today.getTime() + d * 86400000); const dateStr = date.toISOString().split('T')[0];
-      const openingBalance = currentBalance; const expectedInflows = dailyRental;
+      const openingBalance = balance;
+      
+      // Collections on billing days (1st, 7th, 15th, 25th) not daily
+      const dayOfMonth = date.getDate();
+      const isCollectionDay = [1, 7, 15, 25].includes(dayOfMonth);
+      const expectedInflows = isCollectionDay ? (leases || []).reduce((s: number, l: any) => s + (l.monthly_rental || 0), 0) : 0;
+
       const dueToday = obligations.filter(o => o.expected_date === dateStr);
       const expectedOutflows = dueToday.reduce((s: number, o: any) => s + o.expected_amount, 0);
-      currentBalance = openingBalance + expectedInflows - expectedOutflows;
-      forecasts.push({ date: dateStr, opening_balance: openingBalance, expected_inflows: expectedInflows, expected_outflows: expectedOutflows, closing_balance: currentBalance, events: dueToday.map(o => ({ description: o.description, amount: o.expected_amount, type: 'outflow' as const, priority: o.priority })) });
+      
+      balance = openingBalance + expectedInflows - expectedOutflows;
+      forecasts.push({ date: dateStr, opening_balance: openingBalance, expected_inflows: expectedInflows, expected_outflows: expectedOutflows, closing_balance: balance, events: dueToday.map(o => ({ description: o.description, amount: o.expected_amount, type: 'outflow' as const, priority: o.priority })) });
     }
     return forecasts;
   },
 
   async getTreasuryHealth(entityId: string): Promise<TreasuryHealth> {
-    const [obligations, forecast, { data: bankAccounts }] = await Promise.all([this.getScheduledObligations(entityId), this.getCashForecast(entityId, 30), supabase.from('bank_accounts').select('current_balance').eq('entity_id', entityId).eq('is_active', true)]);
-    const cashAvailable = (bankAccounts || []).reduce((s: number, b: any) => s + (b.current_balance || 0), 0);
-    const upcomingLiabilities = obligations.filter(o => new Date(o.expected_date) <= new Date(Date.now() + 7 * 86400000)).reduce((s: number, o: any) => s + o.expected_amount, 0);
-    let forecastShortfall = 0;
-    for (const f of forecast) { if (f.closing_balance < 0) forecastShortfall += Math.abs(f.closing_balance); }
+    const [obligations, forecast, { data: bankAccounts }] = await Promise.all([this.getObligations(entityId), this.getCashForecast(entityId, 30), supabase.from('bank_accounts').select('current_balance').eq('entity_id', entityId).eq('is_active', true)]);
+    const cash = (bankAccounts || []).reduce((s: number, b: any) => s + (b.current_balance || 0), 0);
+    const upcoming = obligations.filter(o => new Date(o.expected_date) <= new Date(Date.now() + 7 * 86400000)).reduce((s: number, o: any) => s + o.expected_amount, 0);
+    const liquidityRatio = upcoming > 0 ? Math.min(100, Math.round((cash / upcoming) * 100)) : 100;
+    
+    const { data: leases } = await supabase.from('leases').select('monthly_rental').eq('lease_status', 'Active').eq('owner_entity_id', entityId);
+    const totalRental = (leases || []).reduce((s: number, l: any) => s + (l.monthly_rental || 0), 0);
     const { data: overdue } = await supabase.from('sub_ledger_entries').select('running_balance').eq('entity_id', entityId).eq('ledger_type', 'tenant').gt('running_balance', 0).order('posted_at', { ascending: false }).limit(1);
-    const overdueDebtors = overdue?.length ? overdue[0].running_balance : 0;
-    const ratio = cashAvailable / (upcomingLiabilities || 1);
-    const score = Math.min(100, Math.round(ratio * 50 + (forecastShortfall === 0 ? 50 : 0)));
-    const status: TreasuryHealth['status'] = score >= 80 ? 'green' : score >= 50 ? 'amber' : 'red';
+    const outstanding = overdue?.length ? overdue[0].running_balance : 0;
+    const collectionRate = totalRental > 0 ? Math.round((1 - outstanding / totalRental) * 100) : 100;
+
+    let shortfallDays = 0;
+    for (const f of forecast) { if (f.closing_balance < 0) shortfallDays++; }
+    const forecastStability = Math.max(0, 100 - shortfallDays * 3);
+
+    const criticalCoverage = obligations.filter(o => o.priority === 'critical' && new Date(o.expected_date) <= new Date(Date.now() + 7 * 86400000)).length === 0 ? 100 : 50;
+    const score = Math.round((liquidityRatio * 0.35 + collectionRate * 0.25 + criticalCoverage * 0.2 + forecastStability * 0.2));
+    const status = score >= 80 ? 'green' : score >= 50 ? 'amber' : 'red';
+
     const alerts: string[] = []; const recommendations: string[] = [];
-    const criticalDue = obligations.filter(o => o.priority === 'critical' && new Date(o.expected_date) <= new Date(Date.now() + 5 * 86400000));
-    for (const c of criticalDue) { alerts.push(`${c.description} due in ${Math.ceil((new Date(c.expected_date).getTime() - Date.now()) / 86400000)} days — R${c.expected_amount.toLocaleString()}`); }
-    if (forecastShortfall > 0) { alerts.push(`Cash shortfall of R${forecastShortfall.toLocaleString()} forecast within 30 days`); recommendations.push('Delay non-critical payment batches'); if (overdueDebtors > 0) recommendations.push(`Collect overdue tenant debt — R${overdueDebtors.toLocaleString()} outstanding`); recommendations.push('Review upcoming obligations and prioritize critical payments'); }
-    return { score, status, factors: { upcoming_liabilities: upcomingLiabilities, cash_available: cashAvailable, overdue_debtors: overdueDebtors, forecast_shortfall: forecastShortfall }, recommendations, alerts };
+    if (liquidityRatio < 80) alerts.push(`Liquidity ratio at ${liquidityRatio}%`);
+    if (collectionRate < 80) { alerts.push(`Collections at ${collectionRate}%`); recommendations.push(`R${outstanding.toLocaleString()} outstanding — initiate collections`); }
+    if (shortfallDays > 0) { alerts.push(`${shortfallDays} days of forecast shortfall`); recommendations.push('Review and delay non-critical payment batches'); }
+
+    return { score, status, factors: { liquidity_ratio: liquidityRatio, collection_rate: collectionRate, critical_coverage: criticalCoverage, forecast_stability: forecastStability }, recommendations, alerts };
   }
 };

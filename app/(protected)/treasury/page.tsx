@@ -150,7 +150,16 @@ setRuleResults(rules);
         <HealthCard label="Held Payments" value={`R${(health.heldPayments / 1000).toFixed(0)}k`} highlight />
         <HealthCard label="Overdue Suppliers" value={health.overdueSuppliers} highlight={health.overdueSuppliers > 0} />
         <HealthCard label="Awaiting Bank" value={health.batchesAwaitingBank} highlight={health.batchesAwaitingBank > 0} />
-      {treasuryHealth && (
+      {forecast.length > 0 && (
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4 overflow-x-auto">
+          <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3">Cash Timeline</p>
+          <div className="flex gap-3">
+            {forecast.slice(0, 14).map((f, i) => (
+              <div key={i} className={`flex-shrink-0 w-20 text-center rounded-lg p-2 ${f.closing_balance < 0 ? 'bg-red-500/10' : f.events.length > 0 ? 'bg-amber-500/10' : 'bg-white/[0.02]'}`}><p className="text-[9px] text-zinc-500">{f.date.slice(5)}</p><p className={`text-xs font-medium ${f.closing_balance < 0 ? 'text-red-400' : 'text-white'}`}>R{(f.closing_balance / 1000).toFixed(0)}k</p>{f.events.length > 0 && <p className="text-[8px] text-amber-400 mt-1">{f.events[0].description.slice(0, 10)}</p>}</div>
+            ))}
+          </div>
+        </div>
+      )}      {treasuryHealth && (
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-[10px] uppercase tracking-wider text-zinc-500">Treasury Intelligence</p>
