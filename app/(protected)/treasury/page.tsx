@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { treasuryIntelligence } from '@/lib/treasury/intelligence';
-import { treasuryRulesEngine } from '@/lib/treasury/rules-engine';
-import type { RuleResult } from '@/lib/treasury/rules-engine';
 import type { TreasuryHealth, CashForecast } from '@/lib/treasury/intelligence';
 
 const STATUS_LIFECYCLE = ['draft', 'awaiting_treasury', 'approved', 'batched', 'submitted_to_bank', 'awaiting_confirmation', 'matched', 'completed'] as const;
@@ -30,7 +28,6 @@ export default function TreasuryWorkspacePage() {
   const [health, setHealth] = useState({ availableCash: 0, approvedToPay: 0, heldPayments: 0, overdueSuppliers: 0, batchesAwaitingBank: 0 });
   const [treasuryHealth, setTreasuryHealth] = useState<TreasuryHealth | null>(null);
 const [forecast, setForecast] = useState<CashForecast[]>([]);
-const [ruleResults, setRuleResults] = useState<RuleResult[]>([]);
 
   useEffect(() => {
     async function init() {
@@ -49,8 +46,6 @@ const [ruleResults, setRuleResults] = useState<RuleResult[]>([]);
 setTreasuryHealth(th);
 const fc = await treasuryIntelligence.getCashForecast(eid, 14);
 setForecast(fc);
-const rules = await treasuryRulesEngine.evaluate(eid);
-setRuleResults(rules);
       setInvoices(invData.data || []);
       setRequests(reqData.data || []);
       setBatches(batchData.data || []);
@@ -150,46 +145,20 @@ setRuleResults(rules);
         <HealthCard label="Held Payments" value={`R${(health.heldPayments / 1000).toFixed(0)}k`} highlight />
         <HealthCard label="Overdue Suppliers" value={health.overdueSuppliers} highlight={health.overdueSuppliers > 0} />
         <HealthCard label="Awaiting Bank" value={health.batchesAwaitingBank} highlight={health.batchesAwaitingBank > 0} />
-      {forecast.length > 0 && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4 overflow-x-auto">
-          <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3">Cash Timeline</p>
-          <div className="flex gap-3">
-            {forecast.slice(0, 14).map((f, i) => (
-              <div key={i} className={`flex-shrink-0 w-20 text-center rounded-lg p-2 ${f.closing_balance < 0 ? 'bg-red-500/10' : f.events.length > 0 ? 'bg-amber-500/10' : 'bg-white/[0.02]'}`}><p className="text-[9px] text-zinc-500">{f.date.slice(5)}</p><p className={`text-xs font-medium ${f.closing_balance < 0 ? 'text-red-400' : 'text-white'}`}>R{(f.closing_balance / 1000).toFixed(0)}k</p>{f.events.length > 0 && <p className="text-[8px] text-amber-400 mt-1">{f.events[0].description.slice(0, 10)}</p>}</div>
-            ))}
-          </div>
-        </div>
-      )}      {treasuryHealth && (
+      {treasuryHealth && (
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-[10px] uppercase tracking-wider text-zinc-500">Treasury Intelligence</p>
             <span className={`text-xs px-3 py-1 rounded-full ${treasuryHealth.status === 'green' ? 'bg-emerald-500/10 text-emerald-400' : treasuryHealth.status === 'amber' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'}`}>Score: {treasuryHealth.score}% · {treasuryHealth.status === 'green' ? 'Healthy' : treasuryHealth.status === 'amber' ? 'Warning' : 'Critical'}</span>
           </div>
-          {ruleResults.filter(r => r.alert_level === 'critical').length > 0 && (
-  <div className="space-y-1">
-    <p className="text-[10px] text-red-400 uppercase tracking-wider">Critical</p>
-    {ruleResults.filter(r => r.alert_level === 'critical').map((r, i) => <p key={i} className="text-xs text-red-400">🔴 {r.message}</p>)}
-  </div>
-)}
-{ruleResults.filter(r => r.alert_level === 'warning').length > 0 && (
-  <div className="space-y-1">
-    <p className="text-[10px] text-amber-400 uppercase tracking-wider">Warnings</p>
-    {ruleResults.filter(r => r.alert_level === 'warning').map((r, i) => <p key={i} className="text-xs text-amber-400">⚠ {r.message}</p>)}
-  </div>
-)}
-{ruleResults.filter(r => r.alert_level === 'info').length > 0 && (
-  <div className="space-y-1">
-    <p className="text-[10px] text-blue-400 uppercase tracking-wider">Info</p>
-    {ruleResults.filter(r => r.alert_level === 'info').map((r, i) => <p key={i} className="text-xs text-blue-400">ℹ {r.message}</p>)}
-  </div>
-)}
-          {ruleResults.filter(r => r.action).length > 0 && (
-  <div className="space-y-1">
-    <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Recommended Actions</p>
-    {ruleResults.filter(r => r.action).map((r, i) => <p key={i} className="text-xs text-zinc-400">• {r.action}</p>)}
-  </div>
-)}
+          {treasuryHealth.alerts.length > 0 && (
+            <div className="space-y-1">{treasuryHealth.alerts.map((a, i) => <p key={i} className="text-xs text-amber-400">⚠ {a}</p>)}</div>
+          )}
+          {treasuryHealth.recommendations.length > 0 && (
+            <div className="space-y-1"><p className="text-[10px] text-zinc-500">Recommendations</p>{treasuryHealth.recommendations.map((r, i) => <p key={i} className="text-xs text-zinc-400">• {r}</p>)}</div>
+          )}
         </div>
+      )}      </div>
 
       {forecast.length > 0 && (
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5 mt-4">
@@ -199,21 +168,18 @@ setRuleResults(rules);
               <div key={i} className="flex items-center justify-between py-1.5 border-b border-white/[0.03] text-xs">
                 <span className="text-zinc-400 w-16">{new Date(f.date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}</span>
                 <span className="text-white flex-1">{f.events.length > 0 ? f.events.map(e => e.description).join(", ") : f.expected_inflows > 0 ? "Rental Collection" : ""}</span>
-                <span className={`tabular-nums ${f.events.length > 0 ? "text-red-400" : f.expected_inflows > 0 ? "text-emerald-400" : "text-zinc-500"}`}>{f.events.length > 0 ? "-R" + f.expected_outflows.toLocaleString() : f.expected_inflows > 0 ? "+R" + f.expected_inflows.toLocaleString() : ""}</span>
+                <span className={f.events.length > 0 ? "text-red-400 tabular-nums" : f.expected_inflows > 0 ? "text-emerald-400 tabular-nums" : "text-zinc-500 tabular-nums"}>{f.events.length > 0 ? "-R" + f.expected_outflows.toLocaleString() : f.expected_inflows > 0 ? "+R" + f.expected_inflows.toLocaleString() : ""}</span>
               </div>
             ))}
           </div>
         </div>
       )}
-
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5 mt-4">
         <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3">Risk Simulation</p>
         <p className="text-xs text-zinc-400 mb-2">Adjust supplier batch amount to see impact on forecast</p>
         <input type="range" min="0" max="100" defaultValue="100" className="w-full" />
         <div className="flex justify-between text-[10px] text-zinc-600 mt-1"><span>0%</span><span>50%</span><span>100%</span></div>
-      </div>
-
-      {/* Workflow Stages */}
+      </div>      {/* Workflow Stages */}
       <div className="flex gap-1 border-b border-white/[0.06]">
         {([
           { key: 'review', label: 'Treasury Review', count: reviewRequests.length },
