@@ -145,41 +145,9 @@ setForecast(fc);
         <HealthCard label="Held Payments" value={`R${(health.heldPayments / 1000).toFixed(0)}k`} highlight />
         <HealthCard label="Overdue Suppliers" value={health.overdueSuppliers} highlight={health.overdueSuppliers > 0} />
         <HealthCard label="Awaiting Bank" value={health.batchesAwaitingBank} highlight={health.batchesAwaitingBank > 0} />
-      {treasuryHealth && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Treasury Intelligence</p>
-            <span className={`text-xs px-3 py-1 rounded-full ${treasuryHealth.status === 'green' ? 'bg-emerald-500/10 text-emerald-400' : treasuryHealth.status === 'amber' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'}`}>Score: {treasuryHealth.score}% · {treasuryHealth.status === 'green' ? 'Healthy' : treasuryHealth.status === 'amber' ? 'Warning' : 'Critical'}</span>
-          </div>
-          {treasuryHealth.alerts.length > 0 && (
-            <div className="space-y-1">{treasuryHealth.alerts.map((a, i) => <p key={i} className="text-xs text-amber-400">⚠ {a}</p>)}</div>
-          )}
-          {treasuryHealth.recommendations.length > 0 && (
-            <div className="space-y-1"><p className="text-[10px] text-zinc-500">Recommendations</p>{treasuryHealth.recommendations.map((r, i) => <p key={i} className="text-xs text-zinc-400">• {r}</p>)}</div>
-          )}
-        </div>
-      )}      </div>
+      </div>
 
-      {forecast.length > 0 && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5 mt-4">
-          <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3">Treasury Calendar</p>
-          <div className="space-y-1">
-            {forecast.filter(f => f.events.length > 0 || f.expected_inflows > 100000).slice(0, 10).map((f, i) => (
-              <div key={i} className="flex items-center justify-between py-1.5 border-b border-white/[0.03] text-xs">
-                <span className="text-zinc-400 w-16">{new Date(f.date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}</span>
-                <span className="text-white flex-1">{f.events.length > 0 ? f.events.map(e => e.description).join(", ") : f.expected_inflows > 0 ? "Rental Collection" : ""}</span>
-                <span className={f.events.length > 0 ? "text-red-400 tabular-nums" : f.expected_inflows > 0 ? "text-emerald-400 tabular-nums" : "text-zinc-500 tabular-nums"}>{f.events.length > 0 ? "-R" + f.expected_outflows.toLocaleString() : f.expected_inflows > 0 ? "+R" + f.expected_inflows.toLocaleString() : ""}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5 mt-4">
-        <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3">Risk Simulation</p>
-        <p className="text-xs text-zinc-400 mb-2">Adjust supplier batch amount to see impact on forecast</p>
-        <input type="range" min="0" max="100" defaultValue="100" className="w-full" />
-        <div className="flex justify-between text-[10px] text-zinc-600 mt-1"><span>0%</span><span>50%</span><span>100%</span></div>
-      </div>      {/* Workflow Stages */}
+      {/* Workflow Stages */}
       <div className="flex gap-1 border-b border-white/[0.06]">
         {([
           { key: 'review', label: 'Treasury Review', count: reviewRequests.length },
