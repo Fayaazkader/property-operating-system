@@ -68,7 +68,7 @@ export default function Sidebar() {
   ];
 
   function NavItemRow({ item, showLabel }: { item: NavItem; showLabel: boolean }) {
-    const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+  const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
     const Icon = item.icon;
 
     return (

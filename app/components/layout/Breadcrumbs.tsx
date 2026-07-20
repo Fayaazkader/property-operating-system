@@ -25,19 +25,21 @@ const idResolvers: Record<string, { table: string; select: string; field: string
 export default function Breadcrumbs() {
   const pathname = usePathname();
   const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
-  const segments = pathname.split('/').filter(Boolean);
+  const allSegments = pathname.split('/').filter(Boolean);
   
-  // Hide on dashboard, skip 'financials' prefix for workspace pages
+  let segments = allSegments;
+  if (allSegments[0] === 'financials' && allSegments.length > 1) {
+    segments = allSegments.slice(1);
+  }
+  
   if (segments.length === 0) return null;
-  const displaySegments = segments[0] === 'financials' && segments.length > 1 ? segments.slice(1) : segments;
-  if (displaySegments.length === 0) return null;
 
   useEffect(() => {
     async function resolveNames() {
       const names: Record<string, string> = {};
-      for (let i = 0; i < displaySegments.length; i++) {
-        const seg = displaySegments[i];
-        const prev = displaySegments[i - 1];
+      for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        const prev = segments[i - 1];
         const resolver = idResolvers[prev || ''];
         if (resolver && seg && seg.length > 30) {
           const { data } = await supabase.from(resolver.table).select(resolver.select).eq('id', seg).single();
@@ -51,9 +53,10 @@ export default function Breadcrumbs() {
 
   return (
     <nav className="flex items-center gap-1.5 text-[11px] text-zinc-500 font-light py-2 overflow-x-auto">
-      {displaySegments.map((seg, i) => {
-        const href = '/' + segments.slice(0, segments.indexOf(seg) + 1).join('/');
-        const isLast = i === displaySegments.length - 1;
+      {segments.map((seg, i) => {
+        const realIndex = allSegments.indexOf(seg);
+        const href = '/' + allSegments.slice(0, realIndex + 1).join('/');
+        const isLast = i === segments.length - 1;
         const label = resolvedNames[seg] || routeLabels[seg] || seg.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         return (
           <span key={i} className="flex items-center gap-1.5">
