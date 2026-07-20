@@ -25,14 +25,12 @@ const idResolvers: Record<string, { table: string; select: string; field: string
 export default function Breadcrumbs() {
   const pathname = usePathname();
   const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
-  const allSegments = pathname.split('/').filter(Boolean);
   
+  const allSegments = pathname.split('/').filter(Boolean);
   let segments = allSegments;
   if (allSegments[0] === 'financials' && allSegments.length > 1) {
     segments = allSegments.slice(1);
   }
-  
-  if (segments.length === 0) return null;
 
   useEffect(() => {
     async function resolveNames() {
@@ -50,6 +48,9 @@ export default function Breadcrumbs() {
     }
     resolveNames();
   }, [pathname]);
+
+  // Always render, just return null if no segments
+  if (segments.length === 0) return null;
 
   return (
     <nav className="flex items-center gap-1.5 text-[11px] text-zinc-500 font-light py-2 overflow-x-auto">
