@@ -145,7 +145,6 @@ setForecast(fc);
         <HealthCard label="Held Payments" value={`R${(health.heldPayments / 1000).toFixed(0)}k`} highlight />
         <HealthCard label="Overdue Suppliers" value={health.overdueSuppliers} highlight={health.overdueSuppliers > 0} />
         <HealthCard label="Awaiting Bank" value={health.batchesAwaitingBank} highlight={health.batchesAwaitingBank > 0} />
-      </div>
       {treasuryHealth && (
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5 space-y-3">
           <div className="flex items-center justify-between">
@@ -153,10 +152,10 @@ setForecast(fc);
             <span className={`text-xs px-3 py-1 rounded-full ${treasuryHealth.status === 'green' ? 'bg-emerald-500/10 text-emerald-400' : treasuryHealth.status === 'amber' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'}`}>Score: {treasuryHealth.score}% · {treasuryHealth.status === 'green' ? 'Healthy' : treasuryHealth.status === 'amber' ? 'Warning' : 'Critical'}</span>
           </div>
           {treasuryHealth.alerts.length > 0 && (
-            <div className="space-y-1">{treasuryHealth.alerts.map((a: any, i: number) => <p key={i} className="text-xs text-amber-400">⚠ {a}</p>)}</div>
+            <div className="space-y-1">{treasuryHealth.alerts.map((a, i) => <p key={i} className="text-xs text-amber-400">⚠ {a}</p>)}</div>
           )}
           {treasuryHealth.recommendations.length > 0 && (
-            <div className="space-y-1"><p className="text-[10px] text-zinc-500">Recommendations</p>{treasuryHealth.recommendations.map((r: any, i: number) => <p key={i} className="text-xs text-zinc-400">• {r}</p>)}</div>
+            <div className="space-y-1"><p className="text-[10px] text-zinc-500">Recommendations</p>{treasuryHealth.recommendations.map((r, i) => <p key={i} className="text-xs text-zinc-400">• {r}</p>)}</div>
           )}
         </div>
       )}      </div>
