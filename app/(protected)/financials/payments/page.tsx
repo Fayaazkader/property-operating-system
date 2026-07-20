@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { treasuryIntelligence } from '@/lib/treasury/intelligence';
+import type { TreasuryHealth, CashForecast } from '@/lib/treasury/intelligence';
+import { treasuryIntelligence } from '@/lib/treasury/intelligence';
+import type { TreasuryHealth, CashForecast } from '@/lib/treasury/intelligence';
 
 const STATUS_LIFECYCLE = ['draft', 'awaiting_treasury', 'approved', 'batched', 'submitted_to_bank', 'awaiting_confirmation', 'matched', 'completed'] as const;
 const STATUS_LABELS: Record<string, string> = {
@@ -23,14 +27,26 @@ export default function TreasuryWorkspacePage() {
   const [batchBankAccount, setBatchBankAccount] = useState('');
   const [batchReference, setBatchReference] = useState('');
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
-  const [health, setHealth] = useState({ availableCash: 0, approvedToPay: 0, heldPayments: 0, overdueSuppliers: 0, batchesAwaitingBank: 0 });
+  const [treasuryHealth, setTreasuryHealth] = useState(null); const [forecast, setForecast] = useState([]); const [health, setHealth] = useState({ availableCash: 0, approvedToPay: 0, heldPayments: 0, overdueSuppliers: 0, batchesAwaitingBank: 0 });
 
   useEffect(() => {
     async function init() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setLoading(false); return; }
+      const th = await treasuryIntelligence.getTreasuryHealth(eid);
+      setTreasuryHealth(th);
+      const fc = await treasuryIntelligence.getCashForecast(eid, 14);
+      const th = await treasuryIntelligence.getTreasuryHealth(eid);
+      setTreasuryHealth(th);
+      const fc = await treasuryIntelligence.getCashForecast(eid, 14);
+      setForecast(fc);      setForecast(fc);      if (!session) { setLoading(false); return; }
       const { data: entities } = await supabase.rpc('auth_entities');
-      if (!entities?.length) { setLoading(false); return; }
+      const th = await treasuryIntelligence.getTreasuryHealth(eid);
+      setTreasuryHealth(th);
+      const fc = await treasuryIntelligence.getCashForecast(eid, 14);
+      const th = await treasuryIntelligence.getTreasuryHealth(eid);
+      setTreasuryHealth(th);
+      const fc = await treasuryIntelligence.getCashForecast(eid, 14);
+      setForecast(fc);      setForecast(fc);      if (!entities?.length) { setLoading(false); return; }
       const eid = entities[0]; setEntityId(eid);
       const [invData, reqData, batchData, bankData] = await Promise.all([
         supabase.from('supplier_invoices_new').select('*, supplier:supplier_id(supplier_name)').eq('entity_id', eid).eq('lifecycle_status', 'posted').order('due_date'),
@@ -54,7 +70,13 @@ export default function TreasuryWorkspacePage() {
         overdueSuppliers: overdue.length,
         batchesAwaitingBank: awaiting.length,
       });
-      setLoading(false);
+      const th = await treasuryIntelligence.getTreasuryHealth(eid);
+      setTreasuryHealth(th);
+      const fc = await treasuryIntelligence.getCashForecast(eid, 14);
+      const th = await treasuryIntelligence.getTreasuryHealth(eid);
+      setTreasuryHealth(th);
+      const fc = await treasuryIntelligence.getCashForecast(eid, 14);
+      setForecast(fc);      setForecast(fc);      setLoading(false);
     }
     init();
   }, []);
