@@ -190,7 +190,28 @@ setRuleResults(rules);
   </div>
 )}
         </div>
-      )}      </div>
+
+      {forecast.length > 0 && (
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5 mt-4">
+          <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3">Treasury Calendar</p>
+          <div className="space-y-1">
+            {forecast.filter(f => f.events.length > 0 || f.expected_inflows > 100000).slice(0, 10).map((f, i) => (
+              <div key={i} className="flex items-center justify-between py-1.5 border-b border-white/[0.03] text-xs">
+                <span className="text-zinc-400 w-16">{new Date(f.date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}</span>
+                <span className="text-white flex-1">{f.events.length > 0 ? f.events.map(e => e.description).join(", ") : f.expected_inflows > 0 ? "Rental Collection" : ""}</span>
+                <span className={`tabular-nums ${f.events.length > 0 ? "text-red-400" : f.expected_inflows > 0 ? "text-emerald-400" : "text-zinc-500"}`}>{f.events.length > 0 ? "-R" + f.expected_outflows.toLocaleString() : f.expected_inflows > 0 ? "+R" + f.expected_inflows.toLocaleString() : ""}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5 mt-4">
+        <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3">Risk Simulation</p>
+        <p className="text-xs text-zinc-400 mb-2">Adjust supplier batch amount to see impact on forecast</p>
+        <input type="range" min="0" max="100" defaultValue="100" className="w-full" />
+        <div className="flex justify-between text-[10px] text-zinc-600 mt-1"><span>0%</span><span>50%</span><span>100%</span></div>
+      </div>
 
       {/* Workflow Stages */}
       <div className="flex gap-1 border-b border-white/[0.06]">
