@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { treasuryIntelligence } from '@/lib/treasury/intelligence';
+import { treasuryRulesEngine } from '@/lib/treasury/rules-engine';
+import type { RuleResult } from '@/lib/treasury/rules-engine';
 import type { TreasuryHealth, CashForecast } from '@/lib/treasury/intelligence';
 
 const STATUS_LIFECYCLE = ['draft', 'awaiting_treasury', 'approved', 'batched', 'submitted_to_bank', 'awaiting_confirmation', 'matched', 'completed'] as const;
@@ -28,6 +30,7 @@ export default function TreasuryWorkspacePage() {
   const [health, setHealth] = useState({ availableCash: 0, approvedToPay: 0, heldPayments: 0, overdueSuppliers: 0, batchesAwaitingBank: 0 });
   const [treasuryHealth, setTreasuryHealth] = useState<TreasuryHealth | null>(null);
 const [forecast, setForecast] = useState<CashForecast[]>([]);
+const [ruleResults, setRuleResults] = useState<RuleResult[]>([]);
 
   useEffect(() => {
     async function init() {
@@ -46,6 +49,8 @@ const [forecast, setForecast] = useState<CashForecast[]>([]);
 setTreasuryHealth(th);
 const fc = await treasuryIntelligence.getCashForecast(eid, 14);
 setForecast(fc);
+const rules = await treasuryRulesEngine.evaluate(eid);
+setRuleResults(rules);
       setInvoices(invData.data || []);
       setRequests(reqData.data || []);
       setBatches(batchData.data || []);
@@ -151,12 +156,30 @@ setForecast(fc);
             <p className="text-[10px] uppercase tracking-wider text-zinc-500">Treasury Intelligence</p>
             <span className={`text-xs px-3 py-1 rounded-full ${treasuryHealth.status === 'green' ? 'bg-emerald-500/10 text-emerald-400' : treasuryHealth.status === 'amber' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'}`}>Score: {treasuryHealth.score}% · {treasuryHealth.status === 'green' ? 'Healthy' : treasuryHealth.status === 'amber' ? 'Warning' : 'Critical'}</span>
           </div>
-          {treasuryHealth.alerts.length > 0 && (
-            <div className="space-y-1">{treasuryHealth.alerts.map((a, i) => <p key={i} className="text-xs text-amber-400">⚠ {a}</p>)}</div>
-          )}
-          {treasuryHealth.recommendations.length > 0 && (
-            <div className="space-y-1"><p className="text-[10px] text-zinc-500">Recommendations</p>{treasuryHealth.recommendations.map((r, i) => <p key={i} className="text-xs text-zinc-400">• {r}</p>)}</div>
-          )}
+          {ruleResults.filter(r => r.alert_level === 'critical').length > 0 && (
+  <div className="space-y-1">
+    <p className="text-[10px] text-red-400 uppercase tracking-wider">Critical</p>
+    {ruleResults.filter(r => r.alert_level === 'critical').map((r, i) => <p key={i} className="text-xs text-red-400">🔴 {r.message}</p>)}
+  </div>
+)}
+{ruleResults.filter(r => r.alert_level === 'warning').length > 0 && (
+  <div className="space-y-1">
+    <p className="text-[10px] text-amber-400 uppercase tracking-wider">Warnings</p>
+    {ruleResults.filter(r => r.alert_level === 'warning').map((r, i) => <p key={i} className="text-xs text-amber-400">⚠ {r.message}</p>)}
+  </div>
+)}
+{ruleResults.filter(r => r.alert_level === 'info').length > 0 && (
+  <div className="space-y-1">
+    <p className="text-[10px] text-blue-400 uppercase tracking-wider">Info</p>
+    {ruleResults.filter(r => r.alert_level === 'info').map((r, i) => <p key={i} className="text-xs text-blue-400">ℹ {r.message}</p>)}
+  </div>
+)}
+          {ruleResults.filter(r => r.action).length > 0 && (
+  <div className="space-y-1">
+    <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Recommended Actions</p>
+    {ruleResults.filter(r => r.action).map((r, i) => <p key={i} className="text-xs text-zinc-400">• {r.action}</p>)}
+  </div>
+)}
         </div>
       )}      </div>
 
