@@ -16,7 +16,7 @@ type Transaction = {
   matched_journal_id?: string; confidence: number; is_reconciled: boolean;
 };
 
-type SortField = 'date' | 'description' | 'amount' | 'status' | 'confidence';
+type SortField = 'date' | 'description' | 'amount' | 'status' | 'confidence' | 'reference';
 type SortDir = 'asc' | 'desc';
 
 export default function AccountWorkspacePage() {
@@ -82,6 +82,7 @@ export default function AccountWorkspacePage() {
     else if (sortField === 'amount') cmp = Math.abs(a.transaction_amount) - Math.abs(b.transaction_amount);
     else if (sortField === 'status') cmp = (a.allocation_status || '').localeCompare(b.allocation_status || '');
     else if (sortField === 'confidence') cmp = (a.confidence || 0) - (b.confidence || 0);
+    else if (sortField === 'reference') cmp = (a.transaction_reference || '').localeCompare(b.transaction_reference || '');
     return sortDir === 'asc' ? cmp : -cmp;
   });
 
@@ -140,11 +141,11 @@ export default function AccountWorkspacePage() {
 
       {/* Transactions Table */}
       <div className="rounded-xl border border-white/[0.06] overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm table-fixed">
           <thead><tr className="border-b border-white/[0.06] bg-white/[0.02]">
             <th onClick={() => handleSort('date')} className="text-left py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Date {sortField === 'date' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
             <th onClick={() => handleSort('description')} className="text-left py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Description {sortField === 'description' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
-            <th className="text-left py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase">Ref</th>
+            <th onClick={() => handleSort('reference')} className="text-left py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Ref {sortField === 'reference' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
             <th onClick={() => handleSort('amount')} className="text-right py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Amount {sortField === 'amount' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
             <th onClick={() => handleSort('confidence')} className="text-center py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Conf {sortField === 'confidence' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
             <th onClick={() => handleSort('status')} className="text-center py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Status {sortField === 'status' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
