@@ -1,5 +1,7 @@
 'use client';
 
+import { BillingStats } from "@/lib/periods/period-validation";
+
 interface GovernanceCenterProps {
   statementStatus: string;
   financialStatus: string;
@@ -8,7 +10,7 @@ interface GovernanceCenterProps {
   onCloseFinancial: () => void;
   statementPeriod: string;
   financialPeriod: string;
-  billingStats: any;
+  billingStats: BillingStats;
 }
 
 export function GovernanceCenter({
