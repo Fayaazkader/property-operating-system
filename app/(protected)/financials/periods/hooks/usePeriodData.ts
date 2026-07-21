@@ -11,6 +11,11 @@ import type { PeriodActionResult } from "@/lib/periods/period-actions";
 type StatementPhase = 'open' | 'receipting' | 'allocation' | 'billing_run' | 'billing_complete' | 'exception_review' | 'ready_to_close' | 'closed';
 type FinancialPhase = 'open' | 'closing' | 'closed';
 
+async function safelyGetPeriod(eid: string, type: string) {
+  const { data } = await supabase.from('financial_periods').select('period_name, status').eq('entity_id', eid).eq('period_type', type).order('period_start').limit(1);
+  return data?.[0] || null;
+}
+
 export function usePeriodData() {
   const [loading, setLoading] = useState(true);
   const [entityId, setEntityId] = useState("");
@@ -35,17 +40,17 @@ export function usePeriodData() {
       setEntityId(eid);
 
       const [stmtPeriod, finPeriod, billing, recon, tb] = await Promise.all([
-        supabase.from('financial_periods').select('period_name, status').eq('entity_id', eid).eq('period_type', 'statement').order('period_start').limit(1).maybeSingle(),
-        supabase.from('financial_periods').select('period_name, status').eq('entity_id', eid).eq('period_type', 'financial').order('period_start').limit(1).maybeSingle(),
+        safelyGetPeriod(eid, 'statement'),
+        safelyGetPeriod(eid, 'financial'),
         billingStatusService.getStatus(eid),
         reconciliationStatusService.getStatus(eid),
         tbStatusService.getStatus(eid),
       ]);
 
-      setStatementPeriod(stmtPeriod?.data?.period_name || "");
-      setStatementPhase(determineStatementPhase(stmtPeriod?.data?.status, billing, recon));
-      setFinancialPeriod(finPeriod?.data?.period_name || "");
-      setFinancialPhase((finPeriod?.data?.status as FinancialPhase) || "open");
+      setStatementPeriod(stmtPeriod?.period_name || "");
+      setStatementPhase((stmtPeriod?.status as StatementPhase) || "open");
+      setFinancialPeriod(finPeriod?.period_name || "");
+      setFinancialPhase((finPeriod?.status as FinancialPhase) || "open");
       setActiveLeases(billing.activeLeases);
       setInvoicesGenerated(billing.invoicesGenerated);
       setUnreconciled(recon.unreconciled);
@@ -76,13 +81,4 @@ export function usePeriodData() {
   useEffect(() => { loadData(); }, [loadData]);
 
   return { loading, entityId, statementPeriod, statementPhase, financialPeriod, financialPhase, activeLeases, invoicesGenerated, unreconciled, cashbookBalanced, tbBalanced, startBillingRun: startBilling, closeStatement, closeFinancial };
-}
-
-function determineStatementPhase(status: string | undefined, billing: { completed: boolean }, recon: { balanced: boolean }): StatementPhase {
-  if (status === 'closed') return 'closed';
-  if (status === 'ready_to_close') return 'ready_to_close';
-  if (billing.completed && recon.balanced) return 'billing_complete';
-  if (billing.completed) return 'billing_complete';
-  if (recon.balanced) return 'allocation';
-  return 'receipting';
 }
