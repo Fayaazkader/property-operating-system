@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { getNextPeriod } from "@/lib/periods/period-utils";
 import { closeStatementPeriod, closeFinancialPeriod } from "@/lib/periods/period-actions";
 import { getPreBillingChecks, getCloseValidations, type BillingStats, type ReceiptStats } from "@/lib/periods/period-validation";
+import { getCurrentStatementPeriod, getCurrentFinancialPeriod } from "@/lib/revenue/period-utils";
 
 type StatementStatus = 'open' | 'billing_run' | 'ready_to_close' | 'closed';
 type FinancialStatus = 'open' | 'closing' | 'closed';
@@ -19,22 +20,34 @@ interface PeriodState {
   nextFinancialPeriod: string;
   receiptStats: ReceiptStats;
   billingStats: BillingStats;
-  billingRunStartedBy: string;
-  billingRunStartedAt: string;
 }
 
+const emptyReceiptStats: ReceiptStats = {
+  receipts: 0,
+  allocated: 0,
+  unreconciled: 0,
+  cashbookBalanced: false,
+};
+
+const emptyBillingStats: BillingStats = {
+  totalTenants: 0,
+  invoicesGenerated: 0,
+  invoicesOutstanding: 0,
+  chargesAddedAfterStart: 0,
+  invoicesRequiringRegen: 0,
+  billingExceptions: 0,
+};
+
 const initialState: PeriodState = {
-  loading: false,
-  statementPeriod: "July 2026",
+  loading: true,
+  statementPeriod: "",
   statementStatus: "open",
-  financialPeriod: "June 2026",
+  financialPeriod: "",
   financialStatus: "open",
-  nextStatementPeriod: "August 2026",
-  nextFinancialPeriod: "July 2026",
-  receiptStats: { receipts: 0, allocated: 0, unreconciled: 0, cashbookBalanced: false },
-  billingStats: { totalTenants: 2100, invoicesGenerated: 0, invoicesOutstanding: 2100, chargesAddedAfterStart: 0, invoicesRequiringRegen: 0, billingExceptions: 0 },
-  billingRunStartedBy: "",
-  billingRunStartedAt: "",
+  nextStatementPeriod: "",
+  nextFinancialPeriod: "",
+  receiptStats: emptyReceiptStats,
+  billingStats: emptyBillingStats,
 };
 
 export function usePeriodData() {
@@ -43,43 +56,28 @@ export function usePeriodData() {
   const loadData = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true }));
     try {
-      // Load statement period
-      const { data: stmtPeriod } = await supabase
-        .from("statement_periods")
-        .select("period_name, status")
-        .eq("status", "open")
-        .order("period_start", { ascending: false })
-        .limit(1)
-        .single();
-      
+      // Use existing revenue period-utils
+      const stmtPeriod = await getCurrentStatementPeriod();
       if (stmtPeriod) {
         setState(prev => ({
           ...prev,
-          statementPeriod: stmtPeriod.period_name,
+          statementPeriod: stmtPeriod.name,
           statementStatus: stmtPeriod.status as StatementStatus,
-          nextStatementPeriod: getNextPeriod(stmtPeriod.period_name),
+          nextStatementPeriod: getNextPeriod(stmtPeriod.name),
         }));
       }
 
-      // Load financial period
-      const { data: finPeriod } = await supabase
-        .from("financial_periods")
-        .select("period_name, status")
-        .eq("status", "open")
-        .order("period_start", { ascending: false })
-        .limit(1)
-        .single();
-      
+      const finPeriod = await getCurrentFinancialPeriod();
       if (finPeriod) {
         setState(prev => ({
           ...prev,
-          financialPeriod: finPeriod.period_name,
+          financialPeriod: finPeriod.name,
           financialStatus: finPeriod.status as FinancialStatus,
-          nextFinancialPeriod: getNextPeriod(finPeriod.period_name),
+          nextFinancialPeriod: getNextPeriod(finPeriod.name),
         }));
       }
 
-      // Load receipt stats
+      // Load receipt stats from bank_transactions
       const { data: txData } = await supabase
         .from("bank_transactions")
         .select("allocation_status, transaction_amount")
@@ -117,39 +115,18 @@ export function usePeriodData() {
     setState(prev => ({
       ...prev,
       statementStatus: "billing_run",
-      billingRunStartedBy: "Finance Manager",
-      billingRunStartedAt: new Date().toLocaleString("en-ZA", { 
-        day: "numeric", 
-        month: "short", 
-        year: "numeric", 
-        hour: "2-digit", 
-        minute: "2-digit" 
-      }),
-      billingStats: { totalTenants: 2100, invoicesGenerated: 0, invoicesOutstanding: 2100, chargesAddedAfterStart: 0, invoicesRequiringRegen: 0, billingExceptions: 0 },
+      billingStats: {
+        totalTenants: 2100,
+        invoicesGenerated: 0,
+        invoicesOutstanding: 2100,
+        chargesAddedAfterStart: 0,
+        invoicesRequiringRegen: 0,
+        billingExceptions: 0,
+      },
     }));
 
     return { success: true, validations: checks };
   }, [state.receiptStats]);
-
-  const simulateProgress = useCallback(() => {
-    if (state.statementStatus !== "billing_run") return;
-    
-    const generated = Math.min(state.billingStats.invoicesGenerated + 350, state.billingStats.totalTenants);
-    const outstanding = state.billingStats.totalTenants - generated;
-    const newStats = {
-      ...state.billingStats,
-      invoicesGenerated: generated,
-      invoicesOutstanding: outstanding,
-      chargesAddedAfterStart: state.billingStats.chargesAddedAfterStart + Math.floor(Math.random() * 15),
-      invoicesRequiringRegen: Math.floor(Math.random() * 10),
-    };
-    
-    setState(prev => ({
-      ...prev,
-      billingStats: newStats,
-      statementStatus: outstanding === 0 ? "ready_to_close" : prev.statementStatus,
-    }));
-  }, [state.statementStatus, state.billingStats]);
 
   const closeStatement = useCallback(async () => {
     const validations = getCloseValidations(state.billingStats);
@@ -195,7 +172,6 @@ export function usePeriodData() {
     ...state,
     loadData,
     startBillingRun,
-    simulateProgress,
     closeStatement,
     closeFinancial,
   };

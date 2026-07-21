@@ -2,10 +2,9 @@
 
 interface PeriodWorkflowProps {
   status: 'open' | 'billing_run' | 'ready_to_close' | 'closed';
-  periodName: string;
 }
 
-export function PeriodWorkflow({ status, periodName }: PeriodWorkflowProps) {
+export function PeriodWorkflow({ status }: PeriodWorkflowProps) {
   const steps = [
     { id: 'open', label: 'Open' },
     { id: 'billing_run', label: 'Billing Run' },

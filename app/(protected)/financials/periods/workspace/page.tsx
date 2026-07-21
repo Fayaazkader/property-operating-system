@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from "react";
 import { PageHeader } from "@/app/components/layout/PageHeader";
 import { usePeriodData } from "../hooks/usePeriodData";
 import { PeriodWorkflow } from "../components/PeriodWorkflow";
@@ -19,14 +18,32 @@ export default function PeriodWorkspacePage() {
     nextFinancialPeriod,
     receiptStats,
     billingStats,
-    billingRunStartedAt,
-    billingRunStartedBy,
+    loadData,
     startBillingRun,
-    simulateProgress,
     closeStatement,
     closeFinancial,
-    loadData,
   } = usePeriodData();
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl space-y-6 px-6 pt-8 pb-12">
+        <div className="animate-pulse">
+          <div className="h-8 w-48 bg-[var(--bg-elevated)] rounded mb-4" />
+          <div className="h-20 bg-[var(--bg-elevated)] rounded" />
+          <div className="grid grid-cols-12 gap-6 mt-6">
+            <div className="col-span-8 space-y-6">
+              <div className="h-32 bg-[var(--bg-elevated)] rounded" />
+              <div className="h-32 bg-[var(--bg-elevated)] rounded" />
+            </div>
+            <div className="col-span-4 space-y-6">
+              <div className="h-64 bg-[var(--bg-elevated)] rounded" />
+              <div className="h-48 bg-[var(--bg-elevated)] rounded" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-6 pt-8 pb-12">
@@ -35,30 +52,13 @@ export default function PeriodWorkspacePage() {
         subtitle="Manage statement and financial periods"
       />
 
-      {statementStatus === "billing_run" && (
-        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-amber-300 font-semibold">⚡ {statementPeriod} Billing Run Active</p>
-              <p className="text-xs text-amber-400/70 mt-1">Started: {billingRunStartedAt} by {billingRunStartedBy}</p>
-            </div>
-            <button 
-              onClick={simulateProgress}
-              className="text-xs px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
-            >
-              Simulate Progress
-            </button>
-          </div>
-        </div>
-      )}
-
-      <PeriodWorkflow status={statementStatus} periodName={statementPeriod} />
+      <PeriodWorkflow status={statementStatus} />
 
       <div className="grid grid-cols-12 gap-6">
         {/* Main Content */}
         <div className="col-span-8 space-y-6">
           <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Statement Period</p>
                 <p className="text-sm text-[var(--text-secondary)] mt-1">Current: {statementPeriod}</p>
@@ -68,15 +68,12 @@ export default function PeriodWorkspacePage() {
                 <p className="text-sm font-medium text-[var(--text-primary)]">
                   {billingStats.invoicesGenerated} / {billingStats.totalTenants} invoices
                 </p>
-                {billingStats.billingExceptions > 0 && (
-                  <p className="text-xs text-amber-400">{billingStats.billingExceptions} exceptions</p>
-                )}
               </div>
             </div>
           </div>
 
           <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Financial Period</p>
                 <p className="text-sm text-[var(--text-secondary)] mt-1">Current: {financialPeriod}</p>
@@ -86,9 +83,6 @@ export default function PeriodWorkspacePage() {
                 <p className="text-sm font-medium text-[var(--text-primary)]">
                   R{receiptStats.allocated.toLocaleString()} allocated
                 </p>
-                {receiptStats.unreconciled > 0 && (
-                  <p className="text-xs text-amber-400">{receiptStats.unreconciled} unreconciled</p>
-                )}
               </div>
             </div>
           </div>
@@ -115,7 +109,6 @@ export default function PeriodWorkspacePage() {
             financialPeriod={financialPeriod}
             billingStats={billingStats}
           />
-
         </div>
       </div>
     </div>
