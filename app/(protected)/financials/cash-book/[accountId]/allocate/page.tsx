@@ -178,6 +178,11 @@ export default function AllocationWorkspace() {
             </div>
           )}
 
+          <div className="mt-4 pt-4 border-t border-white/[0.06]">
+            <a href={`/financials/cash-book/${accountId}/allocate/${txId}`} className="block w-full rounded-lg border border-white/[0.08] py-3 text-center text-sm text-white hover:border-white/20">
+              Manual Allocation (Advanced)
+            </a>
+          </div>
           {selectedMatch && (
             <div className="mt-4 pt-4 border-t border-white/[0.06]">
               <button onClick={handleConfirmAllocation} disabled={loading} className="w-full rounded-lg bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40">

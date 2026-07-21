@@ -138,7 +138,7 @@ export default function AccountWorkspacePage() {
       )}
 
       {/* Transactions Table */}
-      <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+      <div className="rounded-xl border border-white/[0.06] overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-white/[0.06] bg-white/[0.02]">
             {[{ field: 'date' as SortField, label: 'Date' }, { field: 'description' as SortField, label: 'Description' }, { field: 'date' as SortField, label: 'Ref' }, { field: 'amount' as SortField, label: 'Amount' }, { field: 'date' as SortField, label: 'Conf' }, { field: 'status' as SortField, label: 'Status' }].map(h => (
@@ -151,8 +151,8 @@ export default function AccountWorkspacePage() {
           <tbody>
             {filtered.map((tx) => (
               <tr key={tx.id} className="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors">
-                <td className="px-4 py-3 text-white text-xs">{tx.transaction_date}</td>
-                <td className="px-4 py-3 text-white text-xs">{tx.transaction_description}</td>
+                <td className="px-2 py-2 text-white text-xs">{tx.transaction_date}</td>
+                <td className="px-2 py-2 text-white text-xs">{tx.transaction_description}</td>
                 <td className="px-4 py-3 text-zinc-500 text-xs font-mono">{tx.transaction_reference || "—"}</td>
                 <td className={`px-4 py-3 text-right tabular-nums text-xs font-medium ${tx.transaction_amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {tx.transaction_amount >= 0 ? '+' : '−'}R{Math.abs(tx.transaction_amount).toLocaleString()}
