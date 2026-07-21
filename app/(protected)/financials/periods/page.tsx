@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import ProgressModal from "@/components/ui/ProgressModal";
 import { getNextPeriod } from "@/lib/periods/period-utils";
 import { getPreBillingChecks, getCloseValidations, type BillingStats, type PreBillingCheck, type CloseValidation } from "@/lib/periods/period-validation";
+import { closeStatementPeriod, closeFinancialPeriod } from "@/lib/periods/period-actions";
 
 
 
@@ -135,173 +136,76 @@ if (finPeriod) {
         setShowCloseStatementConfirm(true);
   }
 
-  async function confirmCloseStatement() {
-    setShowCloseStatementConfirm(false);
-    
-    setProgressModal({
-      title: `Closing ${statementPeriod} Statement Period`,
-      steps: [
-        { label: "Finalizing invoices...", status: "running" },
-        { label: "Freezing period...", status: "waiting" },
-        { label: "Opening next period...", status: "waiting" },
-      ]
-    });
+ async function confirmCloseStatement() {
+  setShowCloseStatementConfirm(false);
+  
+  setProgressModal({
+    title: `Closing ${statementPeriod} Statement Period`,
+    steps: [
+      { label: "Finalizing invoices...", status: "running" },
+      { label: "Freezing period...", status: "waiting" },
+      { label: "Opening next period...", status: "waiting" },
+    ]
+  });
 
-    // Close current period in database
-    await supabase
-      .from("statement_periods")
-      .update({ status: "closed", closed_at: new Date().toISOString() })
-      .eq("period_name", statementPeriod)
-      .eq("status", "open");
+  const result = await closeStatementPeriod(statementPeriod);
 
-    setProgressModal({
-      title: `Closing ${statementPeriod} Statement Period`,
-      steps: [
-        { label: "Finalizing invoices...", status: "done" },
-        { label: "Freezing period...", status: "running" },
-        { label: "Opening next period...", status: "waiting" },
-      ]
-    });
-
-       // Calculate and open next period
-    const [monthName, yearStr] = statementPeriod.split(" ");
-    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const currentMonthIndex = monthNames.indexOf(monthName);
-    const currentYear = parseInt(yearStr);
-    const nextMonthIndex = currentMonthIndex === 11 ? 0 : currentMonthIndex + 1;
-    const nextYear = currentMonthIndex === 11 ? currentYear + 1 : currentYear;
-    const nextPeriod = `${monthNames[nextMonthIndex]} ${nextYear}`;
-
-    const startDate = `${nextYear}-${String(nextMonthIndex + 1).padStart(2, "0")}-01`;
-    const lastDay = new Date(nextYear, nextMonthIndex + 1, 0).getDate();
-    const endDate = `${nextYear}-${String(nextMonthIndex + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-
-    const { data: existingNext } = await supabase
-      .from("statement_periods")
-      .select("id")
-      .eq("period_name", nextPeriod)
-      .limit(1);
-
-    if (!existingNext || existingNext.length === 0) {
-      await supabase
-        .from("statement_periods")
-        .insert({
-          period_name: nextPeriod,
-          period_start: startDate,
-          period_end: endDate,
-          status: "open",
-        });
-    }
-const nextAfterMonthIndex = nextMonthIndex === 11 ? 0 : nextMonthIndex + 1;
-const nextAfterYear = nextMonthIndex === 11 ? nextYear + 1 : nextYear;
-const periodAfterNext = `${monthNames[nextAfterMonthIndex]} ${nextAfterYear}`;
+  if (result.success) {
     setStatementStatus("closed");
+    setNextStatementPeriod(getNextPeriod(result.nextPeriod));
     
-setNextStatementPeriod(periodAfterNext);
-
-    await logAudit({
-      action: "update",
-      resource_type: "period",
-      resource_label: `Statement period ${statementPeriod} closed`,
-      old_values: { status: "open" },
-      new_values: { status: "closed", period: statementPeriod }
-    });
-
     setProgressModal({
       title: `${statementPeriod} Closed`,
       steps: [
         { label: "Finalizing invoices...", status: "done" },
         { label: "Freezing period...", status: "done" },
-        { label: `Opening ${nextPeriod}...`, status: "done" },
+        { label: `Opening ${result.nextPeriod}...`, status: "done" },
       ]
     });
+  } else {
+    showToast("error", `Failed to close period: ${result.error}`);
+    setProgressModal(null);
   }
+}
 
   function handleCloseFinancial() {
     setShowCloseFinancialConfirm(true);
   }
 
   async function confirmCloseFinancial() {
-    console.log("Closing financial period:", financialPeriod);
-    setShowCloseFinancialConfirm(false);
-    
-    setProgressModal({
-      title: `Closing ${financialPeriod} Financial Period`,
-      steps: [
-        { label: "Verifying cash book balance...", status: "running" },
-        { label: "Locking GL...", status: "waiting" },
-        { label: "Opening next period...", status: "waiting" },
-      ]
-    });
+  setShowCloseFinancialConfirm(false);
+  
+  setProgressModal({
+    title: `Closing ${financialPeriod} Financial Period`,
+    steps: [
+      { label: "Verifying cash book balance...", status: "running" },
+      { label: "Locking GL...", status: "waiting" },
+      { label: "Opening next period...", status: "waiting" },
+    ]
+  });
 
-    // Close current period
-    await supabase
-      .from("financial_periods")
-      .update({ status: "closed", closed_at: new Date().toISOString() })
-      .eq("period_name", financialPeriod);
+  const result = await closeFinancialPeriod(financialPeriod);
 
-    setProgressModal({
-      title: `Closing ${financialPeriod} Financial Period`,
-      steps: [
-        { label: "Verifying cash book balance...", status: "done" },
-        { label: "Locking GL...", status: "running" },
-        { label: "Opening next period...", status: "waiting" },
-      ]
-    });
-
-    // Calculate and create next period
-    const [monthName, yearStr] = financialPeriod.split(" ");
-    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const idx = monthNames.indexOf(monthName);
-    const yr = parseInt(yearStr);
-    const nextIdx = idx === 11 ? 0 : idx + 1;
-    const nextYr = idx === 11 ? yr + 1 : yr;
-    const nextPeriod = `${monthNames[nextIdx]} ${nextYr}`;
-    const periodAfterNext = `${monthNames[nextIdx === 11 ? 0 : nextIdx + 1]} ${nextIdx === 11 ? nextYr + 1 : nextYr}`;
-
-    const startDate = `${nextYr}-${String(nextIdx + 1).padStart(2, "0")}-01`;
-    const lastDay = new Date(nextYr, nextIdx + 1, 0).getDate();
-    const endDate = `${nextYr}-${String(nextIdx + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-
-    const { data: existingNext } = await supabase
-      .from("financial_periods")
-      .select("id")
-      .eq("period_name", nextPeriod)
-      .limit(1);
-
-    if (!existingNext || existingNext.length === 0) {
-      await supabase
-        .from("financial_periods")
-        .insert({
-          period_name: nextPeriod,
-          period_start: startDate,
-          period_end: endDate,
-          status: "open",
-        });
-    }
-
+  if (result.success) {
     setFinancialStatus("closed");
-    setFinancialPeriod(nextPeriod);
-    setNextFinancialPeriod(periodAfterNext);
-
-    await logAudit({
-      action: "update",
-      resource_type: "financial_period",
-      resource_label: `Financial period ${financialPeriod} closed`,
-      old_values: { status: "open" },
-      new_values: { status: "closed", period: financialPeriod }
-    });
+    setFinancialPeriod(result.nextPeriod);
+    setNextFinancialPeriod(getNextPeriod(result.nextPeriod));
 
     setProgressModal({
       title: `${financialPeriod} Closed`,
       steps: [
         { label: "Verifying cash book balance...", status: "done" },
         { label: "Locking GL...", status: "done" },
-        { label: `Opening ${nextPeriod}...`, status: "done" },
+        { label: `Opening ${result.nextPeriod}...`, status: "done" },
       ]
     });
-     loadData();
+  } else {
+    showToast("error", `Failed to close period: ${result.error}`);
+    setProgressModal(null);
   }
+  
+  await loadData();
+}
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-6 pt-8 pb-12">
