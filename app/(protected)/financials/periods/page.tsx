@@ -7,6 +7,7 @@ import { triggerCommunication } from "@/lib/communications/communication-service
 import { logAudit } from "@/lib/audit/audit-log";
 import { useRouter } from "next/navigation";
 import ProgressModal from "@/components/ui/ProgressModal";
+import { getNextPeriod } from "@/lib/periods/period-utils";
 
 type BillingStats = {
   totalTenants: number;
@@ -68,49 +69,36 @@ useEffect(() => {
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
-    // Load statement period
-    const { data: stmtPeriod } = await supabase
-      .from("statement_periods")
-      .select("period_name, status")
-      .eq("status", "open")
-      .order("period_start", { ascending: false })
-      .limit(1)
-      .single();
-    
-    if (stmtPeriod) {
-      setStatementPeriod(stmtPeriod.period_name);
-      setStatementStatus(stmtPeriod.status as any);
-       // Calculate next period
-  const [monthName, yearStr] = stmtPeriod.period_name.split(" ");
-  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const idx = monthNames.indexOf(monthName);
-  const yr = parseInt(yearStr);
-  const nextIdx = idx === 11 ? 0 : idx + 1;
-  const nextYr = idx === 11 ? yr + 1 : yr;
-  setNextStatementPeriod(`${monthNames[nextIdx]} ${nextYr}`);
-    }
+   // Load statement period
+const { data: stmtPeriod } = await supabase
+  .from("statement_periods")
+  .select("period_name, status")
+  .eq("status", "open")
+  .order("period_start", { ascending: false })
+  .limit(1)
+  .single();
+
+if (stmtPeriod) {
+  setStatementPeriod(stmtPeriod.period_name);
+  setStatementStatus(stmtPeriod.status as any);
+  setNextStatementPeriod(getNextPeriod(stmtPeriod.period_name));
+}
 
         // Load financial period from financial_periods table
-    const { data: finPeriod } = await supabase
-      .from("financial_periods")
-      .select("period_name, status")
-      .eq("status", "open")
-      .order("period_start", { ascending: false })
-      .limit(1)
-      .single();
-    
-    if (finPeriod) {
-      setFinancialPeriod(finPeriod.period_name);
-      setFinancialStatus(finPeriod.status as any);
-      
-      const [monthName, yearStr] = finPeriod.period_name.split(" ");
-      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-      const idx = monthNames.indexOf(monthName);
-      const yr = parseInt(yearStr);
-      const nextIdx = idx === 11 ? 0 : idx + 1;
-      const nextYr = idx === 11 ? yr + 1 : yr;
-      setNextFinancialPeriod(`${monthNames[nextIdx]} ${nextYr}`);
-    }
+    // Load financial period from financial_periods table
+const { data: finPeriod } = await supabase
+  .from("financial_periods")
+  .select("period_name, status")
+  .eq("status", "open")
+  .order("period_start", { ascending: false })
+  .limit(1)
+  .single();
+
+if (finPeriod) {
+  setFinancialPeriod(finPeriod.period_name);
+  setFinancialStatus(finPeriod.status as any);
+  setNextFinancialPeriod(getNextPeriod(finPeriod.period_name));
+}
 
     // Load receipt stats
     const { data: txData } = await supabase.from("bank_transactions").select("allocation_status, transaction_amount").eq("allocation_status", "posted");
