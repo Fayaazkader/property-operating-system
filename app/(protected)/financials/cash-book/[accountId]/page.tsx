@@ -141,12 +141,13 @@ export default function AccountWorkspacePage() {
       <div className="rounded-xl border border-white/[0.06] overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-white/[0.06] bg-white/[0.02]">
-            {[{ field: 'date' as SortField, label: 'Date' }, { field: 'description' as SortField, label: 'Description' }, { field: 'date' as SortField, label: 'Ref' }, { field: 'amount' as SortField, label: 'Amount' }, { field: 'date' as SortField, label: 'Conf' }, { field: 'status' as SortField, label: 'Status' }].map(h => (
-              <th key={h.label} onClick={() => handleSort(h.field)} className={`text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white ${h.label === 'Amount' || h.label === 'Conf' ? 'text-right' : ''}`}>
-                {h.label} {sortField === h.field ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-              </th>
-            ))}
-            <th className="text-right py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">Actions</th>
+            <th onClick={() => handleSort('date')} className="text-left py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Date {sortField === 'date' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
+            <th onClick={() => handleSort('description')} className="text-left py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Description {sortField === 'description' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
+            <th className="text-left py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase">Ref</th>
+            <th onClick={() => handleSort('amount')} className="text-right py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Amount {sortField === 'amount' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
+            <th className="text-center py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase">Conf</th>
+            <th onClick={() => handleSort('status')} className="text-center py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Status {sortField === 'status' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
+            <th className="text-right py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase">Actions</th>
           </tr></thead>
           <tbody>
             {filtered.map((tx) => (
