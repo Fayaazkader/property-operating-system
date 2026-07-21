@@ -2,177 +2,87 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { getNextPeriod } from "@/lib/periods/period-utils";
-import { closeStatementPeriod, closeFinancialPeriod } from "@/lib/periods/period-actions";
-import { getPreBillingChecks, getCloseValidations, type BillingStats, type ReceiptStats } from "@/lib/periods/period-validation";
-import { getCurrentStatementPeriod, getCurrentFinancialPeriod } from "@/lib/revenue/period-utils";
+import { startBillingRun, closeStatementPeriod, closeFinancialPeriod } from "@/lib/periods/period-actions";
+import { billingStatusService } from "@/lib/revenue/billing-status-service";
+import { reconciliationStatusService } from "@/lib/cashbook/reconciliation-status-service";
+import { tbStatusService } from "@/lib/financial/tb-status-service";
+import type { PeriodActionResult } from "@/lib/periods/period-actions";
 
-type StatementStatus = 'open' | 'billing_run' | 'ready_to_close' | 'closed';
-type FinancialStatus = 'open' | 'closing' | 'closed';
-
-interface PeriodState {
-  loading: boolean;
-  statementPeriod: string;
-  statementStatus: StatementStatus;
-  financialPeriod: string;
-  financialStatus: FinancialStatus;
-  nextStatementPeriod: string;
-  nextFinancialPeriod: string;
-  receiptStats: ReceiptStats;
-  billingStats: BillingStats;
-}
-
-const emptyReceiptStats: ReceiptStats = {
-  receipts: 0,
-  allocated: 0,
-  unreconciled: 0,
-  cashbookBalanced: false,
-};
-
-const emptyBillingStats: BillingStats = {
-  totalTenants: 0,
-  invoicesGenerated: 0,
-  invoicesOutstanding: 0,
-  chargesAddedAfterStart: 0,
-  invoicesRequiringRegen: 0,
-  billingExceptions: 0,
-};
-
-const initialState: PeriodState = {
-  loading: true,
-  statementPeriod: "",
-  statementStatus: "open",
-  financialPeriod: "",
-  financialStatus: "open",
-  nextStatementPeriod: "",
-  nextFinancialPeriod: "",
-  receiptStats: emptyReceiptStats,
-  billingStats: emptyBillingStats,
-};
+type StatementPhase = 'open' | 'receipting' | 'allocation' | 'billing_run' | 'billing_complete' | 'exception_review' | 'ready_to_close' | 'closed';
+type FinancialPhase = 'open' | 'closing' | 'closed';
 
 export function usePeriodData() {
-  const [state, setState] = useState<PeriodState>(initialState);
+  const [loading, setLoading] = useState(true);
+  const [entityId, setEntityId] = useState("");
+  const [statementPeriod, setStatementPeriod] = useState("");
+  const [statementPhase, setStatementPhase] = useState<StatementPhase>("open");
+  const [financialPeriod, setFinancialPeriod] = useState("");
+  const [financialPhase, setFinancialPhase] = useState<FinancialPhase>("open");
+  const [activeLeases, setActiveLeases] = useState(0);
+  const [invoicesGenerated, setInvoicesGenerated] = useState(0);
+  const [unreconciled, setUnreconciled] = useState(0);
+  const [cashbookBalanced, setCashbookBalanced] = useState(false);
+  const [tbBalanced, setTbBalanced] = useState(false);
 
   const loadData = useCallback(async () => {
-    setState(prev => ({ ...prev, loading: true }));
+    setLoading(true);
     try {
-      // Use existing revenue period-utils
-      const stmtPeriod = await getCurrentStatementPeriod();
-      if (stmtPeriod) {
-        setState(prev => ({
-          ...prev,
-          statementPeriod: stmtPeriod.name,
-          statementStatus: stmtPeriod.status as StatementStatus,
-          nextStatementPeriod: getNextPeriod(stmtPeriod.name),
-        }));
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data: entities } = await supabase.rpc('auth_entities');
+      const eid = entities?.[0] || "";
+      if (!eid) { setLoading(false); return; }
+      setEntityId(eid);
 
-      const finPeriod = await getCurrentFinancialPeriod();
-      if (finPeriod) {
-        setState(prev => ({
-          ...prev,
-          financialPeriod: finPeriod.name,
-          financialStatus: finPeriod.status as FinancialStatus,
-          nextFinancialPeriod: getNextPeriod(finPeriod.name),
-        }));
-      }
+      const [stmtPeriod, finPeriod, billing, recon, tb] = await Promise.all([
+        supabase.from('financial_periods').select('period_name, status').eq('entity_id', eid).eq('period_type', 'statement').order('period_start').limit(1).maybeSingle(),
+        supabase.from('financial_periods').select('period_name, status').eq('entity_id', eid).eq('period_type', 'financial').order('period_start').limit(1).maybeSingle(),
+        billingStatusService.getStatus(eid),
+        reconciliationStatusService.getStatus(eid),
+        tbStatusService.getStatus(eid),
+      ]);
 
-      // Load receipt stats from bank_transactions
-      const { data: txData } = await supabase
-        .from("bank_transactions")
-        .select("allocation_status, transaction_amount")
-        .eq("allocation_status", "posted");
-      
-      const { count: unreconciled } = await supabase
-        .from("bank_transactions")
-        .select("id", { count: "exact" })
-        .neq("allocation_status", "posted");
-
-      setState(prev => ({
-        ...prev,
-        receiptStats: {
-          receipts: txData?.length || 0,
-          allocated: txData?.reduce((s: number, t: any) => s + Math.abs(t.transaction_amount || 0), 0) || 0,
-          unreconciled: unreconciled || 0,
-          cashbookBalanced: (unreconciled || 0) === 0,
-        },
-        loading: false,
-      }));
-    } catch (error) {
-      console.error("Error loading period data:", error);
-      setState(prev => ({ ...prev, loading: false }));
-    }
+      setStatementPeriod(stmtPeriod?.data?.period_name || "");
+      setStatementPhase(determineStatementPhase(stmtPeriod?.data?.status, billing, recon));
+      setFinancialPeriod(finPeriod?.data?.period_name || "");
+      setFinancialPhase((finPeriod?.data?.status as FinancialPhase) || "open");
+      setActiveLeases(billing.activeLeases);
+      setInvoicesGenerated(billing.invoicesGenerated);
+      setUnreconciled(recon.unreconciled);
+      setCashbookBalanced(recon.balanced);
+      setTbBalanced(tb.balanced);
+    } catch (err) { console.error(err); }
+    setLoading(false);
   }, []);
 
-  const startBillingRun = useCallback(async () => {
-    const checks = getPreBillingChecks(state.receiptStats);
-    const allPassed = checks.every(c => c.passed);
-    
-    if (!allPassed) {
-      return { success: false, validations: checks };
-    }
-
-    setState(prev => ({
-      ...prev,
-      statementStatus: "billing_run",
-      billingStats: {
-        totalTenants: 2100,
-        invoicesGenerated: 0,
-        invoicesOutstanding: 2100,
-        chargesAddedAfterStart: 0,
-        invoicesRequiringRegen: 0,
-        billingExceptions: 0,
-      },
-    }));
-
-    return { success: true, validations: checks };
-  }, [state.receiptStats]);
-
-  const closeStatement = useCallback(async () => {
-    const validations = getCloseValidations(state.billingStats);
-    const allPassed = validations.every(v => v.passed);
-    
-    if (!allPassed) {
-      return { success: false, validations };
-    }
-
-    const result = await closeStatementPeriod(state.statementPeriod);
-    
-    if (result.success) {
-      setState(prev => ({
-        ...prev,
-        statementStatus: "closed",
-        nextStatementPeriod: getNextPeriod(result.nextPeriod),
-      }));
-    }
-    
+  const startBilling = useCallback(async (): Promise<PeriodActionResult> => {
+    const result = await startBillingRun(entityId, statementPeriod);
+    if (result.success) setStatementPhase("billing_run");
     return result;
-  }, [state.statementPeriod, state.billingStats]);
+  }, [entityId, statementPeriod]);
 
-  const closeFinancial = useCallback(async () => {
-    const result = await closeFinancialPeriod(state.financialPeriod);
-    
-    if (result.success) {
-      setState(prev => ({
-        ...prev,
-        financialStatus: "closed",
-        financialPeriod: result.nextPeriod,
-        nextFinancialPeriod: getNextPeriod(result.nextPeriod),
-      }));
-    }
-    
+  const closeStatement = useCallback(async (): Promise<PeriodActionResult> => {
+    const result = await closeStatementPeriod(entityId, statementPeriod);
+    if (result.success) setStatementPhase("closed");
     return result;
-  }, [state.financialPeriod]);
+  }, [entityId, statementPeriod]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const closeFinancial = useCallback(async (): Promise<PeriodActionResult> => {
+    const result = await closeFinancialPeriod(entityId, financialPeriod);
+    if (result.success) setFinancialPhase("closed");
+    return result;
+  }, [entityId, financialPeriod]);
 
-  return {
-    ...state,
-    loadData,
-    startBillingRun,
-    closeStatement,
-    closeFinancial,
-  };
+  useEffect(() => { loadData(); }, [loadData]);
+
+  return { loading, entityId, statementPeriod, statementPhase, financialPeriod, financialPhase, activeLeases, invoicesGenerated, unreconciled, cashbookBalanced, tbBalanced, startBillingRun: startBilling, closeStatement, closeFinancial };
+}
+
+function determineStatementPhase(status: string | undefined, billing: { completed: boolean }, recon: { balanced: boolean }): StatementPhase {
+  if (status === 'closed') return 'closed';
+  if (status === 'ready_to_close') return 'ready_to_close';
+  if (billing.completed && recon.balanced) return 'billing_complete';
+  if (billing.completed) return 'billing_complete';
+  if (recon.balanced) return 'allocation';
+  return 'receipting';
 }

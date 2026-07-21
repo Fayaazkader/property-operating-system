@@ -1,46 +1,37 @@
 'use client';
 
-interface PeriodWorkflowProps {
-  status: 'open' | 'billing_run' | 'ready_to_close' | 'closed';
-}
+interface Props { phase: string; }
 
-export function PeriodWorkflow({ status }: PeriodWorkflowProps) {
-  const steps = [
-    { id: 'open', label: 'Open' },
-    { id: 'billing_run', label: 'Billing Run' },
-    { id: 'ready_to_close', label: 'Ready to Close' },
-    { id: 'closed', label: 'Closed' },
-  ];
+const phases = [
+  { key: 'open', label: 'Open' },
+  { key: 'receipting', label: 'Receipting' },
+  { key: 'allocation', label: 'Allocation' },
+  { key: 'billing_run', label: 'Billing' },
+  { key: 'billing_complete', label: 'Billing Done' },
+  { key: 'exception_review', label: 'Review' },
+  { key: 'ready_to_close', label: 'Ready' },
+  { key: 'closed', label: 'Closed' },
+];
 
-  const currentIndex = steps.findIndex(s => s.id === status);
-
+export function PeriodWorkflow({ phase }: Props) {
+  const currentIdx = phases.findIndex(s => s.key === phase);
+  const displayPhases = phases.filter((_, i) => i === 0 || i === 3 || i === 6 || i === 7);
+  const displayIdx = displayPhases.findIndex(s => s.key === phase);
   return (
-    <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-6">
-      <div className="flex items-center justify-between">
-        {steps.map((step, idx) => (
-          <div key={step.id} className="flex items-center flex-1">
-            <div className="flex flex-col items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
-                idx <= currentIndex 
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
-                  : 'bg-[var(--bg-elevated)] text-[var(--text-muted)] border border-[var(--border-default)]'
-              }`}>
-                {idx < currentIndex ? '✓' : idx + 1}
-              </div>
-              <span className={`text-xs mt-1 ${
-                idx <= currentIndex ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'
-              }`}>
-                {step.label}
-              </span>
+    <div className="flex items-center gap-2">
+      {displayPhases.map((step, i) => {
+        const actualIdx = phases.findIndex(s => s.key === step.key);
+        const isComplete = actualIdx <= currentIdx;
+        return (
+          <div key={step.key} className="flex items-center gap-2">
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-full text-xs font-medium ${isComplete ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-600'}`}>
+              <div className={`w-2 h-2 rounded-full ${isComplete ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+              {step.label}
             </div>
-            {idx < steps.length - 1 && (
-              <div className={`flex-1 h-px mx-4 ${
-                idx < currentIndex ? 'bg-emerald-500/30' : 'bg-[var(--border-default)]'
-              }`} />
-            )}
+            {i < displayPhases.length - 1 && <div className={`w-8 h-px ${i < displayIdx ? 'bg-emerald-400/50' : 'bg-zinc-700'}`} />}
           </div>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
 }
