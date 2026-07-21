@@ -8,11 +8,11 @@ import { reconciliationStatusService } from "@/lib/cashbook/reconciliation-statu
 import { tbStatusService } from "@/lib/financial/tb-status-service";
 import type { PeriodActionResult } from "@/lib/periods/period-actions";
 
-type StatementPhase = 'open' | 'receipting' | 'allocation' | 'billing_run' | 'billing_complete' | 'exception_review' | 'ready_to_close' | 'closed';
+type StatementPhase = 'open' | 'receipting' | 'allocation' | 'billing_requested' | 'billing_running' | 'billing_complete' | 'exception_review' | 'ready_to_close' | 'closed';
 type FinancialPhase = 'open' | 'closing' | 'closed';
 
 async function safelyGetPeriod(eid: string, type: string) {
-  const { data } = await supabase.from('financial_periods').select('period_name, status').eq('entity_id', eid).eq('period_type', type).order('period_start').limit(1);
+  const { data } = await supabase.from('financial_periods').select('period_name, status, workflow_phase').eq('entity_id', eid).eq('period_type', type).order('period_start').limit(1);
   return data?.[0] || null;
 }
 
@@ -29,6 +29,7 @@ export function usePeriodData() {
   const [cashbookBalanced, setCashbookBalanced] = useState(false);
   const [tbBalanced, setTbBalanced] = useState(false);
 
+  // loadData — reads authoritative state from domain. No inference. No transitions.
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -47,10 +48,11 @@ export function usePeriodData() {
         tbStatusService.getStatus(eid),
       ]);
 
+      // Phase comes DIRECTLY from the database — domain is the source of truth
       setStatementPeriod(stmtPeriod?.period_name || "");
-      setStatementPhase((stmtPeriod?.status as StatementPhase) || "open");
+      setStatementPhase((stmtPeriod?.workflow_phase || stmtPeriod?.status || 'open') as StatementPhase);
       setFinancialPeriod(finPeriod?.period_name || "");
-      setFinancialPhase((finPeriod?.status as FinancialPhase) || "open");
+      setFinancialPhase((finPeriod?.workflow_phase || finPeriod?.status || 'open') as FinancialPhase);
       setActiveLeases(billing.activeLeases);
       setInvoicesGenerated(billing.invoicesGenerated);
       setUnreconciled(recon.unreconciled);
@@ -60,23 +62,24 @@ export function usePeriodData() {
     setLoading(false);
   }, []);
 
+  // Actions — invoke domain, then reload authoritative state. UI never sets phase.
   const startBilling = useCallback(async (): Promise<PeriodActionResult> => {
     const result = await startBillingRun(entityId, statementPeriod);
-    if (result.success) setStatementPhase("billing_run");
+    await loadData(); // Reload from domain — domain owns the phase
     return result;
-  }, [entityId, statementPeriod]);
+  }, [entityId, statementPeriod, loadData]);
 
   const closeStatement = useCallback(async (): Promise<PeriodActionResult> => {
     const result = await closeStatementPeriod(entityId, statementPeriod);
-    if (result.success) setStatementPhase("closed");
+    await loadData();
     return result;
-  }, [entityId, statementPeriod]);
+  }, [entityId, statementPeriod, loadData]);
 
   const closeFinancial = useCallback(async (): Promise<PeriodActionResult> => {
     const result = await closeFinancialPeriod(entityId, financialPeriod);
-    if (result.success) setFinancialPhase("closed");
+    await loadData();
     return result;
-  }, [entityId, financialPeriod]);
+  }, [entityId, financialPeriod, loadData]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
