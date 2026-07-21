@@ -8,26 +8,10 @@ import { logAudit } from "@/lib/audit/audit-log";
 import { useRouter } from "next/navigation";
 import ProgressModal from "@/components/ui/ProgressModal";
 import { getNextPeriod } from "@/lib/periods/period-utils";
+import { getPreBillingChecks, getCloseValidations, type BillingStats, type PreBillingCheck, type CloseValidation } from "@/lib/periods/period-validation";
 
-type BillingStats = {
-  totalTenants: number;
-  invoicesGenerated: number;
-  invoicesOutstanding: number;
-  chargesAddedAfterStart: number;
-  invoicesRequiringRegen: number;
-  billingExceptions: number;
-};
 
-type PreBillingCheck = {
-  label: string;
-  passed: boolean;
-  detail: string;
-};
 
-type CloseValidation = {
-  label: string;
-  passed: boolean;
-};
 
 export default function PeriodsPage() {
   const [loading, setLoading] = useState(false);
@@ -118,15 +102,8 @@ if (finPeriod) {
   }
 
   function handleStartBillingRun() {
-    const checks: PreBillingCheck[] = [
-      { label: "Unallocated Receipts", passed: receiptStats.unreconciled === 0, detail: receiptStats.unreconciled === 0 ? "All receipts allocated" : `${receiptStats.unreconciled} unallocated receipts exist` },
-      { label: "Bank Reconciliation", passed: receiptStats.cashbookBalanced, detail: receiptStats.cashbookBalanced ? "Cashbook fully reconciled" : "Cashbook not fully reconciled" },
-      { label: "Draft Charges", passed: true, detail: "No draft charges pending" },
-      { label: "Unapproved Charges", passed: true, detail: "All charges approved" },
-      { label: "Billing Exceptions", passed: true, detail: "No exceptions detected" },
-    ];
-    setPreBillingChecks(checks);
-    setShowPreBillingChecks(true);
+    setPreBillingChecks(getPreBillingChecks(receiptStats));
+        setShowPreBillingChecks(true);
   }
 
   function confirmStartBillingRun() {
@@ -154,15 +131,8 @@ if (finPeriod) {
   }
 
   function handleCloseStatement() {
-    const validations: CloseValidation[] = [
-      { label: "All tenants billed", passed: billingStats.invoicesOutstanding === 0 },
-      { label: "No draft charges", passed: true },
-      { label: "No pending approvals", passed: true },
-      { label: "No billing exceptions", passed: billingStats.billingExceptions === 0 },
-      { label: "No invoice regeneration required", passed: billingStats.invoicesRequiringRegen === 0 },
-    ];
-    setCloseValidations(validations);
-    setShowCloseStatementConfirm(true);
+    setCloseValidations(getCloseValidations(billingStats));
+        setShowCloseStatementConfirm(true);
   }
 
   async function confirmCloseStatement() {
