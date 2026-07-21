@@ -1,5 +1,5 @@
 // lib/periods/period-actions.ts
-// Period Governance — Production hardened
+// Period Governance — Production hardened. All critical transitions use atomic RPCs.
 
 import { supabase } from '@/lib/supabase';
 import { logAudit } from '@/lib/audit/audit-log';
@@ -10,7 +10,6 @@ import { tbStatusService } from '@/lib/financial/tb-status-service';
 import { withIdempotency } from './idempotency';
 import { withOptimisticLock } from './concurrency';
 import { publishWithRetry } from './event-delivery';
-import { getNextPeriodWithDates } from './period-utils';
 
 export interface ValidationResult { check: string; passed: boolean; message: string; }
 export interface PeriodActionResult { success: boolean; nextPeriod: string; message: string; validations: ValidationResult[]; newPhase?: string; idempotent?: boolean; concurrencyConflict?: boolean; }
@@ -22,7 +21,7 @@ export async function startBillingRun(entityId: string, statementPeriod: string,
       const billingStatus = await billingStatusService.getStatus(entityId);
       if (billingStatus.activeLeases === 0) return { success: false, message: 'No active leases' };
       await publishWithRetry('period.billing_run.requested', { correlationId: cid, source: 'period-governance', version: '1.0', payload: { entityId, statementPeriod } });
-      await financialTimelineEngine.addEntry({ entity_id: entityId, reference_type: 'statement_period', reference_id: statementPeriod, event_type: 'billing_run_requested', description: `Billing run requested`, source_engine: 'period-governance', correlation_id: cid });
+      await financialTimelineEngine.addEntry({ entity_id: entityId, reference_type: 'statement_period', reference_id: statementPeriod, event_type: 'billing_run_requested', description: `Billing requested`, source_engine: 'period-governance', correlation_id: cid });
       await logAudit({ action: 'create', resource_type: 'billing_run', resource_label: `Billing requested for ${statementPeriod}`, new_values: { entityId, statementPeriod } });
       return { success: true, nextPeriod: statementPeriod, message: 'Billing requested', newPhase: 'billing_requested' };
     });
@@ -32,7 +31,6 @@ export async function startBillingRun(entityId: string, statementPeriod: string,
 export async function closeStatementPeriod(entityId: string, periodName: string, correlationId?: string): Promise<PeriodActionResult> {
   const cid = correlationId || crypto.randomUUID();
   return withIdempotency(cid, 'close_statement_period', async () => {
-    // Pre-validate before calling RPC (read-only checks)
     const [billingStatus, reconciliationStatus, tbStatus] = await Promise.all([
       billingStatusService.getStatus(entityId), reconciliationStatusService.getStatus(entityId), tbStatusService.getStatus(entityId),
     ]);
@@ -43,14 +41,10 @@ export async function closeStatementPeriod(entityId: string, periodName: string,
         { check: 'tb', passed: tbStatus.balanced, message: tbStatus.balanced ? 'TB balanced' : 'TB out of balance' },
       ]};
     }
-
-    // RPC handles concurrency and atomicity internally
     const { data, error } = await supabase.rpc('close_statement_period_atomic', { p_entity_id: entityId, p_period_name: periodName, p_expected_phase: 'billing_complete' });
     if (error) return { success: false, message: error.message };
-
     const result = data as any;
     if (!result.success) return result;
-
     await financialTimelineEngine.addEntry({ entity_id: entityId, reference_type: 'statement_period', reference_id: periodName, event_type: 'statement_closed', description: `Statement ${periodName} closed`, source_engine: 'period-governance', correlation_id: cid });
     await publishWithRetry('period.statement.closed', { correlationId: cid, source: 'period-governance', version: '1.0', payload: { entityId, periodName, nextPeriod: result.nextPeriod } });
     await logAudit({ action: 'update', resource_type: 'statement_period', resource_label: `Statement ${periodName} closed`, old_values: { status: 'open' }, new_values: { status: 'closed', nextPeriod: result.nextPeriod } });
@@ -66,13 +60,14 @@ export async function closeFinancialPeriod(entityId: string, periodName: string,
     if ((openStatements?.length || 0) > 0 || !tbStatus.balanced || !reconciliationStatus.balanced) {
       return { success: false, message: 'Close validations failed' };
     }
-    const { error } = await supabase.from('financial_periods').update({ status: 'closed', workflow_phase: 'closed', closed_at: new Date().toISOString() }).eq('entity_id', entityId).eq('period_type', 'financial').eq('period_name', periodName);
+    // RPC handles concurrency and atomicity
+    const { data, error } = await supabase.rpc('close_financial_period_atomic', { p_entity_id: entityId, p_period_name: periodName, p_expected_phase: 'open' });
     if (error) return { success: false, message: error.message };
-    const { nextPeriod, startDate, endDate } = getNextPeriodWithDates(periodName);
-    await supabase.from('financial_periods').insert({ entity_id: entityId, period_type: 'financial', period_name: nextPeriod, period_start: startDate, period_end: endDate, status: 'open', workflow_phase: 'open' });
+    const result = data as any;
+    if (!result.success) return result;
     await financialTimelineEngine.addEntry({ entity_id: entityId, reference_type: 'financial_period', reference_id: periodName, event_type: 'financial_closed', description: `Financial ${periodName} closed`, source_engine: 'period-governance', correlation_id: cid });
-    await publishWithRetry('period.financial.closed', { correlationId: cid, source: 'period-governance', version: '1.0', payload: { entityId, periodName, nextPeriod } });
-    await logAudit({ action: 'update', resource_type: 'financial_period', resource_label: `Financial ${periodName} closed`, old_values: { status: 'open' }, new_values: { status: 'closed', nextPeriod } });
-    return { success: true, nextPeriod, message: 'Financial closed', newPhase: 'closed' };
+    await publishWithRetry('period.financial.closed', { correlationId: cid, source: 'period-governance', version: '1.0', payload: { entityId, periodName, nextPeriod: result.nextPeriod } });
+    await logAudit({ action: 'update', resource_type: 'financial_period', resource_label: `Financial ${periodName} closed`, old_values: { status: 'open' }, new_values: { status: 'closed', nextPeriod: result.nextPeriod } });
+    return { success: true, nextPeriod: result.nextPeriod, message: 'Financial closed', newPhase: 'closed' };
   });
 }
