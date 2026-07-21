@@ -16,7 +16,7 @@ type Transaction = {
   matched_journal_id?: string; confidence: number; is_reconciled: boolean;
 };
 
-type SortField = 'date' | 'description' | 'amount' | 'status';
+type SortField = 'date' | 'description' | 'amount' | 'status' | 'confidence';
 type SortDir = 'asc' | 'desc';
 
 export default function AccountWorkspacePage() {
@@ -81,6 +81,7 @@ export default function AccountWorkspacePage() {
     else if (sortField === 'description') cmp = (a.transaction_description || '').localeCompare(b.transaction_description || '');
     else if (sortField === 'amount') cmp = Math.abs(a.transaction_amount) - Math.abs(b.transaction_amount);
     else if (sortField === 'status') cmp = (a.allocation_status || '').localeCompare(b.allocation_status || '');
+    else if (sortField === 'confidence') cmp = (a.confidence || 0) - (b.confidence || 0);
     return sortDir === 'asc' ? cmp : -cmp;
   });
 
@@ -145,7 +146,7 @@ export default function AccountWorkspacePage() {
             <th onClick={() => handleSort('description')} className="text-left py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Description {sortField === 'description' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
             <th className="text-left py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase">Ref</th>
             <th onClick={() => handleSort('amount')} className="text-right py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Amount {sortField === 'amount' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
-            <th className="text-center py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase">Conf</th>
+            <th onClick={() => handleSort('confidence')} className="text-center py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Conf {sortField === 'confidence' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
             <th onClick={() => handleSort('status')} className="text-center py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Status {sortField === 'status' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
             <th className="text-right py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase">Actions</th>
           </tr></thead>
