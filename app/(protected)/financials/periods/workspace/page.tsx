@@ -6,7 +6,6 @@ import { usePeriodData } from "../hooks/usePeriodData";
 import { PeriodWorkflow } from "../components/PeriodWorkflow";
 import { ReadinessScore } from "../components/ReadinessScore";
 import { GovernanceCenter } from "../components/GovernanceCenter";
-import { TreasuryOutlook } from "../components/TreasuryOutlook";
 import { PeriodTimeline } from "../components/PeriodTimeline";
 
 export default function PeriodWorkspacePage() {
@@ -117,7 +116,6 @@ export default function PeriodWorkspacePage() {
             billingStats={billingStats}
           />
 
-          <TreasuryOutlook />
         </div>
       </div>
     </div>
