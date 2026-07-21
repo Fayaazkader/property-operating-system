@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
+import { cashbookService } from "@/lib/cashbook/cashbook-service";
 import { supabase } from "@/lib/supabase";
 
 export default function TransactionReviewPage() {
@@ -78,21 +79,10 @@ export default function TransactionReviewPage() {
     load();
   }, [txAmount, txDesc, txRef]);
 
-  async function handleConfirm() {
+    async function handleConfirm() {
     if (!selectedMatch) return;
     setLoading(true);
-
-    await supabase
-      .from("bank_transactions")
-      .update({
-        matched_invoice_id: selectedMatch.id,
-        matched_tenant_id: selectedMatch.tenant_id,
-        allocation_status: "ready_to_post",
-        queue: "ready",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", txId);
-
+    await cashbookService.confirmAllocation(txId, selectedMatch.id, selectedMatch.tenant_id);
     setReady(true);
     setLoading(false);
   }

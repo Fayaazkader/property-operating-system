@@ -24,6 +24,10 @@ async function initializePlatform(): Promise<void> {
 
   const { automationEngine } = await import('./automation/engine');
   await automationEngine.initialize();
+  const { initializeCashBookEvents } = await import('../cashbook/event-handler');
+  initializeCashBookEvents();
+  logger.info('  ✓ Cash Book events initialized');
+
   logger.info('  ✓ Automation Engine initialized');
 
   initialized = true;
