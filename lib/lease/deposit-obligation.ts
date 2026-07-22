@@ -1,5 +1,6 @@
 // lib/lease/deposit-obligation.ts
 // Lease owns the deposit obligation. Deposit Engine reacts.
+// Revenue determines GL mapping — not Lease.
 
 import { supabase } from '@/lib/supabase';
 import { publish } from '@/lib/platform/events/event-bus';
@@ -18,7 +19,6 @@ export interface DepositObligation {
 
 export const depositObligation = {
   async createFromLease(params: DepositObligation): Promise<void> {
-    // 1. Store obligation on the lease
     await supabase.from('leases').update({
       deposit_amount: params.amount,
       deposit_type: params.depositType,
@@ -27,7 +27,7 @@ export const depositObligation = {
       deposit_required_before_occupation: params.requiredBeforeOccupation,
     }).eq('id', params.leaseId);
 
-    // 2. Deposit Engine reacts
+    // Deposit Engine reacts
     await publish('lease.deposit.obligation.created', {
       correlationId: crypto.randomUUID(),
       source: 'lease-engine',
@@ -35,7 +35,7 @@ export const depositObligation = {
       payload: params,
     });
 
-    // 3. Revenue raises the deposit charge
+    // Revenue raises the deposit charge — Revenue owns billing and GL mapping
     await publish('revenue.deposit.charge.requested', {
       correlationId: crypto.randomUUID(),
       source: 'lease-engine',
@@ -46,10 +46,9 @@ export const depositObligation = {
         propertyId: params.propertyId,
         entityId: params.entityId,
         amount: params.amount,
+        chargeType: 'deposit',
         description: 'Tenant Deposit',
         dueDate: params.dueDate,
-        chargeType: 'once_off',
-        glCode: '2100',
       },
     });
   }
