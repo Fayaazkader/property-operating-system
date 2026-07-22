@@ -4,36 +4,85 @@ import { usePathname } from 'next/navigation';
 
 const groups = [
   {
-    label: 'Platform',
+    label: 'General',
     items: [
-      { key: '', label: 'General' },
-      { key: '/organisation', label: 'Organisation' },
-      { key: '/users', label: 'Users & Roles' },
+      { key: '', label: 'Organisation' },
+      { key: '/branding', label: 'Branding' },
+      { key: '/notifications', label: 'Notifications' },
+      { key: '/document-templates', label: 'Document Templates' },
+      { key: '/feature-flags', label: 'Feature Flags' },
+    ]
+  },
+  {
+    label: 'Portfolio',
+    items: [
       { key: '/entities', label: 'Entities' },
       { key: '/properties', label: 'Properties' },
+      { key: '/property-groups', label: 'Property Groups' },
+      { key: '/lease-templates', label: 'Lease Templates' },
     ]
   },
   {
     label: 'Financial',
     items: [
       { key: '/financial/chart-of-accounts', label: 'Chart of Accounts' },
-      { key: '/financial/vat', label: 'VAT Codes' },
+      { key: '/financial/gl-mapping', label: 'GL Mapping' },
       { key: '/financial/banks', label: 'Banks' },
+      { key: '/financial/cash-books', label: 'Cash Books' },
+      { key: '/financial/vat', label: 'VAT' },
       { key: '/financial/periods', label: 'Financial Periods' },
+      { key: '/financial/controls', label: 'Financial Controls' },
+      { key: '/financial/charge-codes', label: 'Charge Codes' },
+      { key: '/financial/revenue-categories', label: 'Revenue Categories' },
+      { key: '/financial/deposit-types', label: 'Deposit Types' },
+      { key: '/financial/supplier-types', label: 'Supplier Types' },
+      { key: '/financial/supplier-categories', label: 'Supplier Categories' },
+      { key: '/financial/posting-templates', label: 'Posting Templates' },
+      { key: '/financial/invoice-config', label: 'Invoice & Statement Config' },
+      { key: '/financial/defaults', label: 'Finance Defaults' },
     ]
   },
   {
-    label: 'Operational',
+    label: 'Communications',
     items: [
-      { key: '/operational/supplier-categories', label: 'Supplier Categories' },
-      { key: '/operational/revenue-categories', label: 'Revenue Categories' },
+      { key: '/communications/email', label: 'Email Templates' },
+      { key: '/communications/whatsapp', label: 'WhatsApp Templates' },
+      { key: '/communications/reminders', label: 'Reminder Rules' },
+      { key: '/communications/senders', label: 'Sender Accounts' },
     ]
   },
   {
-    label: 'Other',
+    label: 'Security',
     items: [
-      { key: '/notifications', label: 'Notifications' },
-      { key: '/branding', label: 'Branding' },
+      { key: '/users', label: 'Users' },
+      { key: '/roles', label: 'Roles & Permissions' },
+      { key: '/security/mfa', label: 'MFA' },
+      { key: '/security/password-policy', label: 'Password Policy' },
+      { key: '/security/session-policy', label: 'Session Policy' },
+      { key: '/security/api-keys', label: 'API Keys' },
+      { key: '/security/audit-log', label: 'Audit Log' },
+      { key: '/security/activity-log', label: 'Activity Log' },
+    ]
+  },
+  {
+    label: 'Integrations',
+    items: [
+      { key: '/integrations/twilio', label: 'Twilio (WhatsApp)' },
+      { key: '/integrations/email', label: 'Email Provider' },
+      { key: '/integrations/bank-feeds', label: 'Bank Feeds' },
+      { key: '/integrations/accounting-export', label: 'Accounting Export' },
+      { key: '/integrations/document-storage', label: 'Document Storage' },
+      { key: '/integrations/imports', label: 'Data Imports' },
+      { key: '/integrations/webhooks', label: 'API Webhooks' },
+    ]
+  },
+  {
+    label: 'AI & Automation',
+    items: [
+      { key: '/ai/morning-brief', label: 'Morning Brief' },
+      { key: '/ai/features', label: 'AI Features' },
+      { key: '/ai/workflows', label: 'Workflow Automation' },
+      { key: '/ai/scheduled-jobs', label: 'Scheduled Jobs' },
     ]
   },
 ];
