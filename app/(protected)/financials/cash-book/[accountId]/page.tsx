@@ -125,16 +125,28 @@ export default function AccountWorkspacePage() {
         ))}
       </div>
 
-      {/* Search + Queue Tabs */}
+          {/* Search + Queue Tabs */}
       <div className="flex items-center gap-3">
-        <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search transactions..." className="flex-1 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" />
+        <div className="flex-1 relative">
+          <input 
+            value={searchTerm} 
+            onChange={(e) => setSearchTerm(e.target.value)} 
+            placeholder="Search transactions..." 
+            className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" 
+          />
+          {searchTerm && (
+            <button 
+              onClick={() => setSearchTerm('')} 
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs"
+            >✕</button>
+          )}
+        </div>
         <div className="flex gap-1">
           {(["ready", "review", "exceptions", "posted"] as const).map(q => (
             <button key={q} onClick={() => setActiveQueue(q)} className={`px-3 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${activeQueue === q ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-white'}`}>{q}</button>
           ))}
         </div>
       </div>
-
       {postingResult && (
         <div className={`rounded-xl border p-4 ${postingResult.failed === 0 ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-amber-500/20 bg-amber-500/5'}`}><p className="text-sm text-white">Posted: {postingResult.posted} · Failed: {postingResult.failed}</p><button onClick={() => setPostingResult(null)} className="text-xs text-zinc-500 mt-1">Dismiss</button></div>
       )}
@@ -170,6 +182,12 @@ export default function AccountWorkspacePage() {
                     )}
                     {(tx.allocation_status === 'ready_to_post' || tx.allocation_status === 'posting_failed') && (
                       <button onClick={() => handlePostTransaction(tx)} className="rounded-lg bg-white px-3 py-1.5 text-[10px] font-medium text-black hover:bg-gray-100">Post</button>
+                    )}
+                    {tx.allocation_status === 'posted' && (
+                      <button onClick={() => router.push(`/financials/cash-book/${accountId}/allocate/${tx.id}`)} className="rounded-lg border border-amber-500/20 text-amber-400 px-3 py-1.5 text-[10px] hover:border-amber-500/40">Reverse</button>
+                    )}
+                    {tx.matched_journal_id && (
+                      <button onClick={() => router.push(`/financials?journal=${tx.matched_journal_id}`)} className="text-[10px] text-zinc-500 hover:text-white">Journal →</button>
                     )}
                     {tx.matched_journal_id && (
                       <button onClick={() => router.push(`/financials?journal=${tx.matched_journal_id}`)} className="text-[10px] text-zinc-500 hover:text-white">Journal →</button>
