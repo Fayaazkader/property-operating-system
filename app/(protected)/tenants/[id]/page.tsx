@@ -28,15 +28,16 @@ export default function TenantWorkspace() {
       const res = await fetch(`/api/intelligence/tenants/${id}/workspace`);
       const json = await res.json();
       setData(json);
-      setNotes(localStorage.getItem(`notes-${id}`) || "");
+      const { data: noteData } = await supabase.from('tenant_notes').select('notes').eq('tenant_id', id).single();
+setNotes(noteData?.notes || '');
       setLoading(false);
     }
     load();
   }, [id]);
 
-  const saveNotes = (val: string) => {
+  const saveNotes = async (val: string) => {
     setNotes(val);
-    localStorage.setItem(`notes-${id}`, val);
+    await supabase.from('tenant_notes').upsert({ tenant_id: id, notes: val, updated_at: new Date().toISOString() }, { onConflict: 'tenant_id' });
   };
 
   if (loading) return <div className="p-8 text-[var(--text-muted)]">Loading...</div>;
@@ -59,6 +60,8 @@ export default function TenantWorkspace() {
     { key: "documents", label: "Documents" },
     { key: "tasks", label: "Tasks" },
     { key: "notes", label: "Notes" },
+    { key: "aging", label: "Aging" },
+    { key: "ledger", label: "Ledger" },
     { key: "audit", label: "Audit" },
   ];
 
@@ -430,6 +433,9 @@ export default function TenantWorkspace() {
         )}
 
         {/* Item 8: Audit Trail */}
+        {activeTab === "aging" && <TenantAging tenantId={id as string} />}
+        {activeTab === "ledger" && <TenantLedger tenantId={id as string} entityId={entityId} />}
+
         {activeTab === "audit" && (
           <div className="space-y-1">
             {communications?.slice(0, 20).map((c: any) => (
@@ -443,6 +449,62 @@ export default function TenantWorkspace() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function TenantAging({ tenantId }: { tenantId: string }) {
+  const [aging, setAging] = useState<any>(null);
+  const [notes, setNotes] = useState('');
+  useEffect(() => {
+    async function load() {
+      const { data: entries } = await supabase.from('sub_ledger_entries').select('running_balance, posted_at').eq('tenant_id', tenantId).eq('ledger_type', 'tenant').order('posted_at', { ascending: false }).limit(1);
+      const balance = entries?.[0]?.running_balance || 0;
+      const daysSince = entries?.[0] ? Math.floor((Date.now() - new Date(entries[0].posted_at).getTime()) / 86400000) : 0;
+      setAging({
+        current: daysSince <= 30 ? balance : 0,
+        days30: daysSince > 30 && daysSince <= 60 ? balance : 0,
+        days60: daysSince > 60 && daysSince <= 90 ? balance : 0,
+        days90: daysSince > 90 && daysSince <= 120 ? balance : 0,
+        days120: daysSince > 120 ? balance : 0,
+      });
+      const { data: note } = await supabase.from('tenant_notes').select('notes').eq('tenant_id', tenantId).single();
+      setNotes(note?.notes || '');
+    }
+    load();
+  }, [tenantId]);
+  if (!aging) return <p className="text-sm text-zinc-500 py-4">Loading...</p>;
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-5 gap-3">
+        {[{ label: 'Current', value: aging.current }, { label: '31-60 Days', value: aging.days30 }, { label: '61-90 Days', value: aging.days60 }, { label: '91-120 Days', value: aging.days90 }, { label: '120+ Days', value: aging.days120 }].map(b => (
+          <div key={b.label} className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4 text-center">
+            <p className="text-xs text-zinc-500 mb-2">{b.label}</p>
+            <p className={`text-2xl font-light ${b.value > 0 ? 'text-amber-400' : 'text-zinc-600'}`}>R{(b.value || 0).toLocaleString()}</p>
+          </div>
+        ))}
+      </div>
+      {notes && <div className="rounded-xl border border-amber-500/10 bg-amber-500/5 p-3"><p className="text-[10px] text-zinc-500 uppercase mb-1">Notes</p><p className="text-xs text-zinc-400">{notes}</p></div>}
+    </div>
+  );
+}
+
+function TenantLedger({ tenantId, entityId }: { tenantId: string; entityId: string }) {
+  const [entries, setEntries] = useState<any[]>([]);
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('sub_ledger_entries').select('*').eq('tenant_id', tenantId).eq('ledger_type', 'tenant').order('posted_at', { ascending: false }).limit(50);
+      setEntries(data || []);
+    }
+    load();
+  }, [tenantId]);
+  if (!entries.length) return <p className="text-sm text-zinc-500 py-4">No ledger entries.</p>;
+  return (
+    <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+      <table className="w-full text-sm">
+        <thead><tr className="border-b border-white/[0.06] bg-white/[0.02]"><th className="text-left py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase">Date</th><th className="text-left py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase">Description</th><th className="text-right py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase">Debit</th><th className="text-right py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase">Credit</th><th className="text-right py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase">Balance</th></tr></thead>
+        <tbody>{entries.map((e, i) => (<tr key={i} className="border-b border-white/[0.03]"><td className="py-2 px-3 text-zinc-400 text-xs">{e.posted_at?.split('T')[0]}</td><td className="py-2 px-3 text-white text-xs">{e.description}</td><td className="py-2 px-3 text-right text-zinc-300 text-xs tabular-nums">R{(e.debit_amount || 0).toLocaleString()}</td><td className="py-2 px-3 text-right text-zinc-300 text-xs tabular-nums">R{(e.credit_amount || 0).toLocaleString()}</td><td className="py-2 px-3 text-right text-white text-xs tabular-nums">R{(e.running_balance || 0).toLocaleString()}</td></tr>))}</tbody>
+      </table>
     </div>
   );
 }
