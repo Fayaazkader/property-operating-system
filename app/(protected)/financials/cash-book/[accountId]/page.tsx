@@ -61,10 +61,9 @@ export default function AccountWorkspacePage() {
   }
 
   function manualAllocateUrl(tx: Transaction) {
-    return `/financials/cash-book/${accountId}/allocate?txId=${tx.id}&amount=${tx.transaction_amount}&desc=${encodeURIComponent(tx.transaction_description)}&ref=${encodeURIComponent(tx.transaction_reference || "")}&date=${tx.transaction_date}`;
+    return `/financials/cash-book/${accountId}/allocate/${tx.id}`;
   }
 
-  // Filter
   let filtered = transactions.filter(tx => {
     if (searchTerm) { const q = searchTerm.toLowerCase(); if (!tx.transaction_description?.toLowerCase().includes(q) && !tx.transaction_reference?.toLowerCase().includes(q)) return false; }
     if (activeQueue === "ready") return tx.allocation_status === "ready_to_post" || tx.queue === "ready";
@@ -74,7 +73,6 @@ export default function AccountWorkspacePage() {
     return true;
   });
 
-  // Sort
   filtered.sort((a, b) => {
     let cmp = 0;
     if (sortField === 'date') cmp = a.transaction_date?.localeCompare(b.transaction_date || '') || 0;
@@ -110,7 +108,6 @@ export default function AccountWorkspacePage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-3">
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-500">Statement Balance</p><p className="text-lg font-light text-white mt-1">R{statementBalance.toLocaleString()}</p></div>
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-500">Book Balance</p><p className="text-lg font-light text-white mt-1">R{bookBalance.toLocaleString()}</p></div>
@@ -118,28 +115,16 @@ export default function AccountWorkspacePage() {
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-500">Ready to Close</p><p className={`text-lg font-light mt-1 ${allPosted ? 'text-emerald-400' : 'text-amber-400'}`}>{allPosted ? 'Yes' : `${transactions.filter(t => t.allocation_status !== 'posted').length} pending`}</p></div>
       </div>
 
-      {/* Queue Counts */}
       <div className="grid grid-cols-4 gap-3">
         {[{ label: 'Ready', count: readyCount, color: 'text-emerald-400' }, { label: 'Review', count: reviewCount, color: 'text-blue-400' }, { label: 'Exceptions', count: exceptionCount, color: 'text-amber-400' }, { label: 'Posted', count: postedCount, color: 'text-zinc-400' }].map(q => (
           <div key={q.label} className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-3 text-center"><p className={`text-lg font-light ${q.color}`}>{q.count}</p><p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-0.5">{q.label}</p></div>
         ))}
       </div>
 
-          {/* Search + Queue Tabs */}
       <div className="flex items-center gap-3">
         <div className="flex-1 relative">
-          <input 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)} 
-            placeholder="Search transactions..." 
-            className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" 
-          />
-          {searchTerm && (
-            <button 
-              onClick={() => setSearchTerm('')} 
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs"
-            >✕</button>
-          )}
+          <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search transactions..." className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" />
+          {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs">✕</button>}
         </div>
         <div className="flex gap-1">
           {(["ready", "review", "exceptions", "posted"] as const).map(q => (
@@ -147,13 +132,13 @@ export default function AccountWorkspacePage() {
           ))}
         </div>
       </div>
+
       {postingResult && (
         <div className={`rounded-xl border p-4 ${postingResult.failed === 0 ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-amber-500/20 bg-amber-500/5'}`}><p className="text-sm text-white">Posted: {postingResult.posted} · Failed: {postingResult.failed}</p><button onClick={() => setPostingResult(null)} className="text-xs text-zinc-500 mt-1">Dismiss</button></div>
       )}
 
-      {/* Transactions Table */}
       <div className="rounded-xl border border-white/[0.06] overflow-x-auto">
-        <table className="w-full text-sm table-fixed">
+        <table className="w-full text-sm">
           <thead><tr className="border-b border-white/[0.06] bg-white/[0.02]">
             <th onClick={() => handleSort('date')} className="text-left py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Date {sortField === 'date' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
             <th onClick={() => handleSort('description')} className="text-left py-3 px-2 text-[11px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Description {sortField === 'description' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
@@ -165,32 +150,27 @@ export default function AccountWorkspacePage() {
           </tr></thead>
           <tbody>
             {filtered.map((tx) => (
-              <tr key={tx.id} className="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors">
+              <tr key={tx.id} className="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors cursor-pointer" onClick={() => { if (tx.allocation_status === 'posted') router.push(`/financials?journal=${tx.matched_journal_id || ''}`); else router.push(manualAllocateUrl(tx)); }}>
                 <td className="px-2 py-2 text-white text-xs">{tx.transaction_date}</td>
                 <td className="px-2 py-2 text-white text-xs">{tx.transaction_description}</td>
                 <td className="px-2 py-2 text-zinc-500 text-xs font-mono">{tx.transaction_reference || "—"}</td>
-                <td className={`px-2 py-2 text-right tabular-nums text-xs font-medium ${tx.transaction_amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {tx.transaction_amount >= 0 ? '+' : '−'}R{Math.abs(tx.transaction_amount).toLocaleString()}
-                </td>
+                <td className={`px-2 py-2 text-right tabular-nums text-xs font-medium ${tx.transaction_amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{tx.transaction_amount >= 0 ? '+' : '−'}R{Math.abs(tx.transaction_amount).toLocaleString()}</td>
                 <td className="px-2 py-2 text-center"><span className={`text-xs px-2 py-0.5 rounded-full ${tx.confidence >= 90 ? "bg-emerald-500/10 text-emerald-300" : tx.confidence >= 60 ? "bg-amber-500/10 text-amber-300" : "bg-red-500/10 text-red-300"}`}>{tx.confidence || 0}%</span></td>
                 <td className="px-2 py-2 text-center"><span className={`text-[10px] px-2 py-0.5 rounded-full ${tx.allocation_status === 'posted' ? 'bg-emerald-500/10 text-emerald-400' : tx.allocation_status === 'posting_failed' ? 'bg-red-500/10 text-red-400' : 'bg-zinc-800 text-zinc-500'}`}>{tx.allocation_status || tx.queue}</span></td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex gap-2 justify-end">
-                    {/* Every non-posted transaction can be manually allocated */}
-                    {tx.allocation_status !== 'posted' && (
-                      <button onClick={() => router.push(manualAllocateUrl(tx))} className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-[10px] text-white hover:border-white/20">Allocate</button>
-                    )}
-                    {(tx.allocation_status === 'ready_to_post' || tx.allocation_status === 'posting_failed') && (
-                      <button onClick={() => handlePostTransaction(tx)} className="rounded-lg bg-white px-3 py-1.5 text-[10px] font-medium text-black hover:bg-gray-100">Post</button>
-                    )}
-                    {tx.allocation_status === 'posted' && (
-                      <button onClick={() => router.push(`/financials/cash-book/${accountId}/allocate/${tx.id}`)} className="rounded-lg border border-amber-500/20 text-amber-400 px-3 py-1.5 text-[10px] hover:border-amber-500/40">Reverse</button>
-                    )}
-                    {tx.matched_journal_id && (
-                      <button onClick={() => router.push(`/financials?journal=${tx.matched_journal_id}`)} className="text-[10px] text-zinc-500 hover:text-white">Journal →</button>
-                    )}
-                    {tx.matched_journal_id && (
-                      <button onClick={() => router.push(`/financials?journal=${tx.matched_journal_id}`)} className="text-[10px] text-zinc-500 hover:text-white">Journal →</button>
+                <td className="px-2 py-2 text-right" onClick={e => e.stopPropagation()}>
+                  <div className="flex gap-1 justify-end">
+                    {tx.allocation_status === 'posted' ? (
+                      <>
+                        <button onClick={() => router.push(`/financials?journal=${tx.matched_journal_id || ''}`)} className="rounded-lg border border-white/[0.08] px-2 py-1 text-[10px] text-white hover:border-white/20">View</button>
+                        <button onClick={() => router.push(`/financials/cash-book/${accountId}/allocate/${tx.id}`)} className="rounded-lg border border-amber-500/20 text-amber-400 px-2 py-1 text-[10px] hover:border-amber-500/40">Reverse</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => router.push(manualAllocateUrl(tx))} className="rounded-lg border border-white/[0.08] px-2 py-1 text-[10px] text-white hover:border-white/20">Allocate</button>
+                        {(tx.allocation_status === 'ready_to_post' || tx.allocation_status === 'posting_failed') && (
+                          <button onClick={() => handlePostTransaction(tx)} className="rounded-lg bg-white px-2 py-1 text-[10px] font-medium text-black hover:bg-gray-100">Post</button>
+                        )}
+                      </>
                     )}
                   </div>
                 </td>
