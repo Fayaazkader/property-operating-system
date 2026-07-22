@@ -1,5 +1,5 @@
 // lib/financial/deposit-engine.ts
-// Deposit Engine — Reacts to business events. Never owns receipting or posting directly.
+// Deposit Engine — Reacts to business events. Never creates obligations or owns receipting.
 
 import { supabase } from '@/lib/supabase';
 import { publish } from '@/lib/platform/events/event-bus';
@@ -33,18 +33,11 @@ export interface DepositAccount {
 }
 
 export const depositEngine = {
-  // Called when lease is activated — creates deposit obligation
-  async createFromLease(params: {
-    entityId: string;
-    tenantId: string;
-    leaseId: string;
-    propertyId: string;
-    amount: number;
-    depositType?: DepositType;
-    interestRate?: number;
-    heldAtBank?: string;
-    guaranteeProvider?: string;
-    guaranteeNumber?: string;
+  // Reacts to lease.deposit.obligation.created — Lease owns the obligation
+  async onObligationCreated(params: {
+    entityId: string; tenantId: string; leaseId: string; propertyId: string;
+    amount: number; depositType?: DepositType; interestRate?: number;
+    heldAtBank?: string; guaranteeProvider?: string; guaranteeNumber?: string;
   }): Promise<DepositAccount> {
     const isInterestBearing = params.depositType === 'interest_bearing' || (!params.depositType && !!params.interestRate);
     const depositType = params.depositType || (params.interestRate ? 'interest_bearing' : 'cash');
@@ -68,7 +61,7 @@ export const depositEngine = {
 
     if (error) throw error;
 
-    await publish('deposit.created', {
+    await publish('deposit.register.created', {
       correlationId: crypto.randomUUID(),
       source: 'deposit-engine',
       version: '1.0',
@@ -78,13 +71,11 @@ export const depositEngine = {
     return data as DepositAccount;
   },
 
-  // Reacts to Cash Book allocation event — does NOT own receipting
+  // Reacts to Cash Book allocation — does NOT own receipting
   async onReceiptAllocated(depositId: string): Promise<void> {
     const { data: deposit } = await supabase.from('deposit_register').select('*').eq('id', depositId).single();
     if (!deposit) return;
 
-    // Deposit receipt confirmed by Cash Book. Register stays at 'held'.
-    // Journal posting handled by Posting Orchestrator via event.
     await publish('deposit.receipt.confirmed', {
       correlationId: crypto.randomUUID(),
       source: 'deposit-engine',
@@ -93,7 +84,7 @@ export const depositEngine = {
     });
   },
 
-  // Only for interest-bearing deposits
+  // Only for interest-bearing deposits. Bank guarantees never earn interest.
   async calculateInterest(depositId: string): Promise<number> {
     const { data: deposit } = await supabase.from('deposit_register').select('*').eq('id', depositId).single();
     if (!deposit || !deposit.interest_enabled || !deposit.interest_rate) return 0;
@@ -113,7 +104,6 @@ export const depositEngine = {
         last_interest_calc: new Date().toISOString(),
       }).eq('id', depositId);
 
-      // Publish event — Posting Orchestrator handles journal
       await publish('deposit.interest.accrued', {
         correlationId: crypto.randomUUID(),
         source: 'deposit-engine',
@@ -125,18 +115,15 @@ export const depositEngine = {
     return interest;
   },
 
-  // Claim against deposit (damages, unpaid rent)
   async claimDeposit(depositId: string, amount: number, reason: string): Promise<void> {
     const { data: deposit } = await supabase.from('deposit_register').select('*').eq('id', depositId).single();
     if (!deposit) throw new Error('Deposit not found');
 
     const newBalance = deposit.current_balance - amount;
-    const newStatus = newBalance <= 0 ? 'fully_applied' : 'partially_claimed';
-
     await supabase.from('deposit_register').update({
       amount_claimed: (deposit.amount_claimed || 0) + amount,
       current_balance: newBalance,
-      status: newStatus,
+      status: newBalance <= 0 ? 'fully_applied' : 'partially_claimed',
     }).eq('id', depositId);
 
     await publish('deposit.claimed', {
@@ -147,18 +134,15 @@ export const depositEngine = {
     });
   },
 
-  // Apply deposit to arrears
   async applyToArrears(depositId: string, amount: number): Promise<void> {
     const { data: deposit } = await supabase.from('deposit_register').select('*').eq('id', depositId).single();
     if (!deposit) throw new Error('Deposit not found');
 
     const newBalance = deposit.current_balance - amount;
-    const newStatus = newBalance <= 0 ? 'fully_applied' : 'partially_applied';
-
     await supabase.from('deposit_register').update({
       amount_applied: (deposit.amount_applied || 0) + amount,
       current_balance: newBalance,
-      status: newStatus,
+      status: newBalance <= 0 ? 'fully_applied' : 'partially_applied',
     }).eq('id', depositId);
 
     await publish('deposit.applied.to.arrears', {
@@ -169,7 +153,6 @@ export const depositEngine = {
     });
   },
 
-  // Refund deposit to tenant
   async refundDeposit(depositId: string, amount: number): Promise<void> {
     const { data: deposit } = await supabase.from('deposit_register').select('*').eq('id', depositId).single();
     if (!deposit) throw new Error('Deposit not found');
@@ -192,7 +175,6 @@ export const depositEngine = {
     });
   },
 
-  // Get deposit for a tenant
   async getDeposit(tenantId: string): Promise<DepositAccount | null> {
     const { data } = await supabase.from('deposit_register').select('*').eq('tenant_id', tenantId).in('status', ['held', 'partially_claimed', 'partially_applied']).order('held_since', { ascending: false }).limit(1).single();
     return data as DepositAccount || null;
