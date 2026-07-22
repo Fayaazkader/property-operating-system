@@ -15,4 +15,5 @@ export * from './vat-engine';
 export * from './budgeting-engine';
 export * from './expectations-engine';
 export * from './forecasting-engine';
+export * from './reporting-engine';
 export { financialApi } from './api';
