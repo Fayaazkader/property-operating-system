@@ -3,333 +3,331 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { PageHeader } from '@/app/components/layout/PageHeader';
-import { CustomDropdown } from '@/components/ui';
+import { cashbookService } from '@/lib/cashbook/cashbook-service';
 
-type AllocationLine = {
-  id: string;
-  type: 'tenant' | 'property' | 'gl' | 'supplier';
-  tenant_id?: string;
-  property_id?: string;
-  supplier_id?: string;
-  invoice_id?: string;
-  gl_code: string;
-  amount: number;
-};
+type Destination = 'tenant' | 'supplier' | 'property' | 'entity' | null;
 
-export default function TransactionAllocationWorkspace() {
+interface InvoiceRow {
+  id: string; invoice_number: string; date: string; outstanding: number;
+  due: string; status: string; property_name?: string; po_reference?: string;
+}
+
+export default function ManualAllocationWorkspace() {
   const router = useRouter();
   const params = useParams();
   const accountId = params.accountId as string;
   const transactionId = params.transactionId as string;
 
   const [transaction, setTransaction] = useState<any>(null);
-  const [allocations, setAllocations] = useState<AllocationLine[]>([]);
-  const [tenants, setTenants] = useState<any[]>([]);
-  const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [properties, setProperties] = useState<any[]>([]);
-  const [glCodes, setGlCodes] = useState<any[]>([]);
-  const [invoices, setInvoices] = useState<any[]>([]);
+  const [destination, setDestination] = useState<Destination>(null);
   const [loading, setLoading] = useState(true);
-  const [isPayment, setIsPayment] = useState(false);
-  const [showInvoiceSelector, setShowInvoiceSelector] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [isReceipt, setIsReceipt] = useState(true);
+  const [totalAmount, setTotalAmount] = useState(0);
+  const [entityId, setEntityId] = useState('');
+
+  // Search
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+
+  // Invoice grid
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
+  const [invoiceSearch, setInvoiceSearch] = useState('');
+  const [invoiceSort, setInvoiceSort] = useState<'date' | 'outstanding' | 'age'>('date');
+  const [invoiceSortDir, setInvoiceSortDir] = useState<'asc' | 'desc'>('asc');
+
+  // GL search (property/entity)
+  const [glSearch, setGlSearch] = useState('');
+  const [glResults, setGlResults] = useState<any[]>([]);
+  const [selectedGl, setSelectedGl] = useState<any>(null);
+
+  // Split
+  const [showSplit, setShowSplit] = useState(false);
+  const [splitLines, setSplitLines] = useState<Array<{ id: string; dest: Destination; item: any; gl: any; description: string; amount: number }>>([]);
+  const [allocatedAmount, setAllocatedAmount] = useState(0);
+
+  // Reallocation
+  const [isReallocation, setIsReallocation] = useState(false);
+  const [reallocationReason, setReallocationReason] = useState('');
 
   useEffect(() => {
-   async function loadData() {
-  const { data: tx } = await supabase
-    .from('bank_transactions')
-    .select('*')
-    .eq('id', transactionId)
-    .single();
-  setTransaction(tx);
-  
-  const amount = tx?.transaction_amount || 0;
-  setIsPayment(amount < 0);
+    async function load() {
+      const { data: tx } = await supabase.from('bank_transactions').select('*').eq('id', transactionId).single();
+      if (tx) {
+        setTransaction(tx);
+        const amount = tx.transaction_amount || 0;
+        setIsReceipt(amount >= 0);
+        setTotalAmount(Math.abs(amount));
+        setIsReallocation(tx.allocation_status === 'posted');
+      }
 
-  // Get user's entities (for reference)
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: userEntities } = await supabase
-    .from('user_entities')
-    .select('entity_id')
-    .eq('user_id', user?.id);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: entityIds } = await supabase.rpc('auth_entities');
+        const eid = entityIds?.[0] || '';
+        setEntityId(eid);
+      }
+      setLoading(false);
+    }
+    load();
+  }, [transactionId]);
 
-  const entityIds = userEntities?.map(e => e.entity_id) || [];
+  // Search based on destination
+  async function handleSearch(q: string) {
+    setSearchQuery(q);
+    if (!q || q.length < 2 || !destination) { setSearchResults([]); return; }
 
-  // Fetch data (no entity filtering for now)
-  const [tenantsRes, propertiesRes, glRes] = await Promise.all([
-    supabase.from('tenants').select('id, tenant_name, entity_id').order('tenant_name'),
-   supabase.from('properties').select('id, property_name, entity_id').order('property_name'),
-    supabase.from('gl_codes').select('id, code, description').eq('is_active', true).order('code'),
-  ]);
+    const lower = q.toLowerCase();
+    let results: any[] = [];
 
-  setTenants(tenantsRes.data || []);
-  setProperties(propertiesRes.data || []);
-  setGlCodes(glRes.data || []);
-  setSuppliers([]);
-  setInvoices([]);
-
-  setAllocations([
-    { id: crypto.randomUUID(), type: isPayment ? 'supplier' : 'tenant', gl_code: '', amount: Math.abs(amount) }
-  ]);
-
-  setLoading(false);
-}
-    loadData();
-  }, [accountId, transactionId]);
-
-  const totalAllocated = allocations.reduce((sum, a) => sum + (a.amount || 0), 0);
-  const remaining = Math.abs(transaction?.transaction_amount || 0) - totalAllocated;
-
-  const addAllocation = () => {
-    setAllocations([
-      ...allocations,
-      { id: crypto.randomUUID(), type: isPayment ? 'supplier' : 'tenant', gl_code: '', amount: 0 }
-    ]);
-  };
-
-  const removeAllocation = (id: string) => {
-    if (allocations.length <= 1) return;
-    setAllocations(allocations.filter(a => a.id !== id));
-  };
-
-  const updateAllocation = (id: string, field: keyof AllocationLine, value: any) => {
-    setAllocations(allocations.map(a => 
-      a.id === id ? { ...a, [field]: value } : a
-    ));
-  };
-
-  const handleSave = async () => {
-  for (const alloc of allocations) {
-    if (alloc.amount <= 0) continue;
-    if (alloc.type === 'property' && !alloc.gl_code) continue;
-    if (alloc.type === 'gl' && !alloc.gl_code) continue;
-    
-    await supabase.from('transaction_allocations').insert({
-      transaction_id: transactionId,
-      type: alloc.type,
-      tenant_id: alloc.type === 'tenant' ? alloc.tenant_id : null,
-      supplier_id: alloc.type === 'supplier' ? alloc.supplier_id : null,
-      property_id: alloc.type === 'property' ? alloc.property_id : null,
-      invoice_id: alloc.invoice_id || null,
-      amount: alloc.amount,
-      gl_code: alloc.gl_code || null,
-      is_payment: isPayment,
-    });
+    if (destination === 'tenant') {
+      const { data } = await supabase.from('tenants').select('id, tenant_name').in('entity_id', [entityId]).ilike('tenant_name', `%${lower}%`).limit(10);
+      results = data || [];
+    } else if (destination === 'supplier') {
+      const { data } = await supabase.from('suppliers').select('id, supplier_name').eq('entity_id', entityId).ilike('supplier_name', `%${lower}%`).limit(10);
+      results = data || [];
+    } else if (destination === 'property') {
+      const { data } = await supabase.from('properties').select('id, property_name').eq('entity_id', entityId).ilike('property_name', `%${lower}%`).limit(10);
+      results = data || [];
+    } else if (destination === 'entity') {
+      const { data } = await supabase.from('entities').select('id, entity_name').in('id', [entityId]).ilike('entity_name', `%${lower}%`).limit(5);
+      results = data || [];
+    }
+    setSearchResults(results);
   }
 
-  const { data: updateData, error: updateError } = await supabase
-    .from('bank_transactions')
-    .update({ 
-      allocation_status: 'posted',
-queue: 'posted',
-    })
-    .eq('id', transactionId);
+  async function handleSelect(item: any) {
+    setSelectedItem(item);
+    setSearchQuery(destination === 'tenant' ? item.tenant_name : destination === 'supplier' ? item.supplier_name : destination === 'property' ? item.property_name : item.entity_name);
+    setSearchResults([]);
 
-  console.log('Update result:', updateData);
-  console.log('Update error:', updateError);
-
-  router.push(`/financials/cash-book/${accountId}`);
-};
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-[var(--text-muted)]">Loading...</p>
-      </div>
-    );
+    // Load invoices for tenant/supplier
+    if (destination === 'tenant') {
+      const { data } = await supabase.from('invoices').select('id, invoice_number, total_amount, payment_status, created_at').eq('tenant_id', item.id).neq('payment_status', 'paid').order('created_at', { ascending: false });
+      setInvoices((data || []).map(inv => ({ id: inv.id, invoice_number: inv.invoice_number, date: inv.created_at?.split('T')[0] || '', outstanding: inv.total_amount, due: inv.created_at?.split('T')[0] || '', status: inv.payment_status })));
+    } else if (destination === 'supplier') {
+      const { data } = await supabase.from('supplier_invoices_new').select('id, invoice_number, total_amount, invoice_date').eq('supplier_id', item.id).eq('lifecycle_status', 'posted').order('invoice_date', { ascending: false });
+      setInvoices((data || []).map(inv => ({ id: inv.id, invoice_number: inv.invoice_number, date: inv.invoice_date || '', outstanding: inv.total_amount, due: inv.invoice_date || '', status: 'posted' })));
+    }
   }
 
-  const receiptOptions = [
-    { value: 'tenant', label: 'Tenant' },
-    { value: 'property', label: 'Property' },
-    { value: 'gl', label: 'GL Code' },
-  ];
+  // GL Search for property/entity
+  async function handleGlSearch(q: string) {
+    setGlSearch(q);
+    if (!q || q.length < 2) { setGlResults([]); return; }
+    const { data } = await supabase.from('chart_of_accounts').select('id, gl_code, account_name').eq('entity_id', entityId).or(`gl_code.ilike.%${q}%,account_name.ilike.%${q}%`).limit(15);
+    setGlResults(data || []);
+  }
 
-  const paymentOptions = [
-    { value: 'supplier', label: 'Supplier' },
-    { value: 'tenant', label: 'Tenant Refund' },
-    { value: 'property', label: 'Property' },
-    { value: 'gl', label: 'GL Code' },
-  ];
+  function toggleInvoice(invId: string) {
+    setSelectedInvoices(prev => prev.includes(invId) ? prev.filter(id => id !== invId) : [...prev, invId]);
+  }
+
+  function getSelectedInvoiceTotal(): number {
+    return invoices.filter(inv => selectedInvoices.includes(inv.id)).reduce((s, inv) => s + inv.outstanding, 0);
+  }
+
+  function handleSortInvoices(field: 'date' | 'outstanding' | 'age') {
+    if (invoiceSort === field) setInvoiceSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setInvoiceSort(field); setInvoiceSortDir('asc'); }
+  }
+
+  const sortedInvoices = [...invoices].sort((a, b) => {
+    let cmp = 0;
+    if (invoiceSort === 'date') cmp = a.date.localeCompare(b.date);
+    else if (invoiceSort === 'outstanding') cmp = a.outstanding - b.outstanding;
+    if (invoiceSortDir === 'desc') cmp = -cmp;
+    return cmp;
+  });
+
+  const filteredInvoices = sortedInvoices.filter(inv => !invoiceSearch || inv.invoice_number?.toLowerCase().includes(invoiceSearch.toLowerCase()) || inv.po_reference?.toLowerCase().includes(invoiceSearch.toLowerCase()));
+
+  const currentAllocated = destination === 'tenant' || destination === 'supplier' ? getSelectedInvoiceTotal() : allocatedAmount;
+  const remaining = totalAmount - currentAllocated;
+  const isOverpayment = remaining < 0;
+  const isPartial = currentAllocated > 0 && currentAllocated < totalAmount;
+
+  async function handleSave() {
+    setSaving(true);
+    const tenantId = destination === 'tenant' ? selectedItem?.id : undefined;
+    const supplierId = destination === 'supplier' ? selectedItem?.id : undefined;
+    const invoiceId = selectedInvoices.length === 1 ? selectedInvoices[0] : undefined;
+
+    if (destination === 'tenant' || destination === 'supplier') {
+      await cashbookService.confirmAllocation(transactionId, invoiceId || 'manual', tenantId, supplierId);
+    } else {
+      await supabase.from('bank_transactions').update({
+        allocation_status: 'ready_to_post', queue: 'ready',
+        transaction_description: `${destination} allocation — ${selectedGl?.gl_code || ''}`,
+      }).eq('id', transactionId);
+    }
+
+    if (isReallocation) {
+      await supabase.from('bank_transactions').update({
+        allocation_status: 'ready_to_post',
+      }).eq('id', transactionId);
+    }
+
+    router.push(`/financials/cash-book/${accountId}`);
+    setSaving(false);
+  }
+
+  if (loading) return <div className="p-8 text-zinc-500">Loading...</div>;
+
+  const destLabel = destination === 'tenant' ? 'Tenant' : destination === 'supplier' ? 'Supplier' : destination === 'property' ? 'Property' : destination === 'entity' ? 'Entity' : '';
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 px-6 pt-8 pb-12">
-      <PageHeader 
-        title={isPayment ? "Payment Allocation" : "Receipt Allocation"} 
-        subtitle={transaction ? `${transaction.transaction_description} — R${Math.abs(transaction.transaction_amount).toLocaleString('en-ZA')}` : 'Loading...'}
-      />
+    <div className="mx-auto max-w-6xl space-y-6 px-6 pt-8 pb-12">
+      <button onClick={() => router.back()} className="text-xs text-zinc-500 hover:text-white">← Back</button>
 
-      <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6">
-        <div className="space-y-3">
-          {allocations.map((alloc, index) => {
-            const supplierInvoices = invoices.filter(inv => inv.supplier_id === alloc.supplier_id);
-            
-            return (
-              <div key={alloc.id} className="flex flex-wrap items-center gap-3 p-3 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-default)]">
-                <span className="text-xs text-[var(--text-muted)] font-mono w-8">{index + 1}</span>
-
-                <CustomDropdown
-                  value={alloc.type}
-                  onChange={(val) => updateAllocation(alloc.id, 'type', val as AllocationLine['type'])}
-                  options={isPayment ? paymentOptions : receiptOptions}
-                  className="w-[160px]"
-                />
-
-                {alloc.type === 'tenant' && (
-                  <CustomDropdown
-                    value={alloc.tenant_id || ''}
-                    onChange={(val) => updateAllocation(alloc.id, 'tenant_id', val)}
-                    options={[
-                      { value: '', label: 'Select tenant...' },
-                      ...tenants.map(t => ({ value: t.id, label: t.tenant_name }))
-                    ]}
-                    className="flex-1 min-w-[180px]"
-                  />
-                )}
-
-                {alloc.type === 'supplier' && (
-                  <div className="flex-1 flex flex-wrap items-center gap-2">
-                    <CustomDropdown
-                      value={alloc.supplier_id || ''}
-                      onChange={(val) => {
-                        updateAllocation(alloc.id, 'supplier_id', val);
-                        updateAllocation(alloc.id, 'invoice_id', '');
-                        setShowInvoiceSelector(alloc.id);
-                      }}
-                      options={[
-                        { value: '', label: 'Select supplier...' },
-                        ...suppliers.map(s => ({ value: s.id, label: `${s.supplier_name} (${s.code})` }))
-                      ]}
-                      className="min-w-[180px] flex-1"
-                    />
-                    
-                    {alloc.supplier_id && supplierInvoices.length > 0 && (
-                      <CustomDropdown
-                        value={alloc.invoice_id || ''}
-                        onChange={(val) => updateAllocation(alloc.id, 'invoice_id', val)}
-                        options={[
-                          { value: '', label: 'Select invoice...' },
-                          ...supplierInvoices.map(inv => ({ 
-                            value: inv.id, 
-                            label: `${inv.invoice_number} — R${inv.outstanding_amount?.toLocaleString('en-ZA') || inv.total_amount?.toLocaleString('en-ZA')}`
-                          }))
-                        ]}
-                        className="min-w-[180px] flex-1"
-                      />
-                    )}
-                    
-                    {alloc.supplier_id && supplierInvoices.length === 0 && (
-                      <span className="text-xs text-amber-400">No outstanding invoices. Create one below.</span>
-                    )}
-                  </div>
-                )}
-
-                {alloc.type === 'property' && (
-                  <>
-                    <CustomDropdown
-                      value={alloc.property_id || ''}
-                      onChange={(val) => updateAllocation(alloc.id, 'property_id', val)}
-                      options={[
-                        { value: '', label: 'Select property...' },
-                        ...properties.map(p => ({ value: p.id, label: `${p.property_name} (${p.code})` }))
-                      ]}
-                      className="flex-1 min-w-[180px]"
-                    />
-                    <CustomDropdown
-                      value={alloc.gl_code || ''}
-                      onChange={(val) => updateAllocation(alloc.id, 'gl_code', val)}
-                      options={[
-                        { value: '', label: 'Select GL Code...' },
-                        ...glCodes.map(g => ({ value: g.code, label: `${g.code} - ${g.description}` }))
-                      ]}
-                      className="w-[160px]"
-                    />
-                  </>
-                )}
-
-                {alloc.type === 'gl' && (
-                  <CustomDropdown
-                    value={alloc.gl_code || ''}
-                    onChange={(val) => updateAllocation(alloc.id, 'gl_code', val)}
-                    options={[
-                      { value: '', label: 'Select GL Code...' },
-                      ...glCodes.map(g => ({ value: g.code, label: `${g.code} - ${g.description}` }))
-                    ]}
-                    className="flex-1 min-w-[180px]"
-                  />
-                )}
-
-                <input
-                  type="number"
-                  value={alloc.amount || ''}
-                  onChange={(e) => updateAllocation(alloc.id, 'amount', parseFloat(e.target.value) || 0)}
-                  placeholder="0.00"
-                  className="w-[120px] rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-sm text-[var(--text-primary)] tabular-nums outline-none focus:border-[var(--border-hover)]"
-                />
-
-                <button
-                  onClick={() => removeAllocation(alloc.id)}
-                  className="text-[var(--text-muted)] hover:text-red-400 transition p-1"
-                  disabled={allocations.length <= 1}
-                >
-                  ✕
-                </button>
-              </div>
-            );
-          })}
-        </div>
-
-        <button
-          onClick={addAllocation}
-          className="mt-4 text-sm text-[var(--accent)] hover:text-[var(--accent-hover)] transition flex items-center gap-1"
-        >
-          + Add Split
-        </button>
-
-        <div className="mt-6 pt-4 border-t border-[var(--border-default)] flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-sm text-[var(--text-muted)]">
-              Transaction Total: <span className="text-[var(--text-primary)] font-medium tabular-nums">R{Math.abs(transaction?.transaction_amount || 0).toLocaleString('en-ZA')}</span>
-            </p>
-            <p className="text-sm text-[var(--text-muted)]">
-              Allocated: <span className="text-emerald-400 font-medium tabular-nums">R{totalAllocated.toLocaleString('en-ZA')}</span>
-            </p>
-            <p className="text-sm text-[var(--text-muted)]">
-              Remaining: <span className={`font-medium tabular-nums ${remaining === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                R{remaining.toLocaleString('en-ZA')}
-              </span>
+      {/* Header */}
+      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.01] p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Manual Allocation</p>
+            <p className="text-xs text-zinc-500">
+              {isReallocation ? 'Reallocation — previous allocation will be reversed.' : 'No match found. Choose where this transaction belongs.'}
             </p>
           </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => router.back()}
-              className="rounded-2xl border border-[var(--border-default)] px-6 py-3 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--border-hover)] transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={remaining !== 0 || allocations.some(a => 
-                (a.type === 'property' && !a.gl_code) || 
-                (a.type === 'gl' && !a.gl_code) ||
-                (a.type === 'supplier' && !a.supplier_id)
-              )}
-              className={`rounded-2xl px-8 py-3 text-sm font-semibold transition ${
-                remaining === 0 && !allocations.some(a => 
-                  (a.type === 'property' && !a.gl_code) || 
-                  (a.type === 'gl' && !a.gl_code) ||
-                  (a.type === 'supplier' && !a.supplier_id)
-                )
-                  ? 'bg-[var(--text-primary)] text-black hover:opacity-90'
-                  : 'bg-[var(--bg-elevated)] text-[var(--text-muted)] cursor-not-allowed'
-              }`}
-            >
-              Confirm Allocation
-            </button>
+          <div className="text-right">
+            <p className="text-[10px] text-zinc-600">{transaction?.transaction_date}</p>
+            <p className="text-sm text-white mt-0.5">{transaction?.transaction_description}</p>
+            <p className={`text-xl font-light mt-1 ${isReceipt ? 'text-emerald-400' : 'text-red-400'} tabular-nums`}>{isReceipt ? '+' : '−'}R{totalAmount.toLocaleString()}</p>
           </div>
         </div>
       </div>
+
+      {/* Step 1: Choose Destination */}
+      {!destination && (
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.01] p-6">
+          <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-4">Allocate {isReceipt ? 'Receipt' : 'Payment'} to</p>
+          <div className="grid grid-cols-2 gap-3">
+            {(isReceipt ? ['tenant', 'supplier', 'property', 'entity'] : ['supplier', 'tenant', 'property', 'entity']).map(d => (
+              <button key={d} onClick={() => setDestination(d as Destination)} className="rounded-xl border border-white/[0.06] p-4 text-left hover:border-white/20 transition-all">
+                <p className="text-sm font-medium text-white capitalize">{d}</p>
+                <p className="text-xs text-zinc-500 mt-1">
+                  {d === 'tenant' ? 'Tenant receipt, deposit, or refund' : d === 'supplier' ? 'Supplier invoice or payment' : d === 'property' ? 'Property income or expense' : 'Entity-level transaction'}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Step 2: Search + Allocate */}
+      {destination && (
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.01] p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Allocate to {destLabel}</p>
+            <button onClick={() => { setDestination(null); setSelectedItem(null); setInvoices([]); setSelectedInvoices([]); }} className="text-xs text-zinc-500 hover:text-white">Change</button>
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <input value={searchQuery} onChange={(e) => handleSearch(e.target.value)} placeholder={`Search ${destLabel.toLowerCase()}...`} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" />
+            {searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-white/[0.08] rounded-lg overflow-hidden z-30 max-h-48 overflow-y-auto">
+                {searchResults.map(r => (
+                  <button key={r.id} onClick={() => handleSelect(r)} className="w-full text-left px-3 py-2 text-xs text-zinc-400 hover:bg-white/[0.05] hover:text-white">
+                    {destination === 'tenant' ? r.tenant_name : destination === 'supplier' ? r.supplier_name : destination === 'property' ? r.property_name : r.entity_name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Selected Item Summary */}
+          {selectedItem && (destination === 'tenant' || destination === 'supplier') && (
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 grid grid-cols-3 gap-4 text-xs">
+              <div><p className="text-zinc-500">{destLabel}</p><p className="text-white font-medium">{destination === 'tenant' ? selectedItem.tenant_name : selectedItem.supplier_name}</p></div>
+              <div><p className="text-zinc-500">Outstanding</p><p className="text-white">R{invoices.reduce((s, i) => s + i.outstanding, 0).toLocaleString()}</p></div>
+              <div><p className="text-zinc-500">Invoices</p><p className="text-white">{invoices.length} open</p></div>
+            </div>
+          )}
+
+          {/* Invoice Grid (Tenant/Supplier) */}
+          {selectedItem && (destination === 'tenant' || destination === 'supplier') && invoices.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <input value={invoiceSearch} onChange={(e) => setInvoiceSearch(e.target.value)} placeholder="Search invoices..." className="flex-1 rounded-lg border border-white/[0.08] bg-zinc-900 px-2 py-1.5 text-xs text-white outline-none" />
+              </div>
+              <div className="rounded-lg border border-white/[0.06] overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead><tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                    <th className="text-left py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase">Invoice</th>
+                    <th onClick={() => handleSortInvoices('date')} className="text-left py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Date {invoiceSort === 'date' ? (invoiceSortDir === 'asc' ? '↑' : '↓') : ''}</th>
+                    <th onClick={() => handleSortInvoices('outstanding')} className="text-right py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase cursor-pointer hover:text-white">Outstanding {invoiceSort === 'outstanding' ? (invoiceSortDir === 'asc' ? '↑' : '↓') : ''}</th>
+                    <th className="text-center py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase w-16">Select</th>
+                  </tr></thead>
+                  <tbody>{filteredInvoices.map(inv => (
+                    <tr key={inv.id} className={`border-b border-white/[0.03] hover:bg-white/[0.01] cursor-pointer ${selectedInvoices.includes(inv.id) ? 'bg-white/[0.03]' : ''}`} onClick={() => toggleInvoice(inv.id)}>
+                      <td className="py-2 px-3 text-white">{inv.invoice_number}</td>
+                      <td className="py-2 px-3 text-zinc-400">{inv.date}</td>
+                      <td className="py-2 px-3 text-right text-white tabular-nums">R{inv.outstanding.toLocaleString()}</td>
+                      <td className="py-2 px-3 text-center"><span className={selectedInvoices.includes(inv.id) ? 'text-emerald-400' : 'text-zinc-600'}>{selectedInvoices.includes(inv.id) ? '✓' : '○'}</span></td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* GL Search (Property/Entity) */}
+          {selectedItem && (destination === 'property' || destination === 'entity') && (
+            <div className="space-y-3">
+              <div className="relative">
+                <input value={glSearch} onChange={(e) => handleGlSearch(e.target.value)} placeholder="Search GL account..." className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" />
+                {glResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-white/[0.08] rounded-lg overflow-hidden z-30 max-h-48 overflow-y-auto">
+                    {glResults.map(g => (
+                      <button key={g.id} onClick={() => { setSelectedGl(g); setGlSearch(`${g.gl_code} — ${g.account_name}`); setGlResults([]); }} className="w-full text-left px-3 py-2 text-xs text-zinc-400 hover:bg-white/[0.05] hover:text-white">{g.gl_code} — {g.account_name}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {selectedGl && (
+                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs">
+                  <span className="text-emerald-400">{selectedGl.gl_code} — {selectedGl.account_name}</span>
+                </div>
+              )}
+              <div>
+                <label className="text-[9px] text-zinc-600 block mb-0.5">Amount</label>
+                <input value={allocatedAmount || totalAmount} onChange={(e) => setAllocatedAmount(parseFloat(e.target.value) || 0)} type="number" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Reconciliation Footer */}
+      {destination && (
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.01] p-5">
+          <div className="flex justify-between text-sm"><span className="text-zinc-500">Transaction</span><span className="text-white tabular-nums">R{totalAmount.toLocaleString()}</span></div>
+          <div className="flex justify-between text-sm mt-1"><span className="text-zinc-500">Allocated</span><span className={`tabular-nums ${remaining === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>R{currentAllocated.toLocaleString()}</span></div>
+          <div className="flex justify-between text-sm mt-1 font-medium"><span className="text-zinc-500">Remaining</span><span className={`tabular-nums ${remaining === 0 ? 'text-emerald-400' : 'text-red-400'}`}>R{Math.abs(remaining).toLocaleString()}</span></div>
+
+          {isOverpayment && (
+            <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-400">
+              Overpayment of R{Math.abs(remaining).toLocaleString()} — this will create a {destination === 'tenant' ? 'tenant' : 'supplier'} credit.
+            </div>
+          )}
+          {isPartial && !isOverpayment && (
+            <p className="text-xs text-zinc-500 mt-2">Partial payment — R{remaining.toLocaleString()} will remain outstanding.</p>
+          )}
+
+          {isReallocation && (
+            <div className="mt-3">
+              <input value={reallocationReason} onChange={(e) => setReallocationReason(e.target.value)} placeholder="Reason for reallocation..." className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" />
+            </div>
+          )}
+
+          <button onClick={handleSave} disabled={saving || !selectedItem || (destination === 'tenant' || destination === 'supplier' ? selectedInvoices.length === 0 : !selectedGl)} className="mt-4 w-full rounded-lg bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40">
+            {saving ? 'Saving...' : isReallocation ? 'Confirm Reallocation' : 'Confirm Allocation'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

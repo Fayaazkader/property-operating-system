@@ -156,12 +156,12 @@ export default function AccountWorkspacePage() {
               <tr key={tx.id} className="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors">
                 <td className="px-2 py-2 text-white text-xs">{tx.transaction_date}</td>
                 <td className="px-2 py-2 text-white text-xs">{tx.transaction_description}</td>
-                <td className="px-4 py-3 text-zinc-500 text-xs font-mono">{tx.transaction_reference || "—"}</td>
-                <td className={`px-4 py-3 text-right tabular-nums text-xs font-medium ${tx.transaction_amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                <td className="px-2 py-2 text-zinc-500 text-xs font-mono">{tx.transaction_reference || "—"}</td>
+                <td className={`px-2 py-2 text-right tabular-nums text-xs font-medium ${tx.transaction_amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {tx.transaction_amount >= 0 ? '+' : '−'}R{Math.abs(tx.transaction_amount).toLocaleString()}
                 </td>
-                <td className="px-4 py-3 text-center"><span className={`text-xs px-2 py-0.5 rounded-full ${tx.confidence >= 90 ? "bg-emerald-500/10 text-emerald-300" : tx.confidence >= 60 ? "bg-amber-500/10 text-amber-300" : "bg-red-500/10 text-red-300"}`}>{tx.confidence || 0}%</span></td>
-                <td className="px-4 py-3 text-center"><span className={`text-[10px] px-2 py-0.5 rounded-full ${tx.allocation_status === 'posted' ? 'bg-emerald-500/10 text-emerald-400' : tx.allocation_status === 'posting_failed' ? 'bg-red-500/10 text-red-400' : 'bg-zinc-800 text-zinc-500'}`}>{tx.allocation_status || tx.queue}</span></td>
+                <td className="px-2 py-2 text-center"><span className={`text-xs px-2 py-0.5 rounded-full ${tx.confidence >= 90 ? "bg-emerald-500/10 text-emerald-300" : tx.confidence >= 60 ? "bg-amber-500/10 text-amber-300" : "bg-red-500/10 text-red-300"}`}>{tx.confidence || 0}%</span></td>
+                <td className="px-2 py-2 text-center"><span className={`text-[10px] px-2 py-0.5 rounded-full ${tx.allocation_status === 'posted' ? 'bg-emerald-500/10 text-emerald-400' : tx.allocation_status === 'posting_failed' ? 'bg-red-500/10 text-red-400' : 'bg-zinc-800 text-zinc-500'}`}>{tx.allocation_status || tx.queue}</span></td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex gap-2 justify-end">
                     {/* Every non-posted transaction can be manually allocated */}
