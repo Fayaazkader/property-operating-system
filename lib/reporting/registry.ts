@@ -1,58 +1,54 @@
 // lib/reporting/registry.ts
-// Report Registry — Metadata only. Provider resolution via factory.
 
 export type ReportCategory = 'financial' | 'operational' | 'tenant' | 'supplier' | 'maintenance' | 'executive';
 export type ReportFormat = 'pdf' | 'excel' | 'csv';
 export type ReportOrientation = 'portrait' | 'landscape';
+export type PaperSize = 'A4' | 'Letter';
 
 export interface ReportDefinition {
   id: string;
   title: string;
   category: ReportCategory;
   orientation: ReportOrientation;
+  paperSize: PaperSize;
   formats: ReportFormat[];
   permission: string;
   description?: string;
-  defaultSort?: string;
+  defaultFilename: string;
   defaultGrouping?: string;
+  defaultSort?: string;
+  supportsScheduling: boolean;
+  supportsEmail: boolean;
+  supportsMergedPack: boolean;
+  supportsDrillDown: boolean;
 }
 
 export const reportRegistry: ReportDefinition[] = [
-  { id: 'trial-balance', title: 'Trial Balance', category: 'financial', orientation: 'landscape', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'All GL accounts with debit/credit balances' },
-  { id: 'income-statement', title: 'Income Statement', category: 'financial', orientation: 'portrait', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'Revenue, expenses, and net income' },
-  { id: 'balance-sheet', title: 'Balance Sheet', category: 'financial', orientation: 'portrait', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'Assets, liabilities, and equity' },
-  { id: 'cash-flow', title: 'Cash Flow Statement', category: 'financial', orientation: 'portrait', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'Operating, investing, and financing cash flows' },
-  { id: 'general-ledger', title: 'General Ledger', category: 'financial', orientation: 'landscape', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'All journal entries for a period' },
-  { id: 'journal-report', title: 'Journal Report', category: 'financial', orientation: 'landscape', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'Journals with debit/credit totals' },
-  { id: 'vat-report', title: 'VAT Report', category: 'financial', orientation: 'portrait', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'Output VAT, input VAT, net payable' },
-  { id: 'budget-vs-actual', title: 'Budget vs Actual', category: 'financial', orientation: 'landscape', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'Budgeted vs actual with variance' },
-  { id: 'rent-roll', title: 'Rent Roll', category: 'operational', orientation: 'landscape', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'All tenants with current charges' },
-  { id: 'lease-expiry', title: 'Lease Expiry Schedule', category: 'operational', orientation: 'landscape', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'Leases expiring within selected period' },
-  { id: 'vacancy-report', title: 'Vacancy Report', category: 'operational', orientation: 'landscape', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'Vacant units with days vacant' },
-  { id: 'recovery-analysis', title: 'Recovery Analysis', category: 'operational', orientation: 'landscape', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'Recoveries vs actual expenses' },
-  { id: 'tenant-ledger', title: 'Tenant Ledger', category: 'tenant', orientation: 'landscape', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'Full transaction history per tenant' },
-  { id: 'tenant-statement', title: 'Tenant Statement', category: 'tenant', orientation: 'portrait', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'Statement of account' },
-  { id: 'aged-debtors', title: 'Aged Debtors', category: 'tenant', orientation: 'landscape', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'Outstanding by aging bucket' },
-  { id: 'deposit-register', title: 'Deposit Register', category: 'tenant', orientation: 'landscape', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'All tenant deposits held' },
-  { id: 'tenancy-schedule', title: 'Tenancy Schedule', category: 'tenant', orientation: 'landscape', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'All tenants with lease details' },
-  { id: 'supplier-ledger', title: 'Supplier Ledger', category: 'supplier', orientation: 'landscape', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'Full transaction history per supplier' },
-  { id: 'aged-creditors', title: 'Aged Creditors', category: 'supplier', orientation: 'landscape', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', description: 'Outstanding payables by aging bucket' },
-  { id: 'portfolio-summary', title: 'Portfolio Summary', category: 'executive', orientation: 'portrait', formats: ['pdf', 'excel'], permission: 'reports.view', description: 'Key metrics across portfolio' },
-  { id: 'noi-report', title: 'NOI Report', category: 'executive', orientation: 'portrait', formats: ['pdf', 'excel'], permission: 'reports.view', description: 'Net operating income per property' },
+  { id: 'trial-balance', title: 'Trial Balance', category: 'financial', orientation: 'landscape', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Trial-Balance', supportsScheduling: true, supportsEmail: true, supportsMergedPack: true, supportsDrillDown: true },
+  { id: 'income-statement', title: 'Income Statement', category: 'financial', orientation: 'portrait', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Income-Statement', supportsScheduling: true, supportsEmail: true, supportsMergedPack: true, supportsDrillDown: true },
+  { id: 'balance-sheet', title: 'Balance Sheet', category: 'financial', orientation: 'portrait', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Balance-Sheet', supportsScheduling: true, supportsEmail: true, supportsMergedPack: true, supportsDrillDown: true },
+  { id: 'cash-flow', title: 'Cash Flow Statement', category: 'financial', orientation: 'portrait', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Cash-Flow', supportsScheduling: true, supportsEmail: true, supportsMergedPack: true, supportsDrillDown: true },
+  { id: 'general-ledger', title: 'General Ledger', category: 'financial', orientation: 'landscape', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'General-Ledger', supportsScheduling: false, supportsEmail: true, supportsMergedPack: false, supportsDrillDown: true },
+  { id: 'journal-report', title: 'Journal Report', category: 'financial', orientation: 'landscape', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Journal-Report', supportsScheduling: false, supportsEmail: false, supportsMergedPack: false, supportsDrillDown: true },
+  { id: 'vat-report', title: 'VAT Report', category: 'financial', orientation: 'portrait', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'VAT-Report', supportsScheduling: true, supportsEmail: true, supportsMergedPack: true, supportsDrillDown: false },
+  { id: 'budget-vs-actual', title: 'Budget vs Actual', category: 'financial', orientation: 'landscape', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Budget-vs-Actual', supportsScheduling: true, supportsEmail: true, supportsMergedPack: true, supportsDrillDown: true },
+  { id: 'rent-roll', title: 'Rent Roll', category: 'operational', orientation: 'landscape', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Rent-Roll', supportsScheduling: true, supportsEmail: true, supportsMergedPack: true, supportsDrillDown: false },
+  { id: 'lease-expiry', title: 'Lease Expiry Schedule', category: 'operational', orientation: 'landscape', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Lease-Expiry', supportsScheduling: true, supportsEmail: true, supportsMergedPack: true, supportsDrillDown: false },
+  { id: 'vacancy-report', title: 'Vacancy Report', category: 'operational', orientation: 'landscape', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Vacancy-Report', supportsScheduling: true, supportsEmail: true, supportsMergedPack: true, supportsDrillDown: false },
+  { id: 'recovery-analysis', title: 'Recovery Analysis', category: 'operational', orientation: 'landscape', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Recovery-Analysis', supportsScheduling: true, supportsEmail: true, supportsMergedPack: false, supportsDrillDown: false },
+  { id: 'tenant-ledger', title: 'Tenant Ledger', category: 'tenant', orientation: 'landscape', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Tenant-Ledger', supportsScheduling: false, supportsEmail: true, supportsMergedPack: false, supportsDrillDown: true },
+  { id: 'tenant-statement', title: 'Tenant Statement', category: 'tenant', orientation: 'portrait', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Tenant-Statement', supportsScheduling: true, supportsEmail: true, supportsMergedPack: false, supportsDrillDown: false },
+  { id: 'aged-debtors', title: 'Aged Debtors', category: 'tenant', orientation: 'landscape', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Aged-Debtors', supportsScheduling: true, supportsEmail: true, supportsMergedPack: true, supportsDrillDown: false },
+  { id: 'deposit-register', title: 'Deposit Register', category: 'tenant', orientation: 'landscape', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Deposit-Register', supportsScheduling: false, supportsEmail: true, supportsMergedPack: false, supportsDrillDown: false },
+  { id: 'tenancy-schedule', title: 'Tenancy Schedule', category: 'tenant', orientation: 'landscape', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Tenancy-Schedule', supportsScheduling: true, supportsEmail: true, supportsMergedPack: true, supportsDrillDown: false },
+  { id: 'supplier-ledger', title: 'Supplier Ledger', category: 'supplier', orientation: 'landscape', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Supplier-Ledger', supportsScheduling: false, supportsEmail: true, supportsMergedPack: false, supportsDrillDown: true },
+  { id: 'aged-creditors', title: 'Aged Creditors', category: 'supplier', orientation: 'landscape', paperSize: 'A4', formats: ['pdf', 'excel', 'csv'], permission: 'reports.view', defaultFilename: 'Aged-Creditors', supportsScheduling: true, supportsEmail: true, supportsMergedPack: true, supportsDrillDown: false },
+  { id: 'portfolio-summary', title: 'Portfolio Summary', category: 'executive', orientation: 'portrait', paperSize: 'A4', formats: ['pdf', 'excel'], permission: 'reports.view', defaultFilename: 'Portfolio-Summary', supportsScheduling: true, supportsEmail: true, supportsMergedPack: true, supportsDrillDown: true },
+  { id: 'noi-report', title: 'NOI Report', category: 'executive', orientation: 'portrait', paperSize: 'A4', formats: ['pdf', 'excel'], permission: 'reports.view', defaultFilename: 'NOI-Report', supportsScheduling: true, supportsEmail: true, supportsMergedPack: true, supportsDrillDown: true },
 ];
 
-export function getReport(id: string): ReportDefinition | undefined {
-  return reportRegistry.find(r => r.id === id);
-}
-
-export function getReportsByCategory(category: ReportCategory): ReportDefinition[] {
-  return reportRegistry.filter(r => r.category === category);
-}
-
+export function getReport(id: string): ReportDefinition | undefined { return reportRegistry.find(r => r.id === id); }
+export function getReportsByCategory(category: ReportCategory): ReportDefinition[] { return reportRegistry.filter(r => r.category === category); }
 export const reportCategories: { key: ReportCategory; label: string }[] = [
-  { key: 'financial', label: 'Financial' },
-  { key: 'operational', label: 'Operational' },
-  { key: 'tenant', label: 'Tenant' },
-  { key: 'supplier', label: 'Supplier' },
-  { key: 'executive', label: 'Executive' },
+  { key: 'financial', label: 'Financial' }, { key: 'operational', label: 'Operational' }, { key: 'tenant', label: 'Tenant' }, { key: 'supplier', label: 'Supplier' }, { key: 'executive', label: 'Executive' },
 ];

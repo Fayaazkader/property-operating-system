@@ -1,20 +1,18 @@
 // lib/reporting/execution-service.ts
-// Report Execution Service — Orchestrates: validate → provider → layout → render → audit
-
 import { getReport } from './registry';
 import { getProvider } from './providers/factory';
 import { buildReportLayout } from './layout/engine';
 import { exportToCSV } from './renderers/csv';
-import type { ReportFormat } from './registry';
+import { supabase } from '@/lib/supabase';
+import type { ReportScope, ReportFormat } from './types';
 
 export interface ExecutionParams {
   reportId: string;
-  entityId: string;
-  periodId?: string;
+  scope: ReportScope;
   format: ReportFormat;
   companyName?: string;
   companyLogo?: string;
-  filters?: string[];
+  userId?: string;
 }
 
 export async function executeReport(params: ExecutionParams): Promise<void> {
@@ -24,19 +22,17 @@ export async function executeReport(params: ExecutionParams): Promise<void> {
   const provider = getProvider(params.reportId);
   if (!provider) throw new Error(`No provider for: ${params.reportId}`);
 
-  const data = await provider(params.entityId, params.periodId);
-
+  const data = await provider(params.scope);
   const layout = buildReportLayout({
     companyName: params.companyName || 'Company',
     companyLogo: params.companyLogo,
     reportTitle: report.title,
     orientation: report.orientation,
-    period: params.periodId,
-    filters: params.filters,
+    period: params.scope.fromDate,
     sections: [{ headers: data.headers, rows: data.rows, totals: data.totals }],
   });
 
-  const filename = `${report.title}-${new Date().toISOString().split('T')[0]}`;
+  const filename = `${report.defaultFilename}-${new Date().toISOString().split('T')[0]}`;
   if (params.format === 'csv' || params.format === 'excel') {
     const allRows = data.totals ? [...data.rows, data.totals] : data.rows;
     exportToCSV(data.headers, allRows, filename);
@@ -44,6 +40,13 @@ export async function executeReport(params: ExecutionParams): Promise<void> {
     window.print();
   }
 
-  // Audit log (placeholder)
-  console.log('Report executed', { reportId: params.reportId, entityId: params.entityId, format: params.format, at: new Date().toISOString() });
+  // Audit log
+  await supabase.from('report_audit_log').insert({
+    user_id: params.userId,
+    report_id: params.reportId,
+    report_title: report.title,
+    scope: params.scope,
+    format: params.format,
+    generated_at: new Date().toISOString(),
+  });
 }
