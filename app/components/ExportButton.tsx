@@ -21,7 +21,7 @@ export default function ExportButton({ reportId, entityId, periodId, label = 'Ex
     try {
       const provider = getProvider(reportId);
       if (!provider) { console.error('No provider for', reportId); return; }
-      const data = await provider(entityId, periodId);
+      const data = await provider({ entityId, fromDate: periodId });
       const allRows = data.totals ? [...data.rows, data.totals] : data.rows;
       const filename = `${report?.title || 'report'}-${new Date().toISOString().split('T')[0]}`;
       if (format === 'csv' || format === 'excel') exportToCSV(data.headers, allRows, filename);
