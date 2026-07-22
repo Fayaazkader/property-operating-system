@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from "@/lib/supabase";
 import { TrendingDown, Calendar, Building2, DollarSign, BarChart3, Download, Clock, Star, Filter } from "lucide-react";
+import ExportButton from "@/app/components/ExportButton";
 
 const reportCategories = [
   {
