@@ -180,7 +180,7 @@ export default function AccountWorkspacePage() {
           </tbody>
         </table>
       </div>
-            {selectedTx && (
+                        {selectedTx && (
         <>
           <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedTx(null)} />
           <div className="fixed inset-4 z-50 flex items-center justify-center p-4">
@@ -189,24 +189,41 @@ export default function AccountWorkspacePage() {
                 <p className="text-sm font-medium text-white">Transaction Detail</p>
                 <button onClick={() => setSelectedTx(null)} className="text-zinc-500 hover:text-white">✕</button>
               </div>
-              <div className="space-y-3 text-sm">
-                <div><p className="text-[10px] text-zinc-500 uppercase">Date</p><p className="text-white">{selectedTx.transaction_date}</p></div>
-                <div><p className="text-[10px] text-zinc-500 uppercase">Description</p><p className="text-white">{selectedTx.transaction_description}</p></div>
-                <div><p className="text-[10px] text-zinc-500 uppercase">Reference</p><p className="text-white font-mono">{selectedTx.transaction_reference || "—"}</p></div>
-                <div><p className="text-[10px] text-zinc-500 uppercase">Amount</p><p className={`text-lg font-light ${selectedTx.transaction_amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{selectedTx.transaction_amount >= 0 ? '+' : '−'}R{Math.abs(selectedTx.transaction_amount).toLocaleString()}</p></div>
-                <div><p className="text-[10px] text-zinc-500 uppercase">Status</p><p className="text-white">{selectedTx.allocation_status}</p></div>
-                <div><p className="text-[10px] text-zinc-500 uppercase">Queue</p><p className="text-white">{selectedTx.queue || '—'}</p></div>
-                <div><p className="text-[10px] text-zinc-500 uppercase">Confidence</p><p className="text-white">{selectedTx.confidence || 0}%</p></div>
-                {selectedTx.matched_invoice_id && <div><p className="text-[10px] text-zinc-500 uppercase">Matched Invoice</p><p className="text-white">{selectedTx.matched_invoice_id}</p></div>}
-                {selectedTx.matched_tenant_id && <div><p className="text-[10px] text-zinc-500 uppercase">Matched Tenant</p><p className="text-white">{selectedTx.matched_tenant_id}</p></div>}
-                {selectedTx.matched_journal_id && (
-                  <div>
-                    <p className="text-[10px] text-zinc-500 uppercase">Journal Reference</p>
-                    <button onClick={() => { setSelectedTx(null); router.push(`/financials?journal=${selectedTx.matched_journal_id}`); }} className="text-emerald-400 hover:text-emerald-300 text-xs">
-                      View Journal in Financial Workspace →
-                    </button>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><p className="text-[10px] text-zinc-500 uppercase">Bank Date</p><p className="text-white">{selectedTx.transaction_date}</p></div>
+                  <div><p className="text-[10px] text-zinc-500 uppercase">Amount</p><p className={`text-lg font-light ${selectedTx.transaction_amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{selectedTx.transaction_amount >= 0 ? '+' : '−'}R{Math.abs(selectedTx.transaction_amount).toLocaleString()}</p></div>
+                  <div className="col-span-2"><p className="text-[10px] text-zinc-500 uppercase">Description</p><p className="text-white">{selectedTx.transaction_description}</p></div>
+                  <div><p className="text-[10px] text-zinc-500 uppercase">Reference</p><p className="text-white font-mono text-xs">{selectedTx.transaction_reference || "—"}</p></div>
+                  <div><p className="text-[10px] text-zinc-500 uppercase">Status</p><span className={`text-xs px-2 py-0.5 rounded-full ${selectedTx.allocation_status === 'posted' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>{selectedTx.allocation_status}</span></div>
+                </div>
+
+                <div className="border-t border-white/[0.06] pt-4">
+                  <p className="text-[10px] text-zinc-500 uppercase mb-2">Allocation</p>
+                  <div className="space-y-1 text-sm">
+                    <p className="text-white">Method: <span className="text-zinc-400">{selectedTx.confidence >= 90 ? 'Auto-matched' : 'Manual allocation'}</span></p>
+                    <p className="text-white">Queue: <span className="text-zinc-400">{selectedTx.queue || '—'}</span></p>
+                    {selectedTx.matched_invoice_id && <p className="text-white">Invoice: <span className="text-zinc-400">{selectedTx.matched_invoice_id}</span></p>}
+                    {selectedTx.matched_tenant_id && <p className="text-white">Tenant ID: <span className="text-zinc-400">{selectedTx.matched_tenant_id?.slice(0, 8)}...</span></p>}
                   </div>
-                )}
+                </div>
+
+                <div className="border-t border-white/[0.06] pt-4">
+                  <p className="text-[10px] text-zinc-500 uppercase mb-2">Audit</p>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between"><span className="text-zinc-400">Transaction ID</span><span className="text-zinc-600 font-mono">{selectedTx.id?.slice(0, 12)}...</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-400">Confidence</span><span className="text-zinc-400">{selectedTx.confidence || 0}%</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-400">Reconciled</span><span className={selectedTx.is_reconciled ? 'text-emerald-400' : 'text-amber-400'}>{selectedTx.is_reconciled ? 'Yes' : 'No'}</span></div>
+                    {selectedTx.matched_journal_id && (
+                      <div className="flex justify-between">
+                        <span className="text-zinc-400">Journal</span>
+                        <button onClick={() => { setSelectedTx(null); router.push(`/financials?journal=${selectedTx.matched_journal_id}`); }} className="text-emerald-400 hover:text-emerald-300">View in Financials →</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex gap-2 pt-3 border-t border-white/[0.06]">
                   {selectedTx.allocation_status === 'posted' && (
                     <button onClick={() => { setSelectedTx(null); router.push(`/financials/cash-book/${accountId}/allocate/${selectedTx.id}`); }} className="rounded-lg border border-amber-500/20 text-amber-400 px-3 py-1.5 text-xs hover:border-amber-500/40">Reverse</button>
