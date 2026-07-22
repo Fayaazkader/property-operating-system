@@ -30,6 +30,7 @@ export default function AccountWorkspacePage() {
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [postingResult, setPostingResult] = useState<{ posted: number; failed: number } | null>(null);
+    const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
   useEffect(() => { if (!accountId) return; loadData(); }, [accountId]);
   
@@ -150,7 +151,7 @@ export default function AccountWorkspacePage() {
           </tr></thead>
           <tbody>
             {filtered.map((tx) => (
-              <tr key={tx.id} className="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors cursor-pointer" onClick={() => { if (tx.allocation_status === 'posted') router.push(`/financials?journal=${tx.matched_journal_id || ''}`); else router.push(manualAllocateUrl(tx)); }}>
+              <tr key={tx.id} className="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors cursor-pointer" onClick={() => setSelectedTx(tx)}>
                 <td className="px-2 py-2 text-white text-xs">{tx.transaction_date}</td>
                 <td className="px-2 py-2 text-white text-xs">{tx.transaction_description}</td>
                 <td className="px-2 py-2 text-zinc-500 text-xs font-mono">{tx.transaction_reference || "—"}</td>
@@ -179,6 +180,44 @@ export default function AccountWorkspacePage() {
           </tbody>
         </table>
       </div>
+            {selectedTx && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedTx(null)} />
+          <div className="fixed inset-4 z-50 flex items-center justify-center p-4">
+            <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <p className="text-sm font-medium text-white">Transaction Detail</p>
+                <button onClick={() => setSelectedTx(null)} className="text-zinc-500 hover:text-white">✕</button>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div><p className="text-[10px] text-zinc-500 uppercase">Date</p><p className="text-white">{selectedTx.transaction_date}</p></div>
+                <div><p className="text-[10px] text-zinc-500 uppercase">Description</p><p className="text-white">{selectedTx.transaction_description}</p></div>
+                <div><p className="text-[10px] text-zinc-500 uppercase">Reference</p><p className="text-white font-mono">{selectedTx.transaction_reference || "—"}</p></div>
+                <div><p className="text-[10px] text-zinc-500 uppercase">Amount</p><p className={`text-lg font-light ${selectedTx.transaction_amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{selectedTx.transaction_amount >= 0 ? '+' : '−'}R{Math.abs(selectedTx.transaction_amount).toLocaleString()}</p></div>
+                <div><p className="text-[10px] text-zinc-500 uppercase">Status</p><p className="text-white">{selectedTx.allocation_status}</p></div>
+                <div><p className="text-[10px] text-zinc-500 uppercase">Queue</p><p className="text-white">{selectedTx.queue || '—'}</p></div>
+                <div><p className="text-[10px] text-zinc-500 uppercase">Confidence</p><p className="text-white">{selectedTx.confidence || 0}%</p></div>
+                {selectedTx.matched_invoice_id && <div><p className="text-[10px] text-zinc-500 uppercase">Matched Invoice</p><p className="text-white">{selectedTx.matched_invoice_id}</p></div>}
+                {selectedTx.matched_tenant_id && <div><p className="text-[10px] text-zinc-500 uppercase">Matched Tenant</p><p className="text-white">{selectedTx.matched_tenant_id}</p></div>}
+                {selectedTx.matched_journal_id && (
+                  <div>
+                    <p className="text-[10px] text-zinc-500 uppercase">Journal Reference</p>
+                    <button onClick={() => { setSelectedTx(null); router.push(`/financials?journal=${selectedTx.matched_journal_id}`); }} className="text-emerald-400 hover:text-emerald-300 text-xs">
+                      View Journal in Financial Workspace →
+                    </button>
+                  </div>
+                )}
+                <div className="flex gap-2 pt-3 border-t border-white/[0.06]">
+                  {selectedTx.allocation_status === 'posted' && (
+                    <button onClick={() => { setSelectedTx(null); router.push(`/financials/cash-book/${accountId}/allocate/${selectedTx.id}`); }} className="rounded-lg border border-amber-500/20 text-amber-400 px-3 py-1.5 text-xs hover:border-amber-500/40">Reverse</button>
+                  )}
+                  <button onClick={() => setSelectedTx(null)} className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white hover:border-white/20">Close</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
