@@ -4,7 +4,8 @@ import { getProvider } from './providers/factory';
 import { buildReportLayout } from './layout/engine';
 import { exportToCSV } from './renderers/csv';
 import { supabase } from '@/lib/supabase';
-import type { ReportScope, ReportFormat } from './types';
+import type { ReportScope } from './types';
+import type { ReportFormat } from './registry';
 
 export interface ExecutionParams {
   reportId: string;
