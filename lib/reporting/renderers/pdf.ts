@@ -4,7 +4,7 @@
 
 import type { ReportLayout } from '../layout/engine';
 
-export function renderPDF(layout: ReportLayout, filename: string): void {
+export async function renderPDF(layout: ReportLayout, filename: string): void {
   const isLandscape = layout.orientation === 'landscape';
   const pageSize = isLandscape ? 'A4 landscape' : 'A4 portrait';
 

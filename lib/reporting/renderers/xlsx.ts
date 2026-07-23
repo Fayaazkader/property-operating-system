@@ -4,7 +4,7 @@
 import * as XLSX from 'xlsx';
 import type { ReportLayout } from '../layout/engine';
 
-export function renderXLSX(layout: ReportLayout, filename: string): void {
+export async function renderXLSX(layout: ReportLayout, filename: string): void {
   const wb = XLSX.utils.book_new();
 
   for (let i = 0; i < layout.sections.length; i++) {

@@ -36,7 +36,7 @@ export default function ExportButton({ reportId, entityId, periodId, companyName
       });
 
       const renderer = getRenderer(format === 'excel' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv');
-      if (renderer) renderer.render(layout, filename);
+      if (renderer) await renderer.render(layout, filename);
     } catch (err) { console.error('Export failed', err); }
     setLoading(false);
     setOpen(false);

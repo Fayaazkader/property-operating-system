@@ -1,6 +1,4 @@
 // lib/reporting/renderers/factory.ts
-// Renderer Factory — All renderers consume ReportLayout, are interchangeable
-
 import type { ReportLayout } from '../layout/engine';
 import { exportToCSV } from './csv';
 import { renderXLSX } from './xlsx';
@@ -9,12 +7,12 @@ import { renderPDF } from './pdf';
 export type RendererFormat = 'pdf' | 'xlsx' | 'csv';
 
 export interface Renderer {
-  render(layout: ReportLayout, filename: string): void;
+  render(layout: ReportLayout, filename: string): Promise<void>;
 }
 
 const rendererMap: Record<RendererFormat, Renderer> = {
   csv: {
-    render: (layout, filename) => {
+    render: async (layout, filename) => {
       const section = layout.sections[0];
       if (!section) return;
       const allRows = section.table.totals ? [...section.table.rows, section.table.totals] : section.table.rows;
@@ -22,10 +20,10 @@ const rendererMap: Record<RendererFormat, Renderer> = {
     },
   },
   xlsx: {
-    render: (layout, filename) => renderXLSX(layout, filename),
+    render: async (layout, filename) => renderXLSX(layout, filename),
   },
   pdf: {
-    render: (layout, filename) => renderPDF(layout, filename),
+    render: async (layout, filename) => renderPDF(layout, filename),
   },
 };
 
