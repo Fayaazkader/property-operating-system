@@ -37,7 +37,7 @@ export async function renderPDF(layout: ReportLayout, _filename: string): Promis
           doc.line(margin, ph - 14, pageWidth - margin, ph - 14);
           doc.setFontSize(6); doc.setTextColor(170, 170, 170);
           doc.text(`${layout.footer.companyName} — ${layout.header.reportTitle}`, margin, ph - 10);
-          doc.text(`Page ${doc.internal.getNumberOfPages()}`, pageWidth - margin, ph - 10, { align: 'right' });
+          doc.text(`Page ${(doc as any).internal.getNumberOfPages()}`, pageWidth - margin, ph - 10, { align: 'right' });
         },
       });
       y = (doc as any).lastAutoTable.finalY + 6;
