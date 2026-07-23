@@ -110,7 +110,7 @@ export default function InvoiceView({ tenantId, entityId }: { tenantId: string; 
               <div className="flex justify-end mb-2">
                 <button onClick={() => setGeneratedDoc(null)} className="text-white/60 hover:text-white text-sm">Close ✕</button>
               </div>
-              <DocumentRenderer model={generatedDoc} onAction={(a) => handleDocumentAction(a as DocumentAction, { documentTitle: 'Tax Invoice', documentData: generatedDoc })} />
+              <DocumentRenderer model={generatedDoc} onAction={(a) => handleDocumentAction(a as DocumentAction, { documentTitle: 'Tax Invoice' })} />
             </div>
           </div>
         </>
