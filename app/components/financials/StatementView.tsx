@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { revenueApi } from '@/lib/revenue/api';
+import type { DocumentAction } from '@/lib/documents/document-actions';
 import { handleDocumentAction } from '@/lib/documents/document-actions';
 import { DocumentRenderer } from '@/lib/documents/renderers/react-renderer';
 
