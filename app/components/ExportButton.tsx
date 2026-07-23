@@ -4,6 +4,7 @@ import { getReport, type ReportFormat } from '@/lib/reporting/registry';
 import { getProvider } from '@/lib/reporting/providers/factory';
 import { buildReportLayout } from '@/lib/reporting/layout/engine';
 import { getRenderer } from '@/lib/reporting/renderers/factory';
+import { downloadBlob } from '@/lib/reporting/renderers/download';
 
 interface ExportButtonProps {
   reportId: string;
@@ -35,8 +36,12 @@ export default function ExportButton({ reportId, entityId, periodId, companyName
         sections: [{ headers: data.headers, rows: data.rows, totals: data.totals }],
       });
 
+      const ext = format === 'excel' ? 'xlsx' : format;
       const renderer = getRenderer(format === 'excel' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv');
-      if (renderer) await renderer.render(layout, filename);
+      if (renderer) {
+        const blob = await renderer.render(layout, filename);
+        downloadBlob(blob, `${filename}.${ext}`);
+      }
     } catch (err) { console.error('Export failed', err); }
     setLoading(false);
     setOpen(false);

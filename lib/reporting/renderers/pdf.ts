@@ -1,73 +1,125 @@
 // lib/reporting/renderers/pdf.ts
-// PDF Renderer — Generates A4 PDFs via browser print with exact sizing
-// Replace with jsPDF/Puppeteer for server-side when needed
+// Real PDF Renderer using jsPDF — generates actual PDF bytes
+// Works in browser AND server-side (Node.js). No browser print dialog.
 
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import type { ReportLayout } from '../layout/engine';
 
-export async function renderPDF(layout: ReportLayout, filename: string): void {
+export async function renderPDF(layout: ReportLayout, filename: string): Promise<Blob> {
   const isLandscape = layout.orientation === 'landscape';
-  const pageSize = isLandscape ? 'A4 landscape' : 'A4 portrait';
+  const doc = new jsPDF({
+    orientation: isLandscape ? 'landscape' : 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
 
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>${layout.header.reportTitle}</title>
-<style>
-  @page { size: ${pageSize}; margin: 12mm 10mm 15mm 10mm; }
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Inter, -apple-system, sans-serif; font-size: 8.5pt; color: #1a1a1a; line-height: 1.4; }
-  .header { margin-bottom: 5mm; border-bottom: 1.5px solid #1a1a1a; padding-bottom: 3mm; display: flex; justify-content: space-between; align-items: flex-start; }
-  .header-left .company { font-size: 11pt; font-weight: 700; }
-  .header-left .title { font-size: 10pt; font-weight: 600; color: #333; margin-top: 1mm; }
-  .header-left .period { font-size: 7pt; color: #666; margin-top: 0.5mm; }
-  .header-right { text-align: right; font-size: 7pt; color: #888; }
-  .section-title { font-size: 7.5pt; font-weight: 700; text-transform: uppercase; color: #555; background: #f5f5f5; padding: 2mm 3mm; margin: 4mm 0 2mm 0; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 3mm; page-break-inside: auto; }
-  thead { display: table-header-group; }
-  tr { page-break-inside: avoid; }
-  th { background: #f5f5f5; font-size: 7pt; font-weight: 600; text-transform: uppercase; color: #555; padding: 2mm 2mm; text-align: left; border-bottom: 1px solid #ccc; position: sticky; top: 0; }
-  td { padding: 1.5mm 2mm; font-size: 7.5pt; border-bottom: 0.3px solid #eee; }
-  .totals-row td { font-weight: 700; border-top: 1px solid #1a1a1a; background: #fafafa; }
-  .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 6pt; color: #aaa; padding: 2mm 10mm; border-top: 0.3px solid #eee; }
-  .footer .powered { font-size: 5.5pt; color: #ccc; margin-top: 0.5mm; }
-</style>
-</head>
-<body>
-  <div class="header">
-    <div class="header-left">
-      <div class="company">${layout.header.companyName}</div>
-      <div class="title">${layout.header.reportTitle}</div>
-      ${layout.header.period ? `<div class="period">Period: ${layout.header.period}</div>` : ''}
-    </div>
-    <div class="header-right">
-      <div>${new Date(layout.header.generatedAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-      <div>${new Date(layout.header.generatedAt).toLocaleTimeString('en-ZA')}</div>
-    </div>
-  </div>
-  ${layout.sections.map(s => `
-    ${s.title ? `<div class="section-title">${s.title}</div>` : ''}
-    <table>
-      <thead><tr>${s.table.headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
-      <tbody>${s.table.rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}${s.table.totals ? `<tr class="totals-row">${s.table.totals.map(c => `<td>${c}</td>`).join('')}</tr>` : ''}</tbody>
-    </table>
-  `).join('')}
-  <div class="footer">
-    <div>${layout.footer.companyName} — ${layout.header.reportTitle}</div>
-    <div>Generated ${new Date(layout.footer.generatedAt).toLocaleString('en-ZA')}</div>
-    <div class="powered">${layout.poweredBy || 'Powered by AssetFlow — Commercial Property Operating System'}</div>
-  </div>
-</body>
-</html>`;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 12;
+  let y = margin;
 
-  const blob = new Blob([html], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url, '_blank');
-  if (win) {
-    win.onload = () => {
-      win.print();
-      URL.revokeObjectURL(url);
-    };
+  // Header — Company name + Report title
+  doc.setFontSize(14);
+  doc.setTextColor(26, 26, 26);
+  doc.text(layout.header.companyName, margin, y);
+  y += 6;
+
+  doc.setFontSize(11);
+  doc.setTextColor(51, 51, 51);
+  doc.text(layout.header.reportTitle, margin, y);
+  y += 4;
+
+  if (layout.header.period) {
+    doc.setFontSize(8);
+    doc.setTextColor(102, 102, 102);
+    doc.text(`Period: ${layout.header.period}`, margin, y);
+    y += 4;
   }
+
+  // Generated date — right aligned
+  doc.setFontSize(7);
+  doc.setTextColor(136, 136, 136);
+  const dateStr = `Generated: ${new Date(layout.header.generatedAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  doc.text(dateStr, pageWidth - margin, margin + 4, { align: 'right' });
+
+  y += 4;
+
+  // Divider line
+  doc.setDrawColor(26, 26, 26);
+  doc.setLineWidth(0.3);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 6;
+
+  // Sections with tables
+  for (const section of layout.sections) {
+    if (section.title) {
+      doc.setFillColor(245, 245, 245);
+      doc.rect(margin, y, pageWidth - margin * 2, 6, 'F');
+      doc.setFontSize(7);
+      doc.setTextColor(85, 85, 85);
+      doc.text(section.title, margin + 2, y + 4);
+      y += 8;
+    }
+
+    if (section.table.rows.length > 0) {
+      const headers = section.table.headers;
+      const rows = section.table.rows;
+
+      autoTable(doc, {
+        startY: y,
+        head: [headers],
+        body: rows,
+        foot: section.table.totals ? [section.table.totals] : undefined,
+        margin: { left: margin, right: margin },
+        styles: {
+          fontSize: 7,
+          cellPadding: 1.5,
+          lineColor: [220, 220, 220],
+          lineWidth: 0.1,
+        },
+        headStyles: {
+          fillColor: [245, 245, 245],
+          textColor: [85, 85, 85],
+          fontStyle: 'bold',
+          fontSize: 6.5,
+        },
+        footStyles: {
+          fillColor: [250, 250, 250],
+          textColor: [26, 26, 26],
+          fontStyle: 'bold',
+          fontSize: 7,
+        },
+        columnStyles: section.table.columnWidths
+          ? Object.fromEntries(section.table.columnWidths.map((w, i) => [i, { cellWidth: w }]))
+          : {},
+      });
+
+      y = (doc as any).lastAutoTable.finalY + 6;
+    }
+  }
+
+  // Footer
+  doc.setDrawColor(220, 220, 220);
+  doc.setLineWidth(0.1);
+  const footerY = doc.internal.pageSize.getHeight() - 14;
+  doc.line(margin, footerY, pageWidth - margin, footerY);
+
+  doc.setFontSize(6);
+  doc.setTextColor(170, 170, 170);
+  doc.text(`${layout.footer.companyName} — ${layout.header.reportTitle}`, margin, footerY + 4);
+  doc.text(`Generated ${new Date(layout.footer.generatedAt).toLocaleString('en-ZA')}`, margin, footerY + 8);
+  doc.text(layout.poweredBy || 'Powered by AssetFlow — Commercial Property Operating System', margin, footerY + 11);
+
+  // Return as blob for download
+  const pdfBlob = doc.output('blob');
+
+  // Trigger download
+  const url = URL.createObjectURL(pdfBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  return pdfBlob;
 }

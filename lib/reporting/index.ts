@@ -6,6 +6,7 @@ export { exportToCSV } from './renderers/csv';
 export { renderPDF } from './renderers/pdf';
 export { renderXLSX } from './renderers/xlsx';
 export { getRenderer } from './renderers/factory';
+export { downloadBlob } from './renderers/download';
 export type { Renderer, RendererFormat } from './renderers/factory';
 export { executeReport } from './execution-service';
 export type { ReportScope, ReportData } from './types';
