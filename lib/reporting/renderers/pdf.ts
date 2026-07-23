@@ -3,7 +3,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { ReportLayout } from '../layout/engine';
 
-export async function renderPDF(layout: ReportLayout, _filename: string): Promise<Blob> {
+export async function renderPDF(layout: ReportLayout): Promise<Blob> {
   const isLandscape = layout.orientation === 'landscape';
   const doc = new jsPDF({ orientation: isLandscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();

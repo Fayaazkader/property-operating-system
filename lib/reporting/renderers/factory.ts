@@ -1,11 +1,48 @@
+// lib/reporting/renderers/factory.ts
 import type { ReportLayout } from '../layout/engine';
 import { renderPDF } from './pdf';
-import { downloadBlob } from './download';
+import { renderXLSX } from './xlsx';
+
 export type RendererFormat = 'pdf' | 'xlsx' | 'csv';
-export interface Renderer { render(layout: ReportLayout, filename: string): Promise<Blob>; }
-const rendererMap: Record<RendererFormat, Renderer> = {
-  csv: { render: async (layout, filename) => { const s = layout.sections[0]; if (!s) return new Blob(); const rows = s.table.totals ? [...s.table.rows, s.table.totals] : s.table.rows; const csv = [s.table.headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); downloadBlob(blob, `${filename}.csv`); return blob; } },
-  xlsx: { render: async (layout, filename) => { const s = layout.sections[0]; if (!s) return new Blob(); const rows = s.table.totals ? [...s.table.rows, s.table.totals] : s.table.rows; const tsv = [s.table.headers.join('\t'), ...rows.map(r => r.map(c => `"${c}"`).join('\t'))].join('\n'); const blob = new Blob([tsv], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }); downloadBlob(blob, `${filename}.xls`); return blob; } },
-  pdf: { render: async (layout, filename) => { const blob = await renderPDF(layout, filename); downloadBlob(blob, `${filename}.pdf`); return blob; } },
+
+export interface RenderResult {
+  blob: Blob;
+  extension: string;
+  mimeType: string;
+}
+
+export interface DocumentRenderer {
+  render(layout: ReportLayout): Promise<RenderResult>;
+}
+
+function csvRenderer(): DocumentRenderer {
+  return {
+    render: async (layout) => {
+      const s = layout.sections[0];
+      if (!s) return { blob: new Blob(), extension: 'csv', mimeType: 'text/csv' };
+      const rows = s.table.totals ? [...s.table.rows, s.table.totals] : s.table.rows;
+      const csv = [s.table.headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
+      return { blob: new Blob([csv], { type: 'text/csv' }), extension: 'csv', mimeType: 'text/csv' };
+    }
+  };
+}
+
+const rendererMap: Record<RendererFormat, DocumentRenderer> = {
+  csv: csvRenderer(),
+  xlsx: {
+    render: async (layout) => {
+      const blob = await renderXLSX(layout);
+      return { blob, extension: 'xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+    }
+  },
+  pdf: {
+    render: async (layout) => {
+      const blob = await renderPDF(layout);
+      return { blob, extension: 'pdf', mimeType: 'application/pdf' };
+    }
+  },
 };
-export function getRenderer(format: RendererFormat): Renderer | undefined { return rendererMap[format]; }
+
+export function getRenderer(format: RendererFormat): DocumentRenderer | undefined {
+  return rendererMap[format];
+}

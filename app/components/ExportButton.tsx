@@ -1,8 +1,10 @@
 'use client';
 import { useState } from 'react';
 import { getReport, type ReportFormat } from '@/lib/reporting/registry';
+import { getProvider } from '@/lib/reporting/providers/factory';
 import { buildReportLayout } from '@/lib/reporting/layout/engine';
 import { getRenderer } from '@/lib/reporting/renderers/factory';
+import { downloadBlob } from '@/lib/reporting/renderers/download';
 
 interface ExportButtonProps { reportId: string; entityId: string; periodId?: string; companyName?: string; label?: string; }
 export default function ExportButton({ reportId, entityId, periodId, companyName, label = 'Export' }: ExportButtonProps) {
@@ -10,10 +12,25 @@ export default function ExportButton({ reportId, entityId, periodId, companyName
   const report = getReport(reportId);
   async function handleExport(format: ReportFormat) {
     setLoading(true);
-    const filename = `${report?.title || 'report'}-${new Date().toISOString().split('T')[0]}`;
-    const layout = buildReportLayout({ companyName: companyName || 'Company', reportTitle: report?.title || 'Report', orientation: report?.orientation || 'portrait', period: periodId, sections: [{ headers: ['Export'], rows: [['Data will load from provider']] }] });
-    const fmt = format === 'excel' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv';
-    const renderer = getRenderer(fmt); if (renderer) await renderer.render(layout, filename);
+    try {
+      const provider = getProvider(reportId);
+      if (!provider) return;
+      const data = await provider({ entityId, periodId });
+      const filename = `${report?.title || 'report'}-${new Date().toISOString().split('T')[0]}`;
+      const layout = buildReportLayout({
+        companyName: companyName || 'Company',
+        reportTitle: report?.title || 'Report',
+        orientation: report?.orientation || 'portrait',
+        period: periodId,
+        sections: [{ headers: data.headers, rows: data.rows, totals: data.totals }],
+      });
+      const fmt = format === 'excel' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv';
+      const renderer = getRenderer(fmt);
+      if (renderer) {
+        const result = await renderer.render(layout);
+        downloadBlob(result.blob, `${filename}.${result.extension}`);
+      }
+    } catch (err) { console.error('Export failed', err); }
     setLoading(false); setOpen(false);
   }
   if (!report) return null;
