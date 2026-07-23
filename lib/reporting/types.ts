@@ -8,6 +8,7 @@ export interface ReportScope {
   leaseId?: string;
   tenantId?: string;
   supplierId?: string;
+  periodId?: string;
   asAtDate?: string;
   fromDate?: string;
   toDate?: string;
