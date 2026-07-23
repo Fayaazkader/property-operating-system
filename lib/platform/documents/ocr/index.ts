@@ -2,7 +2,7 @@
 // OCR Adapter Registry
 
 import { NoneOCRAdapter } from './none-adapter';
-import { AzureOCRAdapter } from './azure-adapter'; from './none-adapter';
+import { AzureOCRAdapter } from './azure-adapter';
 import type { OCRProvider, OCRResult } from './types';
 
 const adapters: Map<string, OCRProvider> = new Map();
