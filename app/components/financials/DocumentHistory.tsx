@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { handleDocumentAction } from '@/lib/documents/document-actions';
 import { revenueApi } from '@/lib/revenue/api';
 import { DocumentRenderer } from '@/lib/documents/renderers/react-renderer';
 
@@ -280,15 +281,6 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
     } catch (err) { console.error(err); }
     setLoading(false);
   }
-
-  async function handleDocumentAction(action: string) {
-    if (action === 'email') await handleDocumentAction(action, { documentTitle: mode === 'invoice' ? 'Tax Invoice' : 'Statement of Account', documentData: generatedDoc }); //'Email — coming soon');
-    if (action === 'whatsapp') alert('WhatsApp — coming soon');
-    if (action === 'download-pdf') alert('PDF download — coming soon');
-    if (action === 'print') window.print();
-    if (action === 'preview-pdf') alert('Preview PDF — coming soon');
-    if (action === 'issue') alert('Document issued');
-    if (action === 'regenerate') alert('Regenerate — coming soon');
     if (action === 'archive') alert('Archive — coming soon');
   }
 
