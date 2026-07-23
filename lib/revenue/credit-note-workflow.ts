@@ -8,12 +8,12 @@ export type CreditNoteStatus =
   | 'cancelled'
   | 'reversed';
 
-const VALID_STATUSES: CreditNoteStatus[] = [
+const VALID_STATUSES = new Set<CreditNoteStatus>([
   'draft', 'pending_posting', 'issued', 'posting_failed', 'cancelled', 'reversed',
-];
+]);
 
 export function isCreditNoteStatus(value: string): value is CreditNoteStatus {
-  return VALID_STATUSES.includes(value as CreditNoteStatus);
+  return VALID_STATUSES.has(value as CreditNoteStatus);
 }
 
 const allowedTransitions: Record<CreditNoteStatus, CreditNoteStatus[]> = {
