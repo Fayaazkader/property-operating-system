@@ -10,7 +10,6 @@ export interface RenderResult {
   extension: string;
   mimeType: string;
   fileSize?: number;
-  fileSize?: number;
   filenameSuggestion?: string;
 }
 
