@@ -281,7 +281,6 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
     } catch (err) { console.error(err); }
     setLoading(false);
   }
-  }
 
   return (
     <div className="space-y-6">
