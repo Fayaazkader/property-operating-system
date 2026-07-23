@@ -22,7 +22,7 @@ export default function ExportButton({ reportId, entityId, periodId, companyName
         reportTitle: report?.title || 'Report',
         orientation: report?.orientation || 'portrait',
         period: periodId,
-        sections: data.sections || [{ headers: data.headers, rows: data.rows, totals: data.totals }],
+        sections: [{ headers: data.headers, rows: data.rows, totals: data.totals }],
       });
       const fmt = format === 'excel' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv';
       const renderer = getRenderer(fmt);
