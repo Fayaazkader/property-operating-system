@@ -1,7 +1,11 @@
-// lib/platform/documents/index.ts
-// Document Intelligence Platform — Public API
 export * from './types';
 export * from './engine';
-export * from './classification-engine';
-export { getOCRAdapter, registerOCRAdapter } from './ocr';
-export type { OCRResult } from './ocr';
+export * from './ocr';
+export * from './ocr/types';
+export * from './classifier';
+export * from './extraction-engine';
+export * from './extraction-registry';
+export * from './validator';
+export * from './review-model';
+export * from './import-job';
+export * from './pipeline';
