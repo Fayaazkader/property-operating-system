@@ -331,7 +331,7 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
               <div className="flex justify-end mb-2">
                 <button onClick={() => setGeneratedDoc(null)} className="text-white/60 hover:text-white text-sm">Close ✕</button>
               </div>
-              <DocumentRenderer model={generatedDoc} onAction={handleDocumentAction} />
+              <DocumentRenderer model={generatedDoc} onAction={(action: string) => handleDocumentAction(action as any, { documentTitle: mode === 'invoice' ? 'Tax Invoice' : 'Statement of Account' })} />
             </div>
           </div>
         </>
