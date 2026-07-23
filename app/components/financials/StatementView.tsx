@@ -114,7 +114,7 @@ export default function StatementView({ tenantId, entityId }: { tenantId: string
               <div className="flex justify-end mb-2">
                 <button onClick={() => setGeneratedDoc(null)} className="text-white/60 hover:text-white text-sm">Close ✕</button>
               </div>
-              <DocumentRenderer model={generatedDoc} onAction={(a) => handleDocumentAction(a, { documentTitle: 'Statement of Account', documentData: generatedDoc })} />
+              <DocumentRenderer model={generatedDoc} onAction={(a) => handleDocumentAction(a as DocumentAction, { documentTitle: 'Statement of Account', documentData: generatedDoc })} />
             </div>
           </div>
         </>

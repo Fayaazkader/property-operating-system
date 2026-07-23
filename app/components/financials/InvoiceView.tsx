@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { revenueApi } from '@/lib/revenue/api';
+import type { DocumentAction } from '@/lib/documents/document-actions';
 import { handleDocumentAction } from '@/lib/documents/document-actions';
 import { DocumentRenderer } from '@/lib/documents/renderers/react-renderer';
 
@@ -109,7 +110,7 @@ export default function InvoiceView({ tenantId, entityId }: { tenantId: string; 
               <div className="flex justify-end mb-2">
                 <button onClick={() => setGeneratedDoc(null)} className="text-white/60 hover:text-white text-sm">Close ✕</button>
               </div>
-              <DocumentRenderer model={generatedDoc} onAction={(a) => handleDocumentAction(a, { documentTitle: 'Tax Invoice', documentData: generatedDoc })} />
+              <DocumentRenderer model={generatedDoc} onAction={(a) => handleDocumentAction(a as DocumentAction, { documentTitle: 'Tax Invoice', documentData: generatedDoc })} />
             </div>
           </div>
         </>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import type { DocumentAction } from '@/lib/documents/document-actions';
 import { handleDocumentAction } from '@/lib/documents/document-actions';
 import { revenueApi } from '@/lib/revenue/api';
 import { DocumentRenderer } from '@/lib/documents/renderers/react-renderer';
@@ -331,7 +332,7 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
               <div className="flex justify-end mb-2">
                 <button onClick={() => setGeneratedDoc(null)} className="text-white/60 hover:text-white text-sm">Close ✕</button>
               </div>
-              <DocumentRenderer model={generatedDoc} onAction={(action: string) => handleDocumentAction(action as any, { documentTitle: mode === 'invoice' ? 'Tax Invoice' : 'Statement of Account' })} />
+              <DocumentRenderer model={generatedDoc} onAction={(action: string) => handleDocumentAction(action as DocumentAction, { documentTitle: mode === 'invoice' ? 'Tax Invoice' : 'Statement of Account' })} />
             </div>
           </div>
         </>
