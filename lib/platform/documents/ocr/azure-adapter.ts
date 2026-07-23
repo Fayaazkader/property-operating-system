@@ -10,7 +10,7 @@ export class AzureOCRAdapter implements OCRProvider {
     this.apiKey = process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY || process.env.AZURE_FORM_RECOGNIZER_KEY || '';
   }
 
-  async extractText(fileBuffer: Uint8Array, mimeType: string): Promise<OCRResult> {
+  async extractText(fileBuffer: ArrayBuffer, mimeType: string): Promise<OCRResult> {
     if (!this.endpoint || !this.apiKey) {
       return { text: '', confidence: 0, provider: 'azure', processedAt: new Date().toISOString() };
     }
@@ -19,7 +19,7 @@ export class AzureOCRAdapter implements OCRProvider {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': mimeType, 'Ocp-Apim-Subscription-Key': this.apiKey },
-      body: fileBuffer,
+      body: new Blob([fileBuffer]),
     });
 
     if (!response.ok) throw new Error(`Azure OCR failed: ${response.status}`);

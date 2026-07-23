@@ -1,6 +1,6 @@
 export interface OCRProvider {
   name: string;
-  extractText(fileBuffer: Uint8Array, mimeType: string): Promise<OCRResult>;
+  extractText(fileBuffer: ArrayBuffer, mimeType: string): Promise<OCRResult>;
 }
 
 export interface OCRTableCell {
