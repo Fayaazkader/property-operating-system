@@ -3,5 +3,9 @@ export type { ReportDefinition, ReportCategory, ReportFormat, ReportOrientation 
 export { getProvider } from './providers/factory';
 export { buildReportLayout } from './layout/engine';
 export { exportToCSV } from './renderers/csv';
+export { renderPDF } from './renderers/pdf';
+export { renderXLSX } from './renderers/xlsx';
+export { getRenderer } from './renderers/factory';
+export type { Renderer, RendererFormat } from './renderers/factory';
 export { executeReport } from './execution-service';
 export type { ReportScope, ReportData } from './types';

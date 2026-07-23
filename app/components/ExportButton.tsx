@@ -2,16 +2,19 @@
 import { useState } from 'react';
 import { getReport, type ReportFormat } from '@/lib/reporting/registry';
 import { getProvider } from '@/lib/reporting/providers/factory';
-import { exportToCSV } from '@/lib/reporting/renderers/csv';
+import { buildReportLayout } from '@/lib/reporting/layout/engine';
+import { getRenderer } from '@/lib/reporting/renderers/factory';
 
 interface ExportButtonProps {
   reportId: string;
   entityId: string;
   periodId?: string;
+  companyName?: string;
+  companyLogo?: string;
   label?: string;
 }
 
-export default function ExportButton({ reportId, entityId, periodId, label = 'Export' }: ExportButtonProps) {
+export default function ExportButton({ reportId, entityId, periodId, companyName, companyLogo, label = 'Export' }: ExportButtonProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const report = getReport(reportId);
@@ -20,12 +23,20 @@ export default function ExportButton({ reportId, entityId, periodId, label = 'Ex
     setLoading(true);
     try {
       const provider = getProvider(reportId);
-      if (!provider) { console.error('No provider for', reportId); return; }
-      const data = await provider({ entityId, fromDate: periodId });
-      const allRows = data.totals ? [...data.rows, data.totals] : data.rows;
+      if (!provider) return;
+      const data = await provider({ entityId, periodId });
       const filename = `${report?.title || 'report'}-${new Date().toISOString().split('T')[0]}`;
-      if (format === 'csv' || format === 'excel') exportToCSV(data.headers, allRows, filename);
-      else if (format === 'pdf') window.print();
+      const layout = buildReportLayout({
+        companyName: companyName || 'Company',
+        companyLogo,
+        reportTitle: report?.title || 'Report',
+        orientation: report?.orientation || 'portrait',
+        period: periodId,
+        sections: [{ headers: data.headers, rows: data.rows, totals: data.totals }],
+      });
+
+      const renderer = getRenderer(format === 'excel' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv');
+      if (renderer) renderer.render(layout, filename);
     } catch (err) { console.error('Export failed', err); }
     setLoading(false);
     setOpen(false);
