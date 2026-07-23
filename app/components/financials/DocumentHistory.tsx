@@ -281,7 +281,7 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
     setLoading(false);
   }
 
-  function handleDocumentAction(action: string) {
+  async function handleDocumentAction(action: string) {
     if (action === 'email') await handleDocumentAction(action, { documentTitle: mode === 'invoice' ? 'Tax Invoice' : 'Statement of Account', documentData: generatedDoc }); //'Email — coming soon');
     if (action === 'whatsapp') alert('WhatsApp — coming soon');
     if (action === 'download-pdf') alert('PDF download — coming soon');
