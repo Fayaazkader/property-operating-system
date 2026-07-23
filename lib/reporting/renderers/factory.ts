@@ -9,7 +9,7 @@ export interface RenderResult {
   blob: Blob;
   extension: string;
   mimeType: string;
-  pageCount?: number;
+  fileSize?: number;
   fileSize?: number;
   filenameSuggestion?: string;
 }
@@ -31,7 +31,7 @@ function csvRenderer(): DocumentRenderer {
       const csv = [s.table.headers.join(','), ...rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(','))].join('\n');
       if (signal?.aborted) throw new Error('Export cancelled');
       const blob = new Blob([csv], { type: 'text/csv' });
-      return { blob, extension: 'csv', mimeType: 'text/csv', fileSize: blob.size, filenameSuggestion: `report-${Date.now()}.csv` };
+      return { blob, extension: 'csv', mimeType: 'text/csv', fileSize: blob.size };
     }
   };
 }
@@ -43,7 +43,7 @@ const rendererMap: Record<RendererFormat, DocumentRenderer> = {
     render: async (layout, signal) => {
       if (signal?.aborted) throw new Error('Export cancelled');
       const blob = await renderXLSX(layout);
-      return { blob, extension: 'xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', fileSize: blob.size, filenameSuggestion: `report-${Date.now()}.xlsx` };
+      return { blob, extension: 'xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', fileSize: blob.size };
     }
   },
   pdf: {
@@ -51,7 +51,7 @@ const rendererMap: Record<RendererFormat, DocumentRenderer> = {
     render: async (layout, signal) => {
       if (signal?.aborted) throw new Error('Export cancelled');
       const blob = await renderPDF(layout);
-      return { blob, extension: 'pdf', mimeType: 'application/pdf', fileSize: blob.size, filenameSuggestion: `report-${Date.now()}.pdf` };
+      return { blob, extension: 'pdf', mimeType: 'application/pdf', fileSize: blob.size };
     }
   },
 };
