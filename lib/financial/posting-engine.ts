@@ -176,6 +176,7 @@ export class PostingEngine {
   private mapEventType(event: string): JournalType {
     if (event.includes('rental_invoice')) return 'sales_invoice';
     if (event.includes('credit_note')) return 'sales_credit_note';
+    if (event.includes('credit_note')) return 'sales_credit_note';
     if (event.includes('receipt')) return 'cash_receipt';
     if (event.includes('supplier_invoice')) return 'purchase_invoice';
     if (event.includes('supplier_credit')) return 'purchase_credit_note';
