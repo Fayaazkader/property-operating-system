@@ -1,6 +1,6 @@
 export * from './types';
 export * from './engine';
-export * from './ocr';
+export { getOCRAdapter, registerOCRAdapter } from './ocr';
 export * from './classifier';
 export * from './extraction-engine';
 export * from './extraction-registry';
