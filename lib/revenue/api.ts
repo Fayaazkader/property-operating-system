@@ -1,6 +1,7 @@
 // lib/revenue/api.ts
 import { supabase } from '@/lib/supabase';
 import { postingEngine } from '@/lib/financial/posting-engine';
+import { assertTransition } from './credit-note-workflow';
 import { statementService } from './services/statement-service';
 
 export interface CreditNoteLineItem { invoice_line_id?: string; description: string; credited_amount: number; reason?: string; }
