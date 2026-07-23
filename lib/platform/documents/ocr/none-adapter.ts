@@ -6,7 +6,7 @@ import type { OCRProvider, OCRResult } from './types';
 export class NoneOCRAdapter implements OCRProvider {
   name = 'none';
 
-  async extractText(_fileBuffer: Buffer, _mimeType: string): Promise<OCRResult> {
+  async extractText(_fileBuffer: ArrayBuffer, _mimeType: string): Promise<OCRResult> {
     return {
       text: '',
       confidence: 0,
