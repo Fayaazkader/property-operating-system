@@ -1,7 +1,22 @@
 // lib/revenue/credit-note-workflow.ts
-// Centralized state machine for credit note transitions
 
-const allowedTransitions: Record<string, string[]> = {
+export type CreditNoteStatus =
+  | 'draft'
+  | 'pending_posting'
+  | 'issued'
+  | 'posting_failed'
+  | 'cancelled'
+  | 'reversed';
+
+const VALID_STATUSES: CreditNoteStatus[] = [
+  'draft', 'pending_posting', 'issued', 'posting_failed', 'cancelled', 'reversed',
+];
+
+export function isCreditNoteStatus(value: string): value is CreditNoteStatus {
+  return VALID_STATUSES.includes(value as CreditNoteStatus);
+}
+
+const allowedTransitions: Record<CreditNoteStatus, CreditNoteStatus[]> = {
   draft: ['pending_posting'],
   pending_posting: ['issued', 'posting_failed'],
   issued: ['cancelled', 'reversed'],
@@ -10,11 +25,11 @@ const allowedTransitions: Record<string, string[]> = {
   reversed: [],
 };
 
-export function canTransition(current: string, target: string): boolean {
+export function canTransition(current: CreditNoteStatus, target: CreditNoteStatus): boolean {
   return allowedTransitions[current]?.includes(target) ?? false;
 }
 
-export function assertTransition(current: string, target: string): void {
+export function assertTransition(current: CreditNoteStatus, target: CreditNoteStatus): void {
   if (!canTransition(current, target)) {
     throw new Error(`Invalid status transition: ${current} → ${target}`);
   }
