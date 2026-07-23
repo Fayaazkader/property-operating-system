@@ -281,7 +281,6 @@ export default function DocumentHistory({ tenantId, entityId, mode }: DocumentHi
     } catch (err) { console.error(err); }
     setLoading(false);
   }
-    if (action === 'archive') alert('Archive — coming soon');
   }
 
   return (
