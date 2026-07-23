@@ -14,37 +14,46 @@ export interface DocumentActionContext {
   layout?: ReportLayout;
 }
 
-export async function handleDocumentAction(action: DocumentAction, ctx: DocumentActionContext): Promise<void> {
+export interface DocumentActionResult {
+  success: boolean;
+  message: string;
+}
+
+function printDocument(): void {
+  window.print();
+}
+
+export async function handleDocumentAction(action: DocumentAction, ctx: DocumentActionContext): Promise<DocumentActionResult> {
   switch (action) {
     case 'download':
     case 'pdf': {
-      if (!ctx.layout) throw new Error('No layout provided for PDF export');
+      if (!ctx.layout) return { success: false, message: 'No layout provided for PDF export' };
       const renderer = getRenderer('pdf');
-      if (!renderer) throw new Error('PDF renderer not available');
+      if (!renderer) return { success: false, message: 'PDF renderer not available' };
       const result = await renderer.render(ctx.layout);
       downloadBlob(result.blob, `${ctx.documentTitle}-${new Date().toISOString().split('T')[0]}.${result.extension}`);
-      break;
+      return { success: true, message: 'PDF downloaded' };
     }
     case 'email': {
-      throw new Error('Email sending not yet implemented — pending communication service integration');
+      return { success: false, message: 'Email sending coming soon' };
     }
     case 'whatsapp': {
-      throw new Error('WhatsApp sending not yet implemented — pending communication service integration');
+      return { success: false, message: 'WhatsApp sending coming soon' };
     }
     case 'print': {
-      window.print();
-      break;
+      printDocument();
+      return { success: true, message: 'Document sent to printer' };
     }
     case 'issue': {
-      throw new Error('Document issuance not yet implemented');
+      return { success: false, message: 'Document issuance coming soon' };
     }
     case 'regenerate': {
-      throw new Error('Document regeneration not yet implemented');
+      return { success: false, message: 'Regeneration coming soon' };
     }
     case 'cancel': {
-      throw new Error('Document cancellation not yet implemented');
+      return { success: false, message: 'Cancellation coming soon' };
     }
     default:
-      throw new Error(`Unknown document action: ${action}`);
+      return { success: false, message: `Unknown action: ${action}` };
   }
 }
