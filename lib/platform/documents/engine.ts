@@ -45,11 +45,12 @@ export class DocumentEngine {
     });
     await this.transitionStage(doc, 'classified');
 
-    // Stage 4: OCR
+        // Stage 4: OCR
     await this.transitionStage(doc, 'ocr_processing');
     if (params.fileBuffer) {
       const ocrAdapter = getOCRAdapter('none');
-      const ocrResult = await ocrAdapter.extractText(params.fileBuffer, params.mimeType);
+      const buf = new Uint8Array(params.fileBuffer as any).buffer as ArrayBuffer;
+      const ocrResult = await ocrAdapter.extractText(buf, params.mimeType);
       await this.updateDocument(doc.id, {
         ocr_provider: ocrResult.provider as any,
         ocr_text: ocrResult.text,

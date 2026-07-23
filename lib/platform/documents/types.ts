@@ -115,7 +115,7 @@ export interface ProcessDocumentParams {
   fileUrl?: string;
   fileName: string;
   mimeType: string;
-  fileBuffer?: Buffer;
+  fileBuffer?: ArrayBuffer;
   entityId: string;
   source?: DocumentSource;
   metadata?: Record<string, any>;
