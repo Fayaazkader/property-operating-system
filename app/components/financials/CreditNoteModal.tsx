@@ -49,7 +49,7 @@ export default function CreditNoteModal({ entityId, tenantId, tenantName, invoic
         lineItems, totalAmount: totalSelected, reason,
       });
       onIssued();
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error(err); } finally {
     setLoading(false);
   }
 

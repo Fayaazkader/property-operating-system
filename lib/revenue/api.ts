@@ -4,21 +4,12 @@ import { postingEngine } from '@/lib/financial/posting-engine';
 import { statementService } from './services/statement-service';
 
 export interface CreditNoteLineItem {
-  invoice_line_id?: string;
-  description: string;
-  credited_amount: number;
-  reason?: string;
+  invoice_line_id?: string; description: string; credited_amount: number; reason?: string;
 }
-
 export interface CreditNoteParams {
-  entityId: string;
-  tenantId: string;
-  invoiceId?: string;
-  invoiceNumber?: string;
-  lineItems: CreditNoteLineItem[];
-  totalAmount: number;
-  reason: string;
-  createdBy?: string;
+  entityId: string; tenantId: string; invoiceId?: string; invoiceNumber?: string;
+  lineItems: CreditNoteLineItem[]; totalAmount: number; reason: string;
+  createdBy?: string; periodId?: string;
 }
 
 export const revenueApi = {
@@ -29,47 +20,27 @@ export const revenueApi = {
     statementService.getHistory(params.entityId, params.tenantId),
 
   async issueCreditNote(params: CreditNoteParams) {
-    // 1. Post the credit note journal
-    await postingEngine.post({
-      source_engine: 'revenue',
-      business_event: 'rental_credit_note_issued',
-      entity_id: params.entityId,
-      amount: params.totalAmount,
-      occurred_at: new Date().toISOString(),
-      effective_date: new Date().toISOString().split('T')[0],
-      dimensions: { tenant_id: params.tenantId },
-      metadata: {
-        source_id: `CN-${Date.now()}`,
-        created_by: params.createdBy || 'system',
-        invoice_id: params.invoiceId,
-        invoice_number: params.invoiceNumber,
-        reason: params.reason,
-      },
+    const { data: cnId, error: cnError } = await supabase.rpc('create_credit_note', {
+      p_entity_id: params.entityId, p_tenant_id: params.tenantId,
+      p_invoice_id: params.invoiceId || null, p_invoice_number: params.invoiceNumber || null,
+      p_total_amount: params.totalAmount, p_reason: params.reason,
+      p_created_by: params.createdBy || 'system', p_line_items: params.lineItems,
     });
+    if (cnError || !cnId) throw new Error(`Failed to create credit note: ${cnError?.message || 'Unknown error'}`);
 
-    // 2. Store credit note with lines
-    const { data: cn } = await supabase.from('credit_notes').insert({
-      entity_id: params.entityId,
-      tenant_id: params.tenantId,
-      invoice_id: params.invoiceId || null,
-      invoice_number: params.invoiceNumber || null,
-      total_amount: params.totalAmount,
-      reason: params.reason,
-      status: 'issued',
-      created_by: params.createdBy,
-    }).select('id').single();
-
-    if (cn?.id && params.lineItems?.length) {
-      await supabase.from('credit_note_lines').insert(
-        params.lineItems.map(l => ({
-          credit_note_id: cn.id,
-          invoice_line_id: l.invoice_line_id || null,
-          description: l.description,
-          credited_amount: l.credited_amount,
-          reason: l.reason || params.reason,
-        }))
-      );
+    try {
+      await postingEngine.post({
+        source_engine: 'revenue', business_event: 'rental_credit_note_issued',
+        entity_id: params.entityId, amount: params.totalAmount, period_id: params.periodId,
+        occurred_at: new Date().toISOString(), effective_date: new Date().toISOString().split('T')[0],
+        dimensions: { tenant_id: params.tenantId },
+        metadata: { source_id: `CN-${cnId}`, created_by: params.createdBy || 'system', invoice_id: params.invoiceId, invoice_number: params.invoiceNumber, reason: params.reason },
+      });
+    } catch (postingError) {
+      await supabase.from('credit_notes').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', cnId);
+      throw postingError;
     }
+    return cnId;
   },
 
   async getCreditNotes(entityId: string, tenantId?: string) {
