@@ -10,7 +10,7 @@ export class AzureOCRAdapter implements OCRProvider {
     this.apiKey = process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY || process.env.AZURE_FORM_RECOGNIZER_KEY || '';
   }
 
-  async extractText(fileBuffer: Buffer, mimeType: string): Promise<OCRResult> {
+  async extractText(fileBuffer: Uint8Array, mimeType: string): Promise<OCRResult> {
     if (!this.endpoint || !this.apiKey) {
       return { text: '', confidence: 0, provider: 'azure', processedAt: new Date().toISOString() };
     }

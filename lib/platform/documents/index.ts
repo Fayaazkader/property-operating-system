@@ -1,7 +1,6 @@
 export * from './types';
 export * from './engine';
 export * from './ocr';
-export * from './ocr/types';
 export * from './classifier';
 export * from './extraction-engine';
 export * from './extraction-registry';

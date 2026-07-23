@@ -17,7 +17,7 @@ export interface PipelineResult {
 }
 
 export async function processDocument(
-  fileBuffer: Buffer,
+  fileBuffer: Uint8Array,
   fileName: string,
   mimeType: string,
   entityId: string,
