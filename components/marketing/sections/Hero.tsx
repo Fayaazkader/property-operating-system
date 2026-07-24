@@ -8,7 +8,6 @@ import { ROUTES } from '@/lib/routes';
 export function Hero() {
   return (
     <Section id="hero" className="pt-48 md:pt-56 pb-36 relative overflow-hidden">
-      <MorningBriefPreview />
 
       <Container className="text-center relative z-10">
         <p className="text-xs uppercase tracking-[0.3em] text-amber-500/80 mb-6 font-medium">
@@ -47,6 +46,7 @@ export function Hero() {
           Built for commercial property owners, portfolio managers, finance teams, and managing agents.
         </p>
       </Container>
+      <MorningBriefPreview />
     </Section>
   );
 }
