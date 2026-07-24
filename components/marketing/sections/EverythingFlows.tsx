@@ -16,17 +16,28 @@ const FLOW_STEPS = [
 export function EverythingFlows() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const [activeStep, setActiveStep] = useState(-1);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) setVisible(true);
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
       },
       { threshold: 0.2 }
     );
     if (sectionRef.current) observer.observe(sectionRef.current);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (!visible) return;
+    FLOW_STEPS.forEach((_, i) => {
+      setTimeout(() => setActiveStep(i), 600 + i * 200);
+    });
+  }, [visible]);
 
   return (
     <Section id="flows" className="relative overflow-hidden">
@@ -44,7 +55,6 @@ export function EverythingFlows() {
         </div>
 
         <div ref={sectionRef} className="relative max-w-lg mx-auto">
-          {/* Animated vertical line */}
           <div className="absolute left-[19px] top-0 bottom-0 w-px bg-white/[0.04]">
             <div
               className="w-full bg-gradient-to-b from-amber-500/60 via-amber-500/30 to-amber-500/10 transition-all duration-[2000ms] ease-out"
@@ -56,16 +66,16 @@ export function EverythingFlows() {
             {FLOW_STEPS.map((item, i) => (
               <div
                 key={item.step}
-                className={`relative pl-12 transition-all duration-700 ease-out ${
+                className={`group relative pl-12 transition-all duration-700 ease-out ${
                   visible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
                 }`}
                 style={{ transitionDelay: `${i * 200}ms` }}
               >
                 <div
                   className={`absolute left-0 top-1.5 w-[9px] h-[9px] rounded-full border-2 transition-all duration-500 ${
-                    visible
-                      ? 'border-amber-500/60 bg-black group-hover:border-amber-400 group-hover:bg-amber-500/20'
-                      : 'border-white/10 bg-black'
+                    activeStep >= i
+                      ? 'border-amber-500/60 bg-black scale-110'
+                      : 'border-white/10 bg-black scale-100'
                   }`}
                   style={{ transitionDelay: `${i * 200 + 500}ms` }}
                 />
