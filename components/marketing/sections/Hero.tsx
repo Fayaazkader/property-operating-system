@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { Container } from '../layout/Container';
 import { Section } from '../layout/Section';
-import { MorningBriefPreview } from '../previews/MorningBriefPreview';
 import { marketing } from '@/lib/marketing.config';
 import { ROUTES } from '@/lib/routes';
 
@@ -46,7 +45,6 @@ export function Hero() {
           Built for commercial property owners, portfolio managers, finance teams, and managing agents.
         </p>
       </Container>
-      <MorningBriefPreview />
     </Section>
   );
 }
