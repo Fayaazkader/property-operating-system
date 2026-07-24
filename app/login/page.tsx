@@ -32,7 +32,7 @@ export default function LoginPage() {
       setLoading(false);
     } else {
       console.log('Login successful, redirecting...');
-      router.push("/");
+      router.push("/app");
     }
   }
 
