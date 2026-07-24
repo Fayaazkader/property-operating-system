@@ -7,7 +7,7 @@ import { AmbientLight } from '@/components/marketing/background/AmbientLight';
 import { Navbar } from '@/components/marketing/navigation/Navbar';
 import { MarketingShell } from '@/components/marketing/layout/MarketingShell';
 import { Footer } from '@/components/marketing/sections/Footer';
-import '../../app/globals.css';
+import '../globals.css';
 
 export const metadata: Metadata = {
   title: {
@@ -22,11 +22,7 @@ export const metadata: Metadata = {
   },
 };
 
-interface MarketingLayoutProps {
-  children: React.ReactNode;
-}
-
-export default function MarketingLayout({ children }: MarketingLayoutProps) {
+export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <MarketingProvider>
       <GridBackground />

@@ -6,13 +6,6 @@ export default function HomePage() {
     <>
       <Hero />
       <Problem />
-      {/* 
-        <EverythingFlows />
-        <Journey />
-        <Platform />
-        <Trust />
-        <CTA /> 
-      */}
     </>
   );
 }
