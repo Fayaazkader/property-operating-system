@@ -1,12 +1,7 @@
 import type { Metadata } from 'next';
 import { marketing } from '@/lib/marketing.config';
 import { marketingAssets } from '@/lib/marketingAssets';
-import { MarketingProvider } from '@/components/marketing/providers/MarketingProvider';
-import { GridBackground } from '@/components/marketing/background/GridBackground';
-import { AmbientLight } from '@/components/marketing/background/AmbientLight';
-import { Navbar } from '@/components/marketing/navigation/Navbar';
-import { MarketingShell } from '@/components/marketing/layout/MarketingShell';
-import { Footer } from '@/components/marketing/sections/Footer';
+import { MarketingLayout } from '@/components/marketing/layout/MarketingLayout';
 import '@/styles/marketing.css';
 
 export const metadata: Metadata = {
@@ -15,14 +10,6 @@ export const metadata: Metadata = {
   openGraph: { title: `${marketing.company.name} — ${marketing.company.tagline}`, description: marketing.company.description, images: [{ url: marketingAssets.ogImage, width: 1200, height: 630 }] },
 };
 
-export default function MarketingLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <MarketingProvider>
-      <GridBackground />
-      <AmbientLight />
-      <Navbar />
-      <MarketingShell>{children}</MarketingShell>
-      <Footer />
-    </MarketingProvider>
-  );
+export default function MarketingRouteLayout({ children }: { children: React.ReactNode }) {
+  return <MarketingLayout>{children}</MarketingLayout>;
 }
