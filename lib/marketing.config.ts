@@ -2,7 +2,7 @@ export const marketing = {
   company: {
     name: 'AssetFlow',
     tagline: 'The Operating System for Commercial Property',
-    description: 'One platform for leases, billing, financials, and operations. Everything working as one.',
+    description: 'From lease creation to revenue, finance, operations, and executive insight, AssetFlow connects every part of your commercial property portfolio into one intelligent operating system.',
     email: 'hello@assetflow.africa',
     phone: '',
     linkedin: 'https://linkedin.com/company/assetflow',

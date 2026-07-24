@@ -7,6 +7,7 @@ import { AmbientLight } from '@/components/marketing/background/AmbientLight';
 import { Navbar } from '@/components/marketing/navigation/Navbar';
 import { MarketingShell } from '@/components/marketing/layout/MarketingShell';
 import { Footer } from '@/components/marketing/sections/Footer';
+import '../../app/globals.css';
 
 export const metadata: Metadata = {
   title: {
@@ -17,20 +18,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: `${marketing.company.name} — ${marketing.company.tagline}`,
     description: marketing.company.description,
-    url: 'https://assetflow.africa',
-    siteName: marketing.company.name,
     images: [{ url: marketingAssets.ogImage, width: 1200, height: 630 }],
-    locale: 'en_ZA',
-    type: 'website',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: `${marketing.company.name} — ${marketing.company.tagline}`,
-    description: marketing.company.description,
-    images: [marketingAssets.ogImage],
-  },
-  icons: {
-    icon: marketingAssets.favicon,
   },
 };
 
@@ -40,18 +28,12 @@ interface MarketingLayoutProps {
 
 export default function MarketingLayout({ children }: MarketingLayoutProps) {
   return (
-    <html lang="en" className="bg-black text-white antialiased">
-      <body className="min-h-screen flex flex-col">
-        <MarketingProvider>
-          <GridBackground />
-          <AmbientLight />
-          <Navbar />
-          <MarketingShell>
-            {children}
-          </MarketingShell>
-          <Footer />
-        </MarketingProvider>
-      </body>
-    </html>
+    <MarketingProvider>
+      <GridBackground />
+      <AmbientLight />
+      <Navbar />
+      <MarketingShell>{children}</MarketingShell>
+      <Footer />
+    </MarketingProvider>
   );
 }

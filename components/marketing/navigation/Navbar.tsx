@@ -9,7 +9,7 @@ export function Navbar() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.04] bg-black/60 backdrop-blur-xl">
       <Container>
-        <nav className="flex h-16 items-center justify-between">
+        <nav className="flex h-20 items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-sm font-medium tracking-tight text-white">
             {marketing.company.name}
           </Link>
@@ -35,7 +35,7 @@ export function Navbar() {
             </Link>
             <Link
               href={marketing.navigation.cta.href}
-              className="rounded-full bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200 transition-colors duration-200"
+              className="rounded-full border border-amber-500/50 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 hover:text-black transition-all duration-300"
             >
               {marketing.navigation.cta.label}
             </Link>

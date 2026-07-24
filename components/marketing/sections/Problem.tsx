@@ -10,14 +10,9 @@ export function Problem() {
           <br />
           <span className="text-zinc-400">None of them talk to each other.</span>
         </h2>
-        <div className="mt-12 grid gap-4 md:grid-cols-5">
-          {['Leasing', 'Billing', 'Payments', 'Maintenance', 'Reports'].map((item) => (
-            <div key={item} className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-6 text-center">
-              <p className="text-sm text-zinc-400">{item}</p>
-              <p className="text-xs text-zinc-600 mt-1">Disconnected</p>
-            </div>
-          ))}
-        </div>
+        <p className="mt-4 text-center text-zinc-600 text-sm">
+          Full visual redesign coming — floating application windows instead of cards.
+        </p>
       </Container>
     </Section>
   );
