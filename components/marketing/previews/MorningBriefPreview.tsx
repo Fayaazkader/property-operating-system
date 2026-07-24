@@ -1,7 +1,7 @@
 export function MorningBriefPreview() {
   return (
-    <div className="absolute top-1/2 right-0 translate-x-1/4 -translate-y-1/2 w-[650px] hidden lg:block opacity-50 pointer-events-none">
-      <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-transparent p-[1px]">
+    <div className="absolute top-56 right-[-120px] w-[620px] hidden xl:block opacity-50 pointer-events-none">
+      <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-transparent p-[1px] shadow-2xl shadow-black/50">
         <div className="rounded-2xl bg-black/80 backdrop-blur-md p-6 space-y-4">
           <div className="flex items-center gap-2">
             <div className="flex gap-1.5">

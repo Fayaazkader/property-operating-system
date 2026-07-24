@@ -15,7 +15,7 @@ export function Hero() {
           Commercial Property Operating System
         </p>
 
-        <h1 className="text-5xl md:text-7xl lg:text-8xl font-light tracking-tight text-white max-w-3xl mx-auto leading-[1.06]">
+        <h1 className="text-5xl md:text-7xl lg:text-7xl xl:text-8xl font-light tracking-tight text-white max-w-3xl mx-auto leading-[1.06]">
           The Operating System
           <br />
           <span className="text-zinc-400">for Commercial Property</span>
