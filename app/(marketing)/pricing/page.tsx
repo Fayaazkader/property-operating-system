@@ -1,4 +1,3 @@
-import { MarketingLayout } from '@/components/marketing/layout/MarketingLayout';
 import { Container } from '@/components/marketing/layout/Container';
 import { Section } from '@/components/marketing/layout/Section';
 import Link from 'next/link';
@@ -23,7 +22,7 @@ const ALL_FEATURES = [
 
 export default function PricingPage() {
   return (
-    <MarketingLayout>
+    
       <Section id="pricing" className="pt-32 md:pt-48 pb-20">
         <Container>
           <div className="text-center mb-20">
@@ -68,6 +67,6 @@ export default function PricingPage() {
           </div>
         </Container>
       </Section>
-    </MarketingLayout>
+    
   );
 }

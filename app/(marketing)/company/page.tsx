@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { MarketingLayout } from '@/components/marketing/layout/MarketingLayout';
 import { Container } from '@/components/marketing/layout/Container';
 import { Section } from '@/components/marketing/layout/Section';
 
@@ -10,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function CompanyPage() {
   return (
-    <MarketingLayout>
+    
       <Section id="company" className="pt-32 md:pt-48 pb-20">
         <Container>
           <div className="text-center mb-20">
@@ -20,6 +19,6 @@ export default function CompanyPage() {
           </div>
         </Container>
       </Section>
-    </MarketingLayout>
+    
   );
 }

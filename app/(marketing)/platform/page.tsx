@@ -1,4 +1,3 @@
-import { MarketingLayout } from '@/components/marketing/layout/MarketingLayout';
 import { Container } from '@/components/marketing/layout/Container';
 import { Section } from '@/components/marketing/layout/Section';
 import { RevenuePreview } from '@/components/marketing/previews/RevenuePreview';
@@ -36,7 +35,7 @@ const CAPABILITIES = [
 
 export default function PlatformPage() {
   return (
-    <MarketingLayout>
+    
       <Section id="platform" className="pt-32 md:pt-48 pb-20">
         <Container>
           <div className="text-center mb-20">
@@ -71,6 +70,6 @@ export default function PlatformPage() {
           </div>
         </Container>
       </Section>
-    </MarketingLayout>
+    
   );
 }
