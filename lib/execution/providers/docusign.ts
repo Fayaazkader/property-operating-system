@@ -51,8 +51,15 @@ function bytesToBase64URL(buffer: ArrayBuffer): string {
 
 // String to Base64URL (for JSON header/payload)
 function stringToBase64URL(str: string): string {
-  return btoa(unescape(encodeURIComponent(str)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const bytes = new TextEncoder().encode(str);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 function base64ToBytes(base64: string): Uint8Array {
@@ -73,7 +80,7 @@ async function getAccessToken(config: DocuSignConfig): Promise<string> {
   const message = `${header}.${body}`;
 
   const keyData = base64ToBytes(cleanPrivateKey(config.privateKey));
-  const cryptoKey = await crypto.subtle.importKey('pkcs8', keyData, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+  const cryptoKey = await crypto.subtle.importKey('pkcs8', keyData.buffer as ArrayBuffer, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
   const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(message));
   const jwt = `${message}.${bytesToBase64URL(signature)}`;
 
