@@ -2,12 +2,12 @@ import { Container } from '../layout/Container';
 import { Section } from '../layout/Section';
 
 const FRAGMENTED_APPS = [
-  { name: 'Lease Register', content: 'Tenant A — R45k\nTenant B — R32k\nEsc 8% · Exp Jun', width: 'w-44', height: 'h-28', x: 60, y: 30, rotate: '-1.5deg', delay: '0s' },
-  { name: 'Billing System', content: 'INV-001 — R52k\nINV-002 — Pending', width: 'w-40', height: 'h-22', x: 490, y: 50, rotate: '2deg', delay: '0.3s' },
-  { name: 'Bank Feed', content: 'In: R52k · R18k\nOut: R7k', width: 'w-36', height: 'h-20', x: 260, y: 170, rotate: '-0.5deg', delay: '0.6s' },
-  { name: 'Maintenance', content: '● #142 Blocked Drain\n● #143 AC Repair\n○ #144 Lift Service', width: 'w-48', height: 'h-24', x: 510, y: 270, rotate: '1.5deg', delay: '0.9s' },
-  { name: 'Reporting', content: 'Occupancy ████ 94%\nRevenue  ███  R842k\nArrears  █    R120k', width: 'w-44', height: 'h-24', x: 80, y: 330, rotate: '-2deg', delay: '1.2s' },
-  { name: 'Tenant Inbox', content: '3 unread 🔴\n2 renewals 📄\n1 complaint ⚠', width: 'w-40', height: 'h-22', x: 410, y: 400, rotate: '1deg', delay: '1.5s', blur: true },
+  { name: 'Lease Register', content: 'Tenant A — R45k\nTenant B — R32k\nEsc 8% · Exp Jun', width: 'w-44', height: 'h-28', x: 30, y: 15, rotate: '-1.5deg', delay: '0s' },
+  { name: 'Billing System', content: 'INV-001 — R52k\nINV-002 — Pending', width: 'w-40', height: 'h-22', x: 530, y: 60, rotate: '2deg', delay: '0.3s' },
+  { name: 'Bank Feed', content: 'In: R52k · R18k\nOut: R7k', width: 'w-36', height: 'h-20', x: 170, y: 155, rotate: '-0.5deg', delay: '0.6s' },
+  { name: 'Maintenance', content: '● #142 Blocked Drain\n● #143 AC Repair\n○ #144 Lift Service', width: 'w-48', height: 'h-24', x: 510, y: 240, rotate: '1.5deg', delay: '0.9s' },
+  { name: 'Reporting', content: 'Occupancy ████ 94%\nRevenue  ███  R842k\nArrears  █    R120k', width: 'w-44', height: 'h-24', x: 50, y: 345, rotate: '-2deg', delay: '1.2s' },
+  { name: 'Tenant Inbox', content: '3 unread 🔴\n2 renewals 📄\n1 complaint ⚠', width: 'w-40', height: 'h-22', x: 450, y: 395, rotate: '1deg', delay: '1.5s', blur: true },
 ];
 
 export function Problem() {
@@ -28,12 +28,12 @@ export function Problem() {
         </div>
 
         <div className="relative h-[480px] md:h-[540px] max-w-3xl mx-auto">
-          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 640 500" style={{ opacity: 0.08 }}>
-            <line x1="200" y1="70" x2="310" y2="190" stroke="white" strokeWidth="0.5" />
-            <line x1="530" y1="90" x2="380" y2="190" stroke="white" strokeWidth="0.5" />
-            <line x1="310" y1="190" x2="310" y2="300" stroke="white" strokeWidth="0.5" />
-            <line x1="550" y1="300" x2="450" y2="400" stroke="white" strokeWidth="0.5" />
-            <line x1="160" y1="360" x2="380" y2="420" stroke="white" strokeWidth="0.5" />
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 640 500" style={{ opacity: 0.05 }}>
+            <line x1="170" y1="55" x2="240" y2="170" stroke="white" strokeWidth="0.5" />
+            <line x1="560" y1="90" x2="380" y2="170" stroke="white" strokeWidth="0.5" />
+            <line x1="240" y1="170" x2="350" y2="280" stroke="white" strokeWidth="0.5" />
+            <line x1="540" y1="280" x2="460" y2="410" stroke="white" strokeWidth="0.5" />
+            <line x1="130" y1="370" x2="460" y2="410" stroke="white" strokeWidth="0.5" />
           </svg>
 
           {FRAGMENTED_APPS.map((app) => (
@@ -57,7 +57,7 @@ export function Problem() {
           ))}
 
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-600 font-medium">Disconnected</p>
+            <p className="text-[10px] uppercase tracking-[0.45em] text-zinc-500 font-medium">Disconnected</p>
           </div>
         </div>
       </Container>
