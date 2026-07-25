@@ -8,6 +8,7 @@ import { trackEvent, AnalyticsEvents } from '@/lib/analytics/tracker';
 import { postingEngine } from '@/lib/financial/posting-engine';
 import { billingAssembly } from '@/lib/revenue/billing-assembly';
 import type { BillingTenant, BillingSnapshot } from '@/lib/revenue/billing-assembly';
+import ImportUtilitiesModal from '@/app/components/financials/ImportUtilitiesModal';
 
 interface AttentionItem { type: string; count: number; label: string; action: string; }
 
@@ -29,6 +30,7 @@ export default function RevenueOperationsPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedTenantDetail, setSelectedTenantDetail] = useState<BillingTenant | null>(null);
   const [showManualCharge, setShowManualCharge] = useState(false);
+  const [showImportUtilities, setShowImportUtilities] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -196,7 +198,7 @@ export default function RevenueOperationsPage() {
       {attentionItems.length > 0 && (<div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4"><p className="text-[10px] uppercase tracking-wider text-amber-400 mb-3">⚠ Attention</p>{attentionItems.map((item, i) => (<div key={i} className="flex items-center justify-between text-sm"><span className="text-zinc-300 font-light">{item.count} {item.label}</span><button className="text-xs text-amber-400 hover:text-amber-300">{item.action} →</button></div>))}</div>)}
 
       <div className="space-y-4">
-        <div className="flex items-center gap-3"><span className="text-[10px] uppercase tracking-wider text-zinc-600 w-24">Charges</span><button onClick={() => setShowManualCharge(true)} className="rounded-lg bg-white px-4 py-2.5 text-xs font-medium text-black hover:bg-gray-100">+ Manual Charge</button><button className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-xs font-medium text-white hover:border-white/20">Import Utilities</button></div>
+        <div className="flex items-center gap-3"><span className="text-[10px] uppercase tracking-wider text-zinc-600 w-24">Charges</span><button onClick={() => setShowManualCharge(true)} className="rounded-lg bg-white px-4 py-2.5 text-xs font-medium text-black hover:bg-gray-100">+ Manual Charge</button><button onClick={() => setShowImportUtilities(true)} className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-xs font-medium text-white hover:border-white/20">Import Utilities</button></div>
         <div className="flex items-center gap-3"><span className="text-[10px] uppercase tracking-wider text-zinc-600 w-24">Documents</span><button onClick={() => setShowDocuments(true)} className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-xs font-medium text-white hover:border-white/20">Send Notice / Upload</button></div>
       </div>
 
