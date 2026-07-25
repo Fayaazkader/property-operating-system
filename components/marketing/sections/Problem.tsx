@@ -2,12 +2,12 @@ import { Container } from '../layout/Container';
 import { Section } from '../layout/Section';
 
 const FRAGMENTED_APPS = [
-  { name: 'Lease Register', content: 'Tenant A — R45k\nTenant B — R32k\nEsc 8% · Exp Jun', width: 'w-44', height: 'h-28', x: 30, y: 15, rotate: '-1.5deg', delay: '0s' },
-  { name: 'Billing System', content: 'INV-001 — R52k\nINV-002 — Pending', width: 'w-40', height: 'h-22', x: 530, y: 60, rotate: '2deg', delay: '0.3s' },
-  { name: 'Bank Feed', content: 'In: R52k · R18k\nOut: R7k', width: 'w-36', height: 'h-20', x: 170, y: 155, rotate: '-0.5deg', delay: '0.6s' },
-  { name: 'Maintenance', content: '● #142 Blocked Drain\n● #143 AC Repair\n○ #144 Lift Service', width: 'w-48', height: 'h-24', x: 510, y: 240, rotate: '1.5deg', delay: '0.9s' },
-  { name: 'Reporting', content: 'Occupancy ████ 94%\nRevenue  ███  R842k\nArrears  █    R120k', width: 'w-44', height: 'h-24', x: 50, y: 345, rotate: '-2deg', delay: '1.2s' },
-  { name: 'Tenant Inbox', content: '3 unread 🔴\n2 renewals 📄\n1 complaint ⚠', width: 'w-40', height: 'h-22', x: 450, y: 395, rotate: '1deg', delay: '1.5s', blur: true },
+  { name: 'Lease Register', content: 'Tenant A — R45k\nTenant B — R32k\nEsc 8% · Exp Jun', w: 'w-44', h: 'h-28', x: 30, y: 15, rotate: '-1.5deg', border: 'border-white/[0.12]', bg: 'bg-white/[0.07]', delay: '0s' },
+  { name: 'Billing System', content: 'INV-001 — R52k\nINV-002 — Pending', w: 'w-40', h: 'h-22', x: 530, y: 60, rotate: '2deg', border: 'border-white/[0.08]', bg: 'bg-white/[0.05]', delay: '0.3s' },
+  { name: 'Bank Feed', content: 'In: R52k · R18k\nOut: R7k', w: 'w-36', h: 'h-20', x: 170, y: 155, rotate: '0deg', border: 'border-white/[0.09]', bg: 'bg-white/[0.05]', delay: '0.6s' },
+  { name: 'Maintenance', content: '● #142 Blocked Drain\n● #143 AC Repair\n○ #144 Lift Service', w: 'w-48', h: 'h-24', x: 510, y: 240, rotate: '1deg', border: 'border-white/[0.10]', bg: 'bg-white/[0.06]', delay: '0.9s' },
+  { name: 'Reporting', content: 'Occupancy ████ 94%\nRevenue  ███  R842k\nArrears  █    R120k', w: 'w-44', h: 'h-24', x: 50, y: 345, rotate: '-2deg', border: 'border-white/[0.07]', bg: 'bg-white/[0.04]', delay: '1.2s' },
+  { name: 'Tenant Inbox', content: '3 unread 🔴\n2 renewals 📄\n1 complaint ⚠', w: 'w-40', h: 'h-22', x: 450, y: 395, rotate: '0deg', border: 'border-white/[0.06]', bg: 'bg-white/[0.03]', delay: '1.5s', blur: true },
 ];
 
 export function Problem() {
@@ -39,7 +39,7 @@ export function Problem() {
           {FRAGMENTED_APPS.map((app) => (
             <div
               key={app.name}
-              className={`absolute animate-float rounded-xl border border-white/[0.10] bg-white/[0.06] backdrop-blur-sm px-4 py-3 shadow-lg shadow-black/30 ${app.width} ${app.height} ${app.blur ? 'opacity-80' : ''}`}
+              className={`absolute animate-float rounded-xl border ${app.border} ${app.bg} backdrop-blur-sm px-4 py-3 shadow-lg shadow-black/30 ${app.w} ${app.h} ${app.blur ? 'opacity-75' : ''}`}
               style={{ left: app.x, top: app.y, transform: `rotate(${app.rotate})`, animationDelay: app.delay }}
             >
               <div className="flex items-center gap-2 mb-2">
