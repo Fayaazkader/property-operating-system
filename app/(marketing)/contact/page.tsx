@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { ContactForm } from '@/components/marketing/sections/ContactForm';
+import { ContactPageClient } from '@/components/marketing/sections/ContactPageClient';
 
 export const metadata: Metadata = {
   title: 'Contact — Book a Demo',
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function ContactPage() {
-  return <ContactForm />;
+  return <ContactPageClient />;
 }

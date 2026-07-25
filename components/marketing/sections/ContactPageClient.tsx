@@ -6,7 +6,7 @@ import { Container } from '@/components/marketing/layout/Container';
 import { Section } from '@/components/marketing/layout/Section';
 import Link from 'next/link';
 
-export function ContactForm() {
+export function ContactPageClient() {
   const [submitted, setSubmitted] = useState(false);
   function handleSubmit(e: React.FormEvent) { e.preventDefault(); setSubmitted(true); }
 
