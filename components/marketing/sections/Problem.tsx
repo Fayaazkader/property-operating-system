@@ -29,11 +29,11 @@ export function Problem() {
 
         <div className="relative h-[480px] md:h-[540px] max-w-3xl mx-auto">
           <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 640 500" style={{ opacity: 0.05 }}>
-            <line x1="170" y1="55" x2="240" y2="170" stroke="white" strokeWidth="0.5" />
-            <line x1="560" y1="90" x2="380" y2="170" stroke="white" strokeWidth="0.5" />
-            <line x1="240" y1="170" x2="350" y2="280" stroke="white" strokeWidth="0.5" />
-            <line x1="540" y1="280" x2="460" y2="410" stroke="white" strokeWidth="0.5" />
-            <line x1="130" y1="370" x2="460" y2="410" stroke="white" strokeWidth="0.5" />
+            <path d="M170 55 C210 70, 210 140, 240 170" stroke="white" strokeWidth="0.5" strokeLinecap="round" fill="none" />
+            <path d="M560 90 C490 110, 440 140, 380 170" stroke="white" strokeWidth="0.5" strokeLinecap="round" fill="none" />
+            <path d="M240 170 C280 210, 300 240, 350 280" stroke="white" strokeWidth="0.5" strokeLinecap="round" fill="none" />
+            <path d="M540 280 C510 320, 490 370, 460 410" stroke="white" strokeWidth="0.5" strokeLinecap="round" fill="none" />
+            <path d="M130 370 C230 380, 350 395, 460 410" stroke="white" strokeWidth="0.5" strokeLinecap="round" fill="none" />
           </svg>
 
           {FRAGMENTED_APPS.map((app) => (
