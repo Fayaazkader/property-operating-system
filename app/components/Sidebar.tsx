@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useCommandPalette } from "@/lib/platform/CommandPaletteContext";
 import { supabase } from "@/lib/supabase";
 import { 
-  Home, Receipt, Landmark, MessageSquare, CheckSquare,
+  Home, Receipt, Landmark, MessageSquare, CheckSquare, PenLine,
   Building2, Users, Briefcase, Calendar, Search, Pin, PinOff, FileText, BarChart3
 } from "lucide-react";
 
@@ -53,7 +53,7 @@ export default function Sidebar() {
     { label: 'Imports', href: '/financials/imports', icon: Landmark, desc: 'Bank Import · Presets' },
     { label: "Commercial Leasing", href: "/leasing", icon: FileText, desc: "Opportunities · Brokers · Deals" },
     { label: "Communications", href: "/communications", icon: MessageSquare, desc: "Email · WhatsApp · Statements", count: counts.communications },
-    { label: "Tasks", href: "/tasks", icon: CheckSquare, desc: "Workflows · Approvals · Follow Ups", count: counts.tasks },
+    { label: "Tasks", href: "/tasks", icon: CheckSquare, PenLine, desc: "Workflows · Approvals · Follow Ups", count: counts.tasks },
   ];
 
   const portfolioItems: NavItem[] = [
@@ -65,6 +65,7 @@ export default function Sidebar() {
   const systemItems: NavItem[] = [
     { label: "Periods", href: "/financials/periods", icon: Calendar, desc: "Billing Cycles · Governance" },
     { label: "Financials", href: "/financials", icon: BarChart3, desc: "GL · Statements · VAT" },
+    { label: "Signatures", href: "/signatures", icon: PenLine, desc: "Document Signing" },
     { label: "Reports", href: "/reports", icon: BarChart3, desc: "Rent Roll · Arrears · Portfolio" },
   ];
 
