@@ -17,19 +17,19 @@ export function Journey() {
             <br />
             <span className="text-zinc-400">Every workflow connected.</span>
           </h2>
-          <p className="mt-4 text-zinc-500 max-w-xl mx-auto text-sm leading-relaxed">
+          <p className="mt-4 text-zinc-400 max-w-xl mx-auto text-sm leading-relaxed">
             AssetFlow replaces six disconnected systems with a single platform
             where every operational event flows into financial truth.
           </p>
         </div>
 
-        <div className="space-y-12">
+        <div className="space-y-16">
           {/* Revenue Operations */}
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div>
               <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/60 mb-3">Revenue Operations</p>
               <h3 className="text-xl font-light text-white">Leases become recurring billing automatically.</h3>
-              <p className="mt-2 text-sm text-zinc-500 leading-relaxed max-w-md">
+              <p className="mt-2 text-sm text-zinc-400 leading-relaxed max-w-md">
                 Every active lease generates invoices, statements, and recoveries without manual intervention.
               </p>
               <FeatureChips items={['Automated billing', 'Utility recoveries', 'Escalation engine', 'Arrears management']} />
@@ -45,7 +45,7 @@ export function Journey() {
             <div className="order-1 md:order-2">
               <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/60 mb-3">Financial Platform</p>
               <h3 className="text-xl font-light text-white">Operational events flow directly into financial reporting.</h3>
-              <p className="mt-2 text-sm text-zinc-500 leading-relaxed max-w-md">
+              <p className="mt-2 text-sm text-zinc-400 leading-relaxed max-w-md">
                 Every invoice, receipt, and payment posts double-entry journals automatically.
               </p>
               <FeatureChips items={['General Ledger', 'Trial Balance', 'Income Statement', 'Balance Sheet']} />
@@ -57,7 +57,7 @@ export function Journey() {
             <div>
               <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/60 mb-3">Property Operations</p>
               <h3 className="text-xl font-light text-white">Maintenance, compliance, suppliers, and finance remain connected.</h3>
-              <p className="mt-2 text-sm text-zinc-500 leading-relaxed max-w-md">
+              <p className="mt-2 text-sm text-zinc-400 leading-relaxed max-w-md">
                 Work orders link to suppliers. Every cost flows into the property's financial record.
               </p>
               <FeatureChips items={['Work orders', 'Inspections', 'Compliance', 'Suppliers']} />
@@ -73,7 +73,7 @@ export function Journey() {
             <div className="order-1 md:order-2">
               <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/60 mb-3">Portfolio Intelligence</p>
               <h3 className="text-xl font-light text-white">Real-time portfolio insight without manual reporting.</h3>
-              <p className="mt-2 text-sm text-zinc-500 leading-relaxed max-w-md">
+              <p className="mt-2 text-sm text-zinc-400 leading-relaxed max-w-md">
                 Morning Brief delivers daily clarity. Drill down from any number to the source transaction.
               </p>
               <FeatureChips items={['Morning Brief', 'KPIs', 'Budget vs Actual', 'Drill-down']} />

@@ -4,30 +4,41 @@ import { Container } from '../layout/Container';
 
 export function Footer() {
   return (
-    <footer id="footer" className="border-t border-white/[0.04] bg-black py-12">
+    <footer id="footer" className="border-t border-white/[0.04] bg-black py-16">
       <Container>
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <p className="text-xs text-zinc-500">
-            {marketing.company.copyright}
-          </p>
-          <div className="flex items-center gap-6">
-            {marketing.navigation.main.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="text-xs text-zinc-500 hover:text-white transition-colors duration-200"
-              >
-                {item.label}
-              </Link>
-            ))}
-            <Link href="/contact" className="text-xs text-zinc-500 hover:text-white transition-colors duration-200">
-              Contact
-            </Link>
+        <div className="grid gap-12 md:grid-cols-4">
+          <div>
+            <p className="text-sm font-medium tracking-tight text-white">{marketing.company.name}</p>
+            <p className="mt-2 text-xs text-zinc-500 leading-relaxed">{marketing.company.tagline}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-600 mb-3">Product</p>
+            <div className="space-y-2">
+              {['Platform', 'Pricing', 'Resources'].map((item) => (
+                <Link key={item} href={`/${item.toLowerCase()}`} className="block text-xs text-zinc-500 hover:text-white transition-colors">{item}</Link>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-600 mb-3">Company</p>
+            <div className="space-y-2">
+              {['About', 'Contact', 'LinkedIn'].map((item) => (
+                <Link key={item} href={item === 'LinkedIn' ? marketing.socials.linkedin : `/${item.toLowerCase()}`} className="block text-xs text-zinc-500 hover:text-white transition-colors">{item}</Link>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-600 mb-3">Legal</p>
+            <div className="space-y-2">
+              {['Privacy', 'Terms'].map((item) => (
+                <Link key={item} href={`/${item.toLowerCase()}`} className="block text-xs text-zinc-500 hover:text-white transition-colors">{item}</Link>
+              ))}
+            </div>
           </div>
         </div>
-        <p className="text-center text-[10px] text-zinc-700 mt-8">
-          {marketing.company.tagline}
-        </p>
+        <div className="mt-12 pt-6 border-t border-white/[0.04] text-center">
+          <p className="text-[10px] text-zinc-600">{marketing.company.copyright}</p>
+        </div>
       </Container>
     </footer>
   );

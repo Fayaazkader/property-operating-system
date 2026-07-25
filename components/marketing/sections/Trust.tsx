@@ -36,7 +36,7 @@ export function Trust() {
             <br />
             <span className="text-zinc-400">numbers that matter.</span>
           </h2>
-          <p className="mt-4 text-zinc-500 max-w-xl mx-auto text-sm leading-relaxed">
+          <p className="mt-4 text-zinc-400 max-w-xl mx-auto text-sm leading-relaxed">
             When you're managing millions in leases, payments, and financial reporting,
             the platform needs to be as trustworthy as your team.
           </p>
@@ -46,13 +46,13 @@ export function Trust() {
           {TRUST_ITEMS.map((item) => {
             const Icon = item.icon;
             return (
-              <li key={item.title} className="rounded-2xl border border-white/[0.05] bg-white/[0.01] p-6 hover:border-white/[0.08] transition-all duration-500 flex gap-4">
+              <li key={item.title} className="rounded-2xl border border-white/[0.05] bg-white/[0.01] p-6 hover:border-white/[0.08] hover:-translate-y-0.5 transition-all duration-500 flex gap-4">
                 <div className="flex-shrink-0 mt-0.5">
                   <Icon className="w-5 h-5 text-amber-500/60" />
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-white">{item.title}</h3>
-                  <p className="mt-2 text-sm text-zinc-500 leading-relaxed">{item.description}</p>
+                  <p className="mt-2 text-sm text-zinc-400 leading-relaxed">{item.description}</p>
                 </div>
               </li>
             );

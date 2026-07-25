@@ -13,7 +13,7 @@ export function CTA() {
             <br />
             <span className="text-zinc-400">in action?</span>
           </h2>
-          <p className="mt-6 text-zinc-500 text-sm leading-relaxed max-w-md mx-auto">
+          <p className="mt-6 text-zinc-400 text-sm leading-relaxed max-w-md mx-auto">
             Book a personalised demo and see how AssetFlow connects your entire
             commercial property portfolio into one intelligent operating system.
           </p>
