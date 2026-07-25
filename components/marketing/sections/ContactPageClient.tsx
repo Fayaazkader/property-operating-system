@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { MarketingLayout } from '@/components/marketing/layout/MarketingLayout';
 import { Container } from '@/components/marketing/layout/Container';
 import { Section } from '@/components/marketing/layout/Section';
 import Link from 'next/link';
@@ -11,7 +10,7 @@ export function ContactPageClient() {
   function handleSubmit(e: React.FormEvent) { e.preventDefault(); setSubmitted(true); }
 
   return (
-    <MarketingLayout>
+    
       <Section id="contact" className="pt-32 md:pt-48 pb-20">
         <Container>
           <div className="max-w-lg mx-auto text-center">
@@ -34,6 +33,6 @@ export function ContactPageClient() {
           </div>
         </Container>
       </Section>
-    </MarketingLayout>
+    
   );
 }
