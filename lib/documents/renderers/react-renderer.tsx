@@ -127,7 +127,7 @@ export function DocumentRenderer({ model, onAction }: RenderProps) {
                       <td className="py-1 text-right tabular-nums font-normal">{line.debit > 0 ? `R${line.debit.toLocaleString()}` : line.credit > 0 ? `(R${line.credit.toLocaleString()})` : ''}</td>
                       <td className="py-1 text-right tabular-nums font-normal text-neutral-500">{line.debit > 0 && line.vat > 0 ? `R${line.vat.toLocaleString()}` : ''}</td>
                       <td className="py-1 text-right tabular-nums font-normal">{line.debit > 0 ? `R${(line.debit + (line.vat || 0)).toLocaleString()}` : line.credit > 0 ? `(R${line.credit.toLocaleString()})` : ''}</td>
-                      <td className="py-1 text-right tabular-nums font-normal text-neutral-500">{line.debit > 0 ? (line.vat > 0 ? `R${line.vat.toLocaleString()}` : '') : ''}</td>
+                      <td className="py-1 text-right font-medium tabular-nums">R{line.balance.toLocaleString()}</td>
                       <td className="py-1 text-right font-medium tabular-nums">R{line.balance.toLocaleString()}</td>
                       <td className="py-1 text-right font-medium tabular-nums">R{line.balance.toLocaleString()}</td>
                     </tr>
