@@ -21,7 +21,7 @@ export const cashbookService = {
       .eq('id', transactionId);
 
     if (error) {
-      logger.error('Allocation failed', { transactionId, error });
+      logger.error('Allocation failed', { transactionId, error: error.message, code: error.code, details: error.details });
       return { success: false, message: error.message };
     }
 
