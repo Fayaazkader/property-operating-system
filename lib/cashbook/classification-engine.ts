@@ -31,7 +31,7 @@ export const classificationEngine = {
     }
 
     // 3. If amount is positive (credit) and has tenant match → receipt
-    if (transaction.credit_amount > 0 || transaction.transaction_amount > 0 && transaction.matched_tenant_id) {
+    if ((transaction.credit_amount || 0) > 0 || (transaction.transaction_amount || 0) > 0 && transaction.matched_tenant_id) {
       return { class: 'tenant_receipt', confidence: 80, reason: 'Positive amount with tenant match' };
     }
 
@@ -46,7 +46,7 @@ export const classificationEngine = {
     }
 
     // 6. Small credit amounts are typically interest
-    if (transaction.credit_amount > 0 || transaction.transaction_amount > 0 && transaction.amount < 100) {
+    if ((transaction.credit_amount || 0) > 0 || (transaction.transaction_amount || 0) > 0 && transaction.amount < 100) {
       return { class: 'interest_earned', confidence: 50, reason: 'Small credit amount, likely interest' };
     }
 
