@@ -108,8 +108,6 @@ export const cashbookPostingService = {
       await supabase.from('bank_transactions').update({
         allocation_status: 'posted',
         queue: 'posted',
-        matched_journal_id: result.journal?.id,
-        is_reconciled: true,
         updated_at: new Date().toISOString(),
       }).eq('id', transactionId);
 
