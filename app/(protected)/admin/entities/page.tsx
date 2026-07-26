@@ -100,11 +100,22 @@ export default function EntitiesPage() {
   }
 
   async function handleArchive(entityId: string) {
+    const issues: string[] = [];
+
     const { count: activeLeases } = await supabase.from('leases').select('id', { count: 'exact', head: true }).or(`owner_entity_id.eq.${entityId},managing_entity_id.eq.${entityId}`).eq('lease_status', 'Active');
-    if (activeLeases && activeLeases > 0) {
-      alert(`Cannot archive: ${activeLeases} active lease(s) still exist. Resolve them first.`);
+    if (activeLeases && activeLeases > 0) issues.push(`${activeLeases} active lease(s)`);
+
+    const { count: openPeriods } = await supabase.from('financial_periods').select('id', { count: 'exact', head: true }).eq('entity_id', entityId).eq('status', 'open');
+    if (openPeriods && openPeriods > 0) issues.push(`${openPeriods} open financial period(s)`);
+
+    const { count: unreconciled } = await supabase.from('bank_transactions').select('id', { count: 'exact', head: true }).eq('entity_id', entityId).eq('is_reconciled', false);
+    if (unreconciled && unreconciled > 0) issues.push(`${unreconciled} unreconciled bank transaction(s)`);
+
+    if (issues.length > 0) {
+      alert('Cannot archive:\n\n' + issues.map(i => '• ' + i).join('\n') + '\n\nResolve these before archiving.');
       return;
     }
+
     await supabase.from('entities').update({ is_archived: true, is_active: false, updated_at: new Date().toISOString() }).eq('id', entityId);
     loadEntities();
   }
