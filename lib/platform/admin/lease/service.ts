@@ -1,8 +1,7 @@
 import { leaseRepository } from './repository';
-import { leaseValidators } from './validators';
-import { codeGenerator } from '../../shared/code-generator';
 import { archiveService } from '../../shared/archive-service';
 import { publish } from '@/lib/platform/events/event-bus';
+import { supabase } from '@/lib/supabase';
 
 export const leaseService = {
   // Queries
@@ -13,30 +12,30 @@ export const leaseService = {
   async getByProperty(propertyId: string) { return leaseRepository.findByProperty(propertyId); },
   async getExpiring(days: number = 90) { return leaseRepository.findExpiring(days); },
 
-  // Business operations — service orchestrates, repository persists
-  async activate(intake: any, supabaseClient: any) {
-    // Delegate entirely to the existing certified activation workflow
-    const { activateLease, createBilling, notifyTenant } = await import('@/lib/workflows/lease-activation');
-    
-    const context = {
-      intakeId: intake.id,
-      initiated_by: intake.initiated_by || 'system',
-      intake,
-      supabase: supabaseClient,
-    };
+  // Activate — single atomic RPC call, all-or-nothing
+  async activate(intakeId: string, initiatedBy: string = 'system') {
+    const { data, error } = await supabase.rpc('activate_lease_rpc', {
+      p_intake_id: intakeId,
+      p_initiated_by: initiatedBy,
+    });
 
-    const activationResult = await activateLease(context, {});
-    if (!activationResult.success) throw new Error(activationResult.message);
+    if (error || !data?.success) {
+      throw new Error(data?.message || error?.message || 'Activation failed');
+    }
 
-    const billingResult = await createBilling(context, {});
-    if (!billingResult.success) throw new Error(billingResult.message);
+    // Publish event after successful atomic commit
+    await publish('lease.activated', {
+      correlationId: crypto.randomUUID(),
+      source: 'lease-service',
+      version: '1.0',
+      payload: {
+        leaseId: data.lease_id,
+        leaseCode: data.lease_code,
+        intakeId,
+      },
+    });
 
-    const notifyResult = await notifyTenant(context, {});
-    if (!notifyResult.success) throw new Error(notifyResult.message);
-
-    await leaseRepository.addTimelineEvent(activationResult.lease.id, 'lease_activated', 'Lease activated from intake');
-
-    return activationResult.lease;
+    return data;
   },
 
   async update(id: string, data: Record<string, any>) {
