@@ -15,6 +15,7 @@ interface AttentionItem { type: string; count: number; label: string; action: st
 export default function RevenueOperationsPage() {
   const [entityId, setEntityId] = useState('');
   const [currentPeriod, setCurrentPeriod] = useState('');
+  const [periodStartDate, setPeriodStartDate] = useState('');
   const [finPeriodId, setFinPeriodId] = useState('');
   const [periodStatus, setPeriodStatus] = useState('');
   const [finPeriodStatus, setFinPeriodStatus] = useState('');
@@ -66,8 +67,8 @@ export default function RevenueOperationsPage() {
       if (!entities?.length) { setLoading(false); return; }
       const eid = entities[0];
       setEntityId(eid);
-      const { data: period } = await supabase.from('financial_periods').select('id, period_name, status').eq('entity_id', eid).eq('period_type', 'statement').eq('status', 'open').order('period_start').limit(1).single();
-      if (period) { setCurrentPeriod(period.period_name); setPeriodStatus(period.status); }
+      const { data: period } = await supabase.from('financial_periods').select('id, period_name, status, period_start').eq('entity_id', eid).eq('period_type', 'statement').eq('status', 'open').order('period_start').limit(1).single();
+      if (period) { setCurrentPeriod(period.period_name); setPeriodStatus(period.status); setPeriodStartDate(period.period_start); }
       const { data: finPeriod } = await supabase.from('financial_periods').select('id, status').eq('entity_id', eid).eq('period_type', 'financial').eq('status', 'open').order('period_start').limit(1).single();
       if (finPeriod) { setFinPeriodId(finPeriod.id); setFinPeriodStatus(finPeriod.status); }
       const { data: props } = await supabase.from('properties').select('id, property_name').eq('entity_id', eid).order('property_name');
@@ -139,7 +140,7 @@ export default function RevenueOperationsPage() {
         setSendProgress({ current: i + 1, total: ready.length, stage: 'Generating invoices...' });
         const leaseAmount = t.charges.filter(c => c.source === 'lease').reduce((s, c) => s + c.amount, 0);
         if (leaseAmount > 0) {
-          await postingEngine.post({ source_engine: 'revenue', business_event: 'rental_invoice_raised', entity_id: entityId, amount: leaseAmount, period_id: finPeriodId, occurred_at: new Date().toISOString(), effective_date: new Date().toISOString().split('T')[0], dimensions: { tenant_id: t.tenantId, lease_id: t.leaseId }, metadata: { source_id: `INV-${currentPeriod}-${t.tenantName}`, created_by: 'system' } });
+          await postingEngine.post({ source_engine: 'revenue', business_event: 'rental_invoice_raised', entity_id: entityId, amount: leaseAmount, period_id: finPeriodId, occurred_at: new Date().toISOString(), effective_date: periodStartDate || new Date().toISOString().split('T')[0], dimensions: { tenant_id: t.tenantId, lease_id: t.leaseId }, metadata: { source_id: `INV-${currentPeriod}-${t.tenantName}`, created_by: 'system' } });
           // Save to statements_generated so tenant can view invoice
           try {
             await supabase.from('statements_generated').insert({
@@ -149,9 +150,9 @@ export default function RevenueOperationsPage() {
                 tenant_name: t.tenantName,
                 property_name: t.property_name || 'Unknown',
                 lease_ref: t.leaseRef || 'N/A',
-                statement_date: currentPeriod,
+                statement_date: periodStartDate || currentPeriod,
                 posted_lines: t.charges.map((c: any) => ({
-                  date: new Date().toISOString().split('T')[0],
+                  date: periodStartDate || new Date().toISOString().split('T')[0],
                   description: c.description,
                   debit: c.amount,
                   credit: 0,
