@@ -5,16 +5,16 @@ export interface ArchiveResult {
 
 export const archiveService = {
   async execute(
-    canArchive: () => Promise<{ canArchive: boolean; issues: Array<{ code: string; count: number; label: string }> }>,
-    doArchive: () => Promise<void>
+    checkArchive: () => Promise<{ canArchive: boolean; issues: Array<{ code: string; count: number; label: string }> }>,
+    performArchive: () => Promise<void>
   ): Promise<ArchiveResult> {
-    const { canArchive, issues } = await canArchive();
+    const { canArchive, issues } = await checkArchive();
 
     if (!canArchive) {
       return { success: false, issues };
     }
 
-    await doArchive();
+    await performArchive();
 
     return { success: true, issues: [] };
   }
