@@ -113,7 +113,7 @@ export function DocumentRenderer({ model, onAction }: RenderProps) {
                     <th className="text-left py-1.5 text-[8px] font-semibold uppercase tracking-wider text-neutral-500">Description</th>
                     <th className="text-right py-1.5 text-[8px] font-semibold uppercase tracking-wider text-neutral-500 w-20">Ex VAT</th>
                     <th className="text-right py-1.5 text-[8px] font-semibold uppercase tracking-wider text-neutral-500 w-16">VAT</th>
-                    <th className="text-right py-1.5 text-[8px] font-semibold uppercase tracking-wider text-neutral-500 w-20">Credit</th>
+                    <th className="text-right py-1.5 text-[8px] font-semibold uppercase tracking-wider text-neutral-500 w-20">Payment</th>
                     <th className="text-right py-1.5 text-[8px] font-semibold uppercase tracking-wider text-neutral-500 w-20">Balance</th>
                   </tr>
                 </thead>
@@ -124,7 +124,8 @@ export function DocumentRenderer({ model, onAction }: RenderProps) {
                       <td className="py-1 text-neutral-400 font-normal">{line.reference || '—'}</td>
                       <td className="py-1 text-neutral-800 font-normal">{line.description}</td>
                       <td className="py-1 text-right tabular-nums font-normal">{line.debit > 0 ? `R${line.debit.toLocaleString()}` : ''}</td>
-                      <td className="py-1 text-right tabular-nums font-normal">{line.credit > 0 ? `R${line.credit.toLocaleString()}` : ''}</td>
+                      <td className="py-1 text-right tabular-nums font-normal text-neutral-500">{line.vat > 0 ? `R${line.vat.toLocaleString()}` : line.credit > 0 ? '' : ''}</td>
+                      <td className="py-1 text-right tabular-nums font-normal text-emerald-600">{line.credit > 0 ? `(R${line.credit.toLocaleString()})` : ''}</td>
                       <td className="py-1 text-right font-medium tabular-nums">R{line.balance.toLocaleString()}</td>
                     </tr>
                   ))}
