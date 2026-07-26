@@ -141,31 +141,35 @@ export default function RevenueOperationsPage() {
         if (leaseAmount > 0) {
           await postingEngine.post({ source_engine: 'revenue', business_event: 'rental_invoice_raised', entity_id: entityId, amount: leaseAmount, period_id: finPeriodId, occurred_at: new Date().toISOString(), effective_date: new Date().toISOString().split('T')[0], dimensions: { tenant_id: t.tenantId, lease_id: t.leaseId }, metadata: { source_id: `INV-${currentPeriod}-${t.tenantName}`, created_by: 'system' } });
           // Save to statements_generated so tenant can view invoice
-          await supabase.from('statements_generated').insert({
-            entity_id: entityId,
-            tenant_id: t.tenantId,
-            statement_data: {
-              tenant_name: t.tenantName,
-              property_name: t.property_name || '',
-              lease_ref: t.leaseRef || '',
-              statement_date: currentPeriod,
-              posted_lines: t.charges.map((c: any) => ({
-                date: new Date().toISOString().split('T')[0],
-                description: `${c.description} (${c.source})`,
-                debit: c.amount,
-                credit: 0,
-                balance: c.total,
-                section: 'posted'
-              })),
-              closing_balance: t.total,
+          try {
+            await supabase.from('statements_generated').insert({
+              entity_id: entityId,
+              tenant_id: t.tenantId,
+              statement_data: {
+                tenant_name: t.tenantName,
+                property_name: t.property_name || 'Unknown',
+                lease_ref: t.leaseRef || 'N/A',
+                statement_date: currentPeriod,
+                posted_lines: t.charges.map((c: any) => ({
+                  date: new Date().toISOString().split('T')[0],
+                  description: c.description,
+                  debit: c.amount,
+                  credit: 0,
+                  balance: c.total,
+                  section: 'posted'
+                })),
+                closing_balance: t.total,
+                version: 1,
+                status: 'issued',
+                generated_at: new Date().toISOString()
+              },
               version: 1,
               status: 'issued',
               generated_at: new Date().toISOString()
-            },
-            version: 1,
-            status: 'issued',
-            generated_at: new Date().toISOString()
-          });
+            });
+          } catch (e) {
+            console.error('Failed to save statement for', t.tenantName, e);
+          }
         }
         setSendProgress({ current: i + 1, total: ready.length, stage: 'Sending communications...' });
         await triggerCommunication({ tenant_id: t.tenantId, event_type: 'statement_available', source_type: 'statement', source_id: `INV-${currentPeriod}`, merge_data: { period: currentPeriod } });
