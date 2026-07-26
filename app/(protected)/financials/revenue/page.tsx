@@ -239,10 +239,29 @@ export default function RevenueOperationsPage() {
                 <button onClick={() => setShowDetailModal(false)} className="text-zinc-500 hover:text-white">Close ✕</button>
               </div>
               <div className="p-6 space-y-4">
-                <div><p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Charges</p><div className="flex gap-3 text-[9px] text-zinc-600 mb-1"><span className="w-20 text-right">Ex VAT</span><span className="w-16 text-right">VAT</span><span className="w-20 text-right">Incl VAT</span></div>{selectedTenantDetail.charges.map((c, i) => (<div key={i} className="flex justify-between py-1.5 border-b border-white/[0.03] text-xs"><span className="text-zinc-300">{c.description} <span className="text-zinc-600">({c.source})</span></span><span className="text-white tabular-nums">R{c.total.toLocaleString()}</span></div>))}</div>
+                <div>
+                <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Charges</p>
+                <div className="flex text-[9px] text-zinc-600 mb-1">
+                  <span className="flex-1">Description</span>
+                  <span className="w-20 text-right">Ex VAT</span>
+                  <span className="w-16 text-right">VAT</span>
+                  <span className="w-24 text-right">Incl VAT</span>
+                </div>
+                {selectedTenantDetail.charges.map((c, i) => (
+                  <div key={i} className="flex items-center py-1.5 border-b border-white/[0.03] text-xs">
+                    <span className="flex-1 text-zinc-300 truncate pr-2">{c.description} <span className="text-zinc-600">({c.source})</span></span>
+                    <span className="w-20 text-right text-zinc-400 tabular-nums">R{c.amount.toLocaleString()}</span>
+                    <span className="w-16 text-right text-zinc-400 tabular-nums">R{c.vatAmount.toLocaleString()}</span>
+                    <span className="w-24 text-right text-white tabular-nums font-medium">R{c.total.toLocaleString()}</span>
+                  </div>
+                ))}</div>
                 {selectedTenantDetail.documents.length > 0 && (<div><p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Documents</p>{selectedTenantDetail.documents.map((d, i) => (<p key={i} className="text-xs text-zinc-400 py-0.5">📄 {d.name} <span className="text-zinc-600">({d.level})</span></p>))}</div>)}
                 {selectedTenantDetail.warnings.length > 0 && (<div className="text-xs text-amber-400">{selectedTenantDetail.warnings.map((w, i) => <p key={i}>⚠ {w}</p>)}</div>)}
                 <div className="flex justify-between pt-3 border-t border-white/[0.06] text-sm font-medium"><span className="text-white">Total</span><span className="text-white tabular-nums">R{selectedTenantDetail.total.toLocaleString()}</span></div>
+                <div className="pt-3 border-t border-white/[0.06] space-y-1">
+                <div className="flex text-xs"><span className="flex-1 text-zinc-500">Subtotal (Ex VAT)</span><span className="w-24 text-right text-zinc-300 tabular-nums">R{selectedTenantDetail.charges.reduce((s: number, c: any) => s + c.amount, 0).toLocaleString()}</span></div>
+                <div className="flex text-xs"><span className="flex-1 text-zinc-500">VAT</span><span className="w-24 text-right text-zinc-300 tabular-nums">R{selectedTenantDetail.charges.reduce((s: number, c: any) => s + c.vatAmount, 0).toLocaleString()}</span></div>
+                <div className="flex text-sm font-medium pt-1 border-t border-white/[0.06]"><span className="flex-1 text-white">Total (Incl VAT)</span><span className="w-24 text-right text-white tabular-nums">R{selectedTenantDetail.total.toLocaleString()}</span></div>
               </div>
             </div>
           </div>
