@@ -36,7 +36,7 @@ export const classificationEngine = {
     }
 
     // 4. If amount is negative (debit) and has supplier match → payment
-    if (transaction.debit_amount > 0 && transaction.matched_supplier_id) {
+    if ((transaction.debit_amount || 0) > 0 && transaction.matched_supplier_id) {
       return { class: 'supplier_payment', confidence: 80, reason: 'Negative amount with supplier match' };
     }
 

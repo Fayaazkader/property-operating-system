@@ -13,7 +13,6 @@ export const cashbookService = {
       .update({
         matched_invoice_id: matchedInvoiceId,
         matched_tenant_id: matchedTenantId || null,
-        matched_supplier_id: matchedSupplierId || null,
         allocation_status: 'ready_to_post',
         queue: 'ready',
         updated_at: new Date().toISOString(),
