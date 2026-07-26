@@ -1,4 +1,5 @@
 import { entityRepository } from './repository';
+import { codeGenerator } from '../../shared/code-generator';
 import type { EntityData, EntityStats, ArchiveIssue } from './types';
 
 export const entityService = {
@@ -11,7 +12,7 @@ export const entityService = {
       ...data,
       name: data.name,
       entity_name: data.name,
-      entity_code: data.entity_code || 'ENT-' + Date.now().toString(36).toUpperCase(),
+      entity_code: data.entity_code || await codeGenerator.generate('ENT'),
       updated_at: new Date().toISOString(),
     });
   },

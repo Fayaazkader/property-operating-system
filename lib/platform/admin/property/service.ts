@@ -1,4 +1,5 @@
 import { propertyRepository } from './repository';
+import { codeGenerator } from '../../shared/code-generator';
 import type { PropertyData } from './types';
 
 export const propertyService = {
@@ -13,7 +14,7 @@ export const propertyService = {
   async create(data: PropertyData) {
     return propertyRepository.create({
       ...data,
-      property_code: data.property_code || 'PROP-' + Date.now().toString(36).toUpperCase(),
+      property_code: data.property_code || await codeGenerator.generate('PRP'),
       property_status: 'Active',
       created_at: new Date().toISOString(),
     });
