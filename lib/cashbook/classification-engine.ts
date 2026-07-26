@@ -14,7 +14,7 @@ export interface ClassificationResult {
 export const classificationEngine = {
   async classify(transaction: {
     id: string;
-    amount: number;
+    credit_amount?: number; debit_amount?: number; transaction_amount?: number;
     description?: string;
     matched_invoice_id?: string;
     matched_tenant_id?: string;
