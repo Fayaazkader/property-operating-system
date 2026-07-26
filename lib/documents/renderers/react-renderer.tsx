@@ -111,7 +111,8 @@ export function DocumentRenderer({ model, onAction }: RenderProps) {
                     <th className="text-left py-1.5 text-[8px] font-semibold uppercase tracking-wider text-neutral-500 w-20">Date</th>
                     <th className="text-left py-1.5 text-[8px] font-semibold uppercase tracking-wider text-neutral-500 w-24">Ref</th>
                     <th className="text-left py-1.5 text-[8px] font-semibold uppercase tracking-wider text-neutral-500">Description</th>
-                    <th className="text-right py-1.5 text-[8px] font-semibold uppercase tracking-wider text-neutral-500 w-20">Debit</th>
+                    <th className="text-right py-1.5 text-[8px] font-semibold uppercase tracking-wider text-neutral-500 w-20">Ex VAT</th>
+                    <th className="text-right py-1.5 text-[8px] font-semibold uppercase tracking-wider text-neutral-500 w-16">VAT</th>
                     <th className="text-right py-1.5 text-[8px] font-semibold uppercase tracking-wider text-neutral-500 w-20">Credit</th>
                     <th className="text-right py-1.5 text-[8px] font-semibold uppercase tracking-wider text-neutral-500 w-20">Balance</th>
                   </tr>

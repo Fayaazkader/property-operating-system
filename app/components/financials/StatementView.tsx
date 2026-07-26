@@ -2,37 +2,43 @@
 
 import { useState, useEffect } from 'react';
 import { revenueApi } from '@/lib/revenue/api';
-import type { DocumentAction } from '@/lib/documents/document-actions';
-import { handleDocumentAction } from '@/lib/documents/document-actions';
 import { DocumentRenderer } from '@/lib/documents/renderers/react-renderer';
 
 function adaptToModel(data: any, from: string, to: string): any {
   const rawLines = data.posted_lines || [];
   
-  // Build ledger with B/F and C/F
   const ledger: any[] = [];
+  let runningBalance = 0;
   
   // Opening B/F
-  const openingBal = rawLines.length > 0 ? (rawLines[0].balance || 0) - (rawLines[0].debit || 0) + (rawLines[0].credit || 0) : 0;
-  if (openingBal !== 0) {
-    ledger.push({ date: from, reference: 'B/F', description: 'Balance Brought Forward', debit: 0, credit: 0, balance: openingBal });
+  if (rawLines.length > 0) {
+    const firstLine = rawLines[0];
+    runningBalance = (firstLine.balance || 0) - (firstLine.debit || 0) + (firstLine.credit || 0);
+    if (runningBalance !== 0) {
+      ledger.push({ date: from, reference: 'B/F', description: 'Balance Brought Forward', debit: 0, credit: 0, vat: 0, balance: runningBalance });
+    }
   }
   
-  // All transactions
+  // All transactions — calculate VAT-inclusive running balance
   for (const l of rawLines) {
+    const debitExVat = l.debit || 0;
+    const vatAmount = Math.round(debitExVat * 0.15);
+    const debitInclVat = debitExVat + vatAmount;
+    
+    runningBalance = runningBalance + debitInclVat - (l.credit || 0);
+    
     ledger.push({
       date: l.date || '',
       reference: l.reference || '',
       description: l.description || '',
-      debit: l.debit || 0,
+      debit: debitExVat,
+      vat: debitExVat > 0 ? vatAmount : 0,
       credit: l.credit || 0,
-      balance: l.balance || 0,
+      balance: runningBalance,
     });
   }
   
-  // Closing C/F  
-  const closingBal = rawLines.length > 0 ? rawLines[rawLines.length - 1].balance || 0 : 0;
-  
+  const closingBal = runningBalance;
   const charges = rawLines.filter((l: any) => l.debit > 0);
   const payments = rawLines.filter((l: any) => l.credit > 0);
   const totalCharges = charges.reduce((s: number, l: any) => s + l.debit, 0);
@@ -45,8 +51,8 @@ function adaptToModel(data: any, from: string, to: string): any {
     branding: { watermark_enabled: false, show_powered_by: true },
     footer_message: 'This is a statement of account.',
     sections: [{ type: 'ledger', title: 'Transaction History', data: ledger }],
-    totals: { subtotal: 0, vat_total: 0, total: 0, payments_received: totalPayments, credits_applied: 0, balance_due: closingBal, opening_balance: openingBal, closing_balance: closingBal },
-    account_summary: { opening_balance: openingBal, current_charges: totalCharges, payments_received: totalPayments, credit_notes: 0, adjustments: 0, interest: 0, closing_balance: closingBal, amount_due: closingBal },
+    totals: { subtotal: totalCharges, vat_total: Math.round(totalCharges * 0.15), total: Math.round(totalCharges * 1.15), payments_received: totalPayments, credits_applied: 0, balance_due: closingBal, opening_balance: ledger[0]?.balance || 0, closing_balance: closingBal },
+    account_summary: { opening_balance: ledger[0]?.balance || 0, current_charges: totalCharges, payments_received: totalPayments, credit_notes: 0, adjustments: 0, interest: 0, closing_balance: closingBal, amount_due: closingBal },
     aging: [{ label: 'Current', amount: closingBal }, { label: '30 Days', amount: 0 }, { label: '60 Days', amount: 0 }, { label: '90 Days', amount: 0 }, { label: '120+ Days', amount: 0 }],
     contacts: { accounts_email: 'accounts@sandtonoffice.co.za', accounts_phone: '+27 11 234 5678', property_manager: 'John Doe' },
   };
@@ -74,7 +80,6 @@ export default function StatementView({ tenantId, entityId }: { tenantId: string
     setLoading(true);
     try {
       const result = await revenueApi.generateStatement({ entityId, tenantId, options: { includeBalanceBf: true, includeDeposit: true, includeProjected: false } });
-      console.log('Statement data:', result);
       setGeneratedDoc(adaptToModel(result, fromDate, toDate));
     } catch (err) { console.error(err); }
     setLoading(false);
@@ -115,7 +120,7 @@ export default function StatementView({ tenantId, entityId }: { tenantId: string
               <div className="flex justify-end mb-2">
                 <button onClick={() => setGeneratedDoc(null)} className="text-white/60 hover:text-white text-sm">Close ✕</button>
               </div>
-              <DocumentRenderer model={generatedDoc} onAction={(a) => handleDocumentAction(a as DocumentAction, { documentTitle: 'Statement of Account' })} />
+              <DocumentRenderer model={generatedDoc} onAction={(a) => { if (a === 'print') window.print(); }} />
             </div>
           </div>
         </>
