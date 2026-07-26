@@ -6,7 +6,7 @@ import { publish } from '@/lib/platform/events/event-bus';
 import { logger } from '@/lib/platform/events/logger.service';
 
 export const cashbookService = {
-  async confirmAllocation(transactionId: string, matchedInvoiceId: string, matchedTenantId?: string, matchedSupplierId?: string): Promise<{ success: boolean; message: string }> {
+  async confirmAllocation(transactionId: string, matchedInvoiceId: string | null, matchedTenantId?: string, matchedSupplierId?: string): Promise<{ success: boolean; message: string }> {
     // Update allocation — this is a business action, not accounting
     const { error } = await supabase
       .from('bank_transactions')

@@ -130,9 +130,9 @@ export default function ManualAllocationWorkspace() {
     setSaving(true);
     const tenantId = destination === 'tenant' ? selectedItem?.id : undefined;
     const supplierId = destination === 'supplier' ? selectedItem?.id : undefined;
-    const invoiceId = selectedInvoices.length === 1 ? selectedInvoices[0] : undefined;
+    const invoiceId: string | null = selectedInvoices.length === 1 ? selectedInvoices[0] : null;
     if (destination === 'tenant' || destination === 'supplier') {
-      await cashbookService.confirmAllocation(transactionId, invoiceId || '', tenantId, supplierId);
+      await cashbookService.confirmAllocation(transactionId, invoiceId, tenantId, supplierId);
     } else {
       await supabase.from('bank_transactions').update({ allocation_status: 'ready_to_post', queue: 'ready' }).eq('id', transactionId);
     }
