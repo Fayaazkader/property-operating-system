@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 
 export class BaseRepository<T = Record<string, any>> {
-  constructor(private table: string) {}
+  constructor(private readonly table: string) {}
 
   async findAll(orderBy = 'created_at', ascending = false): Promise<T[]> {
     const { data } = await supabase.from(this.table).select('*').order(orderBy, { ascending });

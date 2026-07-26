@@ -1,22 +1,5 @@
 import { BaseRepository } from '../shared/base-repository';
-
-export interface Property {
-  id: string;
-  property_code?: string;
-  property_name: string;
-  property_type?: string;
-  property_status?: string;
-  entity_id: string;
-  address_line_1?: string;
-  city?: string;
-  province?: string;
-  total_gla_sqm?: number;
-  number_of_units?: number;
-  owner_entity_id?: string;
-  managing_entity_id?: string;
-  created_at: string;
-  updated_at: string;
-}
+import type { Property } from './property-types';
 
 const base = new BaseRepository<Property>('properties');
 

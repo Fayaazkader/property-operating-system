@@ -1,6 +1,7 @@
 import { entityRepository } from './entity-repository';
 
-export interface EntityData {
+// Types imported from ./entity-types
+export type { EntityData, EntityStats, ArchiveIssue } from './entity-types';
   name: string;
   trading_name?: string;
   entity_code?: string;

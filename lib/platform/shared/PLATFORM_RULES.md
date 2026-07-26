@@ -56,3 +56,14 @@ Every business domain module follows:
 - Significant business events publish to the Event Bus
 - Events carry: correlationId, source, version, payload
 - Downstream services subscribe, never directly couple
+
+---
+
+## Rule 007 — Business Services Own Workflow
+
+No React component, API route, or server action may implement business workflow directly.
+
+All business workflow must execute through a Service:
+
+
+Services orchestrate. Repositories persist. UI presents.

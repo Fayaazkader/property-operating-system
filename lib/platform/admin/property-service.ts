@@ -1,6 +1,7 @@
 import { propertyRepository } from './property-repository';
 
-export interface PropertyData {
+// Types imported from ./property-types
+export type { PropertyData } from './property-types';
   property_name: string;
   property_code?: string;
   property_type?: string;
