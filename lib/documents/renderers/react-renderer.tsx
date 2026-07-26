@@ -121,15 +121,34 @@ export function DocumentRenderer({ model, onAction }: RenderProps) {
                 </thead>
                 <tbody>
                   {(section.data || []).map((line: any, j: number) => (
-                    <tr key={j} className="border-b border-neutral-100">
-                      <td className="py-1 text-neutral-500 font-normal">{line.date}</td>
-                      <td className="py-1 text-neutral-400 font-normal">{line.reference || '—'}</td>
-                      <td className="py-1 text-neutral-800 font-normal">{line.description}</td>
-                      <td className="py-1 text-right tabular-nums font-normal">{line.debit > 0 ? `R${line.debit.toLocaleString()}` : line.credit > 0 ? `(R${line.credit.toLocaleString()})` : ''}</td>
-                      <td className="py-1 text-right tabular-nums font-normal text-neutral-500">{line.debit > 0 && line.vat > 0 ? `R${line.vat.toLocaleString()}` : ''}</td>
-                      <td className="py-1 text-right tabular-nums font-normal">{line.debit > 0 ? `R${(line.debit + (line.vat || 0)).toLocaleString()}` : line.credit > 0 ? `(R${line.credit.toLocaleString()})` : ''}</td>
-                      <td className="py-1 text-right font-medium tabular-nums">R{line.balance.toLocaleString()}</td>
-                    </tr>
+                    line.type === 'period_header' ? (
+                      <tr key={j}><td colSpan={7} className="py-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-500 border-b-2 border-neutral-300 pt-4">{line.label}</td></tr>
+                    ) : line.type === 'bf' ? (
+                      <tr key={j} className="border-b border-neutral-200">
+                        <td className="py-1 text-neutral-500 font-normal text-xs">{line.date}</td>
+                        <td className="py-1 text-neutral-400 font-normal text-xs">B/F</td>
+                        <td className="py-1 text-neutral-500 font-normal text-xs">{line.description}</td>
+                        <td className="py-1 text-right"></td>
+                        <td className="py-1 text-right"></td>
+                        <td className="py-1 text-right"></td>
+                        <td className="py-1 text-right font-medium tabular-nums text-xs">R{line.balance.toLocaleString()}</td>
+                      </tr>
+                    ) : line.type === 'cf' ? (
+                      <tr key={j} className="border-t-2 border-neutral-300">
+                        <td colSpan={6} className="py-1.5 text-right text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">{line.label}</td>
+                        <td className="py-1.5 text-right font-bold tabular-nums text-xs">R{line.balance.toLocaleString()}</td>
+                      </tr>
+                    ) : (
+                      <tr key={j} className="border-b border-neutral-100">
+                        <td className="py-1 text-neutral-500 font-normal text-xs">{line.date}</td>
+                        <td className="py-1 text-neutral-400 font-normal text-xs">{line.reference || '—'}</td>
+                        <td className="py-1 text-neutral-800 font-normal text-xs">{line.description}</td>
+                        <td className="py-1 text-right tabular-nums font-normal text-xs">{line.debit > 0 ? `R${line.debit.toLocaleString()}` : line.credit > 0 ? `(R${line.credit.toLocaleString()})` : ''}</td>
+                        <td className="py-1 text-right tabular-nums font-normal text-xs text-neutral-500">{line.vat > 0 ? `R${line.vat.toLocaleString()}` : ''}</td>
+                        <td className="py-1 text-right tabular-nums font-normal text-xs">{line.debit > 0 ? `R${(line.debit + (line.vat || 0)).toLocaleString()}` : line.credit > 0 ? `(R${line.credit.toLocaleString()})` : ''}</td>
+                        <td className="py-1 text-right font-medium tabular-nums text-xs">R{line.balance.toLocaleString()}</td>
+                      </tr>
+                    )
                   ))}
                 </tbody>
               </table>
