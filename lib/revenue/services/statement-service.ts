@@ -1,6 +1,7 @@
 // lib/revenue/services/statement-service.ts
 // Statement business logic. Never calls Supabase directly.
 
+import { supabase } from '@/lib/supabase';
 import { statementData } from '../data/statement-data';
 import { configService } from './config-service';
 import { chargePreviewService } from './charge-preview-service';
@@ -60,11 +61,22 @@ export interface StatementOptions {
 
 export const statementService = {
   async generate(entityId: string, tenantId: string, options: StatementOptions = {}): Promise<StatementResult> {
-    const [invoiceConfig, statementConfig, tenantOverrides, ledger, tenant, lease] = await Promise.all([
+    // Get the latest clean data from statements_generated (saved during billing)
+    const { data: latestStatement } = await supabase
+      .from('statements_generated')
+      .select('statement_data')
+      .eq('entity_id', entityId)
+      .eq('tenant_id', tenantId)
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    const cleanData = latestStatement?.statement_data || {};
+
+    const [invoiceConfig, statementConfig, tenantOverrides, tenant, lease] = await Promise.all([
       configService.getInvoiceConfig(entityId),
       configService.getStatementConfig(entityId),
       configService.getTenantOverrides(entityId, tenantId),
-      statementData.getTenantLedger(entityId, tenantId),
       statementData.getTenantInfo(tenantId),
       statementData.getActiveLease(tenantId),
     ]);
@@ -80,31 +92,17 @@ export const statementService = {
     const headerMsg = options.customHeader || overrideMap['header_message'] || invoiceConfig?.header_message || '';
     const footerMsg = options.customFooter || overrideMap['footer_message'] || invoiceConfig?.footer_message || '';
 
-    // Build posted lines from ledger
-    const postedLines: StatementLine[] = [];
-    let runningBalance = 0;
-
-    if (includeBalanceBf && ledger.length > 0) {
-      const first = ledger[0];
-      const bf = first.running_balance - (first.debit_amount - first.credit_amount);
-      if (bf !== 0) {
-        postedLines.push({ date: '', description: 'Balance brought forward', reference: '', debit: bf > 0 ? bf : 0, credit: bf < 0 ? Math.abs(bf) : 0, balance: bf, section: 'posted' });
-        runningBalance = bf;
-      }
-    }
-
-    for (const entry of ledger) {
-      const debit = entry.debit_amount || 0;
-      const credit = entry.credit_amount || 0;
-      runningBalance = entry.running_balance;
-      postedLines.push({
-        date: entry.posted_at?.split('T')[0] || '',
-        description: entry.description || 'Transaction',
-        reference: entry.reference_id || '',
-        debit, credit, balance: runningBalance,
-        section: 'posted',
-      });
-    }
+    // Use clean posted_lines from statements_generated (saved during billing)
+    const postedLines: StatementLine[] = (cleanData.posted_lines || []).map((l: any) => ({
+      date: l.date || '',
+      description: l.description || '',
+      reference: l.reference || '',
+      debit: l.debit || 0,
+      credit: l.credit || 0,
+      balance: l.balance || 0,
+      section: 'posted' as const,
+    }));
+    const runningBalance = postedLines.length > 0 ? postedLines[postedLines.length - 1].balance : 0;
 
     // Projected charges
     let projectedCharges: ProjectedCharge[] | undefined;
