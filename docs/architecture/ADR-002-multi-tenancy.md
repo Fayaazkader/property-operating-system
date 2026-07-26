@@ -1,6 +1,8 @@
 # ADR-002: Multi-tenancy & Entity Boundaries
 
-**Status:** Adopted  
+**Owners:** AssetFlow Platform
+**Supersedes:** None
+**Superseded by:** None**Status:** Adopted  
 **Date:** 2026-07-26
 
 ## Decision

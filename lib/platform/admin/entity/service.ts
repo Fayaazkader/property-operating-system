@@ -1,36 +1,5 @@
-import { entityRepository } from './entity-repository';
-
-// Types imported from ./entity-types
-export type { EntityData, EntityStats, ArchiveIssue } from './entity-types';
-  name: string;
-  trading_name?: string;
-  entity_code?: string;
-  registration_number?: string;
-  vat_number?: string;
-  physical_address?: string;
-  postal_address?: string;
-  telephone?: string;
-  email?: string;
-  website?: string;
-  country?: string;
-  financial_year_start?: number;
-  accounting_mode?: string;
-  base_currency?: string;
-  is_active?: boolean;
-}
-
-export interface EntityStats {
-  properties: number;
-  tenants: number;
-  leases: number;
-  users: number;
-}
-
-export interface ArchiveIssue {
-  code: string;
-  count: number;
-  label: string;
-}
+import { entityRepository } from './repository';
+import type { EntityData, EntityStats, ArchiveIssue } from './types';
 
 export const entityService = {
   async list() {

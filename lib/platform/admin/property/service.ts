@@ -1,27 +1,9 @@
-import { propertyRepository } from './property-repository';
-
-// Types imported from ./property-types
-export type { PropertyData } from './property-types';
-  property_name: string;
-  property_code?: string;
-  property_type?: string;
-  entity_id: string;
-  address_line_1?: string;
-  address_line_2?: string;
-  suburb?: string;
-  city?: string;
-  province?: string;
-  country?: string;
-  postal_code?: string;
-  total_gla_sqm?: number;
-  number_of_units?: number;
-  owner_entity_id?: string;
-  managing_entity_id?: string;
-}
+import { propertyRepository } from './repository';
+import type { PropertyData } from './types';
 
 export const propertyService = {
   async list(entityId?: string) {
-    return propertyRepository.findAll(entityId);
+    return propertyRepository.findAll();
   },
 
   async get(id: string) {
