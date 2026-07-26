@@ -41,7 +41,7 @@ export const classificationEngine = {
     }
 
     // 5. Small debit amounts are typically bank charges
-    if (transaction.debit_amount > 0 && Math.abs(transaction.debit_amount || transaction.transaction_amount || 0) < 500) {
+    if ((transaction.debit_amount || 0) > 0 && Math.abs(transaction.debit_amount || transaction.transaction_amount || 0) < 500) {
       return { class: 'bank_charge', confidence: 60, reason: 'Small debit amount, likely bank charge' };
     }
 

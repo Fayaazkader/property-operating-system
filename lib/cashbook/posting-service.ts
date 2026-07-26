@@ -85,6 +85,7 @@ export const cashbookPostingService = {
       const { data: bankAccount } = await supabase.from('bank_accounts').select('entity_id').eq('id', txn.bank_account_id).single();
       
       // Post to engine
+      console.log('Posting event with entity_id:', bankAccount?.entity_id, txn);
       const result = await postingEngine.post({
         source_engine: 'cashbook',
         business_event: mapping.event,
