@@ -1,5 +1,5 @@
-import { BaseRepository } from '../shared/base-repository';
-import type { Entity } from './entity-types';
+import { BaseRepository } from '../../shared/base-repository';
+import type { Entity } from './types';
 
 const base = new BaseRepository<Entity>('entities');
 

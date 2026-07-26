@@ -1,5 +1,5 @@
-import { BaseRepository } from '../shared/base-repository';
-import type { Property } from './property-types';
+import { BaseRepository } from '../../shared/base-repository';
+import type { Property } from './types';
 
 const base = new BaseRepository<Property>('properties');
 
