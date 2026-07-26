@@ -31,7 +31,7 @@ export const premisesService = {
 
   async update(id: string, data: Partial<UnitData>) {
     // current_tenant_name is maintained by the lease service, never edited directly
-    delete data.current_tenant_name;
+    // current_tenant_name is on Unit, not UnitData — maintained by LeaseService
     await premisesRepository.update(id, data);
   },
 
