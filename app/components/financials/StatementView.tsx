@@ -15,33 +15,49 @@ function adaptToModel(data: any, from: string, to: string): any {
     const firstLine = rawLines[0];
     runningBalance = (firstLine.balance || 0) - (firstLine.debit || 0) + (firstLine.credit || 0);
     if (runningBalance !== 0) {
-      ledger.push({ date: from, reference: 'B/F', description: 'Balance Brought Forward', debit: 0, credit: 0, vat: 0, balance: runningBalance });
+      ledger.push({ date: from, reference: 'B/F', description: 'Balance Brought Forward', debit: 0, vat: 0, credit: 0, balance: runningBalance });
     }
   }
   
-  // All transactions — calculate VAT-inclusive running balance
   for (const l of rawLines) {
-    const debitExVat = l.debit || 0;
-    const vatAmount = Math.round(debitExVat * 0.15);
-    const debitInclVat = debitExVat + vatAmount;
+    const isCharge = l.debit > 0;
+    const isPayment = l.credit > 0;
     
-    runningBalance = runningBalance + debitInclVat - (l.credit || 0);
-    
-    ledger.push({
-      date: l.date || '',
-      reference: l.reference || '',
-      description: l.description || '',
-      debit: debitExVat,
-      vat: debitExVat > 0 ? vatAmount : 0,
-      credit: l.credit || 0,
-      balance: runningBalance,
-    });
+    if (isCharge) {
+      const debitExVat = l.debit;
+      const vatAmount = Math.round(debitExVat * 0.15);
+      const debitInclVat = debitExVat + vatAmount;
+      runningBalance += debitInclVat;
+      
+      ledger.push({
+        date: l.date || '',
+        reference: l.reference || '',
+        description: l.description || '',
+        debit: debitExVat,
+        vat: vatAmount,
+        credit: 0,
+        balance: runningBalance,
+      });
+    } else if (isPayment) {
+      runningBalance -= l.credit;
+      
+      ledger.push({
+        date: l.date || '',
+        reference: l.reference || '',
+        description: l.description || '',
+        debit: 0,
+        vat: 0,
+        credit: l.credit,
+        balance: runningBalance,
+      });
+    }
   }
   
   const closingBal = runningBalance;
   const charges = rawLines.filter((l: any) => l.debit > 0);
   const payments = rawLines.filter((l: any) => l.credit > 0);
-  const totalCharges = charges.reduce((s: number, l: any) => s + l.debit, 0);
+  const totalChargesExVat = charges.reduce((s: number, l: any) => s + l.debit, 0);
+  const totalVat = Math.round(totalChargesExVat * 0.15);
   const totalPayments = payments.reduce((s: number, l: any) => s + l.credit, 0);
 
   return {
@@ -51,8 +67,8 @@ function adaptToModel(data: any, from: string, to: string): any {
     branding: { watermark_enabled: false, show_powered_by: true },
     footer_message: 'This is a statement of account.',
     sections: [{ type: 'ledger', title: 'Transaction History', data: ledger }],
-    totals: { subtotal: totalCharges, vat_total: Math.round(totalCharges * 0.15), total: Math.round(totalCharges * 1.15), payments_received: totalPayments, credits_applied: 0, balance_due: closingBal, opening_balance: ledger[0]?.balance || 0, closing_balance: closingBal },
-    account_summary: { opening_balance: ledger[0]?.balance || 0, current_charges: totalCharges, payments_received: totalPayments, credit_notes: 0, adjustments: 0, interest: 0, closing_balance: closingBal, amount_due: closingBal },
+    totals: { subtotal: totalChargesExVat, vat_total: totalVat, total: totalChargesExVat + totalVat, payments_received: totalPayments, credits_applied: 0, balance_due: closingBal, opening_balance: ledger[0]?.balance || 0, closing_balance: closingBal },
+    account_summary: { opening_balance: ledger[0]?.balance || 0, current_charges: totalChargesExVat + totalVat, payments_received: totalPayments, credit_notes: 0, adjustments: 0, interest: 0, closing_balance: closingBal, amount_due: closingBal },
     aging: [{ label: 'Current', amount: closingBal }, { label: '30 Days', amount: 0 }, { label: '60 Days', amount: 0 }, { label: '90 Days', amount: 0 }, { label: '120+ Days', amount: 0 }],
     contacts: { accounts_email: 'accounts@sandtonoffice.co.za', accounts_phone: '+27 11 234 5678', property_manager: 'John Doe' },
   };
