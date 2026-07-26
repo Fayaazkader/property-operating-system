@@ -7,53 +7,71 @@ import { DocumentRenderer } from '@/lib/documents/renderers/react-renderer';
 function adaptToModel(data: any, from: string, to: string): any {
   const rawLines = data.posted_lines || [];
   
-  const ledger: any[] = [];
-  let runningBalance = 0;
-  
-  // Opening B/F
-  if (rawLines.length > 0) {
-    const firstLine = rawLines[0];
-    runningBalance = (firstLine.balance || 0) - (firstLine.debit || 0) + (firstLine.credit || 0);
-    if (runningBalance !== 0) {
-      ledger.push({ date: from, reference: 'B/F', description: 'Balance Brought Forward', debit: 0, vat: 0, credit: 0, balance: runningBalance });
-    }
-  }
+  // Group lines by statement period (month)
+  const periods: Record<string, any[]> = {};
   
   for (const l of rawLines) {
-    const isCharge = l.debit > 0;
-    const isPayment = l.credit > 0;
-    
-    if (isCharge) {
-      const debitExVat = l.debit;
-      const vatAmount = Math.round(debitExVat * 0.15);
-      const debitInclVat = debitExVat + vatAmount;
-      runningBalance += debitInclVat;
-      
-      ledger.push({
-        date: l.date || '',
-        reference: l.reference || '',
-        description: l.description || '',
-        debit: debitExVat,
-        vat: vatAmount,
-        credit: 0,
-        balance: runningBalance,
-      });
-    } else if (isPayment) {
-      runningBalance -= l.credit;
-      
-      ledger.push({
-        date: l.date || '',
-        reference: l.reference || '',
-        description: l.description || '',
-        debit: 0,
-        vat: 0,
-        credit: l.credit,
-        balance: runningBalance,
-      });
-    }
+    const date = l.date || '';
+    const monthKey = date.substring(0, 7); // "2026-08"
+    if (!periods[monthKey]) periods[monthKey] = [];
+    periods[monthKey].push(l);
   }
-  
-  const closingBal = runningBalance;
+
+  // Build structured ledger with period headers, B/F, C/F
+  const ledger: any[] = [];
+  let runningBalance = 0;
+  const sortedMonths = Object.keys(periods).sort();
+
+  for (const month of sortedMonths) {
+    const monthLines = periods[month];
+    const monthName = new Date(month + '-01').toLocaleString('default', { month: 'long', year: 'numeric' });
+    
+    // Period header
+    ledger.push({ type: 'period_header', label: monthName.toUpperCase() });
+    
+    // B/F for this period
+    ledger.push({ type: 'bf', date: month + '-01', description: 'Balance Brought Forward', balance: runningBalance });
+    
+    // Transactions
+    for (const l of monthLines) {
+      const isCharge = l.debit > 0;
+      const isPayment = l.credit > 0;
+      
+      if (isCharge) {
+        const debitExVat = l.debit;
+        const vatAmount = Math.round(debitExVat * 0.15);
+        runningBalance += debitExVat + vatAmount;
+        
+        ledger.push({
+          type: 'charge',
+          date: l.date,
+          reference: l.reference || 'INV',
+          description: l.description,
+          debit: debitExVat,
+          vat: vatAmount,
+          credit: 0,
+          balance: runningBalance,
+        });
+      } else if (isPayment) {
+        runningBalance -= l.credit;
+        
+        ledger.push({
+          type: 'payment',
+          date: l.date,
+          reference: l.reference || 'RCT',
+          description: l.description,
+          debit: 0,
+          vat: 0,
+          credit: l.credit,
+          balance: runningBalance,
+        });
+      }
+    }
+    
+    // C/F for this period
+    ledger.push({ type: 'cf', label: `${monthName} C/F`, balance: runningBalance });
+  }
+
   const charges = rawLines.filter((l: any) => l.debit > 0);
   const payments = rawLines.filter((l: any) => l.credit > 0);
   const totalChargesExVat = charges.reduce((s: number, l: any) => s + l.debit, 0);
@@ -67,9 +85,9 @@ function adaptToModel(data: any, from: string, to: string): any {
     branding: { watermark_enabled: false, show_powered_by: true },
     footer_message: 'This is a statement of account.',
     sections: [{ type: 'ledger', title: 'Transaction History', data: ledger }],
-    totals: { subtotal: totalChargesExVat, vat_total: totalVat, total: totalChargesExVat + totalVat, payments_received: totalPayments, credits_applied: 0, balance_due: closingBal, opening_balance: ledger[0]?.balance || 0, closing_balance: closingBal },
-    account_summary: { opening_balance: ledger[0]?.balance || 0, current_charges: totalChargesExVat + totalVat, payments_received: totalPayments, credit_notes: 0, adjustments: 0, interest: 0, closing_balance: closingBal, amount_due: closingBal },
-    aging: [{ label: 'Current', amount: closingBal }, { label: '30 Days', amount: 0 }, { label: '60 Days', amount: 0 }, { label: '90 Days', amount: 0 }, { label: '120+ Days', amount: 0 }],
+    totals: { subtotal: totalChargesExVat, vat_total: totalVat, total: totalChargesExVat + totalVat, payments_received: totalPayments, credits_applied: 0, balance_due: runningBalance, opening_balance: 0, closing_balance: runningBalance },
+    account_summary: { opening_balance: 0, current_charges: totalChargesExVat + totalVat, payments_received: totalPayments, credit_notes: 0, adjustments: 0, interest: 0, closing_balance: runningBalance, amount_due: runningBalance },
+    aging: [{ label: 'Current', amount: runningBalance }, { label: '30 Days', amount: 0 }, { label: '60 Days', amount: 0 }, { label: '90 Days', amount: 0 }, { label: '120+ Days', amount: 0 }],
     contacts: { accounts_email: 'accounts@sandtonoffice.co.za', accounts_phone: '+27 11 234 5678', property_manager: 'John Doe' },
   };
 }
