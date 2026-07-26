@@ -136,12 +136,6 @@ export const statementService = {
       company_vat_number: (invoiceConfig as any)?.company_vat_number,
     };
 
-    await statementData.saveStatement({
-      entityId, tenantId, data: result, version,
-      status: 'draft', generatedBy: options.generatedBy,
-      reason: options.reason,
-    });
-
     return result;
   },
 
