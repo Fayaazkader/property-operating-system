@@ -81,11 +81,14 @@ export const cashbookPostingService = {
         return { success: false, message: 'No posting rule for classification', newState: 'allocated' };
       }
 
+      // Get entity_id from bank account
+      const { data: bankAccount } = await supabase.from('bank_accounts').select('entity_id').eq('id', txn.bank_account_id).single();
+      
       // Post to engine
       const result = await postingEngine.post({
         source_engine: 'cashbook',
         business_event: mapping.event,
-        entity_id: txn.entity_id,
+        entity_id: bankAccount?.entity_id || txn.entity_id,
         amount: Math.abs(txn.transaction_amount),
         occurred_at: txn.transaction_date || new Date().toISOString(),
         effective_date: txn.transaction_date?.split('T')[0] || new Date().toISOString().split('T')[0],
