@@ -25,6 +25,7 @@ export const ratesRecoveryEngine = {
         new_monthly_rates: params.newMonthlyRates,
         monthly_increase: monthlyIncrease,
         recovery_basis: 'gla',
+        reason: params.reason || null,
         status: 'draft',
         generated_by: params.generatedBy,
       })
@@ -258,6 +259,7 @@ export const ratesRecoveryDocuments = {
     fileUrl: string;
     fileSizeBytes?: number;
     uploadedBy?: string;
+    tenantVisible?: boolean;
   }) {
     const { data, error } = await supabase
       .from('rates_recovery_documents')
@@ -268,6 +270,8 @@ export const ratesRecoveryDocuments = {
         file_url: params.fileUrl,
         file_size_bytes: params.fileSizeBytes,
         uploaded_by: params.uploadedBy,
+        tenant_visible: params.tenantVisible || false,
+        include_in_proof: params.tenantVisible || false,
       })
       .select('*')
       .single();

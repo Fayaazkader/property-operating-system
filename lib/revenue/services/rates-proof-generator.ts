@@ -56,7 +56,7 @@ export const ratesProofGenerator = {
       .select('*')
       .eq('run_id', allocation.run_id);
 
-    const documents = (runDocs || []).map(doc => ({
+    const documents = (runDocs || []).filter(d => d.tenant_visible || d.include_in_proof).map(doc => ({
       document_type: doc.document_type,
       file_name: doc.file_name,
       file_url: doc.file_url,
