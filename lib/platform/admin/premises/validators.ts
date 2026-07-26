@@ -39,3 +39,9 @@ export const premisesValidators = {
     return null;
   }
 };
+
+/*
+ * All validators are PURE FUNCTIONS.
+ * They receive all data as arguments, never perform I/O.
+ * This makes them independently testable without mocking.
+ */

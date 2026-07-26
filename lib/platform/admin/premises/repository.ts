@@ -20,12 +20,8 @@ export const premisesRepository = {
     return (data || []) as Unit[];
   },
 
-  async getTotalGLA(propertyId: string): Promise<number> {
-    const { data } = await supabase
-      .from('units')
-      .select('gla_sqm')
-      .eq('property_id', propertyId);
-    return (data || []).reduce((sum, u) => sum + (u.gla_sqm || 0), 0);
+  async getTotalGLA(units?: Unit[]): Promise<number> {
+    return (units || []).reduce((sum, u) => sum + (u.gla_sqm || 0), 0);
   },
 
   async getPropertyGLA(propertyId: string): Promise<number> {

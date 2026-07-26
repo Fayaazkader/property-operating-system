@@ -15,7 +15,7 @@ export const premisesService = {
   async create(data: UnitData) {
     const existingUnits = await premisesRepository.findByProperty(data.property_id);
     const propertyGLA = await premisesRepository.getPropertyGLA(data.property_id);
-    const existingGLA = await premisesRepository.getTotalGLA(data.property_id);
+    const existingGLA = await premisesRepository.getTotalGLA(existingUnits);
 
     const errors = premisesValidators.validateAll(data, propertyGLA, existingGLA, existingUnits);
     if (errors.length > 0) throw new Error(errors.join('; '));

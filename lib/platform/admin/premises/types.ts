@@ -48,3 +48,15 @@ export interface ArchiveIssue {
  * DO NOT edit directly. Maintained by LeaseService on activation/termination.
  * DO NOT allow imports to overwrite. UI must never expose an edit field.
  */
+
+/*
+ * LIFECYCLE OWNERSHIP:
+ * current_lease_id, current_tenant_name, and occupancy_status
+ * are owned exclusively by LeaseService.
+ * 
+ * LeaseService updates these on:
+ *   - lease_activated   → sets tenant, marks Occupied
+ *   - lease_terminated  → clears tenant, marks Vacant
+ * 
+ * No other service, UI, or import may modify these fields.
+ */
