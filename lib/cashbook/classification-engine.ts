@@ -46,7 +46,7 @@ export const classificationEngine = {
     }
 
     // 6. Small credit amounts are typically interest
-    if ((transaction.credit_amount || 0) > 0 || (transaction.transaction_amount || 0) > 0 && transaction.amount < 100) {
+    if ((transaction.credit_amount || 0) > 0 || (transaction.transaction_amount || 0) > 0 && (transaction.transaction_amount || transaction.credit_amount || 0) < 100) {
       return { class: 'interest_earned', confidence: 50, reason: 'Small credit amount, likely interest' };
     }
 
