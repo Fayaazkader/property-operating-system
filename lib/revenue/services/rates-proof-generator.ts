@@ -8,6 +8,7 @@ export interface TenantProofData {
   shop_number: string;
   property_name: string;
   effective_date: string;
+  municipality_name?: string;
   previous_monthly_rates: number;
   new_monthly_rates: number;
   monthly_increase: number;
@@ -68,6 +69,7 @@ export const ratesProofGenerator = {
       shop_number: allocation.shop_number || 'N/A',
       property_name: (run as any).properties?.property_name || 'Unknown',
       effective_date: run.effective_date,
+      municipality_name: run.municipality_name || undefined,
       previous_monthly_rates: run.previous_monthly_rates,
       new_monthly_rates: run.new_monthly_rates,
       monthly_increase: run.monthly_increase,

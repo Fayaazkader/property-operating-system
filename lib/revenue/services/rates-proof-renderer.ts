@@ -24,7 +24,7 @@ export function renderProofHTML(proof: TenantProofData): string {
 
 <h1>Rates &amp; Taxes Recovery — ${proof.property_name}</h1>
 <p><strong>Tenant:</strong> ${proof.tenant_name} &nbsp;|&nbsp; <strong>Shop:</strong> ${proof.shop_number}</p>
-<p><strong>Effective:</strong> ${proof.effective_date}</p>
+<p><strong>Municipality:</strong> ${proof.municipality_name || 'N/A'} &nbsp;|&nbsp; <strong>Effective:</strong> ${proof.effective_date}</p>
 
 <h2>Municipal Rates Change</h2>
 <table>

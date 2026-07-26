@@ -12,6 +12,8 @@ export const ratesRecoveryEngine = {
     previousMonthlyRates: number;
     newMonthlyRates: number;
     generatedBy?: string;
+    reason?: string;
+    municipalityName?: string;
   }) {
     const monthlyIncrease = params.newMonthlyRates - params.previousMonthlyRates;
 
@@ -26,6 +28,7 @@ export const ratesRecoveryEngine = {
         monthly_increase: monthlyIncrease,
         recovery_basis: 'gla',
         reason: params.reason || null,
+        municipality_name: params.municipalityName || null,
         status: 'draft',
         generated_by: params.generatedBy,
       })
@@ -305,5 +308,45 @@ export const ratesRecoveryDocuments = {
     await supabase
       .from('rates_recovery_document_links')
       .upsert({ allocation_id: allocationId, document_id: documentId }, { onConflict: 'allocation_id,document_id' });
+  }
+};
+
+// Snippet methods
+export const ratesRecoverySnippets = {
+  async addSnippet(params: {
+    documentId: string;
+    label: string;
+    snippetUrl: string;
+    bounds?: any;
+    createdBy?: string;
+  }) {
+    const { data, error } = await supabase
+      .from('rates_recovery_document_snippets')
+      .insert({
+        document_id: params.documentId,
+        label: params.label,
+        snippet_url: params.snippetUrl,
+        bounds: params.bounds,
+        created_by: params.createdBy,
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getSnippets(documentId: string) {
+    const { data } = await supabase
+      .from('rates_recovery_document_snippets')
+      .select('*')
+      .eq('document_id', documentId)
+      .order('created_at', { ascending: true });
+
+    return data || [];
+  },
+
+  async deleteSnippet(snippetId: string) {
+    await supabase.from('rates_recovery_document_snippets').delete().eq('id', snippetId);
   }
 };
