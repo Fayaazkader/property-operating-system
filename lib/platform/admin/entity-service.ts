@@ -52,10 +52,10 @@ export const entityService = {
 
   async getStats(entityId: string): Promise<EntityStats> {
     const [properties, tenants, leases, users] = await Promise.all([
-      entityRepository.countRelated(entityId, 'properties'),
-      entityRepository.countRelated(entityId, 'tenants'),
-      entityRepository.countRelated(entityId, 'leases'),
-      entityRepository.countRelated(entityId, 'user_entity_access'),
+      entityRepository.countRelated('properties', 'entity_id', entityId),
+      entityRepository.countRelated('tenants', 'entity_id', entityId),
+      entityRepository.countRelated('leases', 'entity_id', entityId),
+      entityRepository.countRelated('user_entity_access', 'entity_id', entityId),
     ]);
     return { properties, tenants, leases, users };
   },
@@ -63,19 +63,19 @@ export const entityService = {
   async canArchive(entityId: string): Promise<{ canArchive: boolean; issues: ArchiveIssue[] }> {
     const issues: ArchiveIssue[] = [];
 
-    const activeLeases = await entityRepository.countRelated(entityId, 'leases', { lease_status: 'Active' });
+    const activeLeases = await entityRepository.countRelated('leases', 'entity_id', entityId, { lease_status: 'Active' });
     if (activeLeases > 0) issues.push({ code: 'ACTIVE_LEASES', count: activeLeases, label: 'Active Leases' });
 
-    const openPeriods = await entityRepository.countRelated(entityId, 'financial_periods', { status: 'open' });
+    const openPeriods = await entityRepository.countRelated('financial_periods', 'entity_id', entityId, { status: 'open' });
     if (openPeriods > 0) issues.push({ code: 'OPEN_FINANCIAL_PERIODS', count: openPeriods, label: 'Open Financial Periods' });
 
-    const unreconciled = await entityRepository.countRelated(entityId, 'bank_transactions', { is_reconciled: false });
+    const unreconciled = await entityRepository.countRelated('bank_transactions', 'entity_id', entityId, { is_reconciled: false });
     if (unreconciled > 0) issues.push({ code: 'UNRECONCILED_TRANSACTIONS', count: unreconciled, label: 'Unreconciled Bank Transactions' });
 
-    const openInvoices = await entityRepository.countRelated(entityId, 'supplier_invoices', { status: 'pending' });
+    const openInvoices = await entityRepository.countRelated('supplier_invoices', 'entity_id', entityId, { status: 'pending' });
     if (openInvoices > 0) issues.push({ code: 'OPEN_SUPPLIER_INVOICES', count: openInvoices, label: 'Open Supplier Invoices' });
 
-    const activeRules = await entityRepository.countRelated(entityId, 'billing_rules', { status: 'active' });
+    const activeRules = await entityRepository.countRelated('billing_rules', 'entity_id', entityId, { status: 'active' });
     if (activeRules > 0) issues.push({ code: 'ACTIVE_BILLING_RULES', count: activeRules, label: 'Active Billing Rules' });
 
     return { canArchive: issues.length === 0, issues };

@@ -1,29 +1,31 @@
 import { supabase } from '@/lib/supabase';
 
-export const entityRepository = {
-  async findAll() {
-    const { data } = await supabase.from('entities').select('*').order('created_at', { ascending: false });
+export const propertyRepository = {
+  async findAll(entityId?: string) {
+    let query = supabase.from('properties').select('*').order('property_name');
+    if (entityId) query = query.eq('entity_id', entityId);
+    const { data } = await query;
     return data || [];
   },
 
   async findById(id: string) {
-    const { data } = await supabase.from('entities').select('*').eq('id', id).single();
+    const { data } = await supabase.from('properties').select('*').eq('id', id).single();
     return data;
   },
 
   async create(data: Record<string, any>) {
-    const { data: entity, error } = await supabase.from('entities').insert(data).select('*').single();
+    const { data: property, error } = await supabase.from('properties').insert(data).select('*').single();
     if (error) throw error;
-    return entity;
+    return property;
   },
 
   async update(id: string, data: Record<string, any>) {
-    const { error } = await supabase.from('entities').update(data).eq('id', id);
+    const { error } = await supabase.from('properties').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id);
     if (error) throw error;
   },
 
   async archive(id: string) {
-    await supabase.from('entities').update({ is_archived: true, is_active: false, updated_at: new Date().toISOString() }).eq('id', id);
+    await supabase.from('properties').update({ property_status: 'Archived', updated_at: new Date().toISOString() }).eq('id', id);
   },
 
   async countRelated(table: string, foreignKey: string, id: string, filters?: Record<string, any>) {
