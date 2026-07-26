@@ -76,7 +76,9 @@ export default function LoginPage() {
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
-      </div>
+        <p className="mt-6 text-center text-sm text-zinc-600">
+          New to AssetFlow? <a href="/signup" className="text-white hover:text-zinc-300 transition-colors">Create a workspace</a>
+        </p>      </div>
     </div>
   );
 }
