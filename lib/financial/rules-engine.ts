@@ -57,7 +57,7 @@ export class FinancialRulesEngine {
       .eq('entity_id', entityId)
       .eq('period_type', 'financial')
       .eq('status', 'open')
-      .order('start_date')
+      .order('period_start')
       .limit(1)
       .single();
 

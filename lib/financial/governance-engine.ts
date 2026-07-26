@@ -114,7 +114,7 @@ export class FinancialGovernanceEngine {
   }
 
   private async getCurrentPeriodId(entityId: string): Promise<string | null> {
-    const { data } = await supabase.from('financial_periods').select('id').eq('entity_id', entityId).eq('period_type', 'financial').eq('status', 'open').order('start_date').limit(1).single();
+    const { data } = await supabase.from('financial_periods').select('id').eq('entity_id', entityId).eq('period_type', 'financial').eq('status', 'open').order('period_start').limit(1).single();
     return data?.id || null;
   }
 }
