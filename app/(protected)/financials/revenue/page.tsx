@@ -262,10 +262,6 @@ export default function RevenueOperationsPage() {
                 <div className="flex text-xs"><span className="flex-1 text-zinc-500">VAT</span><span className="w-24 text-right text-zinc-300 tabular-nums">R{selectedTenantDetail.charges.reduce((s: number, c: any) => s + c.vatAmount, 0).toLocaleString()}</span></div>
                 <div className="flex text-sm font-medium pt-1 border-t border-white/[0.06]"><span className="flex-1 text-white">Total (Incl VAT)</span><span className="w-24 text-right text-white tabular-nums">R{selectedTenantDetail.total.toLocaleString()}</span></div>
               </div>
-                <div className="pt-3 border-t border-white/[0.06] space-y-1">
-                <div className="flex text-xs"><span className="flex-1 text-zinc-500">Subtotal (Ex VAT)</span><span className="w-24 text-right text-zinc-300 tabular-nums">R{selectedTenantDetail.charges.reduce((s: number, c: any) => s + c.amount, 0).toLocaleString()}</span></div>
-                <div className="flex text-xs"><span className="flex-1 text-zinc-500">VAT</span><span className="w-24 text-right text-zinc-300 tabular-nums">R{selectedTenantDetail.charges.reduce((s: number, c: any) => s + c.vatAmount, 0).toLocaleString()}</span></div>
-                <div className="flex text-sm font-medium pt-1 border-t border-white/[0.06]"><span className="flex-1 text-white">Total (Incl VAT)</span><span className="w-24 text-right text-white tabular-nums">R{selectedTenantDetail.total.toLocaleString()}</span></div>
               </div>
             </div>
           </div>
