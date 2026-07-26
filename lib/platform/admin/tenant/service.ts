@@ -19,7 +19,7 @@ export const tenantService = {
 
     return tenantRepository.create({
       ...data,
-      code: await codeGenerator.generate('TNT', 'tenants'),
+      code: await codeGenerator.generate('TNT'),
       tenant_type: data.tenant_type || 'Company',
       payment_terms: data.payment_terms || 'Net 30',
       kyc_status: data.kyc_status || 'Pending',
