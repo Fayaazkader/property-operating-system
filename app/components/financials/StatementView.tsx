@@ -61,7 +61,7 @@ function adaptToModel(data: any, from: string, to: string): any {
   const totalPayments = payments.reduce((s: number, l: any) => s + l.credit, 0);
 
   return {
-    metadata: { document_type: 'statement', document_number: `STMT-${Date.now()}`, issue_date: to, billing_period: `${from} — ${to}`, currency: 'ZAR', version: data.version || 1, status: data.status || 'draft', generated_at: data.generated_at || '' },
+    metadata: { document_type: 'statement', document_number: `STMT-${Date.now()}`, issue_date: from, billing_period: `${from} — ${to}`, currency: 'ZAR', version: data.version || 1, status: data.status || 'draft', generated_at: data.generated_at || '' },
     company: { name: data.company_name || 'Sandton Office Holdings', registration_number: '2021/123456/07', vat_number: data.company_vat_number || '4567891234', physical_address: '1 Alice Lane, Sandton, 2196', telephone: '+27 11 234 5678', email: 'accounts@sandtonoffice.co.za' },
     customer: { name: data.tenant_name || 'Tenant', code: 'TNT-001', account_number: 'ACC-00001', property_name: data.property_name || 'Alice Lane Towers', lease_ref: data.lease_ref || 'L-001' },
     branding: { watermark_enabled: false, show_powered_by: true },
