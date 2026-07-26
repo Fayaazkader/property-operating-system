@@ -76,7 +76,7 @@ export default function SignupPage() {
 
       // Step 6: Sign in and redirect
       setProvisionStep('Welcome to AssetFlow...');
-      setTimeout(() => router.push('/'), 1000);
+      setTimeout(() => router.push('/welcome'), 1000);
     } catch (err: any) {
       setProvisioning(false);
       setError(err.message || 'Something went wrong. Please try again or contact support.');

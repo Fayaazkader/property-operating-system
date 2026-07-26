@@ -9,7 +9,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const isFullPage = pathname === '/login' || 
-                   pathname === '/signup' || 
+                   pathname === '/signup' || pathname === '/welcome' || pathname === '/welcome' || 
                    pathname === '/landing' ||
                    pathname === '/about' ||
                    pathname === '/security' ||
