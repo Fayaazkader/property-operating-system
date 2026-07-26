@@ -146,12 +146,12 @@ export default function RevenueOperationsPage() {
             tenant_id: t.tenantId,
             statement_data: {
               tenant_name: t.tenantName,
-              property_name: t.property_name,
-              lease_ref: t.leaseRef,
+              property_name: t.property_name || '',
+              lease_ref: t.leaseRef || '',
               statement_date: currentPeriod,
               posted_lines: t.charges.map((c: any) => ({
                 date: new Date().toISOString().split('T')[0],
-                description: c.description,
+                description: `${c.description} (${c.source})`,
                 debit: c.amount,
                 credit: 0,
                 balance: c.total,
