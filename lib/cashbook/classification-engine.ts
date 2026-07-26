@@ -21,7 +21,7 @@ export const classificationEngine = {
     matched_supplier_id?: string;
   }): Promise<ClassificationResult> {
     // 1. If matched to a tenant invoice → tenant receipt
-    if (transaction.matched_tenant_id && transaction.matched_invoice_id) {
+    if (transaction.matched_tenant_id) {
       return { class: 'tenant_receipt', confidence: 95, reason: 'Matched to tenant invoice' };
     }
 
@@ -31,22 +31,22 @@ export const classificationEngine = {
     }
 
     // 3. If amount is positive (credit) and has tenant match → receipt
-    if (transaction.amount > 0 && transaction.matched_tenant_id) {
+    if (transaction.credit_amount > 0 || transaction.transaction_amount > 0 && transaction.matched_tenant_id) {
       return { class: 'tenant_receipt', confidence: 80, reason: 'Positive amount with tenant match' };
     }
 
     // 4. If amount is negative (debit) and has supplier match → payment
-    if (transaction.amount < 0 && transaction.matched_supplier_id) {
+    if (transaction.debit_amount > 0 && transaction.matched_supplier_id) {
       return { class: 'supplier_payment', confidence: 80, reason: 'Negative amount with supplier match' };
     }
 
     // 5. Small debit amounts are typically bank charges
-    if (transaction.amount < 0 && Math.abs(transaction.amount) < 500) {
+    if (transaction.debit_amount > 0 && Math.abs(transaction.debit_amount || transaction.transaction_amount || 0) < 500) {
       return { class: 'bank_charge', confidence: 60, reason: 'Small debit amount, likely bank charge' };
     }
 
     // 6. Small credit amounts are typically interest
-    if (transaction.amount > 0 && transaction.amount < 100) {
+    if (transaction.credit_amount > 0 || transaction.transaction_amount > 0 && transaction.amount < 100) {
       return { class: 'interest_earned', confidence: 50, reason: 'Small credit amount, likely interest' };
     }
 
