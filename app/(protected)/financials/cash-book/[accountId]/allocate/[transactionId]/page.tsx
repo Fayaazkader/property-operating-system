@@ -218,7 +218,7 @@ export default function ManualAllocationWorkspace() {
           {isOverpayment && (<div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-400">Overpayment of R{Math.abs(remaining).toLocaleString()} — this will create a {destination === 'tenant' ? 'tenant' : 'supplier'} credit.</div>)}
           {isPartial && !isOverpayment && (<p className="text-xs text-zinc-500 mt-2">Partial payment — R{remaining.toLocaleString()} will remain outstanding.</p>)}
           {isReallocation && (<div className="mt-3"><input value={reallocationReason} onChange={(e) => setReallocationReason(e.target.value)} placeholder="Reason for reallocation..." className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /></div>)}
-          <button onClick={handleSave} disabled={saving || !selectedItem || (destination === 'tenant' || destination === 'supplier' ? selectedInvoices.length === 0 : !selectedGl)} className="mt-4 w-full rounded-lg bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40">{saving ? 'Saving...' : isReallocation ? 'Confirm Reallocation' : 'Confirm Allocation'}</button>
+          <button onClick={handleSave} disabled={saving || !selectedItem} className="mt-4 w-full rounded-lg bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40">{saving ? 'Saving...' : isReallocation ? 'Confirm Reallocation' : 'Confirm Allocation'}</button>
         </div>
       )}
     </div>
