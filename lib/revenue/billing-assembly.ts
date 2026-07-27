@@ -102,8 +102,9 @@ export const billingAssembly = {
 // If invoice generation evolves to produce multiple journal types or reversible journals,
 // consider a dedicated billing_run table as the source of truth.
     const { data: existingJournals } = await supabase.from('journals')
-      .select('id').eq('entity_id', entityId).eq('period_id', periodId)
-      .eq('source_event', 'rental_invoice_raised').limit(1);
+  .select('id').eq('entity_id', entityId)
+  .eq('source_event', 'rental_invoice_raised')
+  .like('source_id', `%${period.period_name}%`).limit(1);
 
     if (existingJournals && existingJournals.length > 0) {
       return { property_name: '', tenants: [], totalCharges: 0, readyCount: 0, warningCount: 0, status: 'already_billed', blockingReason: 'Invoices already exist for this period' };
