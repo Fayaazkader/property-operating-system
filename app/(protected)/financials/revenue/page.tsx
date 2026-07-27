@@ -19,6 +19,7 @@ export default function RevenueOperationsPage() {
   const [stmtPeriodId, setStmtPeriodId] = useState('');
   const [finPeriodId, setFinPeriodId] = useState('');
   const [periodStatus, setPeriodStatus] = useState('');
+  const [worksheetStatus, setWorksheetStatus] = useState('');
   const [finPeriodStatus, setFinPeriodStatus] = useState('');
   const [activeTenancies, setActiveTenancies] = useState(0);
   const [expectedRevenue, setExpectedRevenue] = useState(0);
@@ -101,6 +102,7 @@ export default function RevenueOperationsPage() {
       if (tenantId) tenants = tenants.filter(t => t.tenantId === tenantId);
       setBillingTenants(tenants);
     if (worksheet.status !== 'ready' && worksheet.blockingReason) {
+      setWorksheetStatus(worksheet.status);
       setAttentionItems([{ type: 'blocked', count: 1, label: worksheet.blockingReason, action: '' }]);
     }
     } catch (err) { console.error(err); }
