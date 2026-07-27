@@ -336,7 +336,7 @@ export default function RevenueOperationsPage() {
       {/* HISTORY */}
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5">
         <div className="flex items-center justify-between mb-3"><p className="text-[10px] uppercase tracking-wider text-zinc-600">Billing History</p><button onClick={() => setShowSnapshots(true)} className="text-xs text-zinc-500 hover:text-white">View All →</button></div>
-        {snapshots.length === 0 ? <p className="text-xs text-zinc-500">No billing runs yet.</p> : snapshots.slice(0, 3).map(s => (<div key={s.id} className="flex items-center justify-between py-2 border-b border-white/[0.03] last:border-0 text-xs"><span className="text-white font-light">{s.period}</span><span className="text-zinc-500">{new Date(s.generated_at).toLocaleString()}</span><span className="text-zinc-500">{s.tenant_count} tenants · {s.invoices_generated} invoices</span></div>))}
+        {snapshots.length === 0 ? <p className="text-xs text-zinc-500">No billing runs yet.</p> : snapshots.slice(0, 3).map(s => (<div key={s.id} className="flex items-center justify-between py-2 border-b border-white/[0.03] last:border-0 text-xs hover:bg-white/[0.02] cursor-pointer px-2 -mx-2 rounded"><div onClick={() => { /* TODO: navigate to invoice view */ }}><span className="text-white font-light">{s.period}</span><span className="text-zinc-500 ml-3">{new Date(s.generated_at).toLocaleString()}</span><span className="text-zinc-500 ml-3">{s.tenant_count} tenants · {s.invoices_generated} invoices</span></div><button onClick={() => { /* TODO: open detail */ }} className="text-[10px] text-zinc-500 hover:text-white border border-white/[0.08] rounded px-2 py-0.5">View</button></div>))}
       </div>
 
       {/* MANUAL CHARGE MODAL */}
