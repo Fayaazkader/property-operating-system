@@ -189,7 +189,7 @@ export default function RevenueOperationsPage() {
         delivered++;
       } catch (err) { console.error('Send failed', t.tenantName, err); failed++; }
     }
-    try { await billingAssembly.saveSnapshot({ entity_id: entityId, period: currentPeriod, property_id: searchType === 'property' ? selectedSearchId : '', property_name: billingTenants[0]?.property_name || '', tenant_count: ready.length, invoices_generated: delivered, statements_generated: delivered, emails_delivered: delivered, whatsapp_delivered: Math.floor(delivered * 0.8), failed }); } catch (e) { console.error('Snapshot save failed:', e); }
+    try { await billingAssembly.saveSnapshot({ entity_id: entityId, period: currentPeriod, property_id: searchType === 'property' ? selectedSearchId : null, property_name: billingTenants[0]?.property_name || '', tenant_count: ready.length, invoices_generated: delivered, statements_generated: delivered, emails_delivered: delivered, whatsapp_delivered: Math.floor(delivered * 0.8), failed }); } catch (e) { console.error('Snapshot save failed:', e); }
     setSendResult({ delivered, failed, total: ready.length });
     setSending(false);
     setLastBilling(new Date().toLocaleString());
