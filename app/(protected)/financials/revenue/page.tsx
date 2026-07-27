@@ -141,6 +141,7 @@ export default function RevenueOperationsPage() {
   async function handleSendBilling() {
         setSending(true);
     const ready = billingTenants.filter(t => t.ready);
+    const isResend = worksheet?.status === 'already_billed';
     setSendProgress({ current: 0, total: ready.length, stage: 'Generating invoices...' });
     let delivered = 0, failed = 0;
     for (let i = 0; i < ready.length; i++) {
@@ -149,7 +150,9 @@ export default function RevenueOperationsPage() {
         setSendProgress({ current: i + 1, total: ready.length, stage: 'Generating invoices...' });
         const leaseAmount = t.charges.filter(c => c.source === 'lease').reduce((s, c) => s + c.amount, 0);
         if (leaseAmount > 0) {
+          if (!isResend) {
           await postingEngine.post({ source_engine: 'revenue', business_event: 'rental_invoice_raised', entity_id: entityId, amount: leaseAmount, period_id: finPeriodId, occurred_at: new Date().toISOString(), effective_date: periodStartDate || new Date().toISOString().split('T')[0], dimensions: { tenant_id: t.tenantId, lease_id: t.leaseId }, metadata: { source_id: `INV-${currentPeriod}-${t.tenantName}`, created_by: 'system' } });
+          }
           // Save to statements_generated so tenant can view invoice
           try {
             await supabase.from('statements_generated').insert({
