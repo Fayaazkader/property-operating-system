@@ -94,10 +94,13 @@ export default function RevenueOperationsPage() {
   async function loadPreview(propId?: string, tenantId?: string) {
     setPreviewLoading(true);
     try {
-      const worksheet = await billingAssembly.assembleWorksheet(entityId, propId || undefined);
+      const worksheet = await billingAssembly.assembleWorksheet(entityId, propId || null, finPeriodId);
       let tenants = worksheet.tenants;
       if (tenantId) tenants = tenants.filter(t => t.tenantId === tenantId);
       setBillingTenants(tenants);
+    if (worksheet.status !== 'ready' && worksheet.blockingReason) {
+      setAttentionItems([{ type: 'blocked', count: 1, label: worksheet.blockingReason, action: '' }]);
+    }
     } catch (err) { console.error(err); }
     setPreviewLoading(false);
   }
