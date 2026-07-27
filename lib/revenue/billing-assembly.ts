@@ -98,17 +98,6 @@ export const billingAssembly = {
       return { property_name: '', tenants: [], totalCharges: 0, readyCount: 0, warningCount: 0, status: 'period_closed', blockingReason: `Period ${period.period_name} is ${period.status}` };
     }
 
-    // Check if already billed — uses journals as canonical billing record.
-// If invoice generation evolves to produce multiple journal types or reversible journals,
-// consider a dedicated billing_run table as the source of truth.
-    const { data: existingJournals } = await supabase.from('journals')
-  .select('id').eq('entity_id', entityId)
-  .eq('source_event', 'rental_invoice_raised')
-  .like('source_id', `%${period.period_name}%`).limit(1);
-
-    if (existingJournals && existingJournals.length > 0) {
-      return { property_name: '', tenants: [], totalCharges: 0, readyCount: 0, warningCount: 0, status: 'already_billed', blockingReason: 'Invoices already exist for this period' };
-    }
 
     // Fetch active leases
     let query = supabase.from('leases')
@@ -241,12 +230,21 @@ export const billingAssembly = {
       });
     }
 
+        // Check if already billed
+    const { data: existingJournals } = await supabase.from('journals')
+      .select('id').eq('entity_id', entityId)
+      .eq('source_event', 'rental_invoice_raised')
+      .like('source_id', `%${period.period_name}%`).limit(1);
+
+    const isAlreadyBilled = existingJournals && existingJournals.length > 0;
+
     return {
       property_name: propertyName, tenants,
       totalCharges: tenants.reduce((s, t) => s + t.total, 0),
       readyCount: tenants.filter(t => t.ready).length,
       warningCount: tenants.filter(t => !t.ready).length,
-      status: 'ready',
+      status: isAlreadyBilled ? 'already_billed' : 'ready',
+      blockingReason: isAlreadyBilled ? 'Invoices already exist for this period. Resend to regenerate.' : undefined,
     };
   },
 
