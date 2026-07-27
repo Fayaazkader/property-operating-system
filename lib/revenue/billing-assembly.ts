@@ -98,7 +98,9 @@ export const billingAssembly = {
       return { property_name: '', tenants: [], totalCharges: 0, readyCount: 0, warningCount: 0, status: 'period_closed', blockingReason: `Period ${period.period_name} is ${period.status}` };
     }
 
-    // Check if already billed — check for existing journals in this period for this entity
+    // Check if already billed — uses journals as canonical billing record.
+// If invoice generation evolves to produce multiple journal types or reversible journals,
+// consider a dedicated billing_run table as the source of truth.
     const { data: existingJournals } = await supabase.from('journals')
       .select('id').eq('entity_id', entityId).eq('period_id', periodId)
       .eq('source_event', 'rental_invoice_raised').limit(1);
