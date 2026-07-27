@@ -16,6 +16,7 @@ export default function RevenueOperationsPage() {
   const [entityId, setEntityId] = useState('');
   const [currentPeriod, setCurrentPeriod] = useState('');
   const [periodStartDate, setPeriodStartDate] = useState('');
+  const [stmtPeriodId, setStmtPeriodId] = useState('');
   const [finPeriodId, setFinPeriodId] = useState('');
   const [periodStatus, setPeriodStatus] = useState('');
   const [finPeriodStatus, setFinPeriodStatus] = useState('');
@@ -58,6 +59,7 @@ export default function RevenueOperationsPage() {
   const [docTenantSearch, setDocTenantSearch] = useState('');
   const [docTenantResults, setDocTenantResults] = useState<any[]>([]);
   const [docTenantId, setDocTenantId] = useState('');
+  
 
   useEffect(() => {
     async function init() {
@@ -68,7 +70,7 @@ export default function RevenueOperationsPage() {
       const eid = entities[0];
       setEntityId(eid);
       const { data: period } = await supabase.from('financial_periods').select('id, period_name, status, period_start').eq('entity_id', eid).eq('period_type', 'statement').eq('status', 'open').order('period_start').limit(1).single();
-      if (period) { setCurrentPeriod(period.period_name); setPeriodStatus(period.status); setPeriodStartDate(period.period_start); }
+      if (period) { setCurrentPeriod(period.period_name); setPeriodStatus(period.status); setPeriodStartDate(period.period_start); setStmtPeriodId(period.id); }
       const { data: finPeriod } = await supabase.from('financial_periods').select('id, status').eq('entity_id', eid).eq('period_type', 'financial').eq('status', 'open').order('period_start').limit(1).single();
       if (finPeriod) { setFinPeriodId(finPeriod.id); setFinPeriodStatus(finPeriod.status); }
       const { data: props } = await supabase.from('properties').select('id, property_name').eq('entity_id', eid).order('property_name');
@@ -94,7 +96,7 @@ export default function RevenueOperationsPage() {
   async function loadPreview(propId?: string, tenantId?: string) {
     setPreviewLoading(true);
     try {
-      const worksheet = await billingAssembly.assembleWorksheet(entityId, propId || null, finPeriodId);
+      const worksheet = await billingAssembly.assembleWorksheet(entityId, propId || null, stmtPeriodId || finPeriodId);
       let tenants = worksheet.tenants;
       if (tenantId) tenants = tenants.filter(t => t.tenantId === tenantId);
       setBillingTenants(tenants);
