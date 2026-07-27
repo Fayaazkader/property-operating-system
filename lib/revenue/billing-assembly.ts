@@ -249,7 +249,7 @@ export const billingAssembly = {
   },
 
   async saveSnapshot(params: {
-    entity_id: string; period: string; property_id: string; property_name: string;
+     entity_id: string; period: string; property_id: string | null; property_name: string;
     tenant_count: number; invoices_generated: number; statements_generated: number;
     emails_delivered: number; whatsapp_delivered: number; failed: number;
   }): Promise<void> {
