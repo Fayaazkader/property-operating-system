@@ -137,9 +137,14 @@ export const cashbookPostingService = {
             section: 'posted',
           });
 
-          await supabase.from('statements_generated')
-            .update({ statement_data: { ...stmt.statement_data, posted_lines: lines, closing_balance: newBalance } })
-            .eq('id', stmt.id);
+                    await supabase.from('statements_generated').insert({
+            entity_id: bankAccount?.entity_id,
+            tenant_id: mapping.dimensions.tenant_id,
+            statement_data: { ...stmt.statement_data, posted_lines: lines, closing_balance: newBalance, version: (stmt.statement_data?.version || 1) + 1 },
+            version: (stmt.statement_data?.version || 1) + 1,
+            status: 'draft',
+            generated_at: new Date().toISOString(),
+          });
         }
       }
 
