@@ -111,6 +111,38 @@ export const cashbookPostingService = {
         updated_at: new Date().toISOString(),
       }).eq('id', transactionId);
 
+            // Update statements_generated with the receipt line
+      if (mapping.event === 'rental_receipt_received' && mapping.dimensions?.tenant_id) {
+        const { data: stmt } = await supabase
+          .from('statements_generated')
+          .select('id, statement_data')
+          .eq('entity_id', bankAccount?.entity_id)
+          .eq('tenant_id', mapping.dimensions.tenant_id)
+          .order('generated_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (stmt?.statement_data) {
+          const lines = stmt.statement_data.posted_lines || [];
+          const currentBalance = lines.length > 0 ? lines[lines.length - 1].balance : 0;
+          const newBalance = currentBalance - Math.abs(txn.transaction_amount);
+          
+          lines.push({
+            date: txn.transaction_date?.split('T')[0] || new Date().toISOString().split('T')[0],
+            description: txn.transaction_description || 'Receipt',
+            reference: txn.transaction_reference || '',
+            debit: 0,
+            credit: Math.abs(txn.transaction_amount),
+            balance: newBalance,
+            section: 'posted',
+          });
+
+          await supabase.from('statements_generated')
+            .update({ statement_data: { ...stmt.statement_data, posted_lines: lines, closing_balance: newBalance } })
+            .eq('id', stmt.id);
+        }
+      }
+
       await publish('cashbook.transaction.posted', {
         correlationId: crypto.randomUUID(),
         source: 'cashbook-posting-service',
