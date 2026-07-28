@@ -1,12 +1,15 @@
-import { marketingMetadata } from '@/lib/marketing.metadata';
 import { MarketingHomePage } from '@/components/marketing/pages/HomePage';
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
-export const metadata = marketingMetadata;
+export default async function Home() {
+  const supabase = createServerComponentClient({ cookies });
+  const { data: { session } } = await supabase.auth.getSession();
 
-export default function Home() {
-  return (
-    
-      <MarketingHomePage />
-    
-  );
+  if (session) {
+    redirect('/app');
+  }
+
+  return <MarketingHomePage />;
 }
