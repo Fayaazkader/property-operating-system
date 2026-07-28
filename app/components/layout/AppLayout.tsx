@@ -8,7 +8,7 @@ import Favorites from './Favorites';import Breadcrumbs from './Breadcrumbs';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  const isFullPage = pathname === '/login' || 
+  const isFullPage = pathname === '/' || pathname === '/login' || 
                    pathname === '/signup' || pathname === '/welcome' || 
                    pathname === '/landing' ||
                    pathname === '/about' ||

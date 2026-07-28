@@ -152,7 +152,7 @@ export default function Sidebar() {
       {/* Home */}
       <div className="px-3 py-1">
         <Link
-          href="/"
+          href="/app"
           className={`flex items-center h-10 rounded-2xl transition-all duration-200 ${
             isExpanded ? "px-3" : "justify-center px-0 w-10 mx-auto"
           } ${pathname === "/" ? "bg-white/5 border border-white/10 text-white" : "text-zinc-400 hover:bg-zinc-900 hover:text-white"}`}
