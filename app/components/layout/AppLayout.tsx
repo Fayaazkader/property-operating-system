@@ -9,7 +9,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const fullPageRoutes = new Set([
-    '/', '/login', '/signup', '/welcome', '/landing',
+    '/login', '/signup', '/welcome', '/landing',
     '/about', '/pricing', '/platform', '/company', '/resources',
     '/security', '/contact', '/privacy', '/terms',
   ]);
