@@ -9,6 +9,7 @@ import { postingEngine } from '@/lib/financial/posting-engine';
 import { billingAssembly } from '@/lib/revenue/billing-assembly';
 import type { BillingTenant, BillingSnapshot } from '@/lib/revenue/billing-assembly';
 import ImportUtilitiesModal from '@/app/components/financials/ImportUtilitiesModal';
+import InvoicePreviewModal from '@/app/components/financials/InvoicePreviewModal';
 
 interface AttentionItem { type: string; count: number; label: string; action: string; }
 
@@ -203,7 +204,9 @@ export default function RevenueOperationsPage() {
     function handleViewSnapshot(snapshot: BillingSnapshot) {
     if (billingTenants.length > 0) {
       const tenantId = billingTenants[0].tenantId;
-      window.open(`/tenants/${tenantId}?tab=invoices`, '_blank');
+      const tenantName = billingTenants[0].tenantName;
+      // Open tenant page with invoice tab and auto-trigger the latest invoice view
+      window.open(`/tenants/${tenantId}?tab=invoices&view=latest`, '_blank');
     }
   }
   async function handleManualCharge() {
@@ -359,6 +362,10 @@ export default function RevenueOperationsPage() {
 
       {/* IMPORT UTILITIES MODAL */}
       {showImportUtilities && <ImportUtilitiesModal entityId={entityId || ''} periodId={finPeriodId || ''} onClose={() => setShowImportUtilities(false)} onImported={() => {}} />}
+
+      {showInvoicePreview && previewInvoiceData && (
+        <InvoicePreviewModal data={previewInvoiceData} onClose={() => setShowInvoicePreview(false)} />
+      )}
 
       {showSnapshots && <Modal title="Billing History" onClose={() => setShowSnapshots(false)}><div className="space-y-2 max-h-80 overflow-y-auto">{snapshots.map(s => (<div key={s.id} className="rounded-lg border border-white/[0.06] bg-white/[0.01] p-3 text-xs"><div className="flex justify-between"><span className="text-white font-medium">{s.period}</span><span className="text-zinc-500">{new Date(s.generated_at).toLocaleString()}</span></div><div className="flex gap-4 mt-1 text-zinc-400"><span>{s.property_name}</span><span>{s.tenant_count} tenants</span><span>{s.invoices_generated} invoices</span></div></div>))}</div></Modal>}
     </div>
