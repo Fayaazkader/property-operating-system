@@ -22,6 +22,8 @@ export default function RevenueOperationsPage() {
   const [periodStatus, setPeriodStatus] = useState('');
   const [worksheetStatus, setWorksheetStatus] = useState('');
   const [worksheet, setWorksheet] = useState<any>(null);
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [previewInvoiceData, setPreviewInvoiceData] = useState<any>(null);
   const [finPeriodStatus, setFinPeriodStatus] = useState('');
   const [activeTenancies, setActiveTenancies] = useState(0);
   const [expectedRevenue, setExpectedRevenue] = useState(0);
