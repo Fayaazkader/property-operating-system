@@ -6,7 +6,9 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Download, Building2, AlertTriangle, TrendingDown, TrendingUp, Target, Clock, DollarSign } from "lucide-react";
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function OccupancyReportPage() {
+import { Suspense } from 'react';
+
+function OccupancyReportContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const entityFilter = searchParams.get("entity") || "";
@@ -233,5 +235,12 @@ export default function OccupancyReportPage() {
         </div>
       </div>
     </div>
+  );
+}
+export default function OccupancyReportPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-zinc-500">Loading...</div>}>
+      <OccupancyReportContent />
+    </Suspense>
   );
 }
