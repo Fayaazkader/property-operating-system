@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Download, Building2, AlertTriangle, TrendingDown, TrendingUp, Target, Clock, DollarSign } from "lucide-react";
 import { useRouter, useSearchParams } from 'next/navigation';
