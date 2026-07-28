@@ -8,12 +8,14 @@ import Favorites from './Favorites';import Breadcrumbs from './Breadcrumbs';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  const fullPageRoutes = new Set([
-    '/login', '/signup', '/welcome', '/landing',
-    '/about', '/pricing', '/platform', '/company', '/resources',
-    '/security', '/contact', '/privacy', '/terms',
-  ]);
-  const isFullPage = fullPageRoutes.has(pathname);
+  const isFullPage = pathname === '/login' || 
+                   pathname === '/signup' || pathname === '/welcome' || 
+                   pathname === '/landing' ||
+                   pathname === '/about' ||
+                   pathname === '/security' ||
+                   pathname === '/contact' ||
+                   pathname === '/privacy' ||
+                   pathname === '/terms';
 
   if (isFullPage) {
     return <div className="min-h-screen bg-black">{children}</div>;
