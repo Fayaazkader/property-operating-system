@@ -10,7 +10,7 @@ interface InvoicePreviewModalProps {
 export default function InvoicePreviewModal({ data, onClose }: InvoicePreviewModalProps) {
   const model = {
     metadata: {
-      document_type: 'invoice',
+      document_type: 'invoice' as const,
       document_number: `INV-${Date.now()}`,
       issue_date: data.statement_date || new Date().toISOString().split('T')[0],
       due_date: 'Upon receipt',
