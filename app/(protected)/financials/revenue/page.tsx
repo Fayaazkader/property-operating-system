@@ -144,6 +144,7 @@ export default function RevenueOperationsPage() {
     const isResend = worksheet?.status === 'already_billed';
     setSendProgress({ current: 0, total: ready.length, stage: 'Generating invoices...' });
     let delivered = 0, failed = 0;
+    const invoiceIds: string[] = [];
     for (let i = 0; i < ready.length; i++) {
       const t = ready[i];
       try {
@@ -152,6 +153,7 @@ export default function RevenueOperationsPage() {
         if (leaseAmount > 0) {
           if (!isResend) {
           await postingEngine.post({ source_engine: 'revenue', business_event: 'rental_invoice_raised', entity_id: entityId, amount: leaseAmount, period_id: finPeriodId, occurred_at: new Date().toISOString(), effective_date: periodStartDate || new Date().toISOString().split('T')[0], dimensions: { tenant_id: t.tenantId, lease_id: t.leaseId }, metadata: { source_id: `INV-${currentPeriod}-${t.tenantName}`, created_by: 'system' } });
+            invoiceIds.push(`INV-${currentPeriod}-${t.tenantName}`);
           }
           // Save to statements_generated so tenant can view invoice
           try {
@@ -189,7 +191,7 @@ export default function RevenueOperationsPage() {
         delivered++;
       } catch (err) { console.error('Send failed', t.tenantName, err); failed++; }
     }
-    try { await billingAssembly.saveSnapshot({ entity_id: entityId, period: currentPeriod, property_id: searchType === 'property' ? selectedSearchId : null, property_name: billingTenants[0]?.property_name || '', tenant_count: ready.length, invoices_generated: delivered, statements_generated: delivered, emails_delivered: delivered, whatsapp_delivered: Math.floor(delivered * 0.8), failed }); } catch (e) { console.error('Snapshot save failed:', e); }
+    try { await billingAssembly.saveSnapshot({ entity_id: entityId, period: currentPeriod, property_id: searchType === 'property' ? selectedSearchId : null, property_name: billingTenants[0]?.property_name || '', tenant_count: ready.length, invoices_generated: delivered, statements_generated: delivered, emails_delivered: delivered, whatsapp_delivered: Math.floor(delivered * 0.8), failed, invoice_ids: invoiceIds }); } catch (e) { console.error('Snapshot save failed:', e); }
     setSendResult({ delivered, failed, total: ready.length });
     setSending(false);
     setLastBilling(new Date().toLocaleString());
@@ -200,8 +202,8 @@ export default function RevenueOperationsPage() {
 
     function handleViewSnapshot(snapshot: BillingSnapshot) {
     if (billingTenants.length > 0) {
-      setSelectedTenantDetail(billingTenants[0]);
-      setShowDetailModal(true);
+      const tenantId = billingTenants[0].tenantId;
+      window.open(`/tenants/${tenantId}?tab=invoices`, '_blank');
     }
   }
   async function handleManualCharge() {

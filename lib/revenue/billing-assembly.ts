@@ -54,6 +54,7 @@ export interface BillingSnapshot {
   emails_delivered: number;
   whatsapp_delivered: number;
   failed: number;
+    invoice_ids?: string[];
   generated_at: string;
 }
 
@@ -252,6 +253,7 @@ export const billingAssembly = {
      entity_id: string; period: string; property_id: string | null; property_name: string;
     tenant_count: number; invoices_generated: number; statements_generated: number;
     emails_delivered: number; whatsapp_delivered: number; failed: number;
+    invoice_ids?: string[];
   }): Promise<void> {
     await supabase.from('billing_snapshots').insert({
       entity_id: params.entity_id, period: params.period,
@@ -260,6 +262,7 @@ export const billingAssembly = {
       statements_generated: params.statements_generated,
       emails_delivered: params.emails_delivered,
       whatsapp_delivered: params.whatsapp_delivered, failed: params.failed,
+      invoice_ids: params.invoice_ids || null,
       generated_at: new Date().toISOString(),
     });
   },
