@@ -1,12 +1,10 @@
-import { marketingMetadata } from '@/lib/marketing.metadata';
 import { MarketingHomePage } from '@/components/marketing/pages/HomePage';
-
-export const metadata = marketingMetadata;
+import { MarketingLayout } from '@/components/marketing/layout/MarketingLayout';
 
 export default function Home() {
   return (
-    
+    <MarketingLayout>
       <MarketingHomePage />
-    
+    </MarketingLayout>
   );
 }
