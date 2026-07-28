@@ -203,12 +203,22 @@ export default function RevenueOperationsPage() {
     trackEvent(AnalyticsEvents.STATEMENT_GENERATED, 'revenue', { count: delivered, failed });
   }
 
-    function handleViewSnapshot(snapshot: BillingSnapshot) {
+    async function handleViewSnapshot(snapshot: BillingSnapshot) {
     if (billingTenants.length > 0) {
       const tenantId = billingTenants[0].tenantId;
-      const tenantName = billingTenants[0].tenantName;
-      // Open tenant page with invoice tab and auto-trigger the latest invoice view
-      window.open(`/tenants/${tenantId}?tab=invoices&view=latest`, '_blank');
+      const { data } = await supabase
+        .from('statements_generated')
+        .select('statement_data')
+        .eq('entity_id', entityId)
+        .eq('tenant_id', tenantId)
+        .order('generated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (data?.statement_data) {
+        setPreviewInvoiceData(data.statement_data);
+        setShowInvoicePreview(true);
+      }
     }
   }
   async function handleManualCharge() {
