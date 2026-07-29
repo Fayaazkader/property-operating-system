@@ -5,7 +5,7 @@ export const marketing = {
     description: 'From lease creation to revenue, finance, operations, and executive insight, AssetFlow connects every part of your commercial property portfolio into one intelligent operating system.',
     email: 'hello@assetflow.africa',
     phone: '',
-    linkedin: 'https://linkedin.com/company/assetflow',
+    linkedin: 'https://www.linkedin.com/company/135154354',
     copyright: `© ${new Date().getFullYear()} AssetFlow. All rights reserved.`,
   },
   navigation: {
@@ -19,6 +19,6 @@ export const marketing = {
     login: { label: 'Sign In', href: '/login' },
   },
   socials: {
-    linkedin: 'https://linkedin.com/company/assetflow',
+    linkedin: 'https://www.linkedin.com/company/135154354',
   },
 } as const;
