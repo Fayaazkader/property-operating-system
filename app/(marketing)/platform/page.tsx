@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Container } from '@/components/marketing/layout/Container';
 import { Section } from '@/components/marketing/layout/Section';
 import { RevenuePreview } from '@/components/marketing/previews/RevenuePreview';
@@ -69,7 +70,28 @@ export default function PlatformPage() {
             );
           })}
         </div>
+
+        <div className="mt-24 pt-16 border-t border-white/[0.04] text-center">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600 mb-6 font-medium">How it all connects</p>
+          <div className="flex items-center justify-center gap-3 text-xs text-zinc-500 font-light flex-wrap">
+            <div className="rounded-full border border-white/[0.08] bg-white/[0.01] px-4 py-2">Operational Event</div>
+            <span className="text-zinc-700">→</span>
+            <div className="rounded-full border border-white/[0.08] bg-white/[0.01] px-4 py-2">Financial Truth</div>
+            <span className="text-zinc-700">→</span>
+            <div className="rounded-full border border-white/[0.08] bg-white/[0.01] px-4 py-2">Portfolio Intelligence</div>
+          </div>
+        </div>
       </Container>
+
+      <div className="border-t border-white/[0.04] mt-20 pt-16 pb-8 text-center">
+        <Container>
+          <h2 className="text-2xl md:text-3xl font-light tracking-tight text-white">Run your commercial property portfolio from one platform.</h2>
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link href="/contact" className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-medium text-black hover:bg-gray-100 transition-all">Book a Demo</Link>
+            <Link href="/login" className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-6 py-3 text-sm font-light text-zinc-400 hover:text-white transition-all">See the Platform</Link>
+          </div>
+        </Container>
+      </div>
     </Section>
   );
 }

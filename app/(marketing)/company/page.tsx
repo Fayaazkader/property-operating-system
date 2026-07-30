@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Container } from '@/components/marketing/layout/Container';
 import { Section } from '@/components/marketing/layout/Section';
 
@@ -32,7 +33,30 @@ export default function CompanyPage() {
             </div>
           ))}
         </div>
+
+        <div className="mt-20 pt-16 border-t border-white/[0.04]">
+          <p className="text-center text-[10px] uppercase tracking-[0.2em] text-zinc-600 mb-10 font-medium">Our Philosophy</p>
+          <div className="flex items-center justify-center gap-2 text-[10px] text-zinc-500 font-light flex-wrap max-w-xl mx-auto">
+            <div className="rounded-full border border-white/[0.06] bg-white/[0.01] px-3 py-1.5">Fragmented Software</div>
+            <span className="text-zinc-700">→</span>
+            <div className="rounded-full border border-white/[0.06] bg-white/[0.01] px-3 py-1.5">Disconnected Workflows</div>
+            <span className="text-zinc-700">→</span>
+            <div className="rounded-full border border-white/[0.06] bg-white/[0.01] px-3 py-1.5">AssetFlow Vision</div>
+            <span className="text-zinc-700">→</span>
+            <div className="rounded-full border border-white/[0.06] bg-white/[0.01] px-3 py-1.5">Unified Platform</div>
+          </div>
+        </div>
       </Container>
+
+      <div className="border-t border-white/[0.04] mt-20 pt-16 pb-8 text-center">
+        <Container>
+          <h2 className="text-2xl md:text-3xl font-light tracking-tight text-white">Run your commercial property portfolio from one platform.</h2>
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link href="/contact" className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-medium text-black hover:bg-gray-100 transition-all">Book a Demo</Link>
+            <Link href="/login" className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-6 py-3 text-sm font-light text-zinc-400 hover:text-white transition-all">See the Platform</Link>
+          </div>
+        </Container>
+      </div>
     </Section>
   );
 }

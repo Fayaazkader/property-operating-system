@@ -1,6 +1,6 @@
+import Link from 'next/link';
 import { Container } from '@/components/marketing/layout/Container';
 import { Section } from '@/components/marketing/layout/Section';
-import Link from 'next/link';
 
 const TIERS = [
   { leases: '1–25', price: '995', users: '2', messages: '500', desc: 'For boutique portfolios' },
@@ -30,6 +30,10 @@ export default function PricingPage() {
             <br />
             <span className="text-zinc-400">Everything included.</span>
           </h1>
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/[0.03] px-4 py-2">
+            <span className="text-amber-400 text-xs">✓</span>
+            <span className="text-xs text-zinc-300 font-light">Same platform. Same features. Same modules. Only portfolio size changes.</span>
+          </div>
           <p className="mt-4 text-zinc-500 max-w-xl mx-auto text-sm leading-relaxed">
             No feature tiers. No modules to unlock. Priced by portfolio size.
           </p>
@@ -37,14 +41,14 @@ export default function PricingPage() {
 
         <div className="grid gap-4 md:grid-cols-5 mb-20">
           {TIERS.map((tier) => (
-            <div key={tier.leases} className={`rounded-2xl border p-6 text-center transition-all duration-500 ${tier.featured ? 'border-amber-500/30 bg-amber-500/[0.03] ring-1 ring-amber-500/20' : 'border-white/[0.05] bg-white/[0.01] hover:border-white/[0.08]'}`}>
+            <Link href="/contact" key={tier.leases} className={`rounded-2xl border p-6 text-center transition-all duration-500 block ${tier.featured ? 'border-amber-500/30 bg-amber-500/[0.03] ring-1 ring-amber-500/20' : 'border-white/[0.05] bg-white/[0.01] hover:border-white/[0.08]'}`}>
               {tier.featured && <p className="text-[10px] font-medium text-amber-400 mb-3 uppercase tracking-wider">Most Popular</p>}
               <p className="text-xs text-zinc-500 font-light">{tier.leases} active leases</p>
               <p className="mt-3 text-4xl font-light tracking-tight text-white">R{tier.price}<span className="text-sm text-zinc-500 font-light">/mo</span></p>
               <p className="text-xs text-zinc-500 mt-2 font-light">{tier.users} users · {tier.messages} WhatsApp msgs</p>
               <p className="text-xs text-zinc-400 mt-3 font-light italic">{tier.desc}</p>
-              <Link href="/contact" className={`mt-5 block w-full rounded-full py-2.5 text-xs font-medium transition-all duration-300 ${tier.featured ? 'bg-white text-black hover:bg-zinc-200' : 'border border-white/[0.08] text-white hover:border-white/20'}`}>{tier.featured ? 'Book a Demo' : 'Get Started'}</Link>
-            </div>
+              <div className={`mt-5 w-full rounded-full py-2.5 text-xs font-medium transition-all duration-300 ${tier.featured ? 'bg-white text-black hover:bg-zinc-200' : 'border border-white/[0.08] text-white hover:border-white/20'}`}>{tier.featured ? 'Book a Demo' : 'Get Started'}</div>
+            </Link>
           ))}
         </div>
 
@@ -64,6 +68,16 @@ export default function PricingPage() {
           </div>
         </div>
       </Container>
+
+      <div className="border-t border-white/[0.04] mt-20 pt-16 pb-8 text-center">
+        <Container>
+          <h2 className="text-2xl md:text-3xl font-light tracking-tight text-white">Run your commercial property portfolio from one platform.</h2>
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link href="/contact" className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-medium text-black hover:bg-gray-100 transition-all">Book a Demo</Link>
+            <Link href="/login" className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-6 py-3 text-sm font-light text-zinc-400 hover:text-white transition-all">See the Platform</Link>
+          </div>
+        </Container>
+      </div>
     </Section>
   );
 }
