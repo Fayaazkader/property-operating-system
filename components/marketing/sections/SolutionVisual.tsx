@@ -32,27 +32,27 @@ export function SolutionVisual() {
   const isActive = phase !== 'idle';
 
   return (
-    <div ref={visualRef} className="solution-visual" style={{ position: 'relative', height: '600px', maxWidth: '780px', margin: '0 auto', overflow: 'hidden' }}>
+    <div ref={visualRef} className="solution-visual" style={{ position: 'relative', height: '650px', maxWidth: '780px', margin: '0 auto', overflow: 'hidden' }}>
       
       {/* Connection lines */}
       {isActive && (
         <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 780 600" style={{ zIndex: 5 }}>
-          <line x1="240" y1="160" x2="360" y2="270" stroke="rgba(16,185,129,0.25)" strokeWidth="1" className="connect-line" strokeDasharray="400" strokeDashoffset="0">
+          <line x1="240" y1="160" x2="360" y2="270" stroke={phase === "hub" || phase === "lifecycle" ? "rgba(16,185,129,0.6)" : "rgba(16,185,129,0.15)"} strokeWidth={phase === "hub" || phase === "lifecycle" ? "2" : "1"} className="connect-line" strokeDasharray="400" strokeDashoffset="0">
             <animate attributeName="stroke-dashoffset" from="400" to="0" dur="1.5s" begin="0.3s" fill="freeze" />
           </line>
-          <line x1="520" y1="170" x2="400" y2="270" stroke="rgba(16,185,129,0.25)" strokeWidth="1" className="connect-line" strokeDasharray="400" strokeDashoffset="0">
+          <line x1="520" y1="170" x2="400" y2="270" stroke={phase === "hub" || phase === "lifecycle" ? "rgba(16,185,129,0.6)" : "rgba(16,185,129,0.15)"} strokeWidth={phase === "hub" || phase === "lifecycle" ? "2" : "1"} className="connect-line" strokeDasharray="400" strokeDashoffset="0">
             <animate attributeName="stroke-dashoffset" from="400" to="0" dur="1.5s" begin="0.5s" fill="freeze" />
           </line>
-          <line x1="230" y1="310" x2="360" y2="290" stroke="rgba(16,185,129,0.25)" strokeWidth="1" className="connect-line" strokeDasharray="400" strokeDashoffset="0">
+          <line x1="230" y1="310" x2="360" y2="290" stroke={phase === "hub" || phase === "lifecycle" ? "rgba(16,185,129,0.6)" : "rgba(16,185,129,0.15)"} strokeWidth={phase === "hub" || phase === "lifecycle" ? "2" : "1"} className="connect-line" strokeDasharray="400" strokeDashoffset="0">
             <animate attributeName="stroke-dashoffset" from="400" to="0" dur="1.5s" begin="0.4s" fill="freeze" />
           </line>
-          <line x1="530" y1="320" x2="400" y2="290" stroke="rgba(16,185,129,0.25)" strokeWidth="1" className="connect-line" strokeDasharray="400" strokeDashoffset="0">
+          <line x1="530" y1="320" x2="400" y2="290" stroke={phase === "hub" || phase === "lifecycle" ? "rgba(16,185,129,0.6)" : "rgba(16,185,129,0.15)"} strokeWidth={phase === "hub" || phase === "lifecycle" ? "2" : "1"} className="connect-line" strokeDasharray="400" strokeDashoffset="0">
             <animate attributeName="stroke-dashoffset" from="400" to="0" dur="1.5s" begin="0.6s" fill="freeze" />
           </line>
-          <line x1="240" y1="440" x2="360" y2="310" stroke="rgba(16,185,129,0.25)" strokeWidth="1" className="connect-line" strokeDasharray="400" strokeDashoffset="0">
+          <line x1="240" y1="440" x2="360" y2="310" stroke={phase === "hub" || phase === "lifecycle" ? "rgba(16,185,129,0.6)" : "rgba(16,185,129,0.15)"} strokeWidth={phase === "hub" || phase === "lifecycle" ? "2" : "1"} className="connect-line" strokeDasharray="400" strokeDashoffset="0">
             <animate attributeName="stroke-dashoffset" from="400" to="0" dur="1.5s" begin="0.5s" fill="freeze" />
           </line>
-          <line x1="520" y1="450" x2="400" y2="310" stroke="rgba(16,185,129,0.25)" strokeWidth="1" className="connect-line" strokeDasharray="400" strokeDashoffset="0">
+          <line x1="520" y1="450" x2="400" y2="310" stroke={phase === "hub" || phase === "lifecycle" ? "rgba(16,185,129,0.6)" : "rgba(16,185,129,0.15)"} strokeWidth={phase === "hub" || phase === "lifecycle" ? "2" : "1"} className="connect-line" strokeDasharray="400" strokeDashoffset="0">
             <animate attributeName="stroke-dashoffset" from="400" to="0" dur="1.5s" begin="0.7s" fill="freeze" />
           </line>
           {phase === 'hub' && (
