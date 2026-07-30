@@ -1,13 +1,9 @@
 import { Table2 } from 'lucide-react';
 import { ProblemCard } from './ProblemCard';
 
-export function LeaseRegisterCard({ position }: { position?: { left: number; top: number; scale?: number } }) {
-  const style = position 
-    ? { left: position.left, top: position.top, width: 260, transform: `rotate(-1.5deg) scale(${position.scale || 1})`, animationDelay: position.scale ? '0s' : '0s' }
-    : { left: 10, top: 5, width: 260, transform: 'rotate(-1.5deg)', animationDelay: '0s' };
-  
+export function LeaseRegisterCard({ scale = 1 }: { scale?: number }) {
   return (
-    <ProblemCard style={style}>
+    <ProblemCard className="animate-float" style={{ width: 260, transform: `rotate(-1.5deg) scale(${scale})`, animationDelay: '0s' }}>
       <div className="flex items-center gap-2 mb-3">
         <Table2 className="w-3.5 h-3.5 text-emerald-400/70" />
         <span className="text-[10px] text-zinc-400 font-light">Lease Register.xlsx</span>

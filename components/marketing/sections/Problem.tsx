@@ -1,11 +1,11 @@
 import { Container } from '../layout/Container';
 import { Section } from '../layout/Section';
-import { LeaseRegisterCard } from './problem-cards/LeaseRegisterCard';
-import { BillingCard } from './problem-cards/BillingCard';
-import { BankFeedCard } from './problem-cards/BankFeedCard';
-import { MaintenanceCard } from './problem-cards/MaintenanceCard';
-import { ExecutiveReportCard } from './problem-cards/ExecutiveReportCard';
-import { TenantInboxCard } from './problem-cards/TenantInboxCard';
+import { LeaseRegisterCard } from './shared-cards/LeaseRegisterCard';
+import { BillingCard } from './shared-cards/BillingCard';
+import { BankFeedCard } from './shared-cards/BankFeedCard';
+import { MaintenanceCard } from './shared-cards/MaintenanceCard';
+import { ExecutiveReportCard } from './shared-cards/ExecutiveReportCard';
+import { TenantInboxCard } from './shared-cards/TenantInboxCard';
 
 export function Problem() {
   return (

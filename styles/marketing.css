@@ -36,3 +36,12 @@
 .solution-visual.visible .pulse-ring {
   stroke-dashoffset: 0;
 }
+
+@keyframes hubPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.1); }
+  50% { box-shadow: 0 0 0 12px rgba(16,185,129,0); }
+}
+.hub-pulse {
+  animation: hubPulse 3s ease-out 1;
+  animation-delay: 2s;
+}
