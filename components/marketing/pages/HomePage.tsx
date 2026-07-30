@@ -6,12 +6,13 @@ import { Journey } from '../sections/Journey';
 import { Trust } from '../sections/Trust';
 import { CTA } from '../sections/CTA';
 
-export function MarketingHomePage() {
+export function HomePage() {
   return (
     <>
       <Hero />
       <Problem />
       <Solution />
+      <EverythingFlows />
       <Journey />
       <Trust />
       <CTA />
