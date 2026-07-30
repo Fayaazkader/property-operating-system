@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { LeaseRegisterCard } from './problem-cards/LeaseRegisterCard';
 import { BillingCard } from './problem-cards/BillingCard';
@@ -11,9 +11,20 @@ import { TenantInboxCard } from './problem-cards/TenantInboxCard';
 
 export function SolutionVisual() {
   const [visible, setVisible] = useState(false);
+  const visualRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setVisible(true);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.2 }
+    );
+    if (visualRef.current) observer.observe(visualRef.current);
+    return () => observer.disconnect();
   }, []);
 
   const cards = [
@@ -26,7 +37,7 @@ export function SolutionVisual() {
   ];
 
   return (
-    <div className={`solution-visual ${visible ? 'visible' : ''}`} style={{ position: 'relative', height: '580px', maxWidth: '800px', margin: '0 auto' }}>
+    <div ref={visualRef} className={`solution-visual ${visible ? 'visible' : ''}`} style={{ position: 'relative', height: '580px', maxWidth: '800px', margin: '0 auto' }}>
       
       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 600">
         <line x1="150" y1="90" x2="400" y2="280" className="connect-line" />
