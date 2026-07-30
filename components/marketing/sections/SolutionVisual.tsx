@@ -37,22 +37,22 @@ export function SolutionVisual() {
       {/* Connection lines */}
       {isActive && (
         <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 780 600" style={{ zIndex: 5 }}>
-          <line x1="140" y1="110" x2="360" y2="270" stroke="rgba(16,185,129,0.25)" strokeWidth="1" strokeDasharray="400" strokeDashoffset="0">
+          <line x1="240" y1="160" x2="360" y2="270" stroke="rgba(16,185,129,0.25)" strokeWidth="1" className="connect-line" strokeDasharray="400" strokeDashoffset="0">
             <animate attributeName="stroke-dashoffset" from="400" to="0" dur="1.5s" begin="0.3s" fill="freeze" />
           </line>
-          <line x1="620" y1="120" x2="400" y2="270" stroke="rgba(16,185,129,0.25)" strokeWidth="1" strokeDasharray="400" strokeDashoffset="0">
+          <line x1="520" y1="170" x2="400" y2="270" stroke="rgba(16,185,129,0.25)" strokeWidth="1" className="connect-line" strokeDasharray="400" strokeDashoffset="0">
             <animate attributeName="stroke-dashoffset" from="400" to="0" dur="1.5s" begin="0.5s" fill="freeze" />
           </line>
-          <line x1="120" y1="340" x2="360" y2="290" stroke="rgba(16,185,129,0.25)" strokeWidth="1" strokeDasharray="400" strokeDashoffset="0">
+          <line x1="230" y1="310" x2="360" y2="290" stroke="rgba(16,185,129,0.25)" strokeWidth="1" className="connect-line" strokeDasharray="400" strokeDashoffset="0">
             <animate attributeName="stroke-dashoffset" from="400" to="0" dur="1.5s" begin="0.4s" fill="freeze" />
           </line>
-          <line x1="600" y1="350" x2="400" y2="290" stroke="rgba(16,185,129,0.25)" strokeWidth="1" strokeDasharray="400" strokeDashoffset="0">
+          <line x1="530" y1="320" x2="400" y2="290" stroke="rgba(16,185,129,0.25)" strokeWidth="1" className="connect-line" strokeDasharray="400" strokeDashoffset="0">
             <animate attributeName="stroke-dashoffset" from="400" to="0" dur="1.5s" begin="0.6s" fill="freeze" />
           </line>
-          <line x1="140" y1="530" x2="360" y2="310" stroke="rgba(16,185,129,0.25)" strokeWidth="1" strokeDasharray="400" strokeDashoffset="0">
+          <line x1="240" y1="440" x2="360" y2="310" stroke="rgba(16,185,129,0.25)" strokeWidth="1" className="connect-line" strokeDasharray="400" strokeDashoffset="0">
             <animate attributeName="stroke-dashoffset" from="400" to="0" dur="1.5s" begin="0.5s" fill="freeze" />
           </line>
-          <line x1="620" y1="540" x2="400" y2="310" stroke="rgba(16,185,129,0.25)" strokeWidth="1" strokeDasharray="400" strokeDashoffset="0">
+          <line x1="520" y1="450" x2="400" y2="310" stroke="rgba(16,185,129,0.25)" strokeWidth="1" className="connect-line" strokeDasharray="400" strokeDashoffset="0">
             <animate attributeName="stroke-dashoffset" from="400" to="0" dur="1.5s" begin="0.7s" fill="freeze" />
           </line>
           {phase === 'hub' && (
@@ -110,7 +110,7 @@ export function SolutionVisual() {
           bottom: '-16px',
           left: '50%',
           transform: phase === 'lifecycle' ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(40px)',
-          opacity: phase === 'lifecycle' ? 1 : 0,
+          opacity: 1,
           transition: 'all 0.8s ease-out 0.5s',
           zIndex: 25,
         }}
