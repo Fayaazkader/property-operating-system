@@ -1,5 +1,8 @@
 'use client';
 
+import Image from 'next/image';
+import { FileText, Receipt, Wrench, UserPlus } from 'lucide-react';
+
 export function MorningBriefPreview() {
   const demo = {
     greeting: 'Good morning, Alex.',
@@ -27,22 +30,22 @@ export function MorningBriefPreview() {
       { dot: 'zinc', text: 'Statement sent to 312 tenants', amount: null, date: '14 Jul' },
     ],
     quickActions: [
-      { label: 'Create Invoice', icon: '📄' },
-      { label: 'Capture Receipt', icon: '💰' },
-      { label: 'New Work Order', icon: '🔧' },
-      { label: 'Add Tenant', icon: '👤' },
+      { label: 'Create Invoice', icon: FileText },
+      { label: 'Capture Receipt', icon: Receipt },
+      { label: 'New Work Order', icon: Wrench },
+      { label: 'Add Tenant', icon: UserPlus },
     ],
   };
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/50 max-w-6xl mx-auto">
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/50 max-w-6xl mx-auto transition-transform duration-500 hover:scale-[1.005]">
       
       {/* Header */}
       <div className="flex items-center gap-3 px-6 py-4 border-b border-zinc-800">
-        <img src="/logo.png" alt="AssetFlow" className="h-6 w-6 rounded" />
+        <Image src="/logo.png" alt="AssetFlow" width={24} height={24} className="rounded" />
         <div>
           <p className="text-xs font-medium text-white">Morning Brief</p>
-          <p className="text-[10px] text-zinc-500 font-light">Today · 12 August 2026</p>
+          <p className="text-[10px] text-zinc-500 font-light">Today</p>
         </div>
       </div>
 
@@ -54,9 +57,10 @@ export function MorningBriefPreview() {
           <p className="text-sm text-zinc-400 font-light mt-2">{demo.summary}</p>
         </div>
 
-        {/* Search */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
-          <p className="text-xs text-zinc-500 font-light">Search tenants, leases, statements, receipts...</p>
+        {/* Search with blinking caret */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 flex items-center">
+          <span className="text-xs text-zinc-500 font-light">Search tenants, leases, statements, receipts…</span>
+          <span className="ml-0.5 inline-block h-3.5 w-px bg-zinc-400 animate-[caret_1s_steps(1)_infinite]" />
         </div>
 
         {/* KPIs */}
@@ -64,7 +68,7 @@ export function MorningBriefPreview() {
           {demo.kpis.map((kpi, i) => (
             <div key={i} className={`${kpi.span === 2 ? 'col-span-2' : ''} rounded-xl border border-zinc-800 bg-zinc-900 p-4`}>
               <p className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 mb-1">{kpi.label}</p>
-              <p className="text-xl font-light tracking-tight text-white">{kpi.value}</p>
+              <p className="text-2xl font-light tracking-tight text-white">{kpi.value}</p>
             </div>
           ))}
         </div>
@@ -120,16 +124,19 @@ export function MorningBriefPreview() {
           </div>
         </div>
 
-        {/* Quick Actions */}
+        {/* Quick Actions — non-interactive */}
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
           <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-4">Quick Actions</p>
           <div className="grid grid-cols-4 gap-3">
-            {demo.quickActions.map((action, i) => (
-              <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-center hover:border-zinc-700 transition-colors cursor-pointer">
-                <span className="text-lg">{action.icon}</span>
-                <p className="text-[10px] text-zinc-400 font-light mt-1">{action.label}</p>
-              </div>
-            ))}
+            {demo.quickActions.map((action, i) => {
+              const Icon = action.icon;
+              return (
+                <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-center cursor-default">
+                  <Icon className="w-4 h-4 text-zinc-500 mx-auto" />
+                  <p className="text-[10px] text-zinc-500 font-light mt-1.5">{action.label}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
