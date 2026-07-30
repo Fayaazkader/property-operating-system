@@ -8,7 +8,7 @@ export function Footer() {
       <Container>
         <div className="grid gap-12 md:grid-cols-4">
           <div>
-            <p className="text-sm font-medium tracking-tight text-white">{marketing.company.name}</p>
+            <img src="/og-image.png" alt="AssetFlow" className="h-6 w-auto mb-2" />
             <p className="mt-2 text-xs text-zinc-500 leading-relaxed">{marketing.company.tagline}</p>
           </div>
           <div>

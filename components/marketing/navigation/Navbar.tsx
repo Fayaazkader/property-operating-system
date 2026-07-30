@@ -11,7 +11,7 @@ export function Navbar() {
       <Container>
         <nav className="flex h-20 items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-sm font-medium tracking-tight text-white">
-            {marketing.company.name}
+            <img src="/og-image.png" alt="AssetFlow" className="h-8 w-auto" />
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
