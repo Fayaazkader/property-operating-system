@@ -107,7 +107,7 @@ export function SolutionVisual() {
       <div
         style={{
           position: 'absolute',
-          bottom: '4px',
+          bottom: '-16px',
           left: '50%',
           transform: phase === 'lifecycle' ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(40px)',
           opacity: phase === 'lifecycle' ? 1 : 0,
