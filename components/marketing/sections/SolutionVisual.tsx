@@ -65,8 +65,8 @@ export function SolutionVisual() {
       <div
         className="absolute inset-0 flex items-center justify-center transition-all duration-700"
         style={{
-          opacity: visible ? 1 : 0, transform: visible ? 'translateY(0) scale(0.85)' : 'translateY(12px) scale(0.85)',
-          transform: visible ? 'scale(1)' : 'scale(0.9)',
+          opacity: visible ? 1 : 0, transform: visible ? 'scale(1)' : 'scale(0.9)',
+          
           transitionDelay: '1.5s',
         }}
       >
