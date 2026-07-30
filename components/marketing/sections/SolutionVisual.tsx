@@ -96,7 +96,7 @@ export function SolutionVisual() {
           zIndex: 30,
         }}
       >
-        <div className="rounded-2xl border border-emerald-500/20 ${phase === "hub" || phase === "lifecycle" ? "!border-emerald-400/50" : ""} bg-black/95 backdrop-blur-md px-6 py-4 text-center shadow-2xl shadow-emerald-500/10">
+        <div className="rounded-2xl border border-emerald-500/30 bg-black/95 backdrop-blur-md px-6 py-4 text-center shadow-2xl shadow-emerald-500/10">
           <Image src="/logo.png" alt="AssetFlow" width={32} height={32} className="mx-auto mb-2 rounded-md" />
           <p className="text-sm font-medium text-white tracking-tight">AssetFlow</p>
           <p className="text-[9px] text-zinc-500 mt-0.5 font-light">Operating Platform</p>
@@ -119,7 +119,7 @@ export function SolutionVisual() {
         <div className="flex items-center gap-1">
           {['Lease', 'Billing', 'Payments', 'Reconciliation', 'Intelligence'].map((step, i) => (
             <div key={i} className="flex items-center gap-1">
-              <div className="rounded-full border border-emerald-500/20 ${phase === "hub" || phase === "lifecycle" ? "!border-emerald-400/50" : ""} bg-emerald-500/[0.04] px-2.5 py-1 text-[9px] text-emerald-300 font-light whitespace-nowrap">
+              <div className="rounded-full border border-emerald-500/20 bg-emerald-500/[0.04] px-2.5 py-1 text-[9px] text-emerald-300 font-light whitespace-nowrap">
                 {step}
               </div>
               {i < 4 && <span className="text-emerald-600 text-[10px] font-light">→</span>}
