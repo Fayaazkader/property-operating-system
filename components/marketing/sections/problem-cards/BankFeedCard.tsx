@@ -1,9 +1,9 @@
 import { Landmark } from 'lucide-react';
 import { ProblemCard } from './ProblemCard';
 
-export function BankFeedCard() {
+export function BankFeedCard({ scale = 1 }: { scale?: number }) {
   return (
-    <ProblemCard style={{ left: 165, top: 155, width: 220, transform: 'rotate(0deg)', animationDelay: '0.6s' }}>
+    <ProblemCard style={{ left: 165, top: 155, width: 220, transform: `rotate(0deg) scale(${scale})`, animationDelay: '0.6s' }}>
       <div className="flex items-center gap-2 mb-3">
         <Landmark className="w-3.5 h-3.5 text-purple-400/70" />
         <span className="text-[10px] text-zinc-400 font-light">Bank Feed</span>

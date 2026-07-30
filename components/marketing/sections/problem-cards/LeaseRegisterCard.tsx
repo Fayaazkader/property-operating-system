@@ -1,9 +1,9 @@
 import { Table2 } from 'lucide-react';
 import { ProblemCard } from './ProblemCard';
 
-export function LeaseRegisterCard() {
+export function LeaseRegisterCard({ scale = 1 }: { scale?: number }) {
   return (
-    <ProblemCard style={{ left: 10, top: 5, width: 260, transform: 'rotate(-1.5deg)', animationDelay: '0s' }}>
+    <ProblemCard style={{ left: 10, top: 5, width: 260, transform: `rotate(-1.5deg) scale(${scale})`, animationDelay: '0s' }}>
       <div className="flex items-center gap-2 mb-3">
         <Table2 className="w-3.5 h-3.5 text-emerald-400/70" />
         <span className="text-[10px] text-zinc-400 font-light">Lease Register.xlsx</span>

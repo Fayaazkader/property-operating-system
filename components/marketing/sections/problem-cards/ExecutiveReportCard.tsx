@@ -1,9 +1,9 @@
 import { FileText } from 'lucide-react';
 import { ProblemCard } from './ProblemCard';
 
-export function ExecutiveReportCard() {
+export function ExecutiveReportCard({ scale = 1 }: { scale?: number }) {
   return (
-    <ProblemCard style={{ left: 40, top: 345, width: 230, transform: 'rotate(-2deg)', animationDelay: '1.2s' }}>
+    <ProblemCard style={{ left: 40, top: 345, width: 230, transform: `rotate(-2deg) scale(${scale})`, animationDelay: '1.2s' }}>
       <div className="flex items-center gap-2 mb-3">
         <FileText className="w-3.5 h-3.5 text-red-400/70" />
         <span className="text-[10px] text-zinc-400 font-light">Executive Report.pdf</span>

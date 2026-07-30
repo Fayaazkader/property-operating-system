@@ -1,9 +1,9 @@
 import { Receipt } from 'lucide-react';
 import { ProblemCard } from './ProblemCard';
 
-export function BillingCard() {
+export function BillingCard({ scale = 1 }: { scale?: number }) {
   return (
-    <ProblemCard style={{ left: 525, top: 25, width: 240, transform: 'rotate(2deg)', animationDelay: '0.3s' }}>
+    <ProblemCard style={{ left: 525, top: 25, width: 240, transform: `rotate(2deg) scale(${scale})`, animationDelay: '0.3s' }}>
       <div className="flex items-center gap-2 mb-3">
         <Receipt className="w-3.5 h-3.5 text-blue-400/70" />
         <span className="text-[10px] text-zinc-400 font-light">Billing System</span>

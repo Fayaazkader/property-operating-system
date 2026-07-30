@@ -58,7 +58,7 @@ export function SolutionVisual() {
             transitionDelay: `${0.2 + i * 0.2}s`,
           }}
         >
-          <div style={{ transform: 'scale(0.85)' }}><Component /></div>
+          <Component scale={0.85} />
         </div>
       ))}
 

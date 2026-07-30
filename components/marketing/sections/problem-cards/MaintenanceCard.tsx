@@ -1,9 +1,9 @@
 import { Wrench } from 'lucide-react';
 import { ProblemCard } from './ProblemCard';
 
-export function MaintenanceCard() {
+export function MaintenanceCard({ scale = 1 }: { scale?: number }) {
   return (
-    <ProblemCard style={{ left: 515, top: 230, width: 250, transform: 'rotate(1deg)', animationDelay: '0.9s' }}>
+    <ProblemCard style={{ left: 515, top: 230, width: 250, transform: `rotate(1deg) scale(${scale})`, animationDelay: '0.9s' }}>
       <div className="flex items-center gap-2 mb-3">
         <Wrench className="w-3.5 h-3.5 text-amber-400/70" />
         <span className="text-[10px] text-zinc-400 font-light">Maintenance</span>
