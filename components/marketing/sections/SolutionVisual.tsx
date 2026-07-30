@@ -54,18 +54,18 @@ export function SolutionVisual() {
             position: 'absolute',
             left,
             top,
-            opacity: visible ? 1 : 0,
+            opacity: visible ? 1 : 0, transform: visible ? 'translateY(0) scale(0.85)' : 'translateY(12px) scale(0.85)',
             transitionDelay: `${0.2 + i * 0.2}s`,
           }}
         >
-          <Component scale={0.85} />
+          <div style={{ transform: 'scale(0.85)' }}><Component /></div>
         </div>
       ))}
 
       <div
         className="absolute inset-0 flex items-center justify-center transition-all duration-700"
         style={{
-          opacity: visible ? 1 : 0,
+          opacity: visible ? 1 : 0, transform: visible ? 'translateY(0) scale(0.85)' : 'translateY(12px) scale(0.85)',
           transform: visible ? 'scale(1)' : 'scale(0.9)',
           transitionDelay: '1.5s',
         }}
