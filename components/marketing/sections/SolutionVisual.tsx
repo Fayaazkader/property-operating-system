@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { LeaseRegisterCard } from './problem-cards/LeaseRegisterCard';
 import { BillingCard } from './problem-cards/BillingCard';
@@ -11,15 +11,9 @@ import { TenantInboxCard } from './problem-cards/TenantInboxCard';
 
 export function SolutionVisual() {
   const [visible, setVisible] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
-      { threshold: 0.2 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
+    setVisible(true);
   }, []);
 
   const cards = [
@@ -32,15 +26,15 @@ export function SolutionVisual() {
   ];
 
   return (
-    <div ref={ref} className={`relative h-[580px] md:h-[680px] max-w-4xl mx-auto solution-visual ${visible ? 'visible' : ''}`}>
+    <div className={`solution-visual ${visible ? 'visible' : ''}`} style={{ position: 'relative', height: '580px', maxWidth: '800px', margin: '0 auto' }}>
       
       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 600">
-        <line x1="150" y1="90" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '0.2s' }} />
-        <line x1="660" y1="70" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '0.4s' }} />
-        <line x1="220" y1="330" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '0.6s' }} />
-        <line x1="640" y1="380" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '0.8s' }} />
-        <line x1="140" y1="530" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '1.0s' }} />
-        <line x1="570" y1="560" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '1.2s' }} />
+        <line x1="150" y1="90" x2="400" y2="280" className="connect-line" />
+        <line x1="660" y1="70" x2="400" y2="280" className="connect-line" />
+        <line x1="220" y1="330" x2="400" y2="280" className="connect-line" />
+        <line x1="640" y1="380" x2="400" y2="280" className="connect-line" />
+        <line x1="140" y1="530" x2="400" y2="280" className="connect-line" />
+        <line x1="570" y1="560" x2="400" y2="280" className="connect-line" />
         <circle cx="400" cy="280" r="60" fill="none" className="pulse-ring" />
         <circle cx="400" cy="280" r="75" fill="none" stroke="rgba(16,185,129,0.1)" strokeWidth="0.5" />
         <circle cx="400" cy="280" r="90" fill="none" stroke="rgba(16,185,129,0.05)" strokeWidth="0.5" />
@@ -49,13 +43,13 @@ export function SolutionVisual() {
       {cards.map(({ Component, left, top }, i) => (
         <div
           key={i}
-          className="transition-all duration-1000"
           style={{
             position: 'absolute',
             left,
             top,
-            opacity: visible ? 1 : 0, transform: visible ? 'translateY(0) scale(0.85)' : 'translateY(12px) scale(0.85)',
-            transitionDelay: `${0.2 + i * 0.2}s`,
+            opacity: visible ? 1 : 0,
+            transform: visible ? 'translateY(0) scale(0.85)' : 'translateY(20px) scale(0.85)',
+            transition: `all 0.8s ease-out ${0.2 + i * 0.2}s`,
           }}
         >
           <Component scale={0.85} />
@@ -63,14 +57,16 @@ export function SolutionVisual() {
       ))}
 
       <div
-        className="absolute inset-0 flex items-center justify-center transition-all duration-700"
         style={{
-          opacity: visible ? 1 : 0, transform: visible ? 'scale(1)' : 'scale(0.9)',
-          
-          transitionDelay: '1.5s',
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: visible ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.9)',
+          opacity: visible ? 1 : 0,
+          transition: 'all 0.8s ease-out 1.5s',
         }}
       >
-        <div className={`rounded-3xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.04] to-emerald-500/[0.01] backdrop-blur-sm px-10 py-8 text-center shadow-2xl shadow-emerald-500/5 transition-all duration-1000 ${visible ? 'hub-pulse' : ''}`}>
+        <div className={`rounded-3xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.04] to-emerald-500/[0.01] backdrop-blur-sm px-10 py-8 text-center shadow-2xl shadow-emerald-500/5 ${visible ? 'hub-pulse' : ''}`}>
           <Image src="/logo.png" alt="AssetFlow" width={40} height={40} className="mx-auto mb-4 rounded-lg" />
           <p className="text-lg font-medium text-white tracking-tight">AssetFlow</p>
           <p className="text-[10px] text-zinc-500 mt-1 font-light">Operational Platform</p>
