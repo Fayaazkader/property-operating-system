@@ -26,7 +26,7 @@ export function CTA() {
               href="/login"
               className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-8 py-4 text-sm font-light text-zinc-400 hover:text-white hover:border-white/[0.15] transition-all duration-300"
             >
-              Explore Platform
+              See the Platform
             </Link>
           </div>
         </div>
