@@ -110,7 +110,7 @@ export function SolutionVisual() {
           bottom: '20px',
           left: '50%',
           transform: 'translateX(-50%) translateY(0)',
-          opacity: 1, zIndex: 25,
+          opacity: 1,
           transition: 'all 0.8s ease-out 0.5s',
           zIndex: 25,
         }}
