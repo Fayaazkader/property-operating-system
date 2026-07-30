@@ -44,7 +44,7 @@ export default function PricingPage() {
                 <p className="text-xs text-zinc-500 font-light">{tier.leases} active leases</p>
                 <p className="mt-3 text-4xl font-light tracking-tight text-white">R{tier.price}<span className="text-sm text-zinc-500 font-light">/mo</span></p>
                 <p className="text-xs text-zinc-500 mt-2 font-light">{tier.users} users · {tier.messages} WhatsApp msgs</p>
-                <p className="text-xs text-zinc-600 mt-3 font-light italic">{tier.desc}</p>
+                <p className="text-xs text-zinc-400 mt-3 font-light italic">{tier.desc}</p>
                 <Link href={ROUTES.PUBLIC.CONTACT} className={`mt-5 block w-full rounded-full py-2.5 text-xs font-medium transition-all duration-300 ${tier.featured ? 'bg-white text-black hover:bg-zinc-200' : 'border border-white/[0.08] text-white hover:border-white/20'}`}>{tier.featured ? 'Book a Demo' : 'Get Started'}</Link>
               </div>
             ))}
@@ -52,7 +52,7 @@ export default function PricingPage() {
 
           <div className="text-center mb-4">
             <p className="text-sm text-zinc-500 font-light">1,000+ leases? <Link href={ROUTES.PUBLIC.CONTACT} className="text-white underline underline-offset-4 hover:text-zinc-300">Contact us</Link> for enterprise pricing.</p>
-            <p className="text-xs text-zinc-600 mt-2 font-light">Additional users R175/mo · Tenants, suppliers, and brokers always free</p>
+            <p className="text-xs text-zinc-400 mt-2 font-light">Additional users R175/mo · Tenants, suppliers, and brokers always free</p>
           </div>
 
           <div className="mt-20 border-t border-white/[0.04] pt-16">

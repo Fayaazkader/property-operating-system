@@ -41,7 +41,7 @@ export function Hero() {
           </Link>
         </div>
 
-        <p className="mt-16 text-xs text-zinc-600 font-light">
+        <p className="mt-16 text-xs text-zinc-400 font-light">
           Built for commercial property owners, portfolio managers, finance teams, and managing agents.
         </p>
       </Container>

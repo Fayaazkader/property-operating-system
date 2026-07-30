@@ -12,7 +12,7 @@ export function Footer() {
             <p className="mt-2 text-xs text-zinc-500 leading-relaxed">{marketing.company.tagline}</p>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-zinc-600 mb-3">Product</p>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-400 mb-3">Product</p>
             <div className="space-y-2">
               {['Platform', 'Pricing', 'Resources'].map((item) => (
                 <Link key={item} href={`/${item.toLowerCase()}`} className="block text-xs text-zinc-500 hover:text-white transition-colors">{item}</Link>
@@ -20,7 +20,7 @@ export function Footer() {
             </div>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-zinc-600 mb-3">Company</p>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-400 mb-3">Company</p>
             <div className="space-y-2">
               {['About', 'Contact', 'LinkedIn'].map((item) => (
                 <Link key={item} href={item === 'LinkedIn' ? marketing.socials.linkedin : `/${item.toLowerCase()}`} className="block text-xs text-zinc-500 hover:text-white transition-colors">{item}</Link>
@@ -28,7 +28,7 @@ export function Footer() {
             </div>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-zinc-600 mb-3">Legal</p>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-400 mb-3">Legal</p>
             <div className="space-y-2">
               {['Privacy', 'Terms'].map((item) => (
                 <Link key={item} href={`/${item.toLowerCase()}`} className="block text-xs text-zinc-500 hover:text-white transition-colors">{item}</Link>
@@ -37,7 +37,7 @@ export function Footer() {
           </div>
         </div>
         <div className="mt-12 pt-6 border-t border-white/[0.04] text-center">
-          <p className="text-[10px] text-zinc-600">{marketing.company.copyright}</p>
+          <p className="text-[10px] text-zinc-400">{marketing.company.copyright}</p>
         </div>
       </Container>
     </footer>
