@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { LeaseRegisterCard } from './shared-cards/LeaseRegisterCard';
-import { BillingCard } from './shared-cards/BillingCard';
-import { BankFeedCard } from './shared-cards/BankFeedCard';
-import { MaintenanceCard } from './shared-cards/MaintenanceCard';
-import { ExecutiveReportCard } from './shared-cards/ExecutiveReportCard';
-import { TenantInboxCard } from './shared-cards/TenantInboxCard';
+import { LeaseRegisterCard } from './problem-cards/LeaseRegisterCard';
+import { BillingCard } from './problem-cards/BillingCard';
+import { BankFeedCard } from './problem-cards/BankFeedCard';
+import { MaintenanceCard } from './problem-cards/MaintenanceCard';
+import { ExecutiveReportCard } from './problem-cards/ExecutiveReportCard';
+import { TenantInboxCard } from './problem-cards/TenantInboxCard';
 
 export function SolutionVisual() {
   const [visible, setVisible] = useState(false);
@@ -23,30 +23,30 @@ export function SolutionVisual() {
   }, []);
 
   const cards = [
-    { Component: LeaseRegisterCard, left: 0, top: 0, delay: 0.2 },
-    { Component: BillingCard, left: 560, top: -20, delay: 0.4 },
-    { Component: BankFeedCard, left: 100, top: 260, delay: 0.6 },
-    { Component: MaintenanceCard, left: 540, top: 300, delay: 0.8 },
-    { Component: ExecutiveReportCard, left: 10, top: 460, delay: 1.0 },
-    { Component: TenantInboxCard, left: 470, top: 500, delay: 1.2 },
+    { Component: LeaseRegisterCard, left: -10, top: -10 },
+    { Component: BillingCard, left: 540, top: -30 },
+    { Component: BankFeedCard, left: 90, top: 250 },
+    { Component: MaintenanceCard, left: 530, top: 290 },
+    { Component: ExecutiveReportCard, left: 0, top: 450 },
+    { Component: TenantInboxCard, left: 460, top: 490 },
   ];
 
   return (
     <div ref={ref} className={`relative h-[580px] md:h-[680px] max-w-4xl mx-auto solution-visual ${visible ? 'visible' : ''}`}>
       
       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 600">
-        <line x1="160" y1="100" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '0.2s' }} />
-        <line x1="670" y1="80" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '0.4s' }} />
-        <line x1="230" y1="340" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '0.6s' }} />
-        <line x1="650" y1="390" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '0.8s' }} />
-        <line x1="150" y1="540" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '1.0s' }} />
-        <line x1="580" y1="570" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '1.2s' }} />
+        <line x1="150" y1="90" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '0.2s' }} />
+        <line x1="660" y1="70" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '0.4s' }} />
+        <line x1="220" y1="330" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '0.6s' }} />
+        <line x1="640" y1="380" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '0.8s' }} />
+        <line x1="140" y1="530" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '1.0s' }} />
+        <line x1="570" y1="560" x2="400" y2="280" className="connect-line" style={{ transitionDelay: '1.2s' }} />
         <circle cx="400" cy="280" r="60" fill="none" className="pulse-ring" />
         <circle cx="400" cy="280" r="75" fill="none" stroke="rgba(16,185,129,0.1)" strokeWidth="0.5" />
         <circle cx="400" cy="280" r="90" fill="none" stroke="rgba(16,185,129,0.05)" strokeWidth="0.5" />
       </svg>
 
-      {cards.map(({ Component, left, top, delay }, i) => (
+      {cards.map(({ Component, left, top }, i) => (
         <div
           key={i}
           className="transition-all duration-1000"
@@ -55,7 +55,7 @@ export function SolutionVisual() {
             left,
             top,
             opacity: visible ? 1 : 0,
-            transitionDelay: `${delay}s`,
+            transitionDelay: `${0.2 + i * 0.2}s`,
           }}
         >
           <Component scale={0.85} />
