@@ -20,7 +20,7 @@ export function Hero() {
         </h1>
 
         <p className="mt-8 text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed font-light">
-          {marketing.company.description}
+          AssetFlow connects leasing, revenue, finance, operations and executive reporting into one intelligent platform, giving every team a single source of operational and financial truth.
         </p>
 
         <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
