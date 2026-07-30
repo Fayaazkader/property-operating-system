@@ -52,7 +52,7 @@ export function SolutionVisual() {
           <line x1="240" y1="440" x2="360" y2="310" stroke={phase === "hub" || phase === "lifecycle" ? "rgba(16,185,129,0.6)" : "rgba(16,185,129,0.15)"} strokeWidth={phase === "hub" || phase === "lifecycle" ? "2" : "1"} className="connect-line" strokeDasharray="400" strokeDashoffset="0">
             <animate attributeName="stroke-dashoffset" from="400" to="0" dur="1.5s" begin="0.5s" fill="freeze" />
           </line>
-          <line x1="520" y1="450" x2="400" y2="310" stroke={phase === "hub" || phase === "lifecycle" ? "rgba(16,185,129,0.6)" : "rgba(16,185,129,0.15)"} strokeWidth={phase === "hub" || phase === "lifecycle" ? "2" : "1"} className="connect-line" strokeDasharray="400" strokeDashoffset="0">
+          <line x1="480" y1="440" x2="400" y2="310" stroke={phase === "hub" || phase === "lifecycle" ? "rgba(16,185,129,0.6)" : "rgba(16,185,129,0.15)"} strokeWidth={phase === "hub" || phase === "lifecycle" ? "2" : "1"} className="connect-line" strokeDasharray="400" strokeDashoffset="0">
             <animate attributeName="stroke-dashoffset" from="400" to="0" dur="1.5s" begin="0.7s" fill="freeze" />
           </line>
           {phase === 'hub' && (
@@ -107,9 +107,9 @@ export function SolutionVisual() {
       <div
         style={{
           position: 'absolute',
-          bottom: '-16px',
+          bottom: '20px',
           left: '50%',
-          transform: phase === 'lifecycle' ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(40px)',
+          transform: 'translateX(-50%) translateY(0)',
           opacity: 1, zIndex: 25,
           transition: 'all 0.8s ease-out 0.5s',
           zIndex: 25,
