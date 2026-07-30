@@ -1,8 +1,9 @@
 import { Mail } from 'lucide-react';
+import { ProblemCard } from './ProblemCard';
 
 export function TenantInboxCard() {
   return (
-    <div className="absolute animate-float rounded-xl border border-white/[0.1] bg-white/[0.04] backdrop-blur-sm p-5 shadow-lg shadow-black/30" style={{ left: 455, top: 385, width: 240, transform: 'rotate(0deg)', animationDelay: '1.5s' }}>
+    <ProblemCard style={{ left: 430, top: 430, width: 240, transform: 'rotate(0deg)', animationDelay: '1.5s' }}>
       <div className="flex items-center gap-2 mb-3">
         <Mail className="w-3.5 h-3.5 text-sky-400/70" />
         <span className="text-[10px] text-zinc-400 font-light">Tenant Inbox</span>
@@ -21,6 +22,6 @@ export function TenantInboxCard() {
           <p className="text-[9px] text-zinc-500">Alice Lane</p>
         </div>
       </div>
-    </div>
+    </ProblemCard>
   );
 }

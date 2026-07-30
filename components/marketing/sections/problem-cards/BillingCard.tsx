@@ -1,8 +1,9 @@
 import { Receipt } from 'lucide-react';
+import { ProblemCard } from './ProblemCard';
 
 export function BillingCard() {
   return (
-    <div className="absolute animate-float rounded-xl border border-white/[0.1] bg-white/[0.04] backdrop-blur-sm p-5 shadow-lg shadow-black/30" style={{ left: 540, top: 40, width: 240, transform: 'rotate(2deg)', animationDelay: '0.3s' }}>
+    <ProblemCard style={{ left: 525, top: 25, width: 240, transform: 'rotate(2deg)', animationDelay: '0.3s' }}>
       <div className="flex items-center gap-2 mb-3">
         <Receipt className="w-3.5 h-3.5 text-blue-400/70" />
         <span className="text-[10px] text-zinc-400 font-light">Billing System</span>
@@ -19,6 +20,6 @@ export function BillingCard() {
         <div className="w-1.5 h-1.5 rounded-full bg-amber-400/60" />
         <span className="text-[10px] text-amber-400/80 font-light">Pending</span>
       </div>
-    </div>
+    </ProblemCard>
   );
 }

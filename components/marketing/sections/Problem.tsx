@@ -23,7 +23,7 @@ export function Problem() {
           </p>
         </div>
 
-        <div className="relative h-[540px] md:h-[620px] max-w-3xl mx-auto" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.02) 0%, transparent 70%)' }}>
+        <div className="relative h-[580px] md:h-[680px] max-w-3xl mx-auto" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.02) 0%, transparent 70%)' }}>
           
           <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 640 520" style={{ opacity: 0.18 }}>
             <path d="M170 55 C210 70, 210 140, 240 170" stroke="white" strokeWidth="0.8" strokeDasharray="4,6" strokeLinecap="round" fill="none" />
