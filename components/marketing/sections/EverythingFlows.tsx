@@ -158,18 +158,6 @@ export function EverythingFlows() {
               );
             })}
           </div>
-
-          {/* Bottom flow — converges to center */}
-          <div className="flex justify-center gap-16" style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.8s ease-out 1.8s' }}>
-            <div className="flex flex-col items-center gap-0.5">
-              <div className="w-0.5 h-4 bg-zinc-400/20" />
-              <div className="w-1 h-1 rounded-full bg-zinc-400/40" />
-            </div>
-            <div className="flex flex-col items-center gap-0.5">
-              <div className="w-0.5 h-4 bg-zinc-400/20" />
-              <div className="w-1 h-1 rounded-full bg-zinc-400/40" />
-            </div>
-          </div>
         </div>
       </Container>
     </Section>
