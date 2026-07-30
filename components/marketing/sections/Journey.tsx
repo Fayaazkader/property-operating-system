@@ -46,9 +46,9 @@ export function Journey() {
                 setTransitioning(true);
                 setPhase({ type: 'complete' });
                 setTimeout(() => setTransitioning(false), 600);
-              }, 900);
+              }, 1400);
             }
-          }, 900);
+          }, 1400);
           observer.disconnect();
         }
       },
