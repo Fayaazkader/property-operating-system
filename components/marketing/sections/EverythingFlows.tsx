@@ -62,7 +62,7 @@ export function EverythingFlows() {
   }, []);
 
   return (
-    <Section className="relative overflow-hidden py-24">
+    <Section id="everything-flows" className="relative overflow-hidden py-24">
       <Container>
         <div ref={ref} className="text-center mb-16">
           <p className="text-xs uppercase tracking-[0.3em] text-emerald-400/80 mb-6 font-medium">Everything Flows</p>
