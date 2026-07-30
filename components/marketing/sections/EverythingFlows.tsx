@@ -4,52 +4,46 @@ import { useState, useEffect, useRef } from 'react';
 import { Container } from '../layout/Container';
 import { Section } from '../layout/Section';
 
-const domains = [
+const columns = [
   {
     title: 'Revenue',
     items: ['Lease Management', 'Billing Rules', 'Invoice Generation', 'Escalations', 'Revenue Protection'],
     color: 'emerald',
-    x: '15%', y: '5%',
   },
   {
     title: 'Operations',
     items: ['Maintenance', 'Inspections', 'Tasks', 'Work Orders', 'Contractors'],
     color: 'blue',
-    x: '55%', y: '5%',
   },
   {
     title: 'Finance',
     items: ['Bank Imports', 'Reconciliation', 'Statements', 'Collections', 'Reporting'],
     color: 'amber',
-    x: '75%', y: '45%',
   },
   {
     title: 'Communication',
     items: ['Tenant Inbox', 'WhatsApp', 'Email', 'Notices', 'Notifications'],
     color: 'purple',
-    x: '55%', y: '75%',
   },
   {
     title: 'Governance',
     items: ['Approvals', 'Audit Trail', 'Permissions', 'Compliance', 'Activity Log'],
     color: 'slate',
-    x: '15%', y: '75%',
   },
   {
     title: 'Intelligence',
     items: ['Portfolio KPIs', 'Occupancy', 'NOI', 'Risk', 'AI Insights'],
     color: 'rose',
-    x: '35%', y: '45%',
   },
 ];
 
-const colorMap: Record<string, { text: string; border: string; bg: string; dot: string }> = {
-  emerald: { text: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/[0.03]', dot: 'bg-emerald-400' },
-  blue: { text: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/[0.03]', dot: 'bg-blue-400' },
-  amber: { text: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/[0.03]', dot: 'bg-amber-400' },
-  purple: { text: 'text-purple-400', border: 'border-purple-500/30', bg: 'bg-purple-500/[0.03]', dot: 'bg-purple-400' },
-  slate: { text: 'text-zinc-400', border: 'border-zinc-500/30', bg: 'bg-zinc-500/[0.03]', dot: 'bg-zinc-400' },
-  rose: { text: 'text-rose-400', border: 'border-rose-500/30', bg: 'bg-rose-500/[0.03]', dot: 'bg-rose-400' },
+const colorMap: Record<string, { text: string; border: string; bg: string; dot: string; flow: string }> = {
+  emerald: { text: 'text-emerald-400', border: 'border-emerald-500/20', bg: 'bg-emerald-500/[0.02]', dot: 'bg-emerald-400', flow: 'bg-emerald-400/30' },
+  blue: { text: 'text-blue-400', border: 'border-blue-500/20', bg: 'bg-blue-500/[0.02]', dot: 'bg-blue-400', flow: 'bg-blue-400/30' },
+  amber: { text: 'text-amber-400', border: 'border-amber-500/20', bg: 'bg-amber-500/[0.02]', dot: 'bg-amber-400', flow: 'bg-amber-400/30' },
+  purple: { text: 'text-purple-400', border: 'border-purple-500/20', bg: 'bg-purple-500/[0.02]', dot: 'bg-purple-400', flow: 'bg-purple-400/30' },
+  slate: { text: 'text-zinc-400', border: 'border-zinc-500/20', bg: 'bg-zinc-500/[0.02]', dot: 'bg-zinc-400', flow: 'bg-zinc-400/30' },
+  rose: { text: 'text-rose-400', border: 'border-rose-500/20', bg: 'bg-rose-500/[0.02]', dot: 'bg-rose-400', flow: 'bg-rose-400/30' },
 };
 
 export function EverythingFlows() {
@@ -61,7 +55,7 @@ export function EverythingFlows() {
       ([entry]) => {
         if (entry.isIntersecting) { setVisible(true); observer.disconnect(); }
       },
-      { threshold: 0.2 }
+      { threshold: 0.15 }
     );
     if (ref.current) observer.observe(ref.current);
     return () => observer.disconnect();
@@ -82,76 +76,98 @@ export function EverythingFlows() {
           </p>
         </div>
 
-        {/* Domains — positioned absolutely in a relative container */}
-        <div style={{ position: 'relative', height: '520px', maxWidth: '700px', margin: '0 auto' }}>
+        {/* Flow diagram — 3 columns × 2 rows, connected by vertical flow lines */}
+        <div style={{ maxWidth: '780px', margin: '0 auto' }}>
           
-          {/* Connection lines — simple SVG from each domain to center */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 700 520" style={{ zIndex: 1 }}>
-            {[
-              { x1: 120, y1: 80, x2: 350, y2: 260 },
-              { x1: 400, y1: 80, x2: 350, y2: 260 },
-              { x1: 520, y1: 280, x2: 350, y2: 260 },
-              { x1: 400, y1: 420, x2: 350, y2: 260 },
-              { x1: 120, y1: 420, x2: 350, y2: 260 },
-              { x1: 260, y1: 280, x2: 350, y2: 260 },
-            ].map((line, i) => (
-              <line
-                key={i}
-                x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2}
-                stroke="rgba(255,255,255,0.06)"
-                strokeWidth="1"
-                strokeDasharray="300"
-                strokeDashoffset={visible ? 0 : 300}
-                style={{ transition: `stroke-dashoffset 2s ease-out ${0.3 + i * 0.15}s` }}
-              />
-            ))}
-          </svg>
-
-          {/* Domains */}
-          {domains.map((domain, i) => {
-            const c = colorMap[domain.color];
-            return (
-              <div
-                key={domain.title}
-                style={{
-                  position: 'absolute',
-                  left: domain.x,
-                  top: domain.y,
-                  transform: 'translate(-50%, -50%)',
-                  opacity: visible ? 1 : 0,
-                  transition: `opacity 0.6s ease-out ${0.2 + i * 0.1}s, transform 0.6s ease-out ${0.2 + i * 0.1}s`,
-                  zIndex: 10,
-                }}
-              >
-                <div className={`rounded-xl border ${c.border} ${c.bg} backdrop-blur-sm px-4 py-3 text-center min-w-[140px]`}>
+          {/* Row 1: Revenue → Operations → Finance */}
+          <div className="grid grid-cols-3 gap-6 mb-4">
+            {columns.slice(0, 3).map((col, i) => {
+              const c = colorMap[col.color];
+              return (
+                <div
+                  key={col.title}
+                  className={`rounded-xl border ${c.border} ${c.bg} backdrop-blur-sm p-4 text-center transition-all duration-700`}
+                  style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(20px)', transitionDelay: `${0.2 + i * 0.15}s` }}
+                >
                   <div className="flex items-center justify-center gap-1.5 mb-2">
                     <div className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
-                    <span className={`text-xs font-medium ${c.text}`}>{domain.title}</span>
+                    <span className={`text-xs font-semibold ${c.text} tracking-wide`}>{col.title}</span>
                   </div>
+                  <div className="w-8 h-px bg-white/[0.06] mx-auto mb-2" />
                   <div className="space-y-0.5">
-                    {domain.items.map(item => (
+                    {col.items.map(item => (
                       <p key={item} className="text-[10px] text-zinc-500 font-light">{item}</p>
                     ))}
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
 
-          {/* Center hub */}
-          <div
-            style={{
-              position: 'absolute',
-              left: '50%',
-              top: '50%',
-              transform: visible ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.8)',
-              opacity: visible ? 1 : 0,
-              transition: 'all 0.8s ease-out 1.2s',
-              zIndex: 20,
-            }}
-          >
-            <div className="rounded-full border border-white/10 bg-black/90 backdrop-blur-sm px-5 py-3 text-center">
-              <span className="text-xs font-medium text-white tracking-wide">AssetFlow</span>
+          {/* Flow arrows row 1→2 */}
+          <div className="flex justify-center gap-3 mb-4" style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.8s ease-out 1s' }}>
+            {[0, 1, 2].map(i => (
+              <div key={i} className="flex flex-col items-center gap-0.5">
+                <div className={`w-0.5 h-6 ${colorMap[columns[i].color].flow}`} />
+                <div className={`w-1 h-1 rounded-full ${colorMap[columns[i].color].dot}`} />
+                <div className={`w-0.5 h-6 ${colorMap[columns[i].color].flow}`} />
+              </div>
+            ))}
+          </div>
+
+          {/* Row 2: Governance → Platform Hub → Intelligence */}
+          <div className="grid grid-cols-3 gap-6 mb-4">
+            {[columns[4], null, columns[5]].map((col, i) => {
+              if (!col) {
+                // Center hub
+                return (
+                  <div
+                    key="hub"
+                    className="flex items-center justify-center"
+                    style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.8s ease-out 1.5s' }}
+                  >
+                    <div className="rounded-full border border-white/10 bg-black/95 backdrop-blur-sm px-5 py-4 text-center shadow-2xl">
+                      <p className="text-sm font-medium text-white tracking-tight">AssetFlow</p>
+                      <p className="text-[9px] text-zinc-500 mt-0.5 font-light">Operating Platform</p>
+                      <div className="mt-2 flex items-center justify-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-[8px] text-emerald-400/80 font-light">Live</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              const c = colorMap[col.color];
+              return (
+                <div
+                  key={col.title}
+                  className={`rounded-xl border ${c.border} ${c.bg} backdrop-blur-sm p-4 text-center transition-all duration-700`}
+                  style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(20px)', transitionDelay: `${0.8 + i * 0.15}s` }}
+                >
+                  <div className="flex items-center justify-center gap-1.5 mb-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+                    <span className={`text-xs font-semibold ${c.text} tracking-wide`}>{col.title}</span>
+                  </div>
+                  <div className="w-8 h-px bg-white/[0.06] mx-auto mb-2" />
+                  <div className="space-y-0.5">
+                    {col.items.map(item => (
+                      <p key={item} className="text-[10px] text-zinc-500 font-light">{item}</p>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Bottom flow — converges to center */}
+          <div className="flex justify-center gap-16" style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.8s ease-out 1.8s' }}>
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="w-0.5 h-4 bg-zinc-400/20" />
+              <div className="w-1 h-1 rounded-full bg-zinc-400/40" />
+            </div>
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="w-0.5 h-4 bg-zinc-400/20" />
+              <div className="w-1 h-1 rounded-full bg-zinc-400/40" />
             </div>
           </div>
         </div>
