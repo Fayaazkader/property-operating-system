@@ -3,6 +3,7 @@ import { Container } from '../layout/Container';
 import { Section } from '../layout/Section';
 import { marketing } from '@/lib/marketing.config';
 import { ROUTES } from '@/lib/routes';
+import { MorningBriefPreview } from './MorningBriefPreview';
 
 export function Hero() {
   return (
@@ -45,6 +46,10 @@ export function Hero() {
           Built for commercial property owners, portfolio managers, finance teams, and managing agents.
         </p>
       </Container>
+            <div className="relative mt-24 max-w-7xl mx-auto px-4">
+        <p className="text-center text-xs uppercase tracking-[0.3em] text-zinc-600 mb-8 font-medium">Where every operational event becomes financial truth.</p>
+        <MorningBriefPreview />
+      </div>
     </Section>
   );
 }
