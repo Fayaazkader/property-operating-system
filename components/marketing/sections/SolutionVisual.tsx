@@ -32,7 +32,7 @@ export function SolutionVisual() {
   const isActive = phase !== 'idle';
 
   return (
-    <div ref={visualRef} className="solution-visual" style={{ position: 'relative', height: '600px', maxWidth: '780px', margin: '0 auto', overflow: 'hidden' }}>
+    <div ref={visualRef} className="solution-visual" style={{ position: 'relative', height: '640px', maxWidth: '780px', margin: '0 auto', overflow: 'hidden' }}>
       
       {/* Connection lines */}
       {isActive && (
@@ -107,7 +107,7 @@ export function SolutionVisual() {
       <div
         style={{
           position: 'absolute',
-          bottom: '-16px',
+          bottom: '8px',
           left: '50%',
           transform: phase === 'lifecycle' ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(40px)',
           opacity: phase === 'lifecycle' ? 1 : 0,
