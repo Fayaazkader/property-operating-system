@@ -60,6 +60,8 @@ const colorMap: Record<string, { dot: string; line: string; text: string; border
 
 export function Journey() {
   const [activeStep, setActiveStep] = useState(-1);
+  const [prevStep, setPrevStep] = useState(-1);
+  const [transitioning, setTransitioning] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,9 +70,12 @@ export function Journey() {
         if (entry.isIntersecting) {
           let step = 0;
           const interval = setInterval(() => {
+            setPrevStep(step - 1);
             setActiveStep(step);
+            setTransitioning(true);
+            setTimeout(() => setTransitioning(false), 400);
             step++;
-            if (step >= steps.length) clearInterval(interval);
+            if (step >= steps.length) { clearInterval(interval); setTimeout(() => setShowComplete(true), 600); }
           }, 600);
           observer.disconnect();
         }
@@ -82,7 +87,8 @@ export function Journey() {
   }, []);
 
   const currentStep = activeStep >= 0 && activeStep < steps.length ? steps[activeStep] : null;
-  const isComplete = activeStep >= steps.length - 1;
+  const [showComplete, setShowComplete] = useState(false);
+  const isComplete = showComplete;
 
   return (
     <Section id="journey" className="relative overflow-hidden py-24">
@@ -101,35 +107,54 @@ export function Journey() {
 
         <div className="max-w-4xl mx-auto">
           
-          {/* Top: Horizontal workflow line with nodes */}
-          <div className="flex items-center justify-between px-4 mb-10">
+          {/* Top: Horizontal workflow with data packet */}
+          <div className="flex items-center justify-between px-4 mb-10 relative">
             {steps.map((step, i) => {
               const c = colorMap[step.color];
               const isActive = i <= activeStep;
               const isCurrent = i === activeStep;
+              const isLast = i === steps.length - 1;
               return (
-                <div key={step.title} className="flex items-center flex-1 last:flex-none">
+                <div key={step.title} className="flex items-center flex-1 last:flex-none relative">
                   {/* Node */}
                   <div className="flex flex-col items-center">
                     <div
-                      className={`w-3 h-3 rounded-full transition-all duration-500 ${
-                        isActive ? c.dot + (isCurrent ? ' animate-pulse shadow-lg' : '') : 'bg-zinc-800'
+                      className={`w-3 h-3 rounded-full transition-all duration-500 relative ${
+                        isActive ? c.dot : 'bg-zinc-800'
                       }`}
-                      style={{ boxShadow: isActive ? `0 0 8px currentColor` : 'none' }}
-                    />
+                      style={{ 
+                        boxShadow: isActive ? `0 0 10px currentColor` : 'none',
+                        transform: isLast && isActive ? 'scale(1.5)' : 'scale(1)',
+                      }}
+                    >
+                      {/* Data packet — moves along the line */}
+                      {isCurrent && (
+                        <div className={`absolute -top-0.5 -left-0.5 w-4 h-4 rounded-full ${c.dot} opacity-60 animate-ping`} />
+                      )}
+                    </div>
                     <span className={`text-[10px] mt-2 font-medium transition-colors duration-500 whitespace-nowrap ${
-                      isActive ? c.text : 'text-zinc-700'
+                      isActive ? (isLast ? `${c.text} text-xs` : c.text) : 'text-zinc-700'
                     }`}>
                       {isActive && i < activeStep ? '✓ ' : ''}{step.title}
                     </span>
                   </div>
                   {/* Connecting line */}
                   {i < steps.length - 1 && (
-                    <div className="flex-1 h-0.5 mx-2 rounded-full overflow-hidden bg-zinc-800">
+                    <div className="flex-1 h-0.5 mx-2 rounded-full overflow-hidden bg-zinc-800 relative">
                       <div
                         className={`h-full rounded-full transition-all duration-700 ${c.line}`}
-                        style={{ width: i < activeStep ? '100%' : isCurrent ? '50%' : '0%' }}
+                        style={{ width: i < activeStep ? '100%' : '0%' }}
                       />
+                      {/* Traveling dot */}
+                      {isCurrent && (
+                        <div
+                          className={`absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full ${c.dot} shadow-lg`}
+                          style={{ 
+                            left: '0%',
+                            animation: 'travelRight 0.6s ease-in-out forwards',
+                          }}
+                        />
+                      )}
                     </div>
                   )}
                 </div>
@@ -137,12 +162,14 @@ export function Journey() {
             })}
           </div>
 
-          {/* Bottom: Active step detail */}
-          <div className="flex justify-center" style={{ minHeight: '120px' }}>
+          {/* Bottom: Animated detail card */}
+          <div className="flex justify-center" style={{ minHeight: '130px' }}>
             {currentStep && (
               <div
                 key={currentStep.title}
-                className={`rounded-2xl border ${colorMap[currentStep.color].border} ${colorMap[currentStep.color].glow} bg-white/[0.02] backdrop-blur-sm px-8 py-6 text-center max-w-md w-full transition-all duration-500`}
+                className={`rounded-2xl border ${colorMap[currentStep.color].border} ${colorMap[currentStep.color].glow} bg-white/[0.02] backdrop-blur-sm px-8 py-6 text-center max-w-md w-full transition-all duration-400 ${
+                  transitioning ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'
+                }`}
               >
                 <p className={`text-xs uppercase tracking-[0.2em] ${colorMap[currentStep.color].text} mb-2 font-medium`}>
                   {currentStep.title}
@@ -155,16 +182,20 @@ export function Journey() {
                 </div>
               </div>
             )}
-            {isComplete && !currentStep && (
-              <div className="rounded-2xl border border-emerald-500/30 shadow-emerald-500/10 bg-emerald-500/[0.02] backdrop-blur-sm px-8 py-6 text-center">
-                <p className="text-emerald-400 text-lg mb-1">✓</p>
-                <p className="text-sm text-white font-light">Complete lifecycle active</p>
-                <p className="text-[11px] text-zinc-500 mt-1 font-light">All seven stages governed and auditable</p>
+            {isComplete && (
+              <div className="rounded-2xl border border-emerald-500/30 shadow-emerald-500/10 bg-emerald-500/[0.02] backdrop-blur-sm px-10 py-8 text-center transition-all duration-500">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-emerald-400 text-lg">✓</span>
+                </div>
+                <p className="text-base text-white font-light">Complete Operational Lifecycle</p>
+                <p className="text-[11px] text-zinc-500 mt-2 font-light max-w-xs mx-auto leading-relaxed">
+                  Every stage is connected, governed and auditable — from lease creation to portfolio intelligence.
+                </p>
               </div>
             )}
           </div>
 
-          {/* Progress indicator */}
+          {/* Progress */}
           <div className="text-center mt-8">
             <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-700 font-medium">
               {activeStep < 0 ? 'Scroll to begin' : isComplete ? 'All stages complete' : `Stage ${activeStep + 1} of ${steps.length}`}

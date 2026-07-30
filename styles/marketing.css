@@ -54,3 +54,8 @@
   0% { r: 20; opacity: 0.6; }
   100% { r: 110; opacity: 0; }
 }
+
+@keyframes travelRight {
+  0% { left: 0%; opacity: 1; }
+  100% { left: 100%; opacity: 0.3; }
+}
