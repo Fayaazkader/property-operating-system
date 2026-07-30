@@ -45,3 +45,12 @@
   animation: hubPulse 3s ease-out 1;
   animation-delay: 2s;
 }
+
+.pulse-ring-svg {
+  animation: pulseRingExpand 2s ease-out 1 forwards;
+}
+
+@keyframes pulseRingExpand {
+  0% { r: 20; opacity: 0.6; }
+  100% { r: 110; opacity: 0; }
+}
