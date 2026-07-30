@@ -1,10 +1,10 @@
-import { MarketingHomePage } from '@/components/marketing/pages/HomePage';
+import { HomePage } from '@/components/marketing/pages/HomePage';
 import { MarketingLayout } from '@/components/marketing/layout/MarketingLayout';
 
 export default function Home() {
   return (
     <MarketingLayout>
-      <MarketingHomePage />
+      <HomePage />
     </MarketingLayout>
   );
 }
