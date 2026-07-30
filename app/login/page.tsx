@@ -40,7 +40,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-[#0A0A0B]">
       <div className="w-full max-w-md rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-8">
         <div className="text-center mb-8">
-          <a href="/" className="text-2xl font-bold text-[var(--text-primary)] hover:text-white transition-colors">AssetFlow</a>
+          <a href="/"><img src="/logo.png" alt="AssetFlow" className="h-10 w-auto mx-auto mb-3" /></a>
           <p className="text-[var(--text-secondary)] mt-2">Sign in to your account</p>
         </div>
 
