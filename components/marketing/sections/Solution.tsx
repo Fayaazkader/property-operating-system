@@ -19,20 +19,6 @@ export function Solution() {
         </div>
 
         <SolutionVisual />
-
-        <div className="mt-16 max-w-2xl mx-auto">
-          <p className="text-center text-[10px] uppercase tracking-[0.2em] text-zinc-600 mb-8 font-medium">The Complete Lifecycle</p>
-          <div className="flex flex-col items-center gap-1">
-            {['Lease', 'Billing Rules', 'Invoices', 'Payments', 'Reconciliation', 'Portfolio Intelligence'].map((step, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="rounded-full border border-emerald-500/20 bg-emerald-500/[0.04] px-4 py-2 text-xs text-emerald-300 font-light w-48 text-center">
-                  {step}
-                </div>
-                {i < 5 && <span className="text-emerald-600 text-lg font-light">↓</span>}
-              </div>
-            ))}
-          </div>
-        </div>
       </Container>
     </Section>
   );
