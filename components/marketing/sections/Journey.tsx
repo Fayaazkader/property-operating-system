@@ -38,17 +38,17 @@ export function Journey() {
           const interval = setInterval(() => {
             setTransitioning(true);
             setPhase({ type: 'step', index: step });
-            setTimeout(() => setTransitioning(false), 400);
+            setTimeout(() => setTransitioning(false), 600);
             step++;
             if (step >= steps.length) {
               clearInterval(interval);
               setTimeout(() => {
                 setTransitioning(true);
                 setPhase({ type: 'complete' });
-                setTimeout(() => setTransitioning(false), 400);
-              }, 600);
+                setTimeout(() => setTransitioning(false), 600);
+              }, 900);
             }
-          }, 600);
+          }, 900);
           observer.disconnect();
         }
       },
