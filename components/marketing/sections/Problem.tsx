@@ -2,12 +2,12 @@ import { Container } from '../layout/Container';
 import { Section } from '../layout/Section';
 
 const FRAGMENTED_APPS = [
-  { name: 'Lease Register', content: 'Tenant A — R45k\nTenant B — R32k\nEsc 8% · Exp Jun', w: 'w-44', h: 'h-28', x: 30, y: 15, rotate: '-1.5deg', border: 'border-white/[0.12]', bg: 'bg-white/[0.07]', delay: '0s' },
-  { name: 'Billing System', content: 'INV-001 — R52k\nINV-002 — Pending', w: 'w-40', h: 'h-22', x: 530, y: 60, rotate: '2deg', border: 'border-white/[0.08]', bg: 'bg-white/[0.05]', delay: '0.3s' },
-  { name: 'Bank Feed', content: 'In: R52k · R18k\nOut: R7k', w: 'w-36', h: 'h-20', x: 170, y: 155, rotate: '0deg', border: 'border-white/[0.09]', bg: 'bg-white/[0.05]', delay: '0.6s' },
-  { name: 'Maintenance', content: '● #142 Blocked Drain\n● #143 AC Repair\n○ #144 Lift Service', w: 'w-48', h: 'h-24', x: 510, y: 240, rotate: '1deg', border: 'border-white/[0.10]', bg: 'bg-white/[0.06]', delay: '0.9s' },
-  { name: 'Reporting', content: 'Occupancy ████ 94%\nRevenue  ███  R842k\nArrears  █    R120k', w: 'w-44', h: 'h-24', x: 50, y: 345, rotate: '-2deg', border: 'border-white/[0.07]', bg: 'bg-white/[0.04]', delay: '1.2s' },
-  { name: 'Tenant Inbox', content: '3 unread 🔴\n2 renewals 📄\n1 complaint ⚠', w: 'w-40', h: 'h-22', x: 450, y: 395, rotate: '0deg', border: 'border-white/[0.06]', bg: 'bg-white/[0.03]', delay: '1.5s', blur: true },
+  { name: 'Lease Register', content: 'Tenant A — R45k\nTenant B — R32k\nEsc 8% · Exp Jun', w: 'w-44', h: 'h-28', x: 20, y: 10, rotate: '-1.5deg', border: 'border-white/[0.12]', bg: 'bg-white/[0.07]', delay: '0s' },
+  { name: 'Billing System', content: 'INV-001 — R52k\nINV-002 — Pending', w: 'w-40', h: 'h-22', x: 545, y: 45, rotate: '2deg', border: 'border-white/[0.08]', bg: 'bg-white/[0.05]', delay: '0.3s' },
+  { name: 'Bank Feed', content: 'In: R52k · R18k\nOut: R7k', w: 'w-36', h: 'h-20', x: 155, y: 165, rotate: '0deg', border: 'border-white/[0.09]', bg: 'bg-white/[0.05]', delay: '0.6s' },
+  { name: 'Maintenance', content: '● <span className="text-amber-400">#142 Blocked Drain</span>\n● #143 AC Repair\n○ #144 Lift Service', w: 'w-48', h: 'h-24', x: 525, y: 230, rotate: '1deg', border: 'border-white/[0.10]', bg: 'bg-white/[0.06]', delay: '0.9s' },
+  { name: 'Reporting', content: 'Occupancy ████ 94%\nRevenue  ███  R842k\nArrears  █    <span className="text-amber-400">R120k</span>', w: 'w-44', h: 'h-24', x: 35, y: 355, rotate: '-2deg', border: 'border-white/[0.07]', bg: 'bg-white/[0.04]', delay: '1.2s' },
+  { name: 'Tenant Inbox', content: '3 unread 🔴\n2 renewals 📄\n1 complaint ⚠', w: 'w-40', h: 'h-22', x: 465, y: 385, rotate: '0deg', border: 'border-white/[0.06]', bg: 'bg-white/[0.03]', delay: '1.5s', blur: true },
 ];
 
 export function Problem() {
@@ -27,13 +27,13 @@ export function Problem() {
           </p>
         </div>
 
-        <div className="relative h-[480px] md:h-[540px] max-w-3xl mx-auto">
-          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 640 500" style={{ opacity: 0.05 }}>
-            <path d="M170 55 C210 70, 210 140, 240 170" stroke="white" strokeWidth="0.5" strokeLinecap="round" fill="none" />
-            <path d="M560 90 C490 110, 440 140, 380 170" stroke="white" strokeWidth="0.5" strokeLinecap="round" fill="none" />
-            <path d="M240 170 C280 210, 300 240, 350 280" stroke="white" strokeWidth="0.5" strokeLinecap="round" fill="none" />
-            <path d="M540 280 C510 320, 490 370, 460 410" stroke="white" strokeWidth="0.5" strokeLinecap="round" fill="none" />
-            <path d="M130 370 C230 380, 350 395, 460 410" stroke="white" strokeWidth="0.5" strokeLinecap="round" fill="none" />
+        <div className="relative h-[540px] md:h-[600px] max-w-3xl mx-auto">
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 640 500" style={{ opacity: 0.12 }}>
+            <path d="M170 55 C210 70, 210 140, 240 170" stroke="white" strokeWidth="0.8" strokeDasharray="4,6" strokeLinecap="round" fill="none" />
+            <path d="M560 90 C490 110, 440 140, 380 170" stroke="white" strokeWidth="0.8" strokeDasharray="4,6" strokeLinecap="round" fill="none" />
+            <path d="M240 170 C280 210, 300 240, 350 280" stroke="white" strokeWidth="0.8" strokeDasharray="4,6" strokeLinecap="round" fill="none" />
+            <path d="M540 280 C510 320, 490 370, 460 410" stroke="white" strokeWidth="0.8" strokeDasharray="4,6" strokeLinecap="round" fill="none" />
+            <path d="M130 370 C230 380, 350 395, 460 410" stroke="white" strokeWidth="0.8" strokeDasharray="4,6" strokeLinecap="round" fill="none" />
           </svg>
 
           {FRAGMENTED_APPS.map((app) => (
@@ -57,7 +57,7 @@ export function Problem() {
           ))}
 
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <p className="text-[10px] uppercase tracking-[0.45em] text-zinc-500 font-medium">Disconnected</p>
+            <p className="text-[11px] uppercase tracking-[0.5em] text-zinc-300 font-medium">Disconnected</p>
           </div>
         </div>
       </Container>
