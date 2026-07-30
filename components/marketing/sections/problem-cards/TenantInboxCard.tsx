@@ -3,7 +3,7 @@ import { ProblemCard } from './ProblemCard';
 
 export function TenantInboxCard({ scale = 1 }: { scale?: number }) {
   return (
-    <ProblemCard style={{ left: 400, top: 370, width: 240, transform: `rotate(0deg) scale(${scale})`, animationDelay: '1.5s' }}>
+    <ProblemCard style={{ left: 360, top: 390, width: 240, transform: `rotate(0deg) scale(${scale})`, animationDelay: '1.5s' }}>
       <div className="flex items-center gap-2 mb-3">
         <Mail className="w-3.5 h-3.5 text-sky-400/70" />
         <span className="text-[10px] text-zinc-400 font-light">Tenant Inbox</span>
