@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { extractRulesFromLease } from '@/lib/revenue/rule-extractor';
 import { generateChargesFromRules } from '@/lib/revenue/charge-generator';
 import { publish } from '@/lib/platform/events/event-bus';
-import type { ActivationResult } from '@/lib/workflow/domain/activation-context';
+import type { ActivationResult, ActivateLeaseRpcResult } from '@/lib/workflow/domain/activation-context';
 
 export interface ActivationInput {
   entityId: string;
@@ -49,25 +49,26 @@ export class LeaseActivationService {
       p_document_url: input.documentFile?.url || null,
     });
 
-    if (rpcError) {
-      throw rpcError;
-    }
+    if (rpcError) throw rpcError;
+    
+    const result = rpcResult as unknown as ActivateLeaseRpcResult;
+    if (!result?.tenant_id) throw new Error('Activation RPC returned no data');
 
-    // Phase 2: Billing rules and charges (idempotent — safe to retry)
-    const rulesCreated = await extractRulesFromLease(rpcResult.lease_id);
+    // Phase 2: Billing rules and charges
+    const rulesCreated = await extractRulesFromLease(result.lease_id);
     const periodStart = new Date().toISOString().split('T')[0];
     const periodEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0).toISOString().split('T')[0];
-    const chargesGenerated = await generateChargesFromRules(rpcResult.lease_id, periodStart, periodEnd);
+    const chargesGenerated = await generateChargesFromRules(result.lease_id, periodStart, periodEnd);
 
-    // Phase 3: Publish event ONLY after everything succeeded
+    // Phase 3: Publish event only after everything succeeded
     await publish('lease.activated', {
       correlationId: crypto.randomUUID(),
       source: 'lease-activation-service',
       version: '1.0',
       payload: {
-        tenantId: rpcResult.tenant_id,
-        leaseId: rpcResult.lease_id,
-        leaseRef: rpcResult.lease_ref,
+        tenantId: result.tenant_id,
+        leaseId: result.lease_id,
+        leaseRef: result.lease_ref,
         entityId: input.entityId,
       },
     });
@@ -75,17 +76,17 @@ export class LeaseActivationService {
     const duration = Date.now() - startedAt;
 
     return {
-      tenantId: rpcResult.tenant_id,
-      leaseId: rpcResult.lease_id,
-      tenantCode: rpcResult.tenant_code,
-      leaseRef: rpcResult.lease_ref,
+      tenantId: result.tenant_id,
+      leaseId: result.lease_id,
+      tenantCode: result.tenant_code,
+      leaseRef: result.lease_ref,
       rulesCreated,
       chargesGenerated,
-      documentsAttached: rpcResult.documents_attached || 0,
-      contactsCreated: rpcResult.contacts_created || 0,
+      documentsAttached: result.documents_attached || 0,
+      contactsCreated: result.contacts_created || 0,
       warnings: 0,
       duration,
-      events: ['tenant_created', 'contact_created', 'lease_created', 'document_attached', 'billing_rules_extracted', 'charges_generated', 'unit_updated', 'event_published'],
+      events: ['tenant_created', 'lease_created', 'billing_rules_extracted', 'charges_generated', 'event_published'],
     };
   }
 }
