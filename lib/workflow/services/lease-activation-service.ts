@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { extractRulesFromLease } from '@/lib/revenue/rule-extractor';
 import { generateChargesFromRules } from '@/lib/revenue/charge-generator';
 import { publish } from '@/lib/platform/events/event-bus';
-import type { ActivationResult } from '../domain/activation-context';
+import type { ActivationResult } from '@/lib/workflow/domain/activation-context';
 
 export interface ActivationInput {
   entityId: string;
@@ -49,8 +49,8 @@ export class LeaseActivationService {
       p_document_url: input.documentFile?.url || null,
     });
 
-    if (rpcError || !rpcResult?.success) {
-      throw new Error(rpcResult?.error || rpcError?.message || 'Activation failed');
+    if (rpcError) {
+      throw rpcError;
     }
 
     // Phase 2: Billing rules and charges (idempotent — safe to retry)
