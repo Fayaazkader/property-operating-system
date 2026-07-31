@@ -30,7 +30,7 @@ export default function LeaseActivationPage() {
   const [manual, setManual] = useState({
     tenant_name: '', company_registration: '', vat_number: '', email: '', phone: '',
     property_id: '', unit_id: '', monthly_rental: '', lease_start_date: '', lease_end_date: '',
-    escalation_percent: '8', deposit_amount: '', parking_bays: '0', parking_rate: '850',
+    escalation_percent: '', deposit_amount: '', parking_bays: '', parking_rate: '',
   });
 
   useEffect(() => {
@@ -74,7 +74,7 @@ export default function LeaseActivationPage() {
     const fileUrl = urlData?.publicUrl || '';
 
     // Extract (mock OCR for now)
-    const result = await documentExtractionProvider.extract(new ArrayBuffer(0), file.name);
+    const result = await documentExtractionProvider.extract(Buffer.from([]), file.name);
     setExtractedFields(result.fields);
     setExceptions(result.exceptions);
 
