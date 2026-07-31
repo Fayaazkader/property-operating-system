@@ -56,7 +56,7 @@ export class LeaseActivationService {
 
     // Phase 2: Billing rules and charges
     const rulesCreated = await extractRulesFromLease(result.lease_id);
-    const periodStart = new Date().toISOString().split('T')[0];
+    const periodStart = input.leaseStartDate;
     const periodEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0).toISOString().split('T')[0];
     const chargesGenerated = await generateChargesFromRules(result.lease_id, periodStart, periodEnd);
 
