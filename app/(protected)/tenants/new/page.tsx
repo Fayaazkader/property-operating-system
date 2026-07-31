@@ -10,7 +10,7 @@ import { validationService } from '@/lib/workflow/services/validation-service';
 import Link from 'next/link';
 import { Upload, Camera, Edit3, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 
-type Step = 'choose' | 'upload' | 'extraction' | 'review' | 'processing' | 'complete';
+type Step = 'choose' | 'upload' | 'extraction' | 'review' | 'manual' | 'processing' | 'complete';
 
 export default function LeaseActivationPage() {
   const router = useRouter();
