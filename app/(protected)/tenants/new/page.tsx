@@ -294,7 +294,7 @@ export default function LeaseActivationPage() {
               </select>
               <select value={manual.unit_id} onChange={(e) => setManual({ ...manual, unit_id: e.target.value })} required className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20">
                 <option value="">Select Unit *</option>
-                {units.map(u => <option key={u.id} value={u.id}>{u.unit_number} — {u.occupancy_status}</option>)}
+                {units.filter(u => u.occupancy_status === 'Vacant').map(u => <option key={u.id} value={u.id}>{u.unit_number}</option>)}
               </select>
             </div>
 
