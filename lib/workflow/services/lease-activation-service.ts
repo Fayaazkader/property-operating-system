@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase';
-import { leaseNumberService } from './lease-number-service';
 import { extractRulesFromLease } from '@/lib/revenue/rule-extractor';
 import { generateChargesFromRules } from '@/lib/revenue/charge-generator';
 import { publish } from '@/lib/platform/events/event-bus';
@@ -28,129 +27,66 @@ export interface ActivationInput {
 export class LeaseActivationService {
   async execute(input: ActivationInput): Promise<ActivationResult> {
     const startedAt = Date.now();
-    const events: string[] = [];
-    let tenantId = '';
-    let leaseId = '';
-    let leaseRef = '';
 
-    try {
-      // 1. Create Tenant
-      const { data: tenant, error: tenantError } = await supabase.from('tenants').insert({
-        tenant_name: input.tenantName,
-        company_registration: input.companyRegistration,
-        vat_number: input.vatNumber,
-        email: input.email,
-        phone: input.phone,
-        entity_id: input.entityId,
-        tenant_type: 'Company',
-        status: 'Active',
-        kyc_status: 'Approved',
-        code: input.tenantName.substring(0, 4).toUpperCase(),
-      }).select('id').single();
-      if (tenantError) throw tenantError;
-      tenantId = tenant.id;
-      events.push('tenant_created');
+    // Phase 1: Atomic tenant + lease + contacts + documents via PostgreSQL RPC
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('activate_lease', {
+      p_entity_id: input.entityId,
+      p_tenant_name: input.tenantName,
+      p_company_registration: input.companyRegistration || null,
+      p_vat_number: input.vatNumber || null,
+      p_email: input.email || null,
+      p_phone: input.phone || null,
+      p_property_id: input.propertyId,
+      p_unit_id: input.unitId,
+      p_monthly_rental: input.monthlyRental,
+      p_lease_start_date: input.leaseStartDate,
+      p_lease_end_date: input.leaseEndDate,
+      p_escalation_percent: input.escalationPercent,
+      p_deposit_amount: input.depositAmount,
+      p_parking_bays: input.parkingBays,
+      p_parking_rate: input.parkingRate,
+      p_document_name: input.documentFile?.name || null,
+      p_document_url: input.documentFile?.url || null,
+    });
 
-      // 2. Create Contact
-      if (input.email || input.phone) {
-        await supabase.from('tenant_contacts').insert({
-          tenant_id: tenantId,
-          contact_type: 'primary',
-          email: input.email,
-          phone: input.phone,
-          is_primary: true,
-        });
-        events.push('contact_created');
-      }
-
-      // 3. Generate lease number
-      const propertyCode = 'PROP';
-      leaseRef = await leaseNumberService.generate(propertyCode);
-
-      // 4. Create Lease
-      const { data: lease, error: leaseError } = await supabase.from('leases').insert({
-        client_id: tenantId,
-        tenant_id: tenantId,
-        property_id: input.propertyId,
-        unit_id: input.unitId,
-        owner_entity_id: input.entityId,
-        lease_id: leaseRef,
-        lease_status: 'Active',
-        monthly_rental: input.monthlyRental,
-        lease_start_date: input.leaseStartDate,
-        lease_end_date: input.leaseEndDate,
-        escalation_percent: input.escalationPercent,
-        deposit_amount: input.depositAmount,
-        parking_bays: input.parkingBays,
-        parking_rate: input.parkingRate,
-        lease_type: 'commercial',
-      }).select('id').single();
-      if (leaseError) throw leaseError;
-      leaseId = lease.id;
-      events.push('lease_created');
-
-      // 5. Attach document
-      let documentsAttached = 0;
-      if (input.documentFile) {
-        await supabase.from('documents').insert({
-          entity_id: input.entityId,
-          file_name: input.documentFile.name,
-          file_url: input.documentFile.url,
-          mime_type: 'application/pdf',
-          document_type: 'signed_lease',
-          status: 'stored',
-          tenant_id: tenantId,
-          property_id: input.propertyId,
-          related_entity_type: 'lease',
-          related_entity_id: leaseId,
-        });
-        documentsAttached = 1;
-        events.push('document_attached');
-      }
-
-      // 6. Extract Billing Rules
-      const rulesCreated = await extractRulesFromLease(leaseId);
-      events.push('billing_rules_extracted');
-
-      // 7. Generate Charges
-      const periodStart = new Date().toISOString().split('T')[0];
-      const periodEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0).toISOString().split('T')[0];
-      const chargesGenerated = await generateChargesFromRules(leaseId, periodStart, periodEnd);
-      events.push('charges_generated');
-
-      // 8. Update unit occupancy
-      await supabase.from('units').update({ occupancy_status: 'Occupied' }).eq('id', input.unitId);
-      events.push('unit_updated');
-
-      // 9. Publish event
-      await publish('lease.activated', {
-        correlationId: crypto.randomUUID(),
-        source: 'lease-activation-service',
-        version: '1.0',
-        payload: { tenantId, leaseId, leaseRef, entityId: input.entityId },
-      });
-
-      const duration = Date.now() - startedAt;
-
-      return {
-        tenantId,
-        leaseId,
-        tenantCode: input.tenantName.substring(0, 4).toUpperCase(),
-        leaseRef,
-        rulesCreated,
-        chargesGenerated,
-        documentsAttached,
-        contactsCreated: (input.email || input.phone) ? 1 : 0,
-        warnings: 0,
-        duration,
-        events,
-      };
-    } catch (err: any) {
-      // Best-effort rollback
-      if (leaseId) await supabase.from('leases').delete().eq('id', leaseId);
-      if (tenantId) await supabase.from('tenants').delete().eq('id', tenantId);
-      throw err;
+    if (rpcError || !rpcResult?.success) {
+      throw new Error(rpcResult?.error || rpcError?.message || 'Activation failed');
     }
+
+    // Phase 2: Billing rules and charges (idempotent — safe to retry)
+    const rulesCreated = await extractRulesFromLease(rpcResult.lease_id);
+    const periodStart = new Date().toISOString().split('T')[0];
+    const periodEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0).toISOString().split('T')[0];
+    const chargesGenerated = await generateChargesFromRules(rpcResult.lease_id, periodStart, periodEnd);
+
+    // Phase 3: Publish event ONLY after everything succeeded
+    await publish('lease.activated', {
+      correlationId: crypto.randomUUID(),
+      source: 'lease-activation-service',
+      version: '1.0',
+      payload: {
+        tenantId: rpcResult.tenant_id,
+        leaseId: rpcResult.lease_id,
+        leaseRef: rpcResult.lease_ref,
+        entityId: input.entityId,
+      },
+    });
+
+    const duration = Date.now() - startedAt;
+
+    return {
+      tenantId: rpcResult.tenant_id,
+      leaseId: rpcResult.lease_id,
+      tenantCode: rpcResult.tenant_code,
+      leaseRef: rpcResult.lease_ref,
+      rulesCreated,
+      chargesGenerated,
+      documentsAttached: rpcResult.documents_attached || 0,
+      contactsCreated: rpcResult.contacts_created || 0,
+      warnings: 0,
+      duration,
+      events: ['tenant_created', 'contact_created', 'lease_created', 'document_attached', 'billing_rules_extracted', 'charges_generated', 'unit_updated', 'event_published'],
+    };
   }
 }
 
