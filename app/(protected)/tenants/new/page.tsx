@@ -12,6 +12,16 @@ import { Upload, Camera, Edit3, CheckCircle, AlertTriangle, XCircle } from 'luci
 
 type Step = 'choose' | 'upload' | 'extraction' | 'review' | 'manual' | 'processing' | 'complete';
 
+function calcEndDate(start: string, years: string, months: string): string {
+  if (!start) return '';
+  const parts = start.split('/');
+  if (parts.length !== 3) return '';
+  const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+  d.setFullYear(d.getFullYear() + (parseInt(years) || 0));
+  d.setMonth(d.getMonth() + (parseInt(months) || 0));
+  return d.toISOString().split('T')[0].split('-').reverse().join('/');
+}
+
 export default function LeaseActivationPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('choose');
@@ -27,7 +37,8 @@ export default function LeaseActivationPage() {
   const [blocked, setBlocked] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const [leaseTerm, setLeaseTerm] = useState('');
+  const [termYears, setTermYears] = useState('');
+  const [termMonths, setTermMonths] = useState('');
   const [manual, setManual] = useState({
     tenant_name: '', company_registration: '', vat_number: '', email: '', phone: '',
     property_id: '', unit_id: '', monthly_rental: '', lease_start_date: '', lease_end_date: '',
