@@ -1,6 +1,5 @@
 "use client";
 import { GenerateChargesModal } from "./components/GenerateChargesModal";
-'use client';
 
 import { PageHeader } from "@/app/components/layout/PageHeader";
 import { usePeriodData } from "./hooks/usePeriodData";
