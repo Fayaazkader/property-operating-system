@@ -1,3 +1,4 @@
+import { GenerateChargesModal } from "./components/GenerateChargesModal";
 'use client';
 
 import { PageHeader } from "@/app/components/layout/PageHeader";
@@ -11,6 +12,7 @@ import type { PeriodActionResult } from "@/lib/periods/period-actions";
 
 export default function PeriodWorkspacePage() {
   const { loading, entityId, statementPeriod, statementPhase, financialPeriod, financialPhase, activeLeases, invoicesGenerated, unreconciled, cashbookBalanced, tbBalanced, startBillingRun, closeStatement, closeFinancial } = usePeriodData();
+  const [showGenerateCharges, setShowGenerateCharges] = useState(false);
   const [actionResult, setActionResult] = useState<PeriodActionResult | null>(null);
 
   async function handleStartBilling() { setActionResult(await startBillingRun()); }

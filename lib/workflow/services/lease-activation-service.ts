@@ -28,7 +28,7 @@ export class LeaseActivationService {
   async execute(input: ActivationInput): Promise<ActivationResult> {
     const startedAt = Date.now();
 
-    // Phase 1: Atomic tenant + lease + contacts + documents via PostgreSQL RPC
+    // Phase 1: Atomic tenant + lease via PostgreSQL RPC
     const { data: rpcResult, error: rpcError } = await supabase.rpc('activate_lease', {
       p_entity_id: input.entityId,
       p_tenant_name: input.tenantName,
@@ -54,13 +54,15 @@ export class LeaseActivationService {
     const result = rpcResult as unknown as ActivateLeaseRpcResult;
     if (!result?.tenant_id) throw new Error('Activation RPC returned no data');
 
-    // Phase 2: Billing rules and charges
+    // Phase 2: Extract billing rules (always — rules must exist immediately)
     const rulesCreated = await extractRulesFromLease(result.lease_id);
-    const periodStart = input.leaseStartDate;
-    const periodEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0).toISOString().split('T')[0];
-    const chargesGenerated = await generateChargesFromRules(result.lease_id, periodStart, periodEnd);
 
-    // Phase 3: Publish event only after everything succeeded
+    // Phase 3: Auto-bill deposit + first month rental immediately
+    // These are one-time charges that happen on activation, not waiting for period close
+    const depositCreated = await this.createDepositCharge(result.lease_id, input);
+    const firstMonthCreated = await this.createFirstMonthCharge(result.lease_id, input);
+
+    // Phase 4: Publish event
     await publish('lease.activated', {
       correlationId: crypto.randomUUID(),
       source: 'lease-activation-service',
@@ -81,13 +83,109 @@ export class LeaseActivationService {
       tenantCode: result.tenant_code,
       leaseRef: result.lease_ref,
       rulesCreated,
-      chargesGenerated,
+      chargesGenerated: depositCreated + firstMonthCreated,
       documentsAttached: result.documents_attached || 0,
       contactsCreated: result.contacts_created || 0,
       warnings: 0,
       duration,
-      events: ['tenant_created', 'lease_created', 'billing_rules_extracted', 'charges_generated', 'event_published'],
+      events: ['tenant_created', 'lease_created', 'billing_rules_extracted', 'deposit_charged', 'first_month_charged', 'event_published'],
     };
+  }
+
+  private async createDepositCharge(leaseId: string, input: ActivationInput): Promise<number> {
+    if (!input.depositAmount || input.depositAmount <= 0) return 0;
+    
+    const { data: lease } = await supabase.from('leases').select('tenant_id, property_id').eq('id', leaseId).single();
+    if (!lease) return 0;
+
+    const { data: property } = await supabase.from('properties').select('entity_id, owner_entity_id').eq('id', lease.property_id).single();
+    const entityId = property?.entity_id || input.entityId;
+
+    const { error } = await supabase.from('charges').insert({
+      lease_id: leaseId,
+      tenant_id: lease.tenant_id,
+      property_id: lease.property_id,
+      entity_id: entityId,
+      owner_entity_id: property?.owner_entity_id || entityId,
+      charge_type: 'deposit',
+      description: `Tenant Deposit — ${new Date(input.leaseStartDate).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })}`,
+      amount_excl_vat: input.depositAmount,
+      vat_rate: 0,
+      vat_amount: 0,
+      amount_incl_vat: input.depositAmount,
+      recurrence_rule: { frequency: 'once', period: 'once' },
+      recovery_method: 'fixed',
+      gl_code: '8100-001',
+      is_active: true,
+      status: 'posted',
+      billing_period: new Date(input.leaseStartDate).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' }),
+      financial_period: new Date(input.leaseStartDate).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' }),
+    });
+
+    return error ? 0 : 1;
+  }
+
+  private async createFirstMonthCharge(leaseId: string, input: ActivationInput): Promise<number> {
+    const { data: lease } = await supabase.from('leases').select('tenant_id, property_id, parking_bays, parking_rate').eq('id', leaseId).single();
+    if (!lease) return 0;
+
+    const { data: property } = await supabase.from('properties').select('entity_id, owner_entity_id').eq('id', lease.property_id).single();
+    const entityId = property?.entity_id || input.entityId;
+    const periodName = new Date(input.leaseStartDate).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+    let created = 0;
+
+    // First month rental
+    const rentalVat = Math.round(input.monthlyRental * 0.15 * 100) / 100;
+    const { error: rentError } = await supabase.from('charges').insert({
+      lease_id: leaseId,
+      tenant_id: lease.tenant_id,
+      property_id: lease.property_id,
+      entity_id: entityId,
+      owner_entity_id: property?.owner_entity_id || entityId,
+      charge_type: 'rent',
+      description: `Monthly Rental — ${periodName}`,
+      amount_excl_vat: input.monthlyRental,
+      vat_rate: 15,
+      vat_amount: rentalVat,
+      amount_incl_vat: input.monthlyRental + rentalVat,
+      recurrence_rule: { frequency: 'monthly', period: periodName },
+      recovery_method: 'fixed',
+      gl_code: '4100-001',
+      is_active: true,
+      status: 'posted',
+      billing_period: periodName,
+      financial_period: periodName,
+    });
+    if (!rentError) created++;
+
+    // First month parking
+    const parkingAmount = (input.parkingBays || 0) * (input.parkingRate || 0);
+    if (parkingAmount > 0) {
+      const parkingVat = Math.round(parkingAmount * 0.15 * 100) / 100;
+      const { error: parkError } = await supabase.from('charges').insert({
+        lease_id: leaseId,
+        tenant_id: lease.tenant_id,
+        property_id: lease.property_id,
+        entity_id: entityId,
+        owner_entity_id: property?.owner_entity_id || entityId,
+        charge_type: 'parking',
+        description: `Parking (${input.parkingBays} bays × R${input.parkingRate}) — ${periodName}`,
+        amount_excl_vat: parkingAmount,
+        vat_rate: 15,
+        vat_amount: parkingVat,
+        amount_incl_vat: parkingAmount + parkingVat,
+        recurrence_rule: { frequency: 'monthly', period: periodName },
+        recovery_method: 'fixed',
+        gl_code: '4200-001',
+        is_active: true,
+        status: 'posted',
+        billing_period: periodName,
+        financial_period: periodName,
+      });
+      if (!parkError) created++;
+    }
+
+    return created;
   }
 }
 
