@@ -1,3 +1,4 @@
+"use client";
 import { GenerateChargesModal } from "./components/GenerateChargesModal";
 'use client';
 
@@ -15,7 +16,7 @@ export default function PeriodWorkspacePage() {
   const [showGenerateCharges, setShowGenerateCharges] = useState(false);
   const [actionResult, setActionResult] = useState<PeriodActionResult | null>(null);
 
-  async function handleStartBilling() { setActionResult(await startBillingRun()); }
+  async function handleStartBilling() { setShowGenerateCharges(true); }
   async function handleCloseStatement() { setActionResult(await closeStatement()); }
   async function handleCloseFinancial() { setActionResult(await closeFinancial()); }
 
