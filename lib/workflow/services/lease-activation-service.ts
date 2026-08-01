@@ -24,6 +24,14 @@ export interface ActivationInput {
   documentFile?: { name: string; url: string };
 }
 
+function parseDate(d: string): string {
+  if (!d) return '';
+  if (d.includes('-')) return d; // Already YYYY-MM-DD
+  const parts = d.split('/');
+  if (parts.length === 3) return parts[2] + '-' + parts[1] + '-' + parts[0];
+  return d;
+}
+
 export class LeaseActivationService {
   async execute(input: ActivationInput): Promise<ActivationResult> {
     const startedAt = Date.now();
@@ -34,7 +42,7 @@ export class LeaseActivationService {
       p_vat_number: input.vatNumber || null, p_email: input.email || null,
       p_phone: input.phone || null, p_property_id: input.propertyId,
       p_unit_id: input.unitId, p_monthly_rental: input.monthlyRental,
-      p_lease_start_date: input.leaseStartDate, p_lease_end_date: input.leaseEndDate,
+      p_lease_start_date: parseDate(input.leaseStartDate), p_lease_end_date: parseDate(input.leaseEndDate),
       p_escalation_percent: input.escalationPercent, p_deposit_amount: input.depositAmount,
       p_parking_bays: input.parkingBays, p_parking_rate: input.parkingRate,
       p_document_name: input.documentFile?.name || null,

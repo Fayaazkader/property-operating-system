@@ -27,10 +27,11 @@ export default function LeaseActivationPage() {
   const [blocked, setBlocked] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  const [leaseTerm, setLeaseTerm] = useState('');
   const [manual, setManual] = useState({
     tenant_name: '', company_registration: '', vat_number: '', email: '', phone: '',
     property_id: '', unit_id: '', monthly_rental: '', lease_start_date: '', lease_end_date: '',
-    escalation_percent: '', deposit_amount: '', parking_bays: '', parking_rate: '',
+    escalation_percent: '', deposit_amount: '', parking_bays: '', parking_rate: '', lease_term: '',
   });
 
   useEffect(() => {
