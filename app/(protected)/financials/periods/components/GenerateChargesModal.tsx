@@ -19,7 +19,7 @@ export function GenerateChargesModal({ entityId, periodStart, periodEnd, periodN
   const [progress, setProgress] = useState<FreezeProgress>({ total: 0, processed: 0, currentLease: '', chargesCreated: 0, status: 'idle', errors: [] });
 
   useEffect(() => {
-    const unsub1 = subscribe('period.charge_lease_progress', (e: any) => setProgress(e.payload));
+    const unsub1 = subscribe('period.charge_lease_progress', (e: any) => { setProgress(e.payload); });
     const unsub2 = subscribe('period.charges_frozen', (e: any) => { setProgress(e.payload); setPhase('review'); });
     return () => { /* cleanup */ };
   }, []);

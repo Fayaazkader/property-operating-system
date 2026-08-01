@@ -66,6 +66,18 @@ export default function PeriodWorkspacePage() {
           <GovernanceCenter statementStatus={statementPhase} financialStatus={financialPhase} onStartBilling={handleStartBilling} onCloseStatement={handleCloseStatement} onCloseFinancial={handleCloseFinancial} statementPeriod={statementPeriod} financialPeriod={financialPeriod} />
         </div>
       </div>
+      {showGenerateCharges && statementPeriod && (
+        <GenerateChargesModal
+          entityId={entityId}
+          periodStart="2026-08-01"
+          periodEnd="2026-08-31"
+          periodName={statementPeriod}
+          leaseCount={activeLeases}
+          onComplete={() => { setShowGenerateCharges(false); handleCloseStatement(); }}
+          onClose={() => setShowGenerateCharges(false)}
+        />
+      )}
     </div>
   );
+}
 }
