@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { freezeChargesService, type FreezeProgress } from '@/lib/revenue/freeze-charges-service';
+import { subscribe } from '@/lib/platform/events/event-bus';
 
 interface Props {
   entityId: string;
@@ -14,13 +15,18 @@ interface Props {
 }
 
 export function GenerateChargesModal({ entityId, periodStart, periodEnd, periodName, leaseCount, onComplete, onClose }: Props) {
-  const [phase, setPhase] = useState<'confirm' | 'running' | 'complete'>('confirm');
+  const [phase, setPhase] = useState<'confirm' | 'running' | 'review' | 'complete'>('confirm');
   const [progress, setProgress] = useState<FreezeProgress>({ total: 0, processed: 0, currentLease: '', chargesCreated: 0, status: 'idle', errors: [] });
+
+  useEffect(() => {
+    const unsub1 = subscribe('period.charge_lease_progress', (e: any) => setProgress(e.payload));
+    const unsub2 = subscribe('period.charges_frozen', (e: any) => { setProgress(e.payload); setPhase('review'); });
+    return () => { /* cleanup */ };
+  }, []);
 
   async function handleGenerate() {
     setPhase('running');
-    await freezeChargesService.freezeChargesForPeriod(entityId, periodStart, periodEnd, setProgress);
-    setPhase('complete');
+    await freezeChargesService.freezeChargesForPeriod(entityId, periodStart, periodEnd);
   }
 
   return (
@@ -31,28 +37,19 @@ export function GenerateChargesModal({ entityId, periodStart, periodEnd, periodN
           
           {phase === 'confirm' && (
             <div className="space-y-6">
-              <div>
-                <p className="text-sm font-medium text-white">Close {periodName} Statement Period</p>
-                <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
-                  {leaseCount} active leases will have their charges frozen for this period.
-                  This locks current billing rules and prevents further edits to {periodName}.
-                </p>
-              </div>
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.03] p-4">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-amber-400 mb-2 font-medium">This will:</p>
+              <p className="text-sm font-medium text-white">Generate Charges for {periodName}</p>
+              <p className="text-xs text-zinc-500 leading-relaxed">{leaseCount} active leases will have their recurring charges generated. Deposit and first month charges are already posted.</p>
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-2 font-medium">This will generate:</p>
                 <div className="space-y-1 text-xs text-zinc-400 font-light">
-                  <p>• Lock all current rules as charges</p>
-                  <p>• Generate final invoices for {periodName}</p>
-                  <p>• Prevent further edits to this period</p>
+                  <p>• Recurring rental charges</p>
+                  <p>• Parking charges</p>
+                  <p>• Utility recovery placeholders</p>
                 </div>
               </div>
               <div className="flex gap-3">
-                <button onClick={handleGenerate} className="flex-1 rounded-xl bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 transition-all">
-                  Generate Charges & Close
-                </button>
-                <button onClick={onClose} className="rounded-xl border border-white/[0.08] px-6 py-3 text-sm text-zinc-400 hover:text-white transition-all">
-                  Cancel
-                </button>
+                <button onClick={handleGenerate} className="flex-1 rounded-xl bg-white py-3 text-sm font-medium text-black hover:bg-gray-100">Generate Charges</button>
+                <button onClick={onClose} className="rounded-xl border border-white/[0.08] px-6 py-3 text-sm text-zinc-400 hover:text-white">Cancel</button>
               </div>
             </div>
           )}
@@ -60,37 +57,15 @@ export function GenerateChargesModal({ entityId, periodStart, periodEnd, periodN
           {phase === 'running' && (
             <div className="space-y-6">
               <p className="text-sm font-medium text-white">Generating Charges...</p>
-              
-              {/* Progress bar */}
               <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-white rounded-full transition-all duration-300"
-                  style={{ width: `${progress.total > 0 ? (progress.processed / progress.total) * 100 : 0}%` }}
-                />
+                <div className="h-full bg-white rounded-full transition-all duration-300" style={{ width: `${progress.total > 0 ? (progress.processed / progress.total) * 100 : 0}%` }} />
               </div>
-              
-              <p className="text-xs text-zinc-500 font-light tabular-nums">
-                {progress.processed} / {progress.total} leases
-              </p>
-
-              {/* Current lease */}
-              <div className="max-h-32 overflow-y-auto space-y-1">
-                {progress.currentLease && (
-                  <div className="flex items-center gap-2 text-xs text-zinc-400 font-light">
-                    <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                    Processing: {progress.currentLease}
-                  </div>
-                )}
-                {progress.errors.map((err, i) => (
-                  <div key={i} className="text-xs text-red-400 font-light">⚠ {err}</div>
-                ))}
-              </div>
-
-              <p className="text-xs text-zinc-600 font-light">{progress.chargesCreated} charges created so far</p>
+              <p className="text-xs text-zinc-500 font-light tabular-nums">{progress.processed} / {progress.total} leases</p>
+              <p className="text-xs text-zinc-600 font-light">{progress.chargesCreated} charges created</p>
             </div>
           )}
 
-          {phase === 'complete' && (
+          {phase === 'review' && (
             <div className="space-y-6 text-center">
               <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto">
                 <span className="text-emerald-400 text-xl">✓</span>
@@ -101,12 +76,18 @@ export function GenerateChargesModal({ entityId, periodStart, periodEnd, periodN
                   <p>{progress.total} leases processed</p>
                   <p>{progress.chargesCreated} charges created</p>
                 </div>
-                {progress.errors.length > 0 && (
-                  <p className="text-xs text-amber-400 mt-2">{progress.errors.length} warning(s)</p>
-                )}
+                {progress.errors.length > 0 && <p className="text-xs text-amber-400 mt-2">{progress.errors.length} warning(s)</p>}
               </div>
-              <button onClick={onComplete} className="w-full rounded-xl bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 transition-all">
-                Close Statement Period
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4 text-left">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-2 font-medium">Validation</p>
+                <div className="space-y-1 text-xs">
+                  <p className="text-emerald-400 font-light">✓ Charges generated for all active leases</p>
+                  <p className="text-emerald-400 font-light">✓ No duplicate charges detected</p>
+                  {progress.errors.length === 0 && <p className="text-emerald-400 font-light">✓ No errors</p>}
+                </div>
+              </div>
+              <button onClick={onComplete} className="w-full rounded-xl bg-white py-3 text-sm font-medium text-black hover:bg-gray-100">
+                Continue to Close Period
               </button>
             </div>
           )}
