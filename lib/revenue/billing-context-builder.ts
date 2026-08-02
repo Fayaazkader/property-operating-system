@@ -6,37 +6,21 @@ import { ensureSuccessfulQueries } from './query-utils';
 import { assembleCharges } from './charge-assembler';
 import { assembleDocuments } from './document-assembler';
 import { evaluateWarnings } from './warning-engine';
-import type { BillingTenant } from './types';
+import type { BillingTenant, BillingCharge, BillingDocument, RevenueContext } from './types';
 
-export interface BillingCharge {
-  type: string; description: string; amount: number;
-  vatAmount: number; total: number; source: string; status: string; glCode?: string;
-}
-
-export interface BillingDocument {
-  name: string; level: string; url: string; type: string;
-}
-
-export interface BillingTenant {
-  tenantId: string; tenantName: string; property_name: string;
-  leaseId: string; leaseRef: string;
-  charges: BillingCharge[]; documents: BillingDocument[];
-  warnings: string[]; total: number; ready: boolean;
-}
-
-export interface BillingContext {
+export interface RevenueContext {
   entityId: string; periodName: string; periodStart: string; periodEnd: string;
   tenants: BillingTenant[]; isAlreadyBilled: boolean; totalExpected: number;
 }
 
 // Simple in-memory cache
-const cache = new Map<string, { data: BillingContext; timestamp: number }>();
+const cache = new Map<string, { data: RevenueContext; timestamp: number }>();
 const CACHE_TTL = 30000; // 30 seconds
 
-export async function buildBillingContext(
+export async function buildRevenueContext(
   entityId: string, propertyId: string | null,
   statementPeriodId: string, financialPeriodId: string
-): Promise<BillingContext> {
+): Promise<RevenueContext> {
   const cacheKey = `${entityId}:${propertyId}:${statementPeriodId}:${financialPeriodId}`;
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.data;
@@ -56,7 +40,7 @@ export async function buildBillingContext(
   const { data: leaseList, error: leaseError } = await leaseQuery;
   if (leaseError) throw new Error(`Lease query failed: ${leaseError.message}`);
   if (!leaseList?.length) {
-    const empty: BillingContext = { entityId, periodName: period.period_name, periodStart: period.period_start, periodEnd: period.period_end, tenants: [], isAlreadyBilled: false, totalExpected: 0 };
+    const empty: RevenueContext = { entityId, periodName: period.period_name, periodStart: period.period_start, periodEnd: period.period_end, tenants: [], isAlreadyBilled: false, totalExpected: 0 };
     cache.set(cacheKey, { data: empty, timestamp: Date.now() });
     return empty;
   }
@@ -117,7 +101,7 @@ export async function buildBillingContext(
     });
   }
 
-  const ctx: BillingContext = {
+  const ctx: RevenueContext = {
     entityId, periodName: period.period_name, periodStart: period.period_start, periodEnd: period.period_end,
     tenants, isAlreadyBilled: (journalsResult.data || []).length > 0,
     totalExpected: tenants.reduce((s, t) => s + t.total, 0),
