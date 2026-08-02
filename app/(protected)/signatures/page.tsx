@@ -210,7 +210,7 @@ export default function LeaseExecutionPage() {
                     <button onClick={() => handleReplicate('all')} className="w-full rounded-lg bg-white py-2.5 text-sm font-medium text-black hover:bg-zinc-200">
                       Replicate to All {totalPages} Pages
                     </button>
-                    <button onClick={() => handleReplicate('selected')} className="w-full rounded-lg border border-white/[0.08] py-2.5 text-sm text-white hover:border-white/20">
+                    <button onClick={() => handleReplicate('this_page')} className="w-full rounded-lg border border-white/[0.08] py-2.5 text-sm text-white hover:border-white/20">
                       This Page Only
                     </button>
                     <button onClick={() => setShowReplicatePrompt(false)} className="w-full text-sm text-zinc-500 hover:text-zinc-300 py-2">

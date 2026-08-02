@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { fieldToPixels, toStorageCoordinates, type CanvasField } from '@/lib/signing/coordinate-transform-service';
+import { CoordinateTransformService, type CanvasField } from '@/lib/signing/coordinate-transform-service';
 import { Document, Page, pdfjs } from 'react-pdf';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
@@ -50,7 +50,7 @@ export default function DocumentViewer({ fileUrl, fields, onFieldAdd, onFieldMov
     const x = (e.clientX - rect.left) / scale;
     const y = (e.clientY - rect.top) / scale;
     if (pageDims) {
-      const norm = toStorageCoordinates({ id: '', page: currentPage, x, y, width: 200, height: 50 }, pageDims);
+      const norm = CoordinateTransformService.toStorage({ id: '', page: currentPage, x, y, width: 200, height: 50 }, pageDims);
       onFieldAdd({ ...norm, id: crypto.randomUUID(), type: 'signature' });
     }
   }
@@ -101,7 +101,7 @@ export default function DocumentViewer({ fileUrl, fields, onFieldAdd, onFieldMov
           {pageFields.map(field => (
             <div key={field.id} onMouseDown={(e) => handleMouseDown(e, field)}
               onClick={(e) => { e.stopPropagation(); onFieldClick(field); }}
-              style={{ position: 'absolute', ...(pageDims ? (() => { const px = fieldToPixels(field as CanvasField, pageDims); return { left: px.x, top: px.y, width: px.width, height: px.height }; })() : { left: field.x, top: field.y, width: field.width, height: field.height }),
+              style={{ position: 'absolute', ...(pageDims ? (() => { const px = CoordinateTransformService.toPixels(field as CanvasField, pageDims); return { left: px.x, top: px.y, width: px.width, height: px.height }; })() : { left: field.x, top: field.y, width: field.width, height: field.height }),
                 cursor: readOnly ? 'pointer' : 'move', zIndex: dragging === field.id ? 50 : 10,
                 border: field.value ? '2px solid rgba(16,185,129,0.5)' : '2px dashed rgba(255,255,255,0.3)',
                 borderRadius: '8px', background: field.value ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.03)',
