@@ -68,9 +68,9 @@ if (profile?.platform_role === 'platform_admin') setIsPlatformAdmin(true);
     }
     loadAttention();
     async function loadPeriods() {
-      const { data: stmt } = await supabase.from("statement_periods").select("period_name").eq("status", "open").order("period_start", { ascending: false }).limit(1).single();
+      const { data: stmt } = await supabase.from("financial_periods").select("period_name").eq("period_type", "statement").eq("status", "open").order("period_start", { ascending: false }).limit(1).single();
       if (stmt) setStmtPeriod(stmt.period_name);
-      const { data: fin } = await supabase.from("financial_periods").select("period_name").eq("status", "open").order("period_start", { ascending: false }).limit(1).single();
+      const { data: fin } = await supabase.from("financial_periods").select("period_name").eq("period_type", "financial").eq("status", "open").order("period_start", { ascending: false }).limit(1).single();
       if (fin) setFinPeriod(fin.period_name);
     }
     loadPeriods();
