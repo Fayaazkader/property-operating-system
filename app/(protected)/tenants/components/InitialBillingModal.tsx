@@ -35,7 +35,7 @@ export function InitialBillingModal({ leaseId, entityId, onApprove, onSkip, onCl
     setPhase('approving');
     const approved = await initialBillingService.approve({ ...billing, charges }, billing.entityId);
     const posted = await initialBillingService.postCharges(leaseId, approved.charges);
-    onApprove({ ...approved, chargesPosted: posted });
+    onApprove(approved);
   }
 
   const total = charges.filter(c => c.selected).reduce((s, c) => s + c.amount_incl_vat, 0);
