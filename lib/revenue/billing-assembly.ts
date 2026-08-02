@@ -102,7 +102,7 @@ export const billingAssembly = {
 
     // Fetch active leases
     let query = supabase.from('leases')
-      .select('id, tenant_id, tenant_name, property_name, lease_id, property_id, monthly_rental, escalation_percent, commencement_date, lease_start_date')
+      .select('id, tenant_id, property_name, lease_id, property_id, monthly_rental, escalation_percent, commencement_date, lease_start_date, tenants!inner(tenant_name)')
       .eq('lease_status', 'Active')
       .eq('owner_entity_id', entityId);
     if (propertyId) query = query.eq('property_id', propertyId);
@@ -224,7 +224,7 @@ export const billingAssembly = {
 
       const total = charges.reduce((s, c) => s + c.total, 0);
       tenants.push({
-        tenantId: lease.tenant_id, tenantName: lease.tenant_name,
+        tenantId: lease.tenant_id, tenantName: (lease as any).tenants?.tenant_name || (lease as any).tenant_name || "Unknown",
         property_name: lease.property_name, leaseId: lease.id,
         leaseRef: lease.lease_id, charges, documents: docs, warnings,
         total, ready: warnings.length === 0,
