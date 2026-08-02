@@ -145,8 +145,11 @@ if (data) setEntities(data);
     const result = await importBankTransactions(file, activePreset);
 
     if (result.success && result.data) {
+      console.log('Import: got', result.data.length, 'transactions to save');
+      console.log('Import: selectedBankAccount:', selectedBankAccount);
       for (const tx of result.data) {
-        await supabase.from("bank_transactions").upsert({
+        console.log('Import: saving tx:', tx.id, tx.description, tx.amount);
+        const { error: upsertError } = await supabase.from("bank_transactions").upsert({
           id: tx.id,
           transaction_date: tx.transactionDate || null,
           transaction_description: tx.description || null,
@@ -161,6 +164,7 @@ if (data) setEntities(data);
           imported_batch_reference: batchRef,
           imported_at: new Date().toISOString(),
         });
+        if (upsertError) { console.error('Import: upsert error:', upsertError.message, upsertError.code, upsertError.details); }
       }
 // Update bank account balance
 const totalImported = result.data.reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
