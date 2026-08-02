@@ -56,20 +56,19 @@ if (data) setEntities(data);
 
   // Load bank accounts when entity changes
   async function loadAccounts() {
-  if (!selectedEntity) { setBankAccounts([]); return; }
-  const { data } = await supabase.from("bank_accounts").select("id, account_name, bank_name, account_number").eq("entity_id", selectedEntity).order("account_name");
-  if (data) {
-    setBankAccounts(data);
-    // Auto-select: if only one account, use it. Otherwise use first.
-    if (data.length === 1) {
-      setSelectedBankAccount(data[0].id);
-
-  // Load bank accounts when entity changes
-  useEffect(() => { loadAccounts(); }, [selectedEntity]);    } else if (data.length > 0 && !selectedBankAccount) {
-      setSelectedBankAccount(data[0].id);
+    if (!selectedEntity) { setBankAccounts([]); return; }
+    const { data } = await supabase.from("bank_accounts").select("id, account_name, bank_name, account_number").eq("entity_id", selectedEntity).order("account_name");
+    if (data) {
+      setBankAccounts(data);
+      if (data.length === 1) {
+        setSelectedBankAccount(data[0].id);
+      } else if (data.length > 0 && !selectedBankAccount) {
+        setSelectedBankAccount(data[0].id);
+      }
     }
   }
-}
+
+  useEffect(() => { loadAccounts(); }, [selectedEntity]);
 
   // Load import history
   useEffect(() => {
