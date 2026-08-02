@@ -146,7 +146,7 @@ export default function RevenueOperationsPage() {
   async function handleSendBilling() {
         setSending(true);
     const ready = billingTenants.filter(t => t.ready);
-    const isResend = worksheet?.status === 'already_billed';
+    const isResend = worksheetStatus === 'already_billed';
     setSendProgress({ current: 0, total: ready.length, stage: 'Generating invoices...' });
     let delivered = 0, failed = 0;
     const invoiceIds: string[] = [];
@@ -290,7 +290,7 @@ export default function RevenueOperationsPage() {
             <div className="flex items-center justify-between mb-3"><p className="text-xs text-zinc-400">{billingTenants.length} tenants · R{totalPreviewAmount.toLocaleString()} total</p></div>
             <table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06]"><th className="text-left py-2 text-[10px] font-medium text-zinc-500 uppercase">Tenant</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Rent</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Utils</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Manual</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-10">Docs</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-16">Status</th><th className="text-right py-2 text-[10px] font-medium text-zinc-500 uppercase w-28">Total</th></tr></thead>
               <tbody>{billingTenants.map(t => (<tr key={t.tenantId} onClick={() => openDetailModal(t)} className="border-b border-white/[0.03] hover:bg-white/[0.02] cursor-pointer transition-colors"><td className="py-2 text-white font-light text-xs">{t.tenantName}<br /><span className="text-[10px] text-zinc-500">{t.property_name}</span></td><td className="py-2 text-center text-xs">{t.charges.some(c => c.source === 'lease') ? '✓' : '—'}</td><td className="py-2 text-center text-xs">{t.charges.some(c => c.source === 'utility') ? '✓' : '—'}</td><td className="py-2 text-center text-xs">{t.charges.filter(c => c.source === 'manual').length || '—'}</td><td className="py-2 text-center text-xs text-zinc-500">{t.documents.length || '—'}</td><td className="py-2 text-center">{t.ready ? <span className="text-emerald-400 text-xs">✓</span> : <span className="text-amber-400 text-xs">⚠</span>}</td><td className="py-2 text-right text-white font-medium tabular-nums text-xs">R{t.total.toLocaleString()}</td></tr>))}</tbody></table>
-            {worksheet?.status === 'already_billed' ? (
+            {worksheetStatus === 'already_billed' ? (
   <div className="mt-4 space-y-2">
     <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
       <p className="text-xs text-amber-400 font-medium">Billing already generated for this period.</p>
@@ -300,7 +300,7 @@ export default function RevenueOperationsPage() {
       Resend Existing Invoices
     </button>
   </div>
-) : worksheet?.status === 'period_closed' ? (
+) : worksheetStatus === 'period_closed' ? (
   <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
     <p className="text-xs text-red-400">Period is closed</p>
   </div>

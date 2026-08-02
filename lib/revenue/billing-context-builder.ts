@@ -6,7 +6,7 @@ import { ensureSuccessfulQueries } from './query-utils';
 import { assembleCharges } from './charge-assembler';
 import { assembleDocuments } from './document-assembler';
 import { evaluateWarnings } from './warning-engine';
-import type { BillingTenant } from './billing-context-builder';
+import type { BillingTenant } from './types';
 
 export interface BillingCharge {
   type: string; description: string; amount: number;
