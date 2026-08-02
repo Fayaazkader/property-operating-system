@@ -13,12 +13,15 @@ export class SigningEngine {
     documentName: string, totalPages: number, createdBy: string,
     templateId?: string, templateVersion?: number
   ): Promise<SigningRequest> {
-    const fields = generateLeaseSigningFields(totalPages, await (await import('./lease-template')).getLeaseTemplate(entityId).then(t => t.template));
+    const { template, version: templateVersion } = await (await import('./lease-template')).getLeaseTemplate(entityId);
+    const fields = generateLeaseSigningFields(totalPages, template);
+    const { data: templateSettings } = await supabase.from('signing_templates').select('expiry_days').eq('entity_id', entityId).eq('is_active', true).single();
+    const expiryDays = templateSettings?.expiry_days || 14;
 
     const { data, error } = await supabase.from('signature_requests').insert({
       entity_id: entityId, request_type: 'lease', lease_id: leaseId,
       document_name: documentName, document_url: documentUrl, fields,
-      status: 'draft', created_by: createdBy, expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'draft', created_by: createdBy, expires_at: new Date(Date.now() + (expiryDays * 24 * 60 * 60 * 1000)).toISOString(),
       template_id: templateId, template_version: templateVersion || 1,
     }).select('*').single();
 
@@ -70,8 +73,16 @@ export class SigningEngine {
     const { data: request } = await supabase.from('signature_requests').select('*').eq('id', requestId).single();
     if (!request) throw new Error('Request not found');
 
-    // Generate certificate
+    // Generate and store certificate
     const certificate = generateSignatureCertificate(requestId, request.fields, signerName, signerEmail);
+    const { data: certRecord } = await supabase.from('execution_certificates').insert({
+      request_id: requestId,
+      document_id: request.lease_id || requestId,
+      signed_by_name: signerName,
+      signed_by_email: signerEmail,
+      fields_signed: certificate.fields_signed?.length || 0,
+      hash: '',
+    }).select('id').single();
 
     // Compute SHA-256 of the executed PDF bytes (not metadata)
     let executionHash = '';
@@ -84,7 +95,7 @@ export class SigningEngine {
     await supabase.from('signature_requests').update({
       status: 'completed',
       completed_at: new Date().toISOString(),
-      certificate_id: certificate.certificate_id,
+      certificate_id: certRecord?.id,
       execution_package_hash: executionHash || null,
     }).eq('id', requestId);
 
