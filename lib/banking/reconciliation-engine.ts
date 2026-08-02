@@ -42,11 +42,20 @@ async function getPropertyFromTenant(tenantId: string): Promise<string | null> {
 }
 
 export async function runReconciliationEngine(
-  entityId?: string
+  entityId: string
 ): Promise<ReconciliationSummary> {
+  // Filter transactions by entity via bank account
+  const { data: entityAccounts } = await supabase
+    .from("bank_accounts")
+    .select("id")
+    .eq("entity_id", entityId);
+  
+  const accountIds = (entityAccounts || []).map(a => a.id);
+  
   let query = supabase
     .from("bank_transactions")
     .select("*")
+    .in("bank_account_id", accountIds)
     .eq("allocation_status", "unallocated")
     .order("transaction_date", { ascending: false })
     .limit(500);
@@ -59,7 +68,8 @@ export async function runReconciliationEngine(
 
   const { data: tenants } = await supabase
     .from("tenants")
-    .select("id, tenant_name");
+    .select("id, tenant_name")
+    .eq("entity_id", entityId);
 
   const { data: leases } = await supabase
     .from("leases")
