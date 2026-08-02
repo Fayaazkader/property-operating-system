@@ -113,7 +113,7 @@ export const billingAssembly = {
       return { property_name: '', tenants: [], totalCharges: 0, readyCount: 0, warningCount: 0, status: 'no_active_leases', blockingReason: 'No active leases found' };
     }
 
-    const propertyName = leaseList[0].property_name;
+    const propertyName = (leaseList[0] as any).properties?.property_name || (leaseList[0] as any).property_name || 'Unknown';
     const tenants: BillingTenant[] = [];
     const periodStart = period.period_start;
     const periodEnd = period.period_end;
