@@ -179,7 +179,7 @@ await supabase
   .eq("id", selectedBankAccount);
       const importedCount = result.data.length;
 
-      const recon = await runReconciliationEngine(selectedEntity);
+      const recon = await runReconciliationEngine();
 
       if (recon.total > 0) {
         setMessage({
@@ -287,8 +287,7 @@ await supabase
         </div>
       </div>
 
-      {/* Entity {/* Entity & Bank Account Selector */} Bank Account Selector */}
-      <div className="relative z-30">
+      {/* Entity & Bank Account Selector */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-2">Entity</p>
