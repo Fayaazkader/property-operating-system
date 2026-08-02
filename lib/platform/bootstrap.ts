@@ -22,19 +22,8 @@ async function initializePlatform(): Promise<void> {
   await import('./notifications/handlers');
 
   // Register revenue cache invalidation listeners
-  const { invalidateRevenueCache } = await import('@/lib/revenue/revenue-context-builder');
-  const { subscribe } = await import('./events/event-bus');
-  const INVALIDATION_EVENTS = [
-    'lease.activated', 'lease.updated',
-    'billing.rule.updated', 'billing.rule.created',
-    'charge.manual_added', 'charge.updated',
-    'interest.approved', 'late_fee.approved',
-    'document.uploaded', 'document.deleted',
-    'period.statement.closed', 'period.statement.opened',
-  ];
-  for (const event of INVALIDATION_EVENTS) {
-    subscribe(event, invalidateRevenueCache);
-  }
+  const { registerRevenueCacheInvalidation } = await import('@/lib/revenue/revenue-cache-registry');
+  registerRevenueCacheInvalidation();
   logger.info('  ✓ Revenue cache invalidation registered');
 
   // Register workflow handlers

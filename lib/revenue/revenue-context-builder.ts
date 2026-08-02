@@ -2,37 +2,20 @@
 // Orchestrates revenue worksheet. Delegates to assemblers and engines.
 
 import { supabase } from '@/lib/supabase';
-// subscribe imported via bootstrap — see lib/platform/bootstrap.ts
 import { ensureSuccessfulQueries } from './query-utils';
 import { assembleCharges } from './charge-assembler';
 import { evaluateWarnings } from './warning-engine';
 import { assembleDocuments } from './document-assembler';
 import type { BillingTenant, BillingDocument, RevenueContext } from './types';
 
-// Event-driven cache — invalidates on any operational change
-const cache = new Map<string, { data: RevenueContext; timestamp: number }>();
-const CACHE_TTL = 60000;
-
-// Cache invalidation is registered in platform/bootstrap.ts to avoid duplicate listeners
-export function invalidateRevenueCache(event: any): void {
-  const entityId = event?.payload?.entityId || event?.payload?.entity_id;
-  const propertyId = event?.payload?.propertyId || event?.payload?.property_id;
-  const periodId = event?.payload?.periodId || event?.payload?.period_id;
-  
-  for (const [key] of cache) {
-    if (entityId && key.includes(entityId)) { cache.delete(key); continue; }
-    if (propertyId && key.includes(propertyId)) { cache.delete(key); continue; }
-    if (periodId && key.includes(periodId)) { cache.delete(key); continue; }
-  }
-}
+import { RevenueCache } from './revenue-cache';
 
 export async function buildRevenueContext(
   entityId: string, propertyId: string | null,
   statementPeriodId: string, financialPeriodId: string
 ): Promise<RevenueContext> {
-  const cacheKey = `${entityId}:${propertyId}:${statementPeriodId}:${financialPeriodId}`;
-  const cached = cache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.data;
+  const cached = RevenueCache.get(entityId, propertyId, statementPeriodId, financialPeriodId);
+  if (cached) return cached;
 
   const periodId = statementPeriodId || financialPeriodId;
   const { data: period, error: periodError } = await supabase
@@ -50,7 +33,7 @@ export async function buildRevenueContext(
   if (leaseError) throw new Error(`Lease query failed: ${leaseError.message}`);
   if (!leaseList?.length) {
     const empty: RevenueContext = { entityId, periodName: period.period_name, periodStart: period.period_start, periodEnd: period.period_end, tenants: [], isAlreadyBilled: false, totalExpected: 0 };
-    cache.set(cacheKey, { data: empty, timestamp: Date.now() });
+    RevenueCache.set(entityId, propertyId, statementPeriodId, financialPeriodId, empty);
     return empty;
   }
 
@@ -124,6 +107,6 @@ export async function buildRevenueContext(
     totalExpected: tenants.reduce((s, t) => s + t.total, 0),
   };
 
-  cache.set(cacheKey, { data: ctx, timestamp: Date.now() });
+  RevenueCache.set(entityId, propertyId, statementPeriodId, financialPeriodId, ctx);
   return ctx;
 }

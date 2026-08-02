@@ -7,7 +7,9 @@ import { triggerCommunication } from '@/lib/communications/communication-service
 import { trackEvent, AnalyticsEvents } from '@/lib/analytics/tracker';
 import { postingEngine } from '@/lib/financial/posting-engine';
 import { buildRevenueContext } from '@/lib/revenue/revenue-context-builder';
+import { billingAssembly } from '@/lib/revenue/billing-assembly';
 import type { BillingTenant, RevenueContext } from '@/lib/revenue/types';
+import type { BillingSnapshot } from '@/lib/revenue/billing-assembly';
 import ImportUtilitiesModal from '@/app/components/financials/ImportUtilitiesModal';
 import InvoicePreviewModal from '@/app/components/financials/InvoicePreviewModal';
 
@@ -33,7 +35,7 @@ export default function RevenueOperationsPage() {
   const [billingTenants, setBillingTenants] = useState<BillingTenant[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [tenants, setTenants] = useState<any[]>([]);
-  const [snapshots, setSnapshots] = useState<BillingSnapshot[]>([]);
+  const [snapshots, setSnapshots] = useState<RevenueContext[]>([]);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedTenantDetail, setSelectedTenantDetail] = useState<BillingTenant | null>(null);
   const [showManualCharge, setShowManualCharge] = useState(false);
@@ -203,7 +205,7 @@ export default function RevenueOperationsPage() {
     trackEvent(AnalyticsEvents.STATEMENT_GENERATED, 'revenue', { count: delivered, failed });
   }
 
-    async function handleViewSnapshot(snapshot: BillingSnapshot) {
+    async function handleViewSnapshot(snapshot: RevenueContext) {
     if (billingTenants.length > 0) {
       const tenantId = billingTenants[0].tenantId;
       const { data } = await supabase
