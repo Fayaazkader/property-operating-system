@@ -102,7 +102,7 @@ export const billingAssembly = {
 
     // Fetch active leases
     let query = supabase.from('leases')
-      .select('id, tenant_id, property_name, lease_id, property_id, monthly_rental, escalation_percent, commencement_date, lease_start_date, tenants!inner(tenant_name)')
+      .select('id, tenant_id, lease_id, property_id, monthly_rental, escalation_percent, commencement_date, lease_start_date, tenants!inner(tenant_name), properties!inner(property_name)')
       .eq('lease_status', 'Active')
       .eq('owner_entity_id', entityId);
     if (propertyId) query = query.eq('property_id', propertyId);
