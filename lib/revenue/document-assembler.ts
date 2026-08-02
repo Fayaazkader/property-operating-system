@@ -1,11 +1,6 @@
 // lib/revenue/document-assembler.ts
 
-export interface BillingDocument {
-  name: string;
-  level: string;
-  url: string;
-  type: string;
-}
+import type { BillingDocument } from './types';
 
 export function assembleDocuments(
   tenantDocs: any[],

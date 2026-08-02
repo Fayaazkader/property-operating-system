@@ -2,16 +2,7 @@
 
 import { calculateEscalation } from './escalation-calculator';
 
-export interface BillingCharge {
-  type: string;
-  description: string;
-  amount: number;
-  vatAmount: number;
-  total: number;
-  source: string;
-  status: string;
-  glCode?: string;
-}
+import type { BillingCharge } from './types';
 
 export function assembleCharges(
   rules: any[],
