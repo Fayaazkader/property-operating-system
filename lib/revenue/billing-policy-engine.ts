@@ -46,17 +46,17 @@ export class BillingPolicyEngine {
     // Start with platform defaults, override with entity, then property
     const platform = policies.find(p => p.scope === 'platform') || {};
     const entity = policies.find(p => p.scope === 'entity') || {};
-    const property = policies.find(p => p.scope === 'property') || {};
+    const propertyPolicy = policies.find(p => p.scope === 'property') || {};
 
     const resolved: BillingPolicy = {
-      lease_fee_amount: property.lease_fee_amount || entity.lease_fee_amount || platform.lease_fee_amount || 1500,
-      lease_fee_description: property.lease_fee_description || entity.lease_fee_description || platform.lease_fee_description || 'Standard Commercial Lease Fee',
-      late_payment_fee_pct: property.late_payment_fee_pct || entity.late_payment_fee_pct || platform.late_payment_fee_pct || 10,
-      late_payment_fee_description: property.late_payment_fee_description || entity.late_payment_fee_description || platform.late_payment_fee_description || 'Late Payment Fee',
-      deposit_months: property.deposit_months || entity.deposit_months || platform.deposit_months || 1,
-      billing_day: property.billing_day || entity.billing_day || platform.billing_day || 25,
-      auto_approve_below: property.auto_approve_below || entity.auto_approve_below || platform.auto_approve_below || 0,
-      source: property.id ? 'Property Policy' : entity.id ? 'Entity Policy' : 'Platform Default',
+      lease_fee_amount: propertyPolicy.lease_fee_amount || entity.lease_fee_amount || platform.lease_fee_amount || 1500,
+      lease_fee_description: propertyPolicy.lease_fee_description || entity.lease_fee_description || platform.lease_fee_description || 'Standard Commercial Lease Fee',
+      late_payment_fee_pct: propertyPolicy.late_payment_fee_pct || entity.late_payment_fee_pct || platform.late_payment_fee_pct || 10,
+      late_payment_fee_description: propertyPolicy.late_payment_fee_description || entity.late_payment_fee_description || platform.late_payment_fee_description || 'Late Payment Fee',
+      deposit_months: propertyPolicy.deposit_months || entity.deposit_months || platform.deposit_months || 1,
+      billing_day: propertyPolicy.billing_day || entity.billing_day || platform.billing_day || 25,
+      auto_approve_below: propertyPolicy.auto_approve_below || entity.auto_approve_below || platform.auto_approve_below || 0,
+      source: propertyPolicy.id ? 'Property Policy' : entity.id ? 'Entity Policy' : 'Platform Default',
     };
 
     return resolved;
