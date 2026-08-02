@@ -255,7 +255,8 @@ export async function runReconciliationEngine(
       }).eq("id", tx.id);
     }
 
-    } else {
+    // Update unmatched transactions to review queue
+    if (!matched) {
       await supabase.from("bank_transactions").update({
         confidence: 0,
         allocation_status: "unallocated",
