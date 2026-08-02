@@ -2,28 +2,28 @@
 // Orchestrates revenue worksheet. Delegates to assemblers and engines.
 
 import { supabase } from '@/lib/supabase';
-import { subscribe } from '@/lib/platform/events/event-bus';
+// subscribe imported via bootstrap — see lib/platform/bootstrap.ts
 import { ensureSuccessfulQueries } from './query-utils';
 import { assembleCharges } from './charge-assembler';
 import { evaluateWarnings } from './warning-engine';
+import { assembleDocuments } from './document-assembler';
 import type { BillingTenant, BillingDocument, RevenueContext } from './types';
 
 // Event-driven cache — invalidates on any operational change
 const cache = new Map<string, { data: RevenueContext; timestamp: number }>();
 const CACHE_TTL = 60000;
 
-// Invalidate cache on relevant events
-const INVALIDATION_EVENTS = [
-  'lease.activated', 'lease.updated',
-  'billing.rule.updated', 'billing.rule.created',
-  'charge.manual_added', 'charge.updated',
-  'interest.approved', 'late_fee.approved',
-  'document.uploaded', 'document.deleted',
-  'period.statement.closed', 'period.statement.opened',
-];
-
-for (const event of INVALIDATION_EVENTS) {
-  subscribe(event, () => cache.clear());
+// Cache invalidation is registered in platform/bootstrap.ts to avoid duplicate listeners
+export function invalidateRevenueCache(event: any): void {
+  const entityId = event?.payload?.entityId || event?.payload?.entity_id;
+  const propertyId = event?.payload?.propertyId || event?.payload?.property_id;
+  const periodId = event?.payload?.periodId || event?.payload?.period_id;
+  
+  for (const [key] of cache) {
+    if (entityId && key.includes(entityId)) { cache.delete(key); continue; }
+    if (propertyId && key.includes(propertyId)) { cache.delete(key); continue; }
+    if (periodId && key.includes(periodId)) { cache.delete(key); continue; }
+  }
 }
 
 export async function buildRevenueContext(
@@ -101,14 +101,12 @@ export async function buildRevenueContext(
 
     const warnings = evaluateWarnings({ chargesCount: charges.length, hasEscalation, hasInterest, hasLateFee });
     
-    // Pre-indexed document lookup — no per-lease filter scans
-    const docs: BillingDocument[] = [];
-    for (const d of (tenantDocsByTenant.get(lease.tenant_id) || []).slice(0, 3)) {
-      docs.push({ name: d.file_name, level: 'tenant', url: d.file_url, type: 'tenant_document' });
-    }
-    for (const d of (propertyDocsByProperty.get(lease.property_id) || []).slice(0, 3)) {
-      docs.push({ name: d.file_name, level: 'property', url: d.file_url, type: 'property_document' });
-    }
+    const docs = assembleDocuments(
+      tenantDocsByTenant.get(lease.tenant_id) || [],
+      propertyDocsByProperty.get(lease.property_id) || [],
+      lease.tenant_id,
+      lease.property_id
+    );
 
     const total = charges.reduce((s, c) => s + c.total, 0);
     tenants.push({
