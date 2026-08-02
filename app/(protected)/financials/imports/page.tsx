@@ -63,7 +63,9 @@ if (data) setEntities(data);
     // Auto-select: if only one account, use it. Otherwise use first.
     if (data.length === 1) {
       setSelectedBankAccount(data[0].id);
-    } else if (data.length > 0 && !selectedBankAccount) {
+
+  // Load bank accounts when entity changes
+  useEffect(() => { loadAccounts(); }, [selectedEntity]);    } else if (data.length > 0 && !selectedBankAccount) {
       setSelectedBankAccount(data[0].id);
     }
   }
