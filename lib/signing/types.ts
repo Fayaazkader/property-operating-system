@@ -43,5 +43,6 @@ export interface LeaseSigningTemplate {
   witness_signature?: { page: number; x: number; y: number; width: number; height: number };
   landlord_initials: { x: number; y: number; width: number; height: number; pages: number[] };
   tenant_initials: { x: number; y: number; width: number; height: number; pages: number[] };
-  date_fields: Array<{ page: number; x: number; y: number }>;
+  date_fields: Array<{ page: number; x: number; y: number; width?: number; height?: number }>;
+  witnesses_count?: number;
 }

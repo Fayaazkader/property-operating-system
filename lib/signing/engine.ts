@@ -92,6 +92,21 @@ export class SigningEngine {
     }).eq('id', requestId);
 
     if (request.request_type === 'lease' && request.lease_id) {
+      // Update lease status to executed
+      await supabase.from('leases').update({ lease_status: 'Executed' }).eq('id', request.lease_id);
+      
+      // Archive executed PDF
+      await supabase.from('documents').insert({
+        entity_id: request.entity_id,
+        file_name: `executed-${request.document_name}`,
+        file_url: request.document_url,
+        mime_type: 'application/pdf',
+        document_type: 'signed_lease',
+        status: 'stored',
+        related_entity_type: 'lease',
+        related_entity_id: request.lease_id,
+      });
+
       await publish('lease.fully_executed', {
         correlationId: crypto.randomUUID(),
         source: 'signing-engine',

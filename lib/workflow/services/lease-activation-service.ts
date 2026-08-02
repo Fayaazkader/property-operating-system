@@ -73,14 +73,6 @@ export class LeaseActivationService {
       event_type: "lease_activated", description: `Lease ${result.lease_ref} activated for ${input.tenantName}`,
     });
 
-    // Trigger signing workflow
-    await publish('lease.ready_for_execution', {
-      correlationId: crypto.randomUUID(),
-      source: 'lease-activation-service',
-      version: '1.0',
-      payload: { tenantId: result.tenant_id, leaseId: result.lease_id, leaseRef: result.lease_ref, entityId: input.entityId },
-    });
-
     await publish('lease.activated', {
       correlationId: crypto.randomUUID(), source: 'lease-activation-service', version: '1.0',
       payload: { tenantId: result.tenant_id, leaseId: result.lease_id, leaseRef: result.lease_ref, entityId: input.entityId },
