@@ -200,7 +200,7 @@ export class InitialBillingService {
         billing_period: periodName,
         financial_period: periodName,
       });
-      if (!error) posted++;
+      if (!error) { posted++; } else { console.error("postCharges insert error:", error.message, charge); }
     }
 
     if (posted > 0) {
