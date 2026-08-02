@@ -2,11 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import SignaturePad from '@/app/components/signing/SignaturePad';
+import { CheckCircle } from 'lucide-react';
 
 export default function SignaturesPage() {
   const [requests, setRequests] = useState<any[]>([]);
   const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState({ documentName: '', subject: '', recipients: [{ name: '', email: '' }] });
+  const [form, setForm] = useState({ documentName: '', subject: '', recipients: [{ name: '', email: '' }], selfSign: false });
+  const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -61,7 +65,33 @@ export default function SignaturesPage() {
             <p className="text-sm text-zinc-500">Drop PDF here or click to upload</p>
           </div>
 
-          <button className="w-full rounded-lg bg-white py-2.5 text-sm font-medium text-black hover:bg-zinc-200">Send for Signing</button>
+          <label className="flex items-center gap-3 text-sm text-zinc-400 cursor-pointer">
+            <input type="checkbox" checked={form.selfSign} onChange={(e) => { setForm({ ...form, selfSign: e.target.checked }); if (e.target.checked) setShowSignaturePad(true); }} className="rounded" />
+            Sign this document yourself
+          </label>
+
+          {showSignaturePad && (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4">
+              <p className="text-xs text-zinc-500 mb-3">Your Signature</p>
+              <SignaturePad onSave={(data) => { setSignatureData(data); setShowSignaturePad(false); }} onClear={() => setSignatureData(null)} />
+              {signatureData && (
+                <div className="mt-3 flex items-center gap-2 text-xs text-emerald-400">
+                  <CheckCircle className="w-3 h-3" /> Signature captured
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button className="flex-1 rounded-lg bg-white py-2.5 text-sm font-medium text-black hover:bg-zinc-200">
+              {form.selfSign ? (signatureData ? 'Sign & Send' : 'Sign & Send') : 'Send for Signing'}
+            </button>
+            {form.selfSign && signatureData && (
+              <button className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm text-white hover:border-white/20">
+                Sign & Download
+              </button>
+            )}
+          </div>
         </div>
       )}
 
