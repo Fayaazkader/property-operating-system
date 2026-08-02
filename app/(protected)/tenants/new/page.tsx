@@ -372,7 +372,8 @@ export default function LeaseActivationPage() {
       {showInitialBilling && result && (
         <InitialBillingModal
           leaseId={result.leaseId}
-          onComplete={(posted) => { setBillingPosted(posted); setShowInitialBilling(false); }}
+          entityId={entityId}
+          onApprove={(approved) => { setBillingPosted(approved.charges.length); setShowInitialBilling(false); }}
           onSkip={() => setShowInitialBilling(false)}
           onClose={() => setShowInitialBilling(false)}
         />
