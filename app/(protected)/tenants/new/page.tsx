@@ -17,10 +17,16 @@ function calcEndDate(start: string, years: string, months: string): string {
   if (!start) return '';
   const parts = start.split('/');
   if (parts.length !== 3) return '';
-  const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-  d.setFullYear(d.getFullYear() + (parseInt(years) || 0));
-  d.setMonth(d.getMonth() + (parseInt(months) || 0));
-  return d.toISOString().split('T')[0].split('-').reverse().join('/');
+  const y = parseInt(parts[2]), m = parseInt(parts[1]), d = parseInt(parts[0]);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return '';
+  const date = new Date(y, m - 1, d);
+  if (isNaN(date.getTime())) return '';
+  date.setFullYear(date.getFullYear() + (parseInt(years) || 0));
+  date.setMonth(date.getMonth() + (parseInt(months) || 0));
+  const ey = date.getFullYear();
+  const em = String(date.getMonth() + 1).padStart(2, '0');
+  const ed = String(date.getDate()).padStart(2, '0');
+  return ed + '/' + em + '/' + ey;
 }
 
 export default function LeaseActivationPage() {
