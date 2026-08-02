@@ -11,7 +11,7 @@ export class SigningEngine {
   async createLeaseSigningRequest(
     entityId: string, leaseId: string, documentUrl: string,
     documentName: string, totalPages: number, createdBy: string,
-    templateId?: string, templateVersion?: number
+    templateId?: string, _templateVersion?: number
   ): Promise<SigningRequest> {
     const { template, version: templateVersion, expiryDays } = await (await import('./lease-template')).getLeaseTemplate(entityId);
     const fields = generateLeaseSigningFields(totalPages, template);
@@ -20,7 +20,7 @@ export class SigningEngine {
       entity_id: entityId, request_type: 'lease', lease_id: leaseId,
       document_name: documentName, document_url: documentUrl, fields,
       status: 'draft', created_by: createdBy, expires_at: new Date(Date.now() + (expiryDays * 24 * 60 * 60 * 1000)).toISOString(),
-      template_id: templateId, template_version: templateVersion || 1,
+      template_id: templateId, template_version: _templateVersion || templateVersion || 1,
     }).select('*').single();
 
     if (error) throw error;
