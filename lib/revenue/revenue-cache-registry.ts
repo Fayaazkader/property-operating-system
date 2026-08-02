@@ -33,7 +33,7 @@ export function registerRevenueCacheInvalidation(): void {
   registered = true;
 
   for (const event of EVENTS) {
-    subscribe(event, (e: RevenueEvent) => {
+    subscribe(event, async (e: RevenueEvent) => {
       const p = e?.payload || {};
       RevenueCache.invalidateEntity(p.entityId || p.entity_id);
       if (p.propertyId || p.property_id) RevenueCache.invalidateProperty(p.propertyId || p.property_id || '');
