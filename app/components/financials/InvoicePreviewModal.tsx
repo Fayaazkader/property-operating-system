@@ -8,6 +8,25 @@ interface InvoicePreviewModalProps {
 }
 
 export default function InvoicePreviewModal({ data, onClose }: InvoicePreviewModalProps) {
+  const postedLines = data.posted_lines || [];
+  
+  // Use actual vat_amount from charges — 0 is valid, don't override
+  const chargeLines = postedLines
+    .filter((l: any) => l.debit > 0)
+    .map((l: any) => {
+      const hasVat = l.vat_amount !== undefined && l.vat_amount !== null;
+      return {
+        description: l.description,
+        amount: l.debit,
+        vat_amount: hasVat ? l.vat_amount : Math.round(l.debit * 0.15),
+        total: l.debit + (hasVat ? l.vat_amount : Math.round(l.debit * 0.15)),
+      };
+    });
+
+  const subtotal = chargeLines.reduce((s: number, l: any) => s + l.amount, 0);
+  const vatTotal = chargeLines.reduce((s: number, l: any) => s + l.vat_amount, 0);
+  const grandTotal = subtotal + vatTotal;
+
   const model = {
     metadata: {
       document_type: 'invoice' as const,
@@ -44,20 +63,15 @@ export default function InvoicePreviewModal({ data, onClose }: InvoicePreviewMod
     sections: [{
       type: 'charges',
       title: 'Charges',
-      data: (data.posted_lines || []).filter((l: any) => l.debit > 0).map((l: any) => ({
-        description: l.description,
-        amount: l.debit,
-        vat_amount: l.vat_amount || (l.debit > 0 ? l.vat_amount != null ? l.vat_amount : Math.round(l.debit * 0.15) : 0),
-        total: l.debit > 0 ? l.debit + (l.vat_amount != null ? l.vat_amount : l.vat_amount != null ? l.vat_amount : Math.round(l.debit * 0.15)) : 0,
-      })),
+      data: chargeLines,
     }],
     totals: {
-      subtotal: (data.posted_lines || []).filter((l: any) => l.debit > 0).reduce((s: number, l: any) => s + l.debit, 0),
-      vat_total: (data.posted_lines || []).reduce((s: number, l: any) => s + (l.vat_amount || 0), 0),
-      total: (data.posted_lines || []).filter((l: any) => l.debit > 0).reduce((s: number, l: any) => s + l.debit + l.vat_amount != null ? l.vat_amount : Math.round(l.debit * 0.15), 0),
+      subtotal,
+      vat_total: vatTotal,
+      total: grandTotal,
       payments_received: 0,
       credits_applied: 0,
-      balance_due: data.closing_balance || (data.posted_lines || []).filter((l: any) => l.debit > 0).reduce((s: number, l: any) => s + l.debit + l.vat_amount != null ? l.vat_amount : Math.round(l.debit * 0.15), 0),
+      balance_due: data.closing_balance || grandTotal,
     },
   };
 

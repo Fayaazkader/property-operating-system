@@ -171,7 +171,7 @@ export default function RevenueOperationsPage() {
                 posted_lines: t.charges.map((c: any) => ({
                   date: periodStartDate || new Date().toISOString().split('T')[0],
                   description: c.description,
-                  debit: c.amount,
+                  debit: c.amount, vat_amount: c.vatAmount,
                   credit: 0,
                   balance: c.total,
                   section: 'posted'
