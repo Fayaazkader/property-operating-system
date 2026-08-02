@@ -53,7 +53,7 @@ export class FreezeChargesService {
     }
 
     progress.status = 'complete';
-    progress.currentLease = '';
+    await supabase.from('financial_periods').update({ workflow_phase: 'billing_complete' }).eq('entity_id', entityId).eq('period_type', 'statement').eq('status', 'open');    progress.currentLease = '';
     
     // Update statement period workflow phase
     await supabase.from('financial_periods').update({ workflow_phase: 'billing_complete' }).eq('entity_id', entityId).eq('period_type', 'statement').eq('status', 'open');
