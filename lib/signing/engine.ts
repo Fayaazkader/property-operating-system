@@ -85,13 +85,6 @@ export class SigningEngine {
       hash: executionHash || '',
     }).select('id').single();
 
-    // Compute SHA-256 of the executed PDF bytes (not metadata)
-    let executionHash = '';
-    if (executedPdfBytes) {
-      const hashBuffer = await crypto.subtle.digest('SHA-256', executedPdfBytes);
-      executionHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
     // Update signing request
     await supabase.from('signature_requests').update({
       status: 'completed',
