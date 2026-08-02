@@ -46,8 +46,8 @@ export async function buildRevenueContext(
     supabase.from('manual_charges').select('*').in('tenant_id', tenantIds).eq('status', 'posted').eq('period', period.period_name),
     supabase.from('interest_charges').select('*').in('tenant_id', tenantIds).eq('status', 'draft'),
     supabase.from('late_fee_charges').select('*').in('tenant_id', tenantIds).eq('status', 'draft'),
-    supabase.from('documents').select('file_name, storage_key, tenant_id').in('tenant_id', tenantIds),
-    supabase.from('documents').select('file_name, storage_key, related_entity_id').eq('related_entity_type', 'property').in('related_entity_id', propertyIds),
+    { data: [], error: null } as any, // documents — tenant_id column pending
+    { data: [], error: null } as any, // documents — related_entity_id column pending
     supabase.from('journals').select('id').eq('entity_id', entityId).eq('source_event', 'rental_invoice_raised').like('source_id', `%${period.period_name}%`).limit(1),
   ]);
 
