@@ -10,6 +10,7 @@ import { validationService } from '@/lib/workflow/services/validation-service';
 import Link from 'next/link';
 import { Upload, Camera, Edit3, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { InitialBillingModal } from '../components/InitialBillingModal';
+import { DateInput } from '../components/DateInput';
 
 type Step = 'choose' | 'upload' | 'extraction' | 'review' | 'manual' | 'processing' | 'complete';
 
@@ -331,11 +332,11 @@ export default function LeaseActivationPage() {
               </div>
               <div>
                 <label className="text-[10px] text-zinc-500 block mb-1">Start Date (DD/MM/YYYY)</label>
-                <input type="text" placeholder="DD/MM/YYYY" value={manual.lease_start_date} onChange={(e) => { setManual({ ...manual, lease_start_date: e.target.value }); const end = calcEndDate(e.target.value, termYears, termMonths); if (end) setManual({ ...manual, lease_end_date: end }); }} required className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
+                <DateInput value={manual.lease_start_date} onChange={(val) => { setManual({ ...manual, lease_start_date: val }); const end = calcEndDate(val, termYears, termMonths); if (end) setManual({ ...manual, lease_end_date: end }); }} required className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
               </div>
               <div>
                 <label className="text-[10px] text-zinc-500 block mb-1">End Date (DD/MM/YYYY)</label>
-                <input type="text" placeholder="DD/MM/YYYY" value={manual.lease_end_date} onChange={(e) => setManual({ ...manual, lease_end_date: e.target.value })} required className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
+                <DateInput value={manual.lease_end_date} onChange={(val) => setManual({ ...manual, lease_end_date: val })} required className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <input type="number" placeholder="Escalation %" value={manual.escalation_percent} onChange={(e) => setManual({ ...manual, escalation_percent: e.target.value })} className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
