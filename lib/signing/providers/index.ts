@@ -9,5 +9,4 @@ export function getSigningProvider(name: string = 'native'): SigningProvider {
   return providers[name] || providers.native;
 }
 
-export type { SigningProvider, ProviderRequest, ProviderStatus };
-export type { CreateSigningRequestParams } from './types';
+export type { SigningProvider };
