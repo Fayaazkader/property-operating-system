@@ -158,6 +158,13 @@ export class SigningEngine {
       const newStatus = startDate > today ? 'Pending Commencement' : 'Active';
       await supabase.from('leases').update({ lease_status: newStatus }).eq('id', request.lease_id);
 
+      if (newStatus === 'Pending Commencement') {
+        await publish('lease.pending_commencement', {
+          correlationId: crypto.randomUUID(), source: 'signing-engine', version: '1.0',
+          payload: { leaseId: request.lease_id, entityId: request.entity_id, requestId },
+        });
+      }
+
       await publish('lease.execution.completed', {
         correlationId: crypto.randomUUID(), source: 'signing-engine', version: '1.0',
         payload: { requestId, leaseId: request.lease_id, entityId: request.entity_id, executionHash },
