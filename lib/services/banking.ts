@@ -43,10 +43,10 @@ export async function importBankTransactions(
       if (columns.length < 3) continue;
 
       // Extract values using column mapping (1-based to 0-based)
-      const dateIdx = (mapping.date || 1) - 1;
-      const descIdx = (mapping.description || 3) - 1;
-      const amountIdx = (mapping.amount || 4) - 1;
-      const refIdx = (mapping.reference || 2) - 1;
+      const dateIdx = mapping.date || 0;
+      const descIdx = mapping.description || 1;
+      const amountIdx = mapping.amount || 3;
+      const refIdx = mapping.reference || 2;
 
       const rawDate = columns[dateIdx] || "";
       const description = columns[descIdx] || "";
