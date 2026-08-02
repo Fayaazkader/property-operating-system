@@ -243,6 +243,17 @@ export async function runReconciliationEngine(
       matchReason = "No match found";
     }
 
+    // Save match result to database
+    if (matched && matchedTenantId) {
+      await supabase.from("bank_transactions").update({
+        matched_tenant_id: matchedTenantId,
+        matched_invoice_id: matchedInvoiceId,
+        confidence: confidence,
+        allocation_status: "fully_allocated",
+        queue: "ready"
+      }).eq("id", tx.id);
+    }
+
     results.push({
       transactionId: tx.id,
       matched,
