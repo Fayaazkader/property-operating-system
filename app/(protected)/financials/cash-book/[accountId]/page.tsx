@@ -12,7 +12,7 @@ type Transaction = {
   id: string; transaction_date: string; transaction_description: string;
   transaction_amount: number; transaction_reference: string;
   allocation_status: string; queue: string;
-  matched_tenant_id: string; matched_invoice_id: string; matched_tenant_name?: string; matched_property_name?: string; matched_entity_name?: string; matched_tenant_code?: string; matched_gl_code?: string;
+  matched_tenant_id: string; matched_invoice_id: string; matched_tenant_name?: string; matched_tenant_code?: string; matched_property_name?: string; matched_entity_name?: string; matched_gl_code?: string;
   matched_journal_id?: string; confidence: number; is_reconciled: boolean;
 };
 
@@ -191,57 +191,30 @@ export default function AccountWorkspacePage() {
               </div>
               
               <div className="space-y-4">
-                {/* Bank Transaction — exactly as it appears on the statement */}
                 <div>
                   <p className="text-[10px] text-zinc-500 uppercase mb-2">Bank Transaction</p>
                   <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-xs text-zinc-500">Date</span>
-                      <span className="text-sm text-white">{selectedTx.transaction_date}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-xs text-zinc-500">Description</span>
-                      <span className="text-sm text-white text-right max-w-[60%]">{selectedTx.transaction_description}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-xs text-zinc-500">Reference</span>
-                      <span className="text-sm text-white font-mono">{selectedTx.transaction_reference || '—'}</span>
-                    </div>
-                    <div className="flex justify-between border-t border-white/[0.06] pt-2">
-                      <span className="text-xs text-zinc-500">Amount</span>
-                      <span className={`text-lg font-light ${selectedTx.transaction_amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{selectedTx.transaction_amount >= 0 ? '+' : '−'}R{Math.abs(selectedTx.transaction_amount).toLocaleString()}</span>
-                    </div>
+                    <div className="flex justify-between"><span className="text-xs text-zinc-500">Date</span><span className="text-sm text-white">{selectedTx.transaction_date}</span></div>
+                    <div className="flex justify-between"><span className="text-xs text-zinc-500">Description</span><span className="text-sm text-white text-right max-w-[65%]">{selectedTx.transaction_description}</span></div>
+                    <div className="flex justify-between"><span className="text-xs text-zinc-500">Reference</span><span className="text-sm text-white font-mono">{selectedTx.transaction_reference || '—'}</span></div>
+                    <div className="flex justify-between border-t border-white/[0.06] pt-2"><span className="text-xs text-zinc-500">Amount</span><span className={`text-lg font-light ${selectedTx.transaction_amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{selectedTx.transaction_amount >= 0 ? '+' : '−'}R{Math.abs(selectedTx.transaction_amount).toLocaleString()}</span></div>
                   </div>
                 </div>
 
-                {/* Allocation — what the system matched it to */}
                 {selectedTx.matched_tenant_name && (
                   <div>
                     <p className="text-[10px] text-zinc-500 uppercase mb-2">Allocated To</p>
                     <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/[0.02] p-4 space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-xs text-zinc-500">Tenant</span>
-                        <span className="text-sm text-white">{selectedTx.matched_tenant_name}</span>
-                      </div>
-                      {selectedTx.matched_invoice_id && (
-                        <div className="flex justify-between">
-                          <span className="text-xs text-zinc-500">Invoice</span>
-                          <span className="text-sm text-white font-mono">{selectedTx.matched_invoice_id}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span className="text-xs text-zinc-500">Method</span>
-                        <span className="text-sm text-emerald-400">{selectedTx.confidence >= 90 ? 'Auto-matched' : 'Manual'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-xs text-zinc-500">Confidence</span>
-                        <span className="text-sm text-white">{selectedTx.confidence || 0}%</span>
-                      </div>
+                      <div className="flex justify-between"><span className="text-xs text-zinc-500">Tenant</span><span className="text-sm text-white">{selectedTx.matched_tenant_name}{selectedTx.matched_tenant_code ? ` (${selectedTx.matched_tenant_code})` : ''}</span></div>
+                      {selectedTx.matched_property_name && <div className="flex justify-between"><span className="text-xs text-zinc-500">Property</span><span className="text-sm text-white">{selectedTx.matched_property_name}</span></div>}
+                      {selectedTx.matched_entity_name && <div className="flex justify-between"><span className="text-xs text-zinc-500">Entity</span><span className="text-sm text-white">{selectedTx.matched_entity_name}</span></div>}
+                      {selectedTx.matched_invoice_id && <div className="flex justify-between"><span className="text-xs text-zinc-500">Invoice</span><span className="text-sm text-white font-mono">{selectedTx.matched_invoice_id}</span></div>}
+                      <div className="flex justify-between border-t border-emerald-500/10 pt-2"><span className="text-xs text-zinc-500">Method</span><span className="text-sm text-emerald-400">{selectedTx.confidence >= 90 ? 'Auto-matched' : 'Manual'}</span></div>
+                      <div className="flex justify-between"><span className="text-xs text-zinc-500">Confidence</span><span className="text-sm text-white">{selectedTx.confidence || 0}%</span></div>
                     </div>
                   </div>
                 )}
 
-                {/* Status */}
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] text-zinc-500 uppercase">Status</span>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
