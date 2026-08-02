@@ -48,7 +48,9 @@ export default function AccountWorkspacePage() {
   }
 
   async function handlePostTransaction(tx: Transaction) {
+    setLoading(true);
     const result = await cashbookPostingService.postTransaction(tx.id);
+    setLoading(false);
     if (result.success) await logAudit({ action: "update", resource_type: "transaction", resource_id: tx.id, resource_label: `Posted ${tx.transaction_description}`, old_values: { status: tx.allocation_status }, new_values: { status: "posted", journalId: result.journalId } });
     await loadData();
   }
@@ -168,6 +170,9 @@ export default function AccountWorkspacePage() {
                     ) : (
                       <>
                         <button onClick={() => router.push(manualAllocateUrl(tx))} className="rounded-lg border border-white/[0.08] px-2 py-1 text-[10px] text-white hover:border-white/20">Allocate</button>
+                    {tx.allocation_status === 'fully_allocated' && (
+                      <button onClick={async () => { await handlePostTransaction(tx); await loadData(); }} className="rounded-lg bg-white px-2 py-1 text-[10px] font-medium text-black hover:bg-gray-100">Post</button>
+                    )}
                         {(tx.allocation_status === 'ready_to_post' || tx.allocation_status === 'posting_failed') && (
                           <button onClick={() => handlePostTransaction(tx)} className="rounded-lg bg-white px-2 py-1 text-[10px] font-medium text-black hover:bg-gray-100">Post</button>
                         )}
@@ -226,7 +231,7 @@ export default function AccountWorkspacePage() {
 
                 <div className="flex gap-2 pt-3 border-t border-white/[0.06]">
                   {selectedTx.allocation_status === 'fully_allocated' && (
-                    <button onClick={async () => { await handlePostAllReady(); setSelectedTx(null); }} className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-100">Post</button>
+                    <button onClick={async () => { await handlePostTransaction(selectedTx); setSelectedTx(null); await loadData(); }} className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-100">Post</button>
                   )}
                   {selectedTx.allocation_status === 'posted' && (
                     <button onClick={() => { setSelectedTx(null); router.push(`/financials/cash-book/${accountId}/allocate/${selectedTx.id}`); }} className="rounded-lg border border-amber-500/20 text-amber-400 px-3 py-1.5 text-xs hover:border-amber-500/40">Reverse</button>
