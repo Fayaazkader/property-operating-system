@@ -12,7 +12,7 @@ type Transaction = {
   id: string; transaction_date: string; transaction_description: string;
   transaction_amount: number; transaction_reference: string;
   allocation_status: string; queue: string;
-  matched_tenant_id: string; matched_invoice_id: string;
+  matched_tenant_id: string; matched_invoice_id: string; matched_tenant_name?: string;
   matched_journal_id?: string; confidence: number; is_reconciled: boolean;
 };
 
@@ -204,8 +204,8 @@ export default function AccountWorkspacePage() {
                   <div className="space-y-1 text-sm">
                     <p className="text-white">Method: <span className="text-zinc-400">{selectedTx.confidence >= 90 ? 'Auto-matched' : 'Manual allocation'}</span></p>
                     <p className="text-white">Queue: <span className="text-zinc-400">{selectedTx.queue || '—'}</span></p>
+                    {selectedTx.matched_tenant_name && <p className="text-white">Tenant: <span className="text-zinc-400">{selectedTx.matched_tenant_name}</span></p>}
                     {selectedTx.matched_invoice_id && <p className="text-white">Invoice: <span className="text-zinc-400">{selectedTx.matched_invoice_id}</span></p>}
-                    {selectedTx.matched_tenant_id && <p className="text-white">Tenant ID: <span className="text-zinc-400">{selectedTx.matched_tenant_id?.slice(0, 8)}...</span></p>}
                   </div>
                 </div>
 

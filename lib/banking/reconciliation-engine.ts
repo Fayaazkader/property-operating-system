@@ -247,6 +247,7 @@ export async function runReconciliationEngine(
     if (matched && matchedTenantId) {
       await supabase.from("bank_transactions").update({
         matched_tenant_id: matchedTenantId,
+        matched_tenant_name: matchedTenantName,
         matched_invoice_id: matchedInvoiceId,
         confidence: confidence,
         allocation_status: "fully_allocated",
