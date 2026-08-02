@@ -191,37 +191,64 @@ export default function AccountWorkspacePage() {
               </div>
               
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><p className="text-[10px] text-zinc-500 uppercase">Bank Date</p><p className="text-white">{selectedTx.transaction_date}</p></div>
-                  <div><p className="text-[10px] text-zinc-500 uppercase">Amount</p><p className={`text-lg font-light ${selectedTx.transaction_amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{selectedTx.transaction_amount >= 0 ? '+' : '−'}R{Math.abs(selectedTx.transaction_amount).toLocaleString()}</p></div>
-                  <div className="col-span-2"><p className="text-[10px] text-zinc-500 uppercase">Description</p><p className="text-white">{selectedTx.transaction_description}</p></div>
-                  <div><p className="text-[10px] text-zinc-500 uppercase">Reference</p><p className="text-white font-mono text-xs">{selectedTx.transaction_reference || "—"}</p></div>
-                  <div><p className="text-[10px] text-zinc-500 uppercase">Status</p><span className={`text-xs px-2 py-0.5 rounded-full ${selectedTx.allocation_status === 'posted' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>{selectedTx.allocation_status}</span></div>
-                </div>
-
-                <div className="border-t border-white/[0.06] pt-4">
-                  <p className="text-[10px] text-zinc-500 uppercase mb-2">Allocation</p>
-                  <div className="space-y-1 text-sm">
-                    <p className="text-white">Method: <span className="text-zinc-400">{selectedTx.confidence >= 90 ? 'Auto-matched' : 'Manual allocation'}</span></p>
-                    <p className="text-white">Queue: <span className="text-zinc-400">{selectedTx.queue || '—'}</span></p>
-                    {selectedTx.matched_tenant_name && <p className="text-white">Tenant: <span className="text-zinc-400">{selectedTx.matched_tenant_name}</span></p>}
-                    {selectedTx.matched_invoice_id && <p className="text-white">Invoice: <span className="text-zinc-400">{selectedTx.matched_invoice_id}</span></p>}
+                {/* Bank Transaction — exactly as it appears on the statement */}
+                <div>
+                  <p className="text-[10px] text-zinc-500 uppercase mb-2">Bank Transaction</p>
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-xs text-zinc-500">Date</span>
+                      <span className="text-sm text-white">{selectedTx.transaction_date}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-xs text-zinc-500">Description</span>
+                      <span className="text-sm text-white text-right max-w-[60%]">{selectedTx.transaction_description}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-xs text-zinc-500">Reference</span>
+                      <span className="text-sm text-white font-mono">{selectedTx.transaction_reference || '—'}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-white/[0.06] pt-2">
+                      <span className="text-xs text-zinc-500">Amount</span>
+                      <span className={`text-lg font-light ${selectedTx.transaction_amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{selectedTx.transaction_amount >= 0 ? '+' : '−'}R{Math.abs(selectedTx.transaction_amount).toLocaleString()}</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="border-t border-white/[0.06] pt-4">
-                  <p className="text-[10px] text-zinc-500 uppercase mb-2">Audit</p>
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between"><span className="text-zinc-400">Transaction ID</span><span className="text-zinc-600 font-mono">{selectedTx.id?.slice(0, 12)}...</span></div>
-                    <div className="flex justify-between"><span className="text-zinc-400">Confidence</span><span className="text-zinc-400">{selectedTx.confidence || 0}%</span></div>
-                    <div className="flex justify-between"><span className="text-zinc-400">Reconciled</span><span className={selectedTx.is_reconciled ? 'text-emerald-400' : 'text-amber-400'}>{selectedTx.is_reconciled ? 'Yes' : 'No'}</span></div>
-                    {selectedTx.matched_journal_id && (
+                {/* Allocation — what the system matched it to */}
+                {selectedTx.matched_tenant_name && (
+                  <div>
+                    <p className="text-[10px] text-zinc-500 uppercase mb-2">Allocated To</p>
+                    <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/[0.02] p-4 space-y-2">
                       <div className="flex justify-between">
-                        <span className="text-zinc-400">Journal</span>
-                        <button onClick={() => { setSelectedTx(null); router.push(`/financials?journal=${selectedTx.matched_journal_id}`); }} className="text-emerald-400 hover:text-emerald-300">View in Financials →</button>
+                        <span className="text-xs text-zinc-500">Tenant</span>
+                        <span className="text-sm text-white">{selectedTx.matched_tenant_name}</span>
                       </div>
-                    )}
+                      {selectedTx.matched_invoice_id && (
+                        <div className="flex justify-between">
+                          <span className="text-xs text-zinc-500">Invoice</span>
+                          <span className="text-sm text-white font-mono">{selectedTx.matched_invoice_id}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-xs text-zinc-500">Method</span>
+                        <span className="text-sm text-emerald-400">{selectedTx.confidence >= 90 ? 'Auto-matched' : 'Manual'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-xs text-zinc-500">Confidence</span>
+                        <span className="text-sm text-white">{selectedTx.confidence || 0}%</span>
+                      </div>
+                    </div>
                   </div>
+                )}
+
+                {/* Status */}
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] text-zinc-500 uppercase">Status</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    selectedTx.allocation_status === 'posted' ? 'bg-emerald-500/10 text-emerald-400' :
+                    selectedTx.allocation_status === 'fully_allocated' ? 'bg-blue-500/10 text-blue-400' :
+                    'bg-zinc-800 text-zinc-500'
+                  }`}>{selectedTx.allocation_status?.replace(/_/g, ' ') || 'unallocated'}</span>
                 </div>
 
                 <div className="flex gap-2 pt-3 border-t border-white/[0.06]">
