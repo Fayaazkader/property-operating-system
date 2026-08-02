@@ -13,24 +13,20 @@ interface Props {
 export function DateInput({ value, onChange, placeholder = 'DD/MM/YYYY', required, className }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    let val = e.target.value;
+  function handleInput(e: React.FormEvent<HTMLInputElement>) {
+    const raw = (e.target as HTMLInputElement).value;
+    const digits = raw.replace(/\D/g, '').slice(0, 8);
     
-    // Remove any non-digit, non-slash characters
-    val = val.replace(/[^\d/]/g, '');
-    
-    // Auto-insert slashes at the right positions
-    const digits = val.replace(/\//g, '').slice(0, 8);
-    
+    let formatted = digits;
     if (digits.length >= 5) {
-      val = digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4, 8);
+      formatted = digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4, 8);
     } else if (digits.length >= 3) {
-      val = digits.slice(0, 2) + '/' + digits.slice(2, 4);
-    } else if (digits.length === 2 && !val.includes('/')) {
-      val = digits + '/';
+      formatted = digits.slice(0, 2) + '/' + digits.slice(2, 4);
+    } else if (digits.length === 2) {
+      formatted = digits + '/';
     }
     
-    onChange(val);
+    onChange(formatted);
   }
 
   return (
@@ -39,7 +35,7 @@ export function DateInput({ value, onChange, placeholder = 'DD/MM/YYYY', require
       type="text"
       inputMode="numeric"
       value={value}
-      onChange={handleChange}
+      onInput={handleInput}
       placeholder={placeholder}
       maxLength={10}
       required={required}
