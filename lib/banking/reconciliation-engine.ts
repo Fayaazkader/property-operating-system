@@ -255,6 +255,14 @@ export async function runReconciliationEngine(
       }).eq("id", tx.id);
     }
 
+    } else {
+      await supabase.from("bank_transactions").update({
+        confidence: 0,
+        allocation_status: "unallocated",
+        queue: "review"
+      }).eq("id", tx.id);
+    }
+
     results.push({
       transactionId: tx.id,
       matched,

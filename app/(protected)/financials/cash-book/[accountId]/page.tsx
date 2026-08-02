@@ -67,8 +67,8 @@ export default function AccountWorkspacePage() {
 
   let filtered = transactions.filter(tx => {
     if (searchTerm) { const q = searchTerm.toLowerCase(); if (!tx.transaction_description?.toLowerCase().includes(q) && !tx.transaction_reference?.toLowerCase().includes(q)) return false; }
-    if (activeQueue === "ready") return tx.allocation_status === "ready_to_post" || tx.allocation_status === "fully_allocated" || tx.queue === "ready";
-    if (activeQueue === "review") return tx.queue === "review" || tx.allocation_status === "allocated" || tx.allocation_status === "unallocated";
+    if (activeQueue === "ready") return tx.allocation_status === "fully_allocated";
+    if (activeQueue === "review") return tx.allocation_status === "unallocated";
     if (activeQueue === "exceptions") return tx.allocation_status === "posting_failed" || tx.queue === "exceptions";
     if (activeQueue === "posted") return tx.allocation_status === "posted" || tx.queue === "posted";
     return true;
@@ -85,7 +85,7 @@ export default function AccountWorkspacePage() {
     return sortDir === 'asc' ? cmp : -cmp;
   });
 
-  const readyCount = transactions.filter(t => t.allocation_status === 'ready_to_post' || t.allocation_status === 'fully_allocated' || t.queue === 'ready').length;
+  const readyCount = transactions.filter(t => t.allocation_status === 'fully_allocated').length;
   const reviewCount = transactions.filter(t => t.queue === 'review' || t.allocation_status === 'allocated' || t.allocation_status === 'unallocated').length;
   const exceptionCount = transactions.filter(t => t.allocation_status === 'posting_failed' || t.queue === 'exceptions').length;
   const postedCount = transactions.filter(t => t.allocation_status === 'posted' || t.queue === 'posted').length;
@@ -231,7 +231,7 @@ export default function AccountWorkspacePage() {
                   {selectedTx.allocation_status === 'posted' && (
                     <button onClick={() => { setSelectedTx(null); router.push(`/financials/cash-book/${accountId}/allocate/${selectedTx.id}`); }} className="rounded-lg border border-amber-500/20 text-amber-400 px-3 py-1.5 text-xs hover:border-amber-500/40">Reverse</button>
                   )}
-                  {selectedTx.allocation_status !== 'posted' && selectedTx.allocation_status !== 'fully_allocated' && (
+                  {selectedTx.allocation_status !== 'posted' && (
                     <button onClick={() => { setSelectedTx(null); router.push(`/financials/cash-book/${accountId}/allocate/${selectedTx.id}`); }} className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white hover:border-white/20">Manual Allocate</button>
                   )}
                   <button onClick={() => setSelectedTx(null)} className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white hover:border-white/20">Close</button>
