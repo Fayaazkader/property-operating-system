@@ -1,11 +1,11 @@
 // lib/cashbook/posting-state.ts
 // Posting state machine for bank transactions
 
-export type PostingState = 'unallocated' | 'allocated' | 'ready_to_post' | 'posting' | 'posted' | 'posting_failed';
+export type PostingState = 'unallocated' | 'allocated' | 'fully_allocated' | 'ready_to_post' | 'posting' | 'posted' | 'posting_failed';
 
 export const VALID_TRANSITIONS: Record<PostingState, PostingState[]> = {
   unallocated: ['allocated'],
-  allocated: ['ready_to_post', 'unallocated'],
+  allocated: ['ready_to_post', 'fully_allocated', 'unallocated'],
   ready_to_post: ['posting', 'allocated'],
   posting: ['posted', 'posting_failed'],
   posted: [],
