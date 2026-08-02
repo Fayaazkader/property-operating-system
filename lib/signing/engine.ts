@@ -89,29 +89,49 @@ export class SigningEngine {
       status: 'completed',
       completed_at: new Date().toISOString(),
       certificate,
+      // Template version captured at creation time — preserved on completion
     }).eq('id', requestId);
 
     if (request.request_type === 'lease' && request.lease_id) {
       // Update lease status to executed
-      await supabase.from('leases').update({ lease_status: 'Executed' }).eq('id', request.lease_id);
+      const { data: leaseData } = await supabase.from('leases').select('lease_start_date').eq('id', request.lease_id).single();
+      const startDate = leaseData?.lease_start_date ? new Date(leaseData.lease_start_date) : new Date();
+      const newStatus = startDate > new Date() ? 'Pending Commencement' : 'Active';
+      await supabase.from('leases').update({ lease_status: newStatus }).eq('id', request.lease_id);
       
-      // Archive executed PDF
-      await supabase.from('documents').insert({
-        entity_id: request.entity_id,
-        file_name: `executed-${request.document_name}`,
-        file_url: request.document_url,
-        mime_type: 'application/pdf',
-        document_type: 'signed_lease',
-        status: 'stored',
-        related_entity_type: 'lease',
-        related_entity_id: request.lease_id,
-      });
+      // Archive execution package
+      const packageHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(requestId + request.document_url + new Date().toISOString())).then(buf => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join(''));
+      // Store user-facing signed document
+      await supabase.from('documents').insert({ entity_id: request.entity_id, file_name: `executed-${request.document_name}`, file_url: request.document_url, mime_type: 'application/pdf', document_type: 'signed_lease', status: 'stored', related_entity_type: 'lease', related_entity_id: request.lease_id, tags: ['execution_package', `hash:${packageHash}`] });
+      
+      // Store system execution artifacts
+      await supabase.from('execution_artifacts').insert([
+        {
+          entity_id: request.entity_id,
+          file_name: `execution-package-${request.document_name}`,
+          file_url: request.document_url,
+          mime_type: 'application/pdf',
+          document_type: 'signed_lease',
+          status: 'stored',
+          related_entity_type: 'lease',
+          related_entity_id: request.lease_id,
+          entity_id: request.entity_id, artifact_type: 'execution_package', artifact_data: { packageHash, requestId, leaseId: request.lease_id, templateId: request.template_id, templateVersion: request.template_version, completedAt: new Date().toISOString() } },
+        { entity_id: request.entity_id, artifact_type: 'execution_certificate', artifact_data: certificate },
+        { entity_id: request.entity_id, artifact_type: 'audit_trail', artifact_data: { requestId, signedBy: signerName, signedAt: new Date().toISOString(), fieldsSigned: certificate.fields_signed } },
+      ]);
 
-      await publish('lease.fully_executed', {
+      await publish('lease.execution.completed', {
         correlationId: crypto.randomUUID(),
         source: 'signing-engine',
         version: '1.0',
         payload: { requestId, leaseId: request.lease_id, entityId: request.entity_id },
+      });
+
+      await publish('document.execution.package.created', {
+        correlationId: crypto.randomUUID(),
+        source: 'signing-engine',
+        version: '1.0',
+        payload: { requestId, entityId: request.entity_id, packageHash },
       });
     }
 
