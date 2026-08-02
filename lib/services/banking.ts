@@ -32,7 +32,7 @@ export async function importBankTransactions(
     };
     const skipRows = preset?.skip_rows || 0;
     const dateFormat = preset?.date_format || "DD/MM/YYYY";
-    console.log("Banking parser indices: date=", dateIdx, "desc=", descIdx, "ref=", refIdx, "amt=", amountIdx, "preset mapping:", preset?.column_mapping);
+    console.log("Banking parser indices: date=", date, "desc=", description, "ref=", reference, "amt=", amount, "preset mapping:", preset?.column_mapping);
 
     const transactions: ImportedTransaction[] = [];
     const dataRows = rows.slice(skipRows + 1); // Skip header + extra rows
