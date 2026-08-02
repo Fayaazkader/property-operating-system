@@ -5,9 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { signingEngine } from '@/lib/signing/engine';
 import DocumentViewer from '@/app/components/signing/DocumentViewer';
 import SignaturePad from '@/app/components/signing/SignaturePad';
-import { getInitialTemplate, getReplicaCount } from '@/lib/signing/initial-replicator';
 import type { SigningField } from '@/lib/signing/types';
-import { FileText, CheckCircle, Clock, Send, Lock } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LeaseExecutionPage() {
@@ -38,7 +37,6 @@ export default function LeaseExecutionPage() {
 
   async function handleFieldClick(field: SigningField) {
     if (field.type === 'initial' && !field.isReplica && !field.value) {
-      // First time placing an initial — show replicate prompt after signing
       setPendingReplicateField(field);
       setActiveField(field);
       setShowSignaturePad(true);
@@ -50,41 +48,27 @@ export default function LeaseExecutionPage() {
 
   async function handleSignatureSave(data: string) {
     if (!activeField || !activeRequest) return;
-    
     await signingEngine.updateField(activeRequest.id, activeField.id, data);
-    
-    // If this was a pending initial, show replicate prompt
     if (pendingReplicateField?.id === activeField.id) {
       setShowReplicatePrompt(true);
     }
-    
     setShowSignaturePad(false);
     setActiveField(null);
     await refreshRequest();
   }
 
-async function handleReplicate(action: 'all' | 'this_page') {
+  async function handleReplicate(action: 'all' | 'this_page') {
     if (!pendingReplicateField || !activeRequest) return;
-    
     const { replicateInitials } = await import('@/lib/signing/initial-replicator');
-    const pages = action === 'all' 
+    const pages = action === 'all'
       ? Array.from({ length: totalPages }, (_, i) => i + 1)
       : [pendingReplicateField.page];
-    
     const replicas = replicateInitials(pendingReplicateField, totalPages, pages);
     const updatedFields = [...(activeRequest.fields || []), ...replicas].map(f => {
-      if (f.id === pendingReplicateField!.id) {
-        return { ...f, replicatePages: pages };
-      }
+      if (f.id === pendingReplicateField!.id) return { ...f, replicatePages: pages };
       return f;
     });
     await supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
-    
-    setShowReplicatePrompt(false);
-    setPendingReplicateField(null);
-    await refreshRequest();
-  }
-    
     setShowReplicatePrompt(false);
     setPendingReplicateField(null);
     await refreshRequest();
@@ -92,15 +76,6 @@ async function handleReplicate(action: 'all' | 'this_page') {
 
   async function handleFieldMove(fieldId: string, x: number, y: number) {
     if (!activeRequest) return;
-    
-    const field = (activeRequest.fields as SigningField[]).find((f: SigningField) => f.id === fieldId);
-    const isTemplate = field?.isTemplate && !field?.isReplica;
-    const hasReplicas = field?.templateId || getReplicaCount(activeRequest.fields, fieldId) > 0;
-    
-    if (isTemplate || hasReplicas) {
-      // For now, move just this one. Linked editing prompt can be added.
-    }
-    
     await signingEngine.moveField(activeRequest.id, fieldId, x, y, false);
     await refreshRequest();
   }
@@ -108,11 +83,7 @@ async function handleReplicate(action: 'all' | 'this_page') {
   async function handleComplete() {
     if (!activeRequest) return;
     const { data: { session } } = await supabase.auth.getSession();
-    await signingEngine.completeSigning(
-      activeRequest.id,
-      session?.user?.email || 'Unknown',
-      session?.user?.email || ''
-    );
+    await signingEngine.completeSigning(activeRequest.id, session?.user?.email || 'Unknown', session?.user?.email || '');
     setActiveRequest(null);
     await loadRequests();
   }
@@ -168,7 +139,6 @@ async function handleReplicate(action: 'all' | 'this_page') {
             readOnly={activeRequest.status === 'completed'}
           />
 
-          {/* Signature Pad Modal */}
           {showSignaturePad && (
             <>
               <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowSignaturePad(false)} />
@@ -185,7 +155,6 @@ async function handleReplicate(action: 'all' | 'this_page') {
             </>
           )}
 
-          {/* Replicate Prompt */}
           {showReplicatePrompt && (
             <>
               <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowReplicatePrompt(false)} />
