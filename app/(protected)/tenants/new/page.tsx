@@ -316,9 +316,20 @@ export default function LeaseActivationPage() {
             <div className="space-y-4">
               <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-medium">Commercial Terms</p>
               <input type="number" placeholder="Monthly Rental (R) *" value={manual.monthly_rental} onChange={(e) => setManual({ ...manual, monthly_rental: e.target.value })} required className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
-              <div className="grid grid-cols-2 gap-3">
-                <input type="date" value={manual.lease_start_date} onChange={(e) => setManual({ ...manual, lease_start_date: e.target.value })} required className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
-                <input type="date" value={manual.lease_end_date} onChange={(e) => setManual({ ...manual, lease_end_date: e.target.value })} required className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
+              <div>
+                <label className="text-[10px] text-zinc-500 block mb-1">Lease Term</label>
+                <div className="flex gap-2">
+                  <input type="number" placeholder="Years" value={termYears} onChange={(e) => { setTermYears(e.target.value); const end = calcEndDate(manual.lease_start_date, e.target.value, termMonths); if (end) setManual({ ...manual, lease_end_date: end }); }} className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-3 text-sm text-white outline-none focus:border-white/20" />
+                  <input type="number" placeholder="Months" value={termMonths} onChange={(e) => { setTermMonths(e.target.value); const end = calcEndDate(manual.lease_start_date, termYears, e.target.value); if (end) setManual({ ...manual, lease_end_date: end }); }} className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-3 text-sm text-white outline-none focus:border-white/20" />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] text-zinc-500 block mb-1">Start Date (DD/MM/YYYY)</label>
+                <input type="text" placeholder="DD/MM/YYYY" value={manual.lease_start_date} onChange={(e) => { setManual({ ...manual, lease_start_date: e.target.value }); const end = calcEndDate(e.target.value, termYears, termMonths); if (end) setManual({ ...manual, lease_end_date: end }); }} required className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
+              </div>
+              <div>
+                <label className="text-[10px] text-zinc-500 block mb-1">End Date (DD/MM/YYYY)</label>
+                <input type="text" placeholder="DD/MM/YYYY" value={manual.lease_end_date} onChange={(e) => setManual({ ...manual, lease_end_date: e.target.value })} required className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <input type="number" placeholder="Escalation %" value={manual.escalation_percent} onChange={(e) => setManual({ ...manual, escalation_percent: e.target.value })} className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
