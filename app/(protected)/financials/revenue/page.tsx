@@ -35,7 +35,7 @@ export default function RevenueOperationsPage() {
   const [billingTenants, setBillingTenants] = useState<BillingTenant[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [tenants, setTenants] = useState<any[]>([]);
-  const [snapshots, setSnapshots] = useState<RevenueContext[]>([]);
+  const [snapshots, setSnapshots] = useState<BillingSnapshot[]>([]);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedTenantDetail, setSelectedTenantDetail] = useState<BillingTenant | null>(null);
   const [showManualCharge, setShowManualCharge] = useState(false);
