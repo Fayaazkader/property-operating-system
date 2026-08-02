@@ -165,6 +165,56 @@ export class InitialBillingService {
     const { data } = await supabase.from('chart_of_accounts').select('vat_rate').eq('id', accountId).single();
     return data?.vat_rate || 15;
   }
+  async postCharges(leaseId: string, charges: InitialCharge[]): Promise<number> {
+    const { data: lease } = await supabase
+      .from('leases')
+      .select('tenant_id, property_id, lease_start_date')
+      .eq('id', leaseId)
+      .single();
+
+    if (!lease) return 0;
+
+    const { data: property } = await supabase.from('properties').select('entity_id, owner_entity_id').eq('id', lease.property_id).single();
+    const entityId = property?.entity_id || '';
+    const periodName = new Date(lease.lease_start_date).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+
+    let posted = 0;
+    for (const charge of charges.filter(c => c.selected)) {
+      const { error } = await supabase.from('charges').insert({
+        lease_id: leaseId,
+        tenant_id: lease.tenant_id,
+        property_id: lease.property_id,
+        entity_id: entityId,
+        owner_entity_id: property?.owner_entity_id || entityId,
+        charge_type: charge.charge_type,
+        description: charge.description + ' — ' + periodName,
+        amount_excl_vat: charge.amount_excl_vat,
+        vat_rate: charge.vat_rate,
+        vat_amount: charge.vat_amount,
+        amount_incl_vat: charge.amount_incl_vat,
+        recurrence_rule: charge.charge_type === 'deposit' || charge.charge_type === 'lease_fee' ? { frequency: 'once' } : { frequency: 'monthly', period: periodName },
+        recovery_method: 'fixed',
+        gl_code: charge.gl_code,
+        is_active: true,
+        status: 'posted',
+        billing_period: periodName,
+        financial_period: periodName,
+      });
+      if (!error) posted++;
+    }
+
+    if (posted > 0) {
+      await publish('lease.initial_charges_posted', {
+        correlationId: crypto.randomUUID(),
+        source: 'initial-billing-service',
+        version: '1.0',
+        payload: { leaseId, chargesPosted: posted },
+      });
+    }
+
+    return posted;
+  }
+
 }
 
 export const initialBillingService = new InitialBillingService();
