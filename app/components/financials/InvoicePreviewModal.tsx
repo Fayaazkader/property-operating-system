@@ -47,17 +47,17 @@ export default function InvoicePreviewModal({ data, onClose }: InvoicePreviewMod
       data: (data.posted_lines || []).filter((l: any) => l.debit > 0).map((l: any) => ({
         description: l.description,
         amount: l.debit,
-        vat_amount: l.vat_amount || (l.debit > 0 ? Math.round(l.debit * 0.15) : 0),
-        total: l.debit > 0 ? l.debit + Math.round(l.debit * 0.15) : 0,
+        vat_amount: l.vat_amount || (l.debit > 0 ? l.vat_amount != null ? l.vat_amount : Math.round(l.debit * 0.15) : 0),
+        total: l.debit > 0 ? l.debit + (l.vat_amount != null ? l.vat_amount : l.vat_amount != null ? l.vat_amount : Math.round(l.debit * 0.15)) : 0,
       })),
     }],
     totals: {
       subtotal: (data.posted_lines || []).filter((l: any) => l.debit > 0).reduce((s: number, l: any) => s + l.debit, 0),
       vat_total: (data.posted_lines || []).reduce((s: number, l: any) => s + (l.vat_amount || 0), 0),
-      total: (data.posted_lines || []).filter((l: any) => l.debit > 0).reduce((s: number, l: any) => s + l.debit + Math.round(l.debit * 0.15), 0),
+      total: (data.posted_lines || []).filter((l: any) => l.debit > 0).reduce((s: number, l: any) => s + l.debit + l.vat_amount != null ? l.vat_amount : Math.round(l.debit * 0.15), 0),
       payments_received: 0,
       credits_applied: 0,
-      balance_due: data.closing_balance || (data.posted_lines || []).filter((l: any) => l.debit > 0).reduce((s: number, l: any) => s + l.debit + Math.round(l.debit * 0.15), 0),
+      balance_due: data.closing_balance || (data.posted_lines || []).filter((l: any) => l.debit > 0).reduce((s: number, l: any) => s + l.debit + l.vat_amount != null ? l.vat_amount : Math.round(l.debit * 0.15), 0),
     },
   };
 
