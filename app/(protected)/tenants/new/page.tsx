@@ -15,7 +15,7 @@ import { DateInput } from '../components/DateInput';
 type Step = 'choose' | 'upload' | 'extraction' | 'review' | 'manual' | 'processing' | 'complete';
 
 function calcEndDate(start: string, years: string, months: string): string {
-  if (!start) return '';
+  if (!start || start.length < 10) return '';
   const parts = start.split('/');
   if (parts.length !== 3) return '';
   const y = parseInt(parts[2]), m = parseInt(parts[1]), d = parseInt(parts[0]);
@@ -24,6 +24,8 @@ function calcEndDate(start: string, years: string, months: string): string {
   if (isNaN(date.getTime())) return '';
   date.setFullYear(date.getFullYear() + (parseInt(years) || 0));
   date.setMonth(date.getMonth() + (parseInt(months) || 0));
+  // End date = day BEFORE the anniversary
+  date.setDate(date.getDate() - 1);
   const ey = date.getFullYear();
   const em = String(date.getMonth() + 1).padStart(2, '0');
   const ed = String(date.getDate()).padStart(2, '0');
