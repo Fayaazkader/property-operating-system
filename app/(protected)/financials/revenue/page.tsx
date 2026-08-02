@@ -6,8 +6,8 @@ import { logAudit } from '@/lib/audit/audit-log';
 import { triggerCommunication } from '@/lib/communications/communication-service';
 import { trackEvent, AnalyticsEvents } from '@/lib/analytics/tracker';
 import { postingEngine } from '@/lib/financial/posting-engine';
-import { billingAssembly } from '@/lib/revenue/billing-assembly';
-import type { BillingTenant, BillingSnapshot } from '@/lib/revenue/billing-assembly';
+import { buildBillingContext } from '@/lib/revenue/billing-context-builder';
+import type { BillingTenant, BillingContext } from '@/lib/revenue/billing-context-builder';
 import ImportUtilitiesModal from '@/app/components/financials/ImportUtilitiesModal';
 import InvoicePreviewModal from '@/app/components/financials/InvoicePreviewModal';
 
@@ -101,7 +101,7 @@ export default function RevenueOperationsPage() {
   async function loadPreview(propId?: string, tenantId?: string) {
     setPreviewLoading(true);
     try {
-      const worksheet = await billingAssembly.assembleWorksheet(entityId, propId || null, stmtPeriodId || finPeriodId);
+      const worksheet = await buildBillingContext(entityId, propId || null, stmtPeriodId || finPeriodId);
       let tenants = worksheet.tenants;
       if (tenantId) tenants = tenants.filter(t => t.tenantId === tenantId);
       setBillingTenants(tenants);
