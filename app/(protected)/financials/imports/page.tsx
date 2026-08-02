@@ -110,7 +110,8 @@ if (data) setEntities(data);
   }, []);
 
   async function handleImport(file: File) {
-    setLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setMessage({ type: "error", text: "Session expired. Please refresh the page." }); setLoading(false); return; }    setLoading(true);
     setFileName(file.name);
     if (!selectedBankAccount) {
   setMessage({ type: "error", text: "Please select a bank account before importing." });
