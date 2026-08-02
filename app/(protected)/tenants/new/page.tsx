@@ -9,7 +9,7 @@ import { duplicateDetectionService } from '@/lib/workflow/services/duplicate-det
 import { validationService } from '@/lib/workflow/services/validation-service';
 import Link from 'next/link';
 import { Upload, Camera, Edit3, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
-import { InitialBillingModal } from './components/InitialBillingModal';
+import { InitialBillingModal } from '../components/InitialBillingModal';
 
 type Step = 'choose' | 'upload' | 'extraction' | 'review' | 'manual' | 'processing' | 'complete';
 
