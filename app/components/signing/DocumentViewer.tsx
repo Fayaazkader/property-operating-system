@@ -6,7 +6,7 @@ import { Document, Page, pdfjs } from 'react-pdf';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 
-interface SignatureField {
+interface SigningField {
   id: string;
   type: 'signature' | 'initial' | 'date' | 'text' | 'checkbox' | 'stamp' | 'witness';
   page: number;
@@ -23,10 +23,10 @@ interface SignatureField {
 
 interface Props {
   fileUrl: string;
-  fields: SignatureField[];
-  onFieldAdd: (field: SignatureField) => void;
+  fields: SigningField[];
+  onFieldAdd: (field: SigningField) => void;
   onFieldMove: (id: string, x: number, y: number) => void;
-  onFieldClick: (field: SignatureField) => void;
+  onFieldClick: (field: SigningField) => void;
   readOnly?: boolean;
 }
 
@@ -55,7 +55,7 @@ export default function DocumentViewer({ fileUrl, fields, onFieldAdd, onFieldMov
     }
   }
 
-  function handleMouseDown(e: React.MouseEvent, field: SignatureField) {
+  function handleMouseDown(e: React.MouseEvent, field: SigningField) {
     if (readOnly) { onFieldClick(field); return; }
     e.stopPropagation();
     setDragging(field.id);
