@@ -3,6 +3,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { publish } from '../platform/events/event-bus';
+import { runReconciliationEngine } from '../../banking/reconciliation-engine';
 import type { BankAccount, BankStatement, BankTransaction, BankReconciliationResult } from './types';
 
 export class BankEngine {
@@ -41,6 +42,8 @@ export class BankEngine {
     }
 
     await supabase.from('bank_accounts').update({ current_balance: closingBalance, updated_at: new Date().toISOString() }).eq('id', accountId);
+
+    await runReconciliationEngine(account.entity_id);
 
     await publish('bank.statement.imported', {
       correlationId: crypto.randomUUID(), source: 'bank-engine', version: '1.0',
