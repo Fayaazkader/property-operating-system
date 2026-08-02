@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { toPixels, toNormalised } from '@/lib/signing/coordinates';
+import { fieldsToPixels, pixelFieldToNormalised, type CanvasField } from '@/lib/signing/canvas-service';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
@@ -52,11 +52,8 @@ export default function DocumentViewer({ fileUrl, fields, onFieldAdd, onFieldMov
     const x = (e.clientX - rect.left) / scale;
     const y = (e.clientY - rect.top) / scale;
     if (pageDims) {
-      const norm = toNormalised(x, y, 200, 50, pageDims.width, pageDims.height);
-      onFieldAdd({
-        id: crypto.randomUUID(), type: 'signature', page: currentPage,
-        x: norm.x, y: norm.y, width: norm.w, height: norm.h,
-      });
+      const norm = pixelFieldToNormalised({ id: '', page: currentPage, x, y, width: 200, height: 50 }, pageDims);
+      onFieldAdd({ ...norm, id: crypto.randomUUID(), type: 'signature' });
     }
   }
 
@@ -106,7 +103,7 @@ export default function DocumentViewer({ fileUrl, fields, onFieldAdd, onFieldMov
           {pageFields.map(field => (
             <div key={field.id} onMouseDown={(e) => handleMouseDown(e, field)}
               onClick={(e) => { e.stopPropagation(); onFieldClick(field); }}
-              style={{ position: 'absolute', ...(pageDims ? (() => { const px = toPixels({ x: field.x, y: field.y, w: field.width, h: field.height }, pageDims.width, pageDims.height); return { left: px.x, top: px.y, width: px.width, height: px.height }; })() : { left: field.x, top: field.y, width: field.width, height: field.height }),
+              style={{ position: 'absolute', ...(pageDims ? (() => { const px = fieldsToPixels([field as CanvasField], pageDims)[0]; return { left: px.x, top: px.y, width: px.width, height: px.height }; })() : { left: field.x, top: field.y, width: field.width, height: field.height }),
                 cursor: readOnly ? 'pointer' : 'move', zIndex: dragging === field.id ? 50 : 10,
                 border: field.value ? '2px solid rgba(16,185,129,0.5)' : '2px dashed rgba(255,255,255,0.3)',
                 borderRadius: '8px', background: field.value ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.03)',

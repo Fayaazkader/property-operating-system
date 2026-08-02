@@ -9,20 +9,20 @@ export async function getLeaseTemplate(
   entityId: string,
   propertyId?: string,
   leaseId?: string
-): Promise<{ template: LeaseSigningTemplate; version: number; templateId: string }> {
+): Promise<{ template: LeaseSigningTemplate; version: number; templateId: string; expiryDays: number }> {
   // Try property-level first, then entity, then platform default
   let query = supabase.from('signing_templates').select('*').eq('is_active', true).order('version', { ascending: false });
   
   if (propertyId) {
     const { data } = await query.eq('property_id', propertyId).limit(1).single();
-    if (data) return { template: mapToTemplate(data), version: data.version, templateId: data.id };
+    if (data) return { template: mapToTemplate(data), version: data.version, templateId: data.id, expiryDays: data.expiry_days || 14 };
   }
   
   const { data: entityTemplate } = await supabase.from('signing_templates').select('*').eq('entity_id', entityId).is('property_id', null).eq('is_active', true).order('version', { ascending: false }).limit(1).single();
-  if (entityTemplate) return { template: mapToTemplate(entityTemplate), version: entityTemplate.version, templateId: entityTemplate.id };
+  if (entityTemplate) return { template: mapToTemplate(entityTemplate), version: entityTemplate.version, templateId: entityTemplate.id, expiryDays: entityTemplate.expiry_days || 14 };
 
   // Fallback
-  return { template: getDefaultTemplate(), version: 1, templateId: 'default' };
+  return { template: getDefaultTemplate(), version: 1, templateId: 'default', expiryDays: 14 };
 }
 
 function mapToTemplate(data: any): LeaseSigningTemplate {
