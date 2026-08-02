@@ -37,7 +37,7 @@ export function DateInput({ value, onChange, placeholder = 'DD/MM/YYYY', require
       value={value}
       onInput={handleInput}
       placeholder={placeholder}
-      maxLength={10}
+      
       required={required}
       className={className}
     />
