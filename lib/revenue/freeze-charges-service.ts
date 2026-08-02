@@ -54,6 +54,10 @@ export class FreezeChargesService {
 
     progress.status = 'complete';
     progress.currentLease = '';
+    
+    // Update statement period workflow phase
+    await supabase.from('financial_periods').update({ workflow_phase: 'billing_complete' }).eq('entity_id', entityId).eq('period_type', 'statement').eq('status', 'open');
+    
     await publish('period.charges_frozen', { correlationId: cid, source: 'freeze-charges-service', version: '1.0', payload: { entityId, periodStart, periodEnd, ...progress } });
 
     return progress;
