@@ -34,29 +34,31 @@ export class BillingPolicyEngine {
     const entityId = property?.entity_id || null;
 
     // Hierarchy: Platform → Entity → Property
+    const { data: leaseData } = await supabase.from('leases').select('lease_type').eq('id', leaseId).single();
+    const leaseType = leaseData?.lease_type || 'commercial';
+
     const { data: policies } = await supabase
       .from('billing_policies')
       .select('*')
-      .or(`scope.eq.platform,entity_id.eq.${entityId},property_id.eq.${lease.property_id}`)
+      .eq('entity_id', entityId)
+      .eq('policy_type', leaseType)
       .eq('is_active', true)
-      .order('scope', { ascending: true }); // platform first, then entity, then property
+      .limit(1); // platform first, then entity, then property
 
     if (!policies?.length) return this.getDefaults();
 
     // Start with platform defaults, override with entity, then property
-    const platform = policies.find(p => p.scope === 'platform') || {};
-    const entity = policies.find(p => p.scope === 'entity') || {};
-    const propertyPolicy = policies.find(p => p.scope === 'property') || {};
+    const policy = policies?.[0] || {};
 
     const resolved: BillingPolicy = {
-      lease_fee_amount: propertyPolicy.lease_fee_amount || entity.lease_fee_amount || platform.lease_fee_amount || 1500,
-      lease_fee_description: propertyPolicy.lease_fee_description || entity.lease_fee_description || platform.lease_fee_description || 'Standard Commercial Lease Fee',
-      late_payment_fee_pct: propertyPolicy.late_payment_fee_pct || entity.late_payment_fee_pct || platform.late_payment_fee_pct || 10,
-      late_payment_fee_description: propertyPolicy.late_payment_fee_description || entity.late_payment_fee_description || platform.late_payment_fee_description || 'Late Payment Fee',
-      deposit_months: propertyPolicy.deposit_months || entity.deposit_months || platform.deposit_months || 1,
-      billing_day: propertyPolicy.billing_day || entity.billing_day || platform.billing_day || 25,
-      auto_approve_below: propertyPolicy.auto_approve_below || entity.auto_approve_below || platform.auto_approve_below || 0,
-      source: propertyPolicy.id ? 'Property Policy' : entity.id ? 'Entity Policy' : 'Platform Default',
+      lease_fee_amount: policy.lease_fee_amount || 1500,
+      lease_fee_description: policy.lease_fee_description || 'Standard Commercial Lease Fee',
+      late_payment_fee_pct: policy.late_payment_value || 10,
+      late_payment_fee_description: policy.late_payment_description || 'Late Payment Fee',
+      deposit_months: policy.deposit_months || 1,
+      billing_day: policy.billing_day || 25,
+      auto_approve_below: 0,
+      source: policy.policy_name || 'Default Policy',
     };
 
     return resolved;
