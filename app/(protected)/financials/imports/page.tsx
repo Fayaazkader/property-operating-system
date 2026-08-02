@@ -179,7 +179,7 @@ await supabase
   .eq("id", selectedBankAccount);
       const importedCount = result.data.length;
 
-      const recon = await runReconciliationEngine();
+      const recon = await runReconciliationEngine(selectedEntity);
 
       if (recon.total > 0) {
         setMessage({
