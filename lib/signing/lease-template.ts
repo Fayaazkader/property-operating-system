@@ -1,140 +1,95 @@
 // lib/signing/lease-template.ts
-// Pre-defined signing field positions for lease documents
+// Reads signing template from database — configurable per entity
 
+import { supabase } from '@/lib/supabase';
 import type { SigningField, LeaseSigningTemplate } from './types';
 
-// Standard commercial lease signing positions
-// These are calibrated for the AssetFlow lease template
-// In production, these would be configurable per entity
+export async function getLeaseTemplate(entityId: string): Promise<LeaseSigningTemplate> {
+  const { data } = await supabase
+    .from('signing_templates')
+    .select('*')
+    .eq('entity_id', entityId)
+    .eq('is_default', true)
+    .single();
 
-const STANDARD_COMMERCIAL_LEASE: LeaseSigningTemplate = {
-  landlord_signature: { page: -1, x: 120, y: 620, width: 200, height: 60 },    // -1 = last page
-  tenant_signature: { page: -1, x: 380, y: 620, width: 200, height: 60 },
-  witness_signature: { page: -1, x: 120, y: 720, width: 200, height: 60 },
-  landlord_initials: { x: 520, y: 780, width: 60, height: 30, pages: [] },      // pages[] = all pages
-  tenant_initials: { x: 520, y: 750, width: 60, height: 30, pages: [] },
-  date_fields: [
-    { page: -1, x: 120, y: 690 },
-    { page: -1, x: 380, y: 690 },
-  ],
-};
+  if (data) {
+    return {
+      landlord_signature: data.landlord_signature,
+      tenant_signature: data.tenant_signature,
+      witness_signature: data.witness_signature,
+      landlord_initials: data.landlord_initials,
+      tenant_initials: data.tenant_initials,
+      date_fields: data.date_fields || [],
+    };
+  }
+
+  // Fallback default
+  return {
+    landlord_signature: { page: -1, x: 120, y: 620, width: 200, height: 60 },
+    tenant_signature: { page: -1, x: 380, y: 620, width: 200, height: 60 },
+    witness_signature: { page: -1, x: 120, y: 720, width: 200, height: 60 },
+    landlord_initials: { x: 520, y: 780, width: 60, height: 30, pages: [] },
+    tenant_initials: { x: 520, y: 750, width: 60, height: 30, pages: [] },
+    date_fields: [{ page: -1, x: 120, y: 690 }, { page: -1, x: 380, y: 690 }],
+  };
+}
 
 export function generateLeaseSigningFields(
   totalPages: number,
-  template?: LeaseSigningTemplate
+  template: LeaseSigningTemplate
 ): SigningField[] {
-  const t = template || STANDARD_COMMERCIAL_LEASE;
   const lastPage = totalPages;
   const fields: SigningField[] = [];
 
-  // Landlord signature — last page
-  const lp = t.landlord_signature.page === -1 ? lastPage : t.landlord_signature.page;
-  fields.push({
-    id: crypto.randomUUID(),
-    type: 'signature',
-    page: lp,
-    x: t.landlord_signature.x,
-    y: t.landlord_signature.y,
-    width: t.landlord_signature.width,
-    height: t.landlord_signature.height,
-    signerRole: 'landlord',
-    isTemplate: true,
-  });
-
-  // Tenant signature — last page
-  const tp = t.tenant_signature.page === -1 ? lastPage : t.tenant_signature.page;
-  fields.push({
-    id: crypto.randomUUID(),
-    type: 'signature',
-    page: tp,
-    x: t.tenant_signature.x,
-    y: t.tenant_signature.y,
-    width: t.tenant_signature.width,
-    height: t.tenant_signature.height,
-    signerRole: 'tenant',
-    isTemplate: true,
-  });
-
-  // Witness
-  if (t.witness_signature) {
-    const wp = t.witness_signature.page === -1 ? lastPage : t.witness_signature.page;
+  const addField = (config: { page: number; x: number; y: number; width: number; height: number }, type: SigningField['type'], role?: string) => {
+    const page = config.page === -1 ? lastPage : config.page;
     fields.push({
       id: crypto.randomUUID(),
-      type: 'witness',
-      page: wp,
-      x: t.witness_signature.x,
-      y: t.witness_signature.y,
-      width: t.witness_signature.width,
-      height: t.witness_signature.height,
-      signerRole: 'witness',
+      type,
+      page,
+      x: config.x,
+      y: config.y,
+      width: config.width,
+      height: config.height,
+      signerRole: role as any,
       isTemplate: true,
     });
-  }
+  };
 
-  // Landlord initials — all pages
-  const landlordInitialTemplate: SigningField = {
+  addField(template.landlord_signature, 'signature', 'landlord');
+  addField(template.tenant_signature, 'signature', 'tenant');
+  if (template.witness_signature) addField(template.witness_signature, 'witness', 'witness');
+
+  // Initials — template only, replicas on user choice
+  fields.push({
     id: crypto.randomUUID(),
     type: 'initial',
     page: 1,
-    x: t.landlord_initials.x,
-    y: t.landlord_initials.y,
-    width: t.landlord_initials.width,
-    height: t.landlord_initials.height,
+    x: template.landlord_initials.x,
+    y: template.landlord_initials.y,
+    width: template.landlord_initials.width,
+    height: template.landlord_initials.height,
     signerRole: 'landlord',
     isTemplate: true,
-    replicatePages: Array.from({ length: totalPages }, (_, i) => i + 1),
-  };
-  fields.push(landlordInitialTemplate);
+    replicatePages: [],
+  });
 
-  // Create replicas for all pages
-  for (let p = 2; p <= totalPages; p++) {
-    fields.push({
-      ...landlordInitialTemplate,
-      id: crypto.randomUUID(),
-      page: p,
-      isReplica: true,
-      templateId: landlordInitialTemplate.id,
-    });
-  }
-
-  // Tenant initials — all pages
-  const tenantInitialTemplate: SigningField = {
+  fields.push({
     id: crypto.randomUUID(),
     type: 'initial',
     page: 1,
-    x: t.tenant_initials.x,
-    y: t.tenant_initials.y,
-    width: t.tenant_initials.width,
-    height: t.tenant_initials.height,
+    x: template.tenant_initials.x,
+    y: template.tenant_initials.y,
+    width: template.tenant_initials.width,
+    height: template.tenant_initials.height,
     signerRole: 'tenant',
     isTemplate: true,
-    replicatePages: Array.from({ length: totalPages }, (_, i) => i + 1),
-  };
-  fields.push(tenantInitialTemplate);
+    replicatePages: [],
+  });
 
-  for (let p = 2; p <= totalPages; p++) {
-    fields.push({
-      ...tenantInitialTemplate,
-      id: crypto.randomUUID(),
-      page: p,
-      isReplica: true,
-      templateId: tenantInitialTemplate.id,
-    });
-  }
-
-  // Date fields
-  for (const df of t.date_fields) {
-    const dp = df.page === -1 ? lastPage : df.page;
-    fields.push({
-      id: crypto.randomUUID(),
-      type: 'date',
-      page: dp,
-      x: df.x,
-      y: df.y,
-      width: 120,
-      height: 30,
-      isTemplate: true,
-    });
+  // Dates
+  for (const df of template.date_fields) {
+    addField({ ...df, width: 120, height: 30 }, 'date');
   }
 
   return fields;
