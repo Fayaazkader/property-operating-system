@@ -18,7 +18,7 @@ export class SigningEngine {
     const { data, error } = await supabase.from('signature_requests').insert({
       entity_id: entityId, request_type: 'lease', lease_id: leaseId,
       document_name: documentName, document_url: documentUrl, fields,
-      status: 'draft', created_by: createdBy,
+      status: 'draft', created_by: createdBy, expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
       template_id: templateId, template_version: templateVersion || 1,
     }).select('*').single();
 
@@ -84,7 +84,7 @@ export class SigningEngine {
     await supabase.from('signature_requests').update({
       status: 'completed',
       completed_at: new Date().toISOString(),
-      certificate,
+      certificate_id: certificate.certificate_id,
       execution_package_hash: executionHash || null,
     }).eq('id', requestId);
 
@@ -113,6 +113,10 @@ export class SigningEngine {
           execution_hash: executionHash,
           algorithm: 'SHA-256',
           request_id: requestId,
+          document_id: request.lease_id || requestId,
+          signed_at: new Date().toISOString(),
+          provider: 'native',
+          template_version: request.template_version || 1,
         },
       },
     ]);
