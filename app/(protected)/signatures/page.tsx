@@ -73,7 +73,7 @@ export default function SignaturesPage() {
           {showSignaturePad && (
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4">
               <p className="text-xs text-zinc-500 mb-3">Your Signature</p>
-              <SignaturePad value={signatureData} onChange={(data) => { setSignatureData(data); }} onClear={() => setSignatureData(null)} />
+              <SignaturePad value={signatureData || ""} onChange={(data) => { setSignatureData(data); }} onClear={() => setSignatureData(null)} />
               {signatureData && (
                 <div className="mt-3 flex items-center gap-2 text-xs text-emerald-400">
                   <CheckCircle className="w-3 h-3" /> Signature captured
