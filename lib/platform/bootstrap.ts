@@ -20,6 +20,11 @@ async function initializePlatform(): Promise<void> {
   logger.info('  ✓ Notification Engine initialized');
 
   await import('./notifications/handlers');
+
+  // Register workflow handlers
+  const { registerInitialBillingHandler } = await import('@/lib/workflow/handlers/initial-billing-handler');
+  registerInitialBillingHandler();
+  logger.info('  ✓ Initial billing handler registered');
   logger.info('  ✓ Notification handlers registered');
 
   const { automationEngine } = await import('./automation/engine');
