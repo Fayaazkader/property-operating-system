@@ -55,7 +55,7 @@ export class InitialBillingService {
     const rentGlCode = await financialRulesEngine.resolveAccountId(entityId, '4100');
     const parkingGlCode = await financialRulesEngine.resolveAccountId(entityId, '4200');
     const depositGlCode = await financialRulesEngine.resolveAccountId(entityId, '8100');
-    const feeGlCode = await financialRulesEngine.resolveAccountId(entityId, '4450
+    const feeGlCode = await financialRulesEngine.resolveAccountId(entityId, '4450');
 
     // Resolve VAT from chart_of_accounts (not hardcoded)
     const vatRate = await this.getVatRate(entityId, rentGlCode || '');
