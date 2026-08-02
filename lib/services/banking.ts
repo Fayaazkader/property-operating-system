@@ -25,10 +25,10 @@ export async function importBankTransactions(
 
     // Use preset mapping or default to FNB format
     const mapping = preset?.column_mapping || {
-      date: 1,
-      description: 3,
-      amount: 4,
-      reference: 2,
+      date: preset?.column_mapping?.date ?? 1,
+      description: preset?.column_mapping?.description ?? 3,
+      amount: preset?.column_mapping?.amount ?? 4,
+      reference: preset?.column_mapping?.reference ?? 2,
     };
     const skipRows = preset?.skip_rows || 0;
     const dateFormat = preset?.date_format || "DD/MM/YYYY";
