@@ -3,7 +3,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { publish } from '../platform/events/event-bus';
-import { runReconciliationEngine } from '../../banking/reconciliation-engine';
+import { runReconciliationEngine } from '@/lib/banking/reconciliation-engine';
 import type { BankAccount, BankStatement, BankTransaction, BankReconciliationResult } from './types';
 
 export class BankEngine {
