@@ -1,5 +1,5 @@
 // lib/revenue/revenue-cache.ts
-// Structured cache for Revenue Context. No string parsing.
+// Structured cache for Revenue Context.
 
 import type { RevenueContext } from './types';
 
@@ -33,12 +33,28 @@ export const RevenueCache = {
     cache.set(key, { entityId, propertyId, statementPeriodId, financialPeriodId, data, timestamp: Date.now() });
   },
 
-  invalidate(entityId?: string, propertyId?: string, periodId?: string): void {
+  invalidateEntity(entityId?: string): void {
+    if (!entityId) return;
     for (const [key, entry] of cache) {
-      if (entityId && entry.entityId === entityId) { cache.delete(key); continue; }
-      if (propertyId && entry.propertyId === propertyId) { cache.delete(key); continue; }
-      if (periodId && (entry.statementPeriodId === periodId || entry.financialPeriodId === periodId)) { cache.delete(key); continue; }
+      if (entry.entityId === entityId) cache.delete(key);
     }
+  },
+
+  invalidateProperty(propertyId: string): void {
+    for (const [key, entry] of cache) {
+      if (entry.propertyId === propertyId) cache.delete(key);
+    }
+  },
+
+  invalidatePeriod(periodId: string): void {
+    for (const [key, entry] of cache) {
+      if (entry.statementPeriodId === periodId || entry.financialPeriodId === periodId) cache.delete(key);
+    }
+  },
+
+  invalidateLease(entityId: string, propertyId: string, leaseId: string): void {
+    // Future: more granular invalidation
+    this.invalidateEntity(entityId);
   },
 
   clear(): void {

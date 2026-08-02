@@ -4,6 +4,19 @@
 import { subscribe } from '@/lib/platform/events/event-bus';
 import { RevenueCache } from './revenue-cache';
 
+interface RevenueEventPayload {
+  entityId?: string;
+  entity_id?: string;
+  propertyId?: string;
+  property_id?: string;
+  periodId?: string;
+  period_id?: string;
+}
+
+interface RevenueEvent {
+  payload?: RevenueEventPayload;
+}
+
 let registered = false;
 
 const EVENTS = [
@@ -20,9 +33,11 @@ export function registerRevenueCacheInvalidation(): void {
   registered = true;
 
   for (const event of EVENTS) {
-    subscribe(event, (e: any) => {
+    subscribe(event, (e: RevenueEvent) => {
       const p = e?.payload || {};
-      RevenueCache.invalidate(p.entityId || p.entity_id, p.propertyId || p.property_id, p.periodId || p.period_id);
+      RevenueCache.invalidateEntity(p.entityId || p.entity_id);
+      if (p.propertyId || p.property_id) RevenueCache.invalidateProperty(p.propertyId || p.property_id || '');
+      if (p.periodId || p.period_id) RevenueCache.invalidatePeriod(p.periodId || p.period_id || '');
     });
   }
 }
