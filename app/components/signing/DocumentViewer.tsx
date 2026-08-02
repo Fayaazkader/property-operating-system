@@ -3,8 +3,6 @@
 import { useState, useRef } from 'react';
 import { fieldToPixels, toStorageCoordinates, type CanvasField } from '@/lib/signing/coordinate-transform-service';
 import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
-import 'react-pdf/dist/esm/Page/TextLayer.css';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 
