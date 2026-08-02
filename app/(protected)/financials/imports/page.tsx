@@ -287,7 +287,8 @@ await supabase
         </div>
       </div>
 
-      {/* Entity & Bank Account Selector */}
+      {/* Entity {/* Entity & Bank Account Selector */} Bank Account Selector */}
+      <div className="relative z-30">
       <div className="grid grid-cols-2 gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-2">Entity</p>
