@@ -38,7 +38,10 @@ export function InitialBillingModal({ leaseId, entityId, onApprove, onSkip, onCl
     onApprove(approved);
   }
 
-  const total = charges.filter(c => c.selected).reduce((s, c) => s + c.amount_incl_vat, 0);
+  const selectedCharges = charges.filter(c => c.selected);
+  const totalExclVat = selectedCharges.reduce((s, c) => s + c.amount_excl_vat, 0);
+  const totalVat = selectedCharges.reduce((s, c) => s + c.vat_amount, 0);
+  const totalInclVat = selectedCharges.reduce((s, c) => s + c.amount_incl_vat, 0);
 
   return (
     <>
@@ -64,39 +67,53 @@ export function InitialBillingModal({ leaseId, entityId, onApprove, onSkip, onCl
                 Policy: {billing.policy.source} · Billing Day: {billing.policy.billing_day}th · Deposit: {billing.policy.deposit_months} month(s)
               </div>
 
-              {/* Charges table with GL + VAT + Source */}
+              {/* Charges table */}
               <div className="rounded-xl border border-white/[0.06] overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-white/[0.06] bg-white/[0.02]">
-                      <th className="text-left py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase w-8"></th>
-                      <th className="text-left py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase">Description</th>
-                      <th className="text-left py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase">Source</th>
-                      <th className="text-left py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase">GL</th>
-                      <th className="text-right py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase">VAT</th>
-                      <th className="text-right py-2 px-3 text-[10px] font-medium text-zinc-500 uppercase">Amount</th>
+                      <th className="text-left py-2.5 px-3 text-[10px] font-medium text-zinc-500 uppercase w-8"></th>
+                      <th className="text-left py-2.5 px-3 text-[10px] font-medium text-zinc-500 uppercase">Description</th>
+                      <th className="text-left py-2.5 px-3 text-[10px] font-medium text-zinc-500 uppercase">GL</th>
+                      <th className="text-right py-2.5 px-3 text-[10px] font-medium text-zinc-500 uppercase">Excl VAT</th>
+                      <th className="text-right py-2.5 px-3 text-[10px] font-medium text-zinc-500 uppercase">VAT</th>
+                      <th className="text-right py-2.5 px-3 text-[10px] font-medium text-zinc-500 uppercase">Incl VAT</th>
                     </tr>
                   </thead>
                   <tbody>
                     {charges.map(charge => (
                       <tr key={charge.id} className={`border-b border-white/[0.03] transition-all ${charge.selected ? '' : 'opacity-40'}`}>
-                        <td className="py-2 px-3">
+                        <td className="py-2.5 px-3">
                           <input type="checkbox" checked={charge.selected} onChange={() => toggleCharge(charge.id)} className="rounded" />
                         </td>
-                        <td className="py-2 px-3 text-white font-light">{charge.description}</td>
-                        <td className="py-2 px-3 text-zinc-500 font-light text-[10px]">{charge.source_detail}</td>
-                        <td className="py-2 px-3 text-zinc-500 font-light">{charge.gl_code}</td>
-                        <td className="py-2 px-3 text-right text-zinc-500 font-light">{charge.vat_treatment === 'non_vatable' ? '—' : `${charge.vat_rate}%`}</td>
-                        <td className="py-2 px-3 text-right text-white font-light tabular-nums">R{charge.amount_incl_vat.toLocaleString()}</td>
+                        <td className="py-2.5 px-3">
+                          <p className="text-white font-light">{charge.description}</p>
+                          <p className="text-[10px] text-zinc-500 mt-0.5">{charge.source_detail}</p>
+                        </td>
+                        <td className="py-2.5 px-3 text-zinc-500 font-light">{charge.gl_code?.length > 10 ? charge.gl_code.slice(0, 8) + '...' : charge.gl_code}</td>
+                        <td className="py-2.5 px-3 text-right text-white font-light tabular-nums">R{charge.amount_excl_vat.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-right text-zinc-400 font-light tabular-nums">{charge.vat_rate > 0 ? `R${charge.vat_amount.toLocaleString()}` : '—'}</td>
+                        <td className="py-2.5 px-3 text-right text-white font-light tabular-nums">R{charge.amount_incl_vat.toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              <div className="flex justify-between items-center pt-2 border-t border-white/[0.06]">
-                <span className="text-sm text-zinc-400 font-light">Total</span>
-                <span className="text-lg text-white font-light tabular-nums">R{total.toLocaleString()}</span>
+              {/* Totals */}
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+                <div className="flex justify-between px-5 py-2.5 border-b border-white/[0.04] text-xs">
+                  <span className="text-zinc-400 font-light">Subtotal (Excl VAT)</span>
+                  <span className="text-white font-light tabular-nums">R{totalExclVat.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between px-5 py-2.5 border-b border-white/[0.04] text-xs">
+                  <span className="text-zinc-400 font-light">VAT</span>
+                  <span className="text-zinc-400 font-light tabular-nums">R{totalVat.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between px-5 py-3 text-sm">
+                  <span className="text-white font-medium">Total (Incl VAT)</span>
+                  <span className="text-white font-medium tabular-nums">R{totalInclVat.toLocaleString()}</span>
+                </div>
               </div>
 
               <div className="flex gap-3">
