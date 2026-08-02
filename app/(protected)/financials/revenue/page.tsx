@@ -103,7 +103,7 @@ export default function RevenueOperationsPage() {
   async function loadPreview(propId?: string, tenantId?: string) {
     setPreviewLoading(true);
     try {
-      const worksheet = await buildRevenueContext(entityId, propId || null, stmtPeriodId || finPeriodId);
+      const worksheet = await buildRevenueContext(entityId, propId || null, stmtPeriodId, finPeriodId);
       let tenants = worksheet.tenants;
       if (tenantId) tenants = tenants.filter(t => t.tenantId === tenantId);
       setBillingTenants(tenants);

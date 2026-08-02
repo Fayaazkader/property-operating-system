@@ -53,7 +53,8 @@ export const RevenueCache = {
   },
 
   invalidateLease(entityId: string, propertyId: string, leaseId: string): void {
-    // Future: more granular invalidation
+    // TODO: Lease-level invalidation will be introduced once cache entries
+    // are keyed by lease. Until then, invalidate the owning entity.
     this.invalidateEntity(entityId);
   },
 
