@@ -1,7 +1,5 @@
 'use client';
 
-import { useRef } from 'react';
-
 interface Props {
   value: string;
   onChange: (value: string) => void;
@@ -11,10 +9,8 @@ interface Props {
 }
 
 export function DateInput({ value, onChange, placeholder = 'DD/MM/YYYY', required, className }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  function handleInput(e: React.FormEvent<HTMLInputElement>) {
-    const raw = (e.target as HTMLInputElement).value;
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value;
     const digits = raw.replace(/\D/g, '').slice(0, 8);
     
     let formatted = digits;
@@ -31,13 +27,11 @@ export function DateInput({ value, onChange, placeholder = 'DD/MM/YYYY', require
 
   return (
     <input
-      ref={inputRef}
       type="text"
       inputMode="numeric"
       value={value}
-      onInput={handleInput}
+      onChange={handleChange}
       placeholder={placeholder}
-      
       required={required}
       className={className}
     />
