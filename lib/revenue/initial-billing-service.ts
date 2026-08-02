@@ -66,7 +66,7 @@ export class InitialBillingService {
         id: crypto.randomUUID(), charge_type: 'deposit',
         description: 'Tenant Deposit',
         source: 'Lease Agreement', source_detail: 'Lease Clause — Deposit',
-        gl_code: depositGlCode || '8100-001', vat_rate: 0, vat_treatment: 'non_vatable',
+        gl_code: depositGlCode || '8100-001', vat_rate: 15, vat_treatment: 'standard',
         amount_excl_vat: lease.deposit_amount, vat_amount: 0,
         amount_incl_vat: lease.deposit_amount, selected: true,
       });
@@ -105,7 +105,7 @@ export class InitialBillingService {
         id: crypto.randomUUID(), charge_type: 'lease_fee',
         description: policy.lease_fee_description,
         source: policy.source, source_detail: `Policy: ${policy.source} — v1`,
-        gl_code: feeGlCode || '4400-001', vat_rate: 0, vat_treatment: 'non_vatable',
+        gl_code: feeGlCode || '4400-001', vat_rate: 15, vat_treatment: 'standard',
         amount_excl_vat: policy.lease_fee_amount, vat_amount: 0,
         amount_incl_vat: policy.lease_fee_amount, selected: true,
       });
