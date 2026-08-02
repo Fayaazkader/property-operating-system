@@ -225,7 +225,7 @@ export const billingAssembly = {
       const total = charges.reduce((s, c) => s + c.total, 0);
       tenants.push({
         tenantId: lease.tenant_id, tenantName: (lease as any).tenants?.tenant_name || (lease as any).tenant_name || "Unknown",
-        property_name: lease.property_name, leaseId: lease.id,
+        property_name: (lease as any).properties?.property_name || (lease as any).property_name || 'Unknown', leaseId: lease.id,
         leaseRef: lease.lease_id, charges, documents: docs, warnings,
         total, ready: warnings.length === 0,
       });
