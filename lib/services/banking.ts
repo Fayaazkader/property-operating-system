@@ -66,6 +66,7 @@ export async function importBankTransactions(
         // Keep raw date if parsing fails
       }
 
+      console.log('Banking parser: rawDate=', rawDate, 'rawAmt=', columns[amountIdx], 'rawDesc=', columns[descIdx], 'rawRef=', columns[refIdx]);
       if (description && !isNaN(amount)) {
         transactions.push({
           id: crypto.randomUUID(),
