@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { extractRulesFromLease } from '@/lib/revenue/rule-extractor';
-import { commencementChargeService } from '@/lib/revenue/commencement-charge-service';
+import { initialBillingService } from '@/lib/revenue/initial-billing-service';
 import { publish } from '@/lib/platform/events/event-bus';
 import type { ActivationResult, ActivateLeaseRpcResult } from '@/lib/workflow/domain/activation-context';
 
@@ -54,7 +54,9 @@ export class LeaseActivationService {
     if (!result?.tenant_id) throw new Error('Activation RPC returned no data');
 
     const rulesCreated = await extractRulesFromLease(result.lease_id);
-    const commencement = await commencementChargeService.generate(result.lease_id);
+    // Initial billing is now handled by the InitialBillingModal UI
+    // The user reviews and approves charges before posting
+    const commencement = { totalCreated: 0, depositCreated: 0, rentalCreated: 0, parkingCreated: 0 };
 
     await publish('lease.activated', {
       correlationId: crypto.randomUUID(), source: 'lease-activation-service', version: '1.0',

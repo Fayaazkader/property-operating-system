@@ -9,6 +9,7 @@ import { duplicateDetectionService } from '@/lib/workflow/services/duplicate-det
 import { validationService } from '@/lib/workflow/services/validation-service';
 import Link from 'next/link';
 import { Upload, Camera, Edit3, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { InitialBillingModal } from './components/InitialBillingModal';
 
 type Step = 'choose' | 'upload' | 'extraction' | 'review' | 'manual' | 'processing' | 'complete';
 
@@ -36,6 +37,8 @@ export default function LeaseActivationPage() {
   const [units, setUnits] = useState<any[]>([]);
   const [blocked, setBlocked] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showInitialBilling, setShowInitialBilling] = useState(false);
+  const [billingPosted, setBillingPosted] = useState(0);
 
   const [termYears, setTermYears] = useState('');
   const [termMonths, setTermMonths] = useState('');
@@ -349,12 +352,15 @@ export default function LeaseActivationPage() {
                 <p>✓ Tenant created — {result.tenantCode}</p>
                 <p>✓ Lease created — {result.leaseRef}</p>
                 <p>✓ {result.rulesCreated} billing rules extracted</p>
-                <p>✓ {result.chargesGenerated} charges generated</p>
+                <p>✓ {result.chargesGenerated} charges generated{billingPosted > 0 ? ` (${billingPosted} initial billing posted)` : ""}</p>
                 {result.contactsCreated > 0 && <p>✓ Contact saved</p>}
                 {result.documentsAttached > 0 && <p>✓ Document attached</p>}
               </div>
             </div>
             <div className="flex flex-col gap-3 max-w-xs mx-auto">
+              <button onClick={() => setShowInitialBilling(true)} className="w-full rounded-xl bg-emerald-500/10 border border-emerald-500/20 py-3 text-sm font-medium text-emerald-400 hover:bg-emerald-500/20 transition-all">
+                Review Initial Billing
+              </button>
               <button onClick={() => router.push(`/tenants/${result.tenantId}`)} className="w-full rounded-xl bg-white py-3 text-sm font-medium text-black hover:bg-gray-100">View Tenant</button>
               <button onClick={() => router.push('/financials/revenue')} className="w-full rounded-xl border border-white/[0.08] py-3 text-sm text-zinc-400 hover:text-white">Revenue Operations</button>
               <button onClick={() => router.push('/tenants')} className="w-full text-sm text-zinc-600 hover:text-zinc-400 py-2">Back to Tenants</button>
@@ -363,5 +369,13 @@ export default function LeaseActivationPage() {
         )}
       </div>
     </div>
+      {showInitialBilling && result && (
+        <InitialBillingModal
+          leaseId={result.leaseId}
+          onComplete={(posted) => { setBillingPosted(posted); setShowInitialBilling(false); }}
+          onSkip={() => setShowInitialBilling(false)}
+          onClose={() => setShowInitialBilling(false)}
+        />
+      )}
   );
 }
