@@ -67,7 +67,7 @@ export default function AccountWorkspacePage() {
 
   let filtered = transactions.filter(tx => {
     if (searchTerm) { const q = searchTerm.toLowerCase(); if (!tx.transaction_description?.toLowerCase().includes(q) && !tx.transaction_reference?.toLowerCase().includes(q)) return false; }
-    if (activeQueue === "ready") return tx.allocation_status === "ready_to_post" || tx.queue === "ready";
+    if (activeQueue === "ready") return tx.allocation_status === "ready_to_post" || tx.allocation_status === "fully_allocated" || tx.queue === "ready";
     if (activeQueue === "review") return tx.queue === "review" || tx.allocation_status === "allocated" || tx.allocation_status === "unallocated";
     if (activeQueue === "exceptions") return tx.allocation_status === "posting_failed" || tx.queue === "exceptions";
     if (activeQueue === "posted") return tx.allocation_status === "posted" || tx.queue === "posted";
@@ -85,7 +85,7 @@ export default function AccountWorkspacePage() {
     return sortDir === 'asc' ? cmp : -cmp;
   });
 
-  const readyCount = transactions.filter(t => t.allocation_status === 'ready_to_post' || t.queue === 'ready').length;
+  const readyCount = transactions.filter(t => t.allocation_status === 'ready_to_post' || t.allocation_status === 'fully_allocated' || t.queue === 'ready').length;
   const reviewCount = transactions.filter(t => t.queue === 'review' || t.allocation_status === 'allocated' || t.allocation_status === 'unallocated').length;
   const exceptionCount = transactions.filter(t => t.allocation_status === 'posting_failed' || t.queue === 'exceptions').length;
   const postedCount = transactions.filter(t => t.allocation_status === 'posted' || t.queue === 'posted').length;
