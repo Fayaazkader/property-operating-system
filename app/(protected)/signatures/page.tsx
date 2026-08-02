@@ -63,40 +63,27 @@ export default function LeaseExecutionPage() {
     await refreshRequest();
   }
 
-  async function handleReplicate(action: 'all' | 'selected' | 'none') {
+async function handleReplicate(action: 'all' | 'this_page') {
     if (!pendingReplicateField || !activeRequest) return;
     
-    if (action === 'all') {
-      const { replicateInitials } = await import('@/lib/signing/initial-replicator');
-      const replicas = replicateInitials(pendingReplicateField, totalPages, Array.from({ length: totalPages }, (_, i) => i + 1));
-      const updatedFields = [...(activeRequest.fields || []), ...replicas].map(f => {
-        if (f.id === pendingReplicateField!.id) {
-          return { ...f, replicatePages: Array.from({ length: totalPages }, (_, i) => i + 1) };
-        }
-        return f;
-      });
-      await supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
-    } else {
-    if (!pendingReplicateField || !activeRequest) return;
-    
+    const { replicateInitials } = await import('@/lib/signing/initial-replicator');
     const pages = action === 'all' 
       ? Array.from({ length: totalPages }, (_, i) => i + 1)
-      : action === 'selected' 
-        ? [pendingReplicateField.page]
-        : [];
+      : [pendingReplicateField.page];
     
-    // Update the template field with replicate pages
-    const { data: request } = await supabase.from('signature_requests').select('fields').eq('id', activeRequest.id).single();
-    const fields = (request.fields as SigningField[]).map(f => {
-      if (f.id === pendingReplicateField.id) {
-        return { ...f, replicatePages: action === 'none' ? [] : pages };
+    const replicas = replicateInitials(pendingReplicateField, totalPages, pages);
+    const updatedFields = [...(activeRequest.fields || []), ...replicas].map(f => {
+      if (f.id === pendingReplicateField!.id) {
+        return { ...f, replicatePages: pages };
       }
       return f;
     });
-
-    await supabase.from('signature_requests').update({ fields }).eq('id', activeRequest.id);
+    await supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
     
-    }
+    setShowReplicatePrompt(false);
+    setPendingReplicateField(null);
+    await refreshRequest();
+  }
     
     setShowReplicatePrompt(false);
     setPendingReplicateField(null);
