@@ -56,7 +56,9 @@ export async function closeFinancialPeriod(entityId: string, periodName: string,
   const cid = correlationId || crypto.randomUUID();
   return withIdempotency(cid, 'close_financial_period', async () => {
     const [reconciliationStatus, tbStatus] = await Promise.all([reconciliationStatusService.getStatus(entityId), tbStatusService.getStatus(entityId)]);
-    const { data: openStatements } = await supabase.from('financial_periods').select('id').eq('entity_id', entityId).eq('period_type', 'statement').neq('status', 'closed');
+    // Only check statements that end before this financial period
+    const { data: finPeriod } = await supabase.from('financial_periods').select('period_end').eq('entity_id', entityId).eq('period_type', 'financial').eq('period_name', periodName).single();
+    const { data: openStatements } = finPeriod ? await supabase.from('financial_periods').select('id').eq('entity_id', entityId).eq('period_type', 'statement').neq('status', 'closed').lt('period_end', finPeriod.period_end) : { data: [] };
     if ((openStatements?.length || 0) > 0 || !tbStatus.balanced || !reconciliationStatus.balanced) {
       return { success: false, message: 'Close validations failed' };
     }
