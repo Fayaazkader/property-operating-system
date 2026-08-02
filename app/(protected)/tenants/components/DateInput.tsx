@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 
 interface Props {
   value: string;
@@ -28,16 +28,6 @@ export function DateInput({ value, onChange, placeholder = 'DD/MM/YYYY', require
     const formatted = formatDate(raw);
     onChange(formatted);
   }
-
-  // Keep cursor in the right position after formatting
-  useEffect(() => {
-    const input = inputRef.current;
-    if (!input) return;
-    
-    // After formatting, place cursor at the end
-    const len = input.value.length;
-    input.setSelectionRange(len, len);
-  }, [value]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     const input = inputRef.current;
