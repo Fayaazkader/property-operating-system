@@ -32,7 +32,6 @@ export async function importBankTransactions(
     };
     const skipRows = preset?.skip_rows || 0;
     const dateFormat = preset?.date_format || "DD/MM/YYYY";
-    console.log("Banking parser indices: date=", date, "desc=", description, "ref=", reference, "amt=", amount, "preset mapping:", preset?.column_mapping);
 
     const transactions: ImportedTransaction[] = [];
     const dataRows = rows.slice(skipRows + 1); // Skip header + extra rows
@@ -67,7 +66,6 @@ export async function importBankTransactions(
         // Keep raw date if parsing fails
       }
 
-      console.log('Banking parser: rawDate=', rawDate, 'rawAmt=', columns[amountIdx], 'rawDesc=', columns[descIdx], 'rawRef=', columns[refIdx]);
       if (description && !isNaN(amount)) {
         transactions.push({
           id: crypto.randomUUID(),
