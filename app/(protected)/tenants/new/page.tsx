@@ -334,7 +334,7 @@ export default function LeaseActivationPage() {
               </div>
               <div>
                 <label className="text-[10px] text-zinc-500 block mb-1">Start Date (DD/MM/YYYY)</label>
-                <DateInput value={manual.lease_start_date} onChange={(val) => { setManual({ ...manual, lease_start_date: val }); if (val.length === 10) { const end = calcEndDate(val, termYears, termMonths); if (end) setManual({ ...manual, lease_end_date: end }); } }} required className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
+                <DateInput value={manual.lease_start_date} onChange={(val) => { const end = (val.length === 10) ? calcEndDate(val, termYears, termMonths) : manual.lease_end_date; setManual({ ...manual, lease_start_date: val, lease_end_date: end || manual.lease_end_date }); }} required className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
               </div>
               <div>
                 <label className="text-[10px] text-zinc-500 block mb-1">End Date (DD/MM/YYYY)</label>
