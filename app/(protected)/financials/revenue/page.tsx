@@ -108,9 +108,9 @@ export default function RevenueOperationsPage() {
       if (tenantId) tenants = tenants.filter(t => t.tenantId === tenantId);
       setBillingTenants(tenants);
       setWorksheet(worksheet);
-    if (worksheet.status !== 'ready' && worksheet.blockingReason) {
-      setWorksheetStatus(worksheet.status);
-      setAttentionItems([{ type: 'blocked', count: 1, label: worksheet.blockingReason, action: '' }]);
+    if (worksheet.tenants.length === 0) {
+      setWorksheetStatus(worksheet.isAlreadyBilled ? 'already_billed' : 'ready');
+      setAttentionItems([]);
     }
     } catch (err) { console.error(err); }
     setPreviewLoading(false);
@@ -205,7 +205,7 @@ export default function RevenueOperationsPage() {
     trackEvent(AnalyticsEvents.STATEMENT_GENERATED, 'revenue', { count: delivered, failed });
   }
 
-    async function handleViewSnapshot(snapshot: RevenueContext) {
+    async function handleViewSnapshot(snapshot: BillingSnapshot) {
     if (billingTenants.length > 0) {
       const tenantId = billingTenants[0].tenantId;
       const { data } = await supabase
@@ -302,7 +302,7 @@ export default function RevenueOperationsPage() {
   </div>
 ) : worksheet?.status === 'period_closed' ? (
   <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-    <p className="text-xs text-red-400">{worksheet.blockingReason || 'Period is closed'}</p>
+    <p className="text-xs text-red-400">Period is closed</p>
   </div>
 ) : (
   <button onClick={handleSendBilling} disabled={billingTenants.filter(t => t.ready).length === 0} className="mt-4 w-full rounded-lg bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40 transition-all">
