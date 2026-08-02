@@ -12,7 +12,7 @@ type Transaction = {
   id: string; transaction_date: string; transaction_description: string;
   transaction_amount: number; transaction_reference: string;
   allocation_status: string; queue: string;
-  matched_tenant_id: string; matched_invoice_id: string; matched_tenant_name?: string;
+  matched_tenant_id: string; matched_invoice_id: string; matched_tenant_name?: string; matched_property_name?: string; matched_entity_name?: string; matched_tenant_code?: string; matched_gl_code?: string;
   matched_journal_id?: string; confidence: number; is_reconciled: boolean;
 };
 
@@ -105,7 +105,7 @@ export default function AccountWorkspacePage() {
         </div>
         <div className="flex gap-2">
           <button onClick={() => exportToCSV(transactions, `cashbook-${account?.account_name || 'export'}`)} className="rounded-lg border border-white/[0.08] px-4 py-2 text-xs text-white hover:border-white/20">Export</button>
-          <button onClick={handlePostAllReady} className="rounded-lg bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100">Post All Ready</button>
+          <button onClick={handlePostAllReady} className="rounded-lg bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100">Post Allocated Transactions</button>
         </div>
       </div>
 
@@ -151,7 +151,7 @@ export default function AccountWorkspacePage() {
           </tr></thead>
           <tbody>
             {filtered.map((tx) => (
-              <tr key={tx.id} className="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors cursor-pointer" onClick={() => setSelectedTx(tx)}>
+              <tr key={tx.id} className="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors cursor-pointer" onClick={async () => { if (tx.matched_tenant_id) { const { data: t } = await supabase.from('tenants').select('code, entity_id').eq('id', tx.matched_tenant_id).single(); const { data: l } = await supabase.from('leases').select('property_id').eq('tenant_id', tx.matched_tenant_id).eq('lease_status', 'Active').single(); const { data: p } = l ? await supabase.from('properties').select('property_name').eq('id', l.property_id).single() : { data: null }; const { data: e } = t ? await supabase.from('entities').select('entity_name').eq('id', t.entity_id).single() : { data: null }; setSelectedTx({ ...tx, matched_tenant_code: t?.code, matched_property_name: p?.property_name, matched_entity_name: e?.entity_name }); } else { setSelectedTx(tx); } }}>
                 <td className="px-2 py-2 text-white text-xs">{tx.transaction_date}</td>
                 <td className="px-2 py-2 text-white text-xs">{tx.transaction_description}</td>
                 <td className="px-2 py-2 text-zinc-500 text-xs font-mono">{tx.transaction_reference || "—"}</td>
@@ -252,8 +252,14 @@ export default function AccountWorkspacePage() {
                 </div>
 
                 <div className="flex gap-2 pt-3 border-t border-white/[0.06]">
+                  {selectedTx.allocation_status === 'fully_allocated' && (
+                    <button onClick={async () => { await handlePostAllReady(); setSelectedTx(null); }} className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-100">Post</button>
+                  )}
                   {selectedTx.allocation_status === 'posted' && (
                     <button onClick={() => { setSelectedTx(null); router.push(`/financials/cash-book/${accountId}/allocate/${selectedTx.id}`); }} className="rounded-lg border border-amber-500/20 text-amber-400 px-3 py-1.5 text-xs hover:border-amber-500/40">Reverse</button>
+                  )}
+                  {selectedTx.allocation_status !== 'posted' && selectedTx.allocation_status !== 'fully_allocated' && (
+                    <button onClick={() => { setSelectedTx(null); router.push(`/financials/cash-book/${accountId}/allocate/${selectedTx.id}`); }} className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white hover:border-white/20">Manual Allocate</button>
                   )}
                   <button onClick={() => setSelectedTx(null)} className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white hover:border-white/20">Close</button>
                 </div>
