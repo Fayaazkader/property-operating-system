@@ -2,23 +2,11 @@
 
 import { useState, useRef } from 'react';
 import { CoordinateTransformService, type CanvasField } from '@/lib/signing/coordinate-transform-service';
+import type { SigningField } from '@/lib/signing/types';
 import { Document, Page, pdfjs } from 'react-pdf';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 
-interface SigningField {
-  id: string;
-  type: 'signature' | 'initial' | 'date' | 'text' | 'checkbox' | 'stamp' | 'witness';
-  page: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  value?: string;
-  signerRole?: string;
-  isTemplate?: boolean;
-  isReplica?: boolean;
-  templateId?: string;
 }
 
 interface Props {
