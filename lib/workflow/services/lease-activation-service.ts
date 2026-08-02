@@ -2,6 +2,8 @@ import { supabase } from '@/lib/supabase';
 import { extractRulesFromLease } from '@/lib/revenue/rule-extractor';
 import { initialBillingService } from '@/lib/revenue/initial-billing-service';
 import { publish } from '@/lib/platform/events/event-bus';
+import { workflowStatusEngine } from '@/lib/workflow/services/workflow-status-engine';
+import { operationalJournal } from '@/lib/workflow/services/operational-journal';
 import type { ActivationResult, ActivateLeaseRpcResult } from '@/lib/workflow/domain/activation-context';
 
 export interface ActivationInput {
@@ -53,10 +55,23 @@ export class LeaseActivationService {
     const result = rpcResult as unknown as ActivateLeaseRpcResult;
     if (!result?.tenant_id) throw new Error('Activation RPC returned no data');
 
+    // Create workflow state
+    const wf = await workflowStatusEngine.create(
+      "lease_activation", input.entityId, "lease", result.lease_id,
+      ["Tenant Created", "Lease Created", "Rules Extracted", "Initial Billing", "Revenue Active"]
+    );
+    await workflowStatusEngine.advanceStep(wf.id, "Tenant Created");
+
     const rulesCreated = await extractRulesFromLease(result.lease_id);
+    await workflowStatusEngine.advanceStep(wf.id, "Rules Extracted");
     // Initial billing is now handled by the InitialBillingModal UI
     // The user reviews and approves charges before posting
     const commencement = { totalCreated: 0, depositCreated: 0, rentalCreated: 0, parkingCreated: 0 };
+
+    await operationalJournal.log({
+      entity_id: input.entityId, reference_type: "lease", reference_id: result.lease_id,
+      event_type: "lease_activated", description: `Lease ${result.lease_ref} activated for ${input.tenantName}`,
+    });
 
     await publish('lease.activated', {
       correlationId: crypto.randomUUID(), source: 'lease-activation-service', version: '1.0',

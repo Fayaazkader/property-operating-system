@@ -368,7 +368,6 @@ export default function LeaseActivationPage() {
           </div>
         )}
       </div>
-    </div>
       {showInitialBilling && result && (
         <InitialBillingModal
           leaseId={result.leaseId}
@@ -378,5 +377,6 @@ export default function LeaseActivationPage() {
           onClose={() => setShowInitialBilling(false)}
         />
       )}
+    </div>
   );
 }
