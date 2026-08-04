@@ -32,7 +32,7 @@ interface Props {
 
 export default function DocumentViewer({ 
   fileUrl, fields, selectedFieldId, readOnly, showCrosshair, toolBanner,
-  onPageClick, onFieldMove, onFieldResize, onFieldClick, onFieldDoubleClick,
+  onPageClick, onFieldMove, onFieldResize, onFieldClick, onFieldDoubleClick, onPageCountChange,
 }: Props) {
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
