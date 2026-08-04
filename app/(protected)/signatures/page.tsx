@@ -48,6 +48,7 @@ export default function LeaseExecutionPage() {
   }
 
   async function handleUploadDocument() {
+    console.log("handleUploadDocument called", uploadFile, uploadName);
     if (!uploadFile || !uploadName) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
