@@ -45,12 +45,14 @@ export default function DocumentViewer({
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, w: 0, h: 0, mx: 0, my: 0 });
   const pageRef = useRef<HTMLDivElement>(null);
   const isProcessingRef = useRef(false);
+  const didDragRef = useRef(false);
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) { setNumPages(numPages); onPageCountChange?.(numPages); }
 
   // Emit normalized coordinates — viewer converts to storage units
   function handlePageClick(e: React.MouseEvent) {
     if (readOnly || dragging || resizing || !showCrosshair) return;
+    if (didDragRef.current) { didDragRef.current = false; return; }
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
 
@@ -99,7 +101,7 @@ export default function DocumentViewer({
       setResizing({ id: field.id, handle });
       setResizeStart({ x: px, y: py, w: pw, h: ph, mx, my });
     } else {
-      setDragging(field.id);
+      didDragRef.current = false; setDragging(field.id);
       setDragOffset({ x: mx - px, y: my - py });
     }
   }
@@ -120,7 +122,8 @@ export default function DocumentViewer({
       const mx = (e.clientX - rect.left) / scale;
       const my = (e.clientY - rect.top) / scale;
 
-      if (dragging) {
+      didDragRef.current = true;
+        if (dragging) {
         const px = mx - dragOffset.x;
         const py = my - dragOffset.y;
         // Convert back to normalized
