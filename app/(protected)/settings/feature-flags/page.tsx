@@ -35,7 +35,7 @@ export default function FeatureFlagsPage() {
       setIsPlatformAdmin(profile?.platform_role === 'platform_admin');
 
       if (eid) {
-        const { data } = await supabase.from('feature_flags').select('flag_key, enabled').eq('entity_id', eid);
+        const { data } = await supabase.from('feature_flags').select('flag_key, enabled').or('entity_id.is.null').eq('entity_id', eid);
         const map: Record<string, boolean> = {};
         (data || []).forEach((f: any) => { map[f.flag_key] = f.enabled; });
         setFlags(map);
