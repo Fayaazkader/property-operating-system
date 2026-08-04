@@ -132,10 +132,14 @@ export default function LeaseExecutionPage() {
 
   async function handleSignatureSave(data: string) {
     if (!selectedField || !activeRequest) return;
-    await signingEngine.updateField(activeRequest.id, selectedField.id, data);
-    if (selectedField.type === 'initial' && !selectedField.isReplica) { setPendingReplicateField(selectedField); setShowReplicatePrompt(true); }
+    // Update local state immediately
+    const updatedFields = (activeRequest.fields || []).map((f: any) => f.id === selectedField.id ? { ...f, value: data } : f);
+    setActiveRequest({ ...activeRequest, fields: updatedFields });
+    setSelectedField({ ...selectedField, value: data });
+    if (!selectedField || !activeRequest) return;
     setShowSignaturePad(false); setPendingSignature('');
-    await refreshRequest();
+    // Refresh in background
+    refreshRequest().catch(() => {});
   }
 
   async function handleReplicate(action: string) {
@@ -149,7 +153,8 @@ export default function LeaseExecutionPage() {
     const updatedFields = [...(activeRequest.fields || []), ...replicas].map((f: any) => f.id === pendingReplicateField!.id ? { ...f, replicatePages: pages } : f);
     await supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
     setShowReplicatePrompt(false); setPendingReplicateField(null);
-    await refreshRequest();
+    // Refresh in background
+    refreshRequest().catch(() => {});
   }
 
   async function handleComplete() {

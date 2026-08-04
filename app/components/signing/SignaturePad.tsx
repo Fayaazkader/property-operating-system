@@ -23,6 +23,7 @@ export default function SignaturePad({ value, onChange, onClear, fieldType }: Pr
   const fonts = ['Dancing Script', 'Homemade Apple', 'Caveat', 'Pacifico', 'Great Vibes'];
 
   useEffect(() => {
+    if (hasDrawn && value) return; // Don.t redraw if user has already drawn
     if (mode !== 'draw') return;
     const canvas = canvasRef.current;
     if (!canvas) return;
