@@ -332,7 +332,7 @@ export default function LeaseExecutionPage() {
                 <button onClick={() => setShowSignaturePad(true)} className="w-full rounded-lg bg-white py-2 text-xs font-medium text-black hover:bg-zinc-200">Sign</button>
               )}
 
-              <button onClick={() => { setDuplicateFieldId(selectedField.id); setActiveTool(selectedField.type as any); setViewMode('place'); }} className="w-full rounded-lg border border-white/[0.08] py-2 text-xs text-white hover:border-white/20 flex items-center justify-center gap-1"><Copy className="w-3 h-3" /> Duplicate</button>
+              <button onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); setDuplicateFieldId(selectedField.id); setActiveTool(selectedField.type as any); setViewMode('place'); }} className="w-full rounded-lg border border-white/[0.08] py-2 text-xs text-white hover:border-white/20 flex items-center justify-center gap-1"><Copy className="w-3 h-3" /> Duplicate</button>
               <button onClick={() => handleDeleteField(selectedField.id)} className="w-full rounded-lg border border-red-500/20 py-2 text-xs text-red-400 hover:border-red-500/40 flex items-center justify-center gap-1"><Trash2 className="w-3 h-3" /> Delete</button>
             </div>
           )}
