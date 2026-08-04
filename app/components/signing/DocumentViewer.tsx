@@ -16,6 +16,7 @@ interface PageClickEvent {
 }
 
 interface Props {
+  duplicatePreview?: { x: number; y: number; width: number; height: number; type: string; value?: string } | null;
   onPageCountChange?: (count: number) => void;
   fileUrl: string;
   fields: SigningField[];
@@ -32,7 +33,7 @@ interface Props {
 
 export default function DocumentViewer({ 
   fileUrl, fields, selectedFieldId, readOnly, showCrosshair, toolBanner,
-  onPageClick, onFieldMove, onFieldResize, onFieldClick, onFieldDoubleClick, onPageCountChange,
+  onPageClick, onFieldMove, onFieldResize, onFieldClick, onFieldDoubleClick, onPageCountChange, duplicatePreview,
 }: Props) {
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -251,6 +252,30 @@ export default function DocumentViewer({
               </div>
             );
           })}
+                    
+          {/* Duplicate preview — follows cursor */}
+          {duplicatePreview && (() => {
+            const pp = pageDims ? {
+              x: duplicatePreview.x * pageDims.width,
+              y: duplicatePreview.y * pageDims.height,
+              width: duplicatePreview.width * pageDims.width,
+              height: duplicatePreview.height * pageDims.height,
+            } : duplicatePreview;
+            return (
+              <div style={{
+                position: 'absolute', left: pp.x, top: pp.y, width: pp.width, height: pp.height,
+                border: '2px dashed rgba(255,255,255,0.5)', borderRadius: '6px',
+                background: 'rgba(16,185,129,0.2)', opacity: 0.7, pointerEvents: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
+              }}>
+                {duplicatePreview.value ? (
+                  <img src={duplicatePreview.value} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', opacity: 0.6 }} />
+                ) : (
+                  <span className="text-xs text-emerald-300 font-medium">{duplicatePreview.type}</span>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
