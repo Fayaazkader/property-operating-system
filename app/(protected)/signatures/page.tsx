@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { adminEngine } from '@/lib/platform/admin/engine';
 import { supabase } from '@/lib/supabase';
 import { signingEngine } from '@/lib/signing/engine';
 import DocumentViewer from '@/app/components/signing/DocumentViewer';
@@ -17,24 +18,32 @@ export default function LeaseExecutionPage() {
   const [showReplicatePrompt, setShowReplicatePrompt] = useState(false);
   const [pendingReplicateField, setPendingReplicateField] = useState<SigningField | null>(null);
   const [totalPages, setTotalPages] = useState(1);
+  const [hasProAccess, setHasProAccess] = useState(false);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
 
-  useEffect(() => { loadRequests(); }, []);
+    useEffect(() => { loadRequests(); checkAccess(); }, []);
 
+  async function checkAccess() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { data: profile } = await supabase.from('profiles').select('platform_role').eq('id', session.user.id).single();
+    if (profile?.platform_role === 'platform_admin') {
+      setIsPlatformAdmin(true);
+      setHasProAccess(true);
+      return;
+    }
+    const { data: entities } = await supabase.rpc('auth_entities');
+    if (entities?.length) {
+      const hasAccess = await adminEngine.isFeatureEnabled(entities[0], 'document_signing_pro', session.user.id);
+      setHasProAccess(hasAccess);
+    }
+  }
   async function loadRequests() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     const { data } = await supabase.from('signature_requests').select('*').eq('created_by', session.user.id).order('created_at', { ascending: false });
     setRequests(data || []);
   }
-
-  function openRequest(request: any) {
-    setActiveRequest(request);
-    if (request.fields?.length > 0) {
-      const maxPage = Math.max(...request.fields.map((f: SigningField) => f.page));
-      setTotalPages(maxPage);
-    }
-  }
-
   async function handleFieldClick(field: SigningField) {
     if (field.type === 'initial' && !field.isReplica && !field.value) {
       setPendingReplicateField(field);
@@ -45,7 +54,13 @@ export default function LeaseExecutionPage() {
     setActiveField(field);
     setShowSignaturePad(true);
   }
-
+  function openRequest(request: any) {
+    setActiveRequest(request);
+    if (request.fields?.length > 0) {
+      const maxPage = Math.max(...request.fields.map((f: SigningField) => f.page));
+      setTotalPages(maxPage);
+    }
+  }
   async function handleSignatureSave(data: string) {
     if (!activeField || !activeRequest) return;
     await signingEngine.updateField(activeRequest.id, activeField.id, data);
@@ -103,9 +118,11 @@ export default function LeaseExecutionPage() {
           <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 mb-1">Lease Execution</p>
           <h1 className="text-2xl font-light tracking-[-0.02em] text-white">Signatures</h1>
         </div>
-        <Link href="/signatures/pro" className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.03] px-4 py-2 text-xs text-amber-400 hover:border-amber-500/30 transition-all">
-          <Lock className="w-3 h-3" /> Document Signing Pro
-        </Link>
+                {!hasProAccess && (
+          <Link href="/signatures/pro" className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.03] px-4 py-2 text-xs text-amber-400 hover:border-amber-500/30 transition-all">
+            <Lock className="w-3 h-3" /> Document Signing Pro
+          </Link>
+        )}
       </div>
 
       {activeRequest ? (
