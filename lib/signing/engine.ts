@@ -66,7 +66,7 @@ export class SigningEngine {
 
   async completeSigning(
     requestId: string, signerName: string, signerEmail: string,
-    executedPdfBytes?: ArrayBuffer
+    executedPdfBytes?: Uint8Array | ArrayBuffer
   ): Promise<void> {
     const { data: request } = await supabase.from('signature_requests').select('*').eq('id', requestId).single();
     if (!request) throw new Error('Request not found');

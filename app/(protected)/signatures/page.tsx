@@ -9,6 +9,7 @@ import SignaturePad from '@/app/components/signing/SignaturePad';
 import type { SigningField } from '@/lib/signing/types';
 import { Lock, Upload, PenLine, Type, Calendar, CheckSquare, Users, X, Copy, ArrowLeft, Trash2, Layers } from 'lucide-react';
 import Link from 'next/link';
+import { PDFDocument } from 'pdf-lib';
 
 type ToolType = 'signature' | 'initial' | 'date' | 'text' | 'checkbox' | 'witness' | null;
 type SignerRole = 'landlord' | 'tenant' | 'witness';
@@ -157,11 +158,41 @@ export default function LeaseExecutionPage() {
     // refreshRequest().catch(() => {});
   }
 
-  async function handleComplete() {
+    async function handleComplete() {
     if (!activeRequest) return;
     const { data: { session } } = await supabase.auth.getSession();
-    await signingEngine.completeSigning(activeRequest.id, session?.user?.email || 'Unknown', session?.user?.email || '');
-    setActiveRequest(null); await loadRequests();
+    try {
+      // Get real page dimensions from the PDF
+      const response = await fetch(activeRequest.document_url);
+      const pdfBytes = await response.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(pdfBytes);
+      const pageRects = pdfDoc.getPages().map((page, i) => {
+        const { width, height } = page.getSize();
+        return { page: i + 1, width, height };
+      });
+
+      // Create execution package with real SHA-256 hash
+      const { createExecutionPackage } = await import('@/lib/signing/pdf-flattener');
+      const { packageBytes, pdfHash } = await createExecutionPackage(
+        pdfBytes, activeRequest.fields || [], pageRects,
+        activeRequest.id, session?.user?.email || 'Unknown', session?.user?.email || '',
+        activeRequest.document_name
+      );
+
+      // Download the executed PDF
+     const blob = new Blob([packageBytes as BlobPart], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `executed-${activeRequest.document_name}`; a.click();
+      URL.revokeObjectURL(url);
+
+      // Complete in backend
+      await signingEngine.completeSigning(activeRequest.id, session?.user?.email || 'Unknown', session?.user?.email || '', packageBytes);
+      setActiveRequest(null); await loadRequests();
+    } catch (err) {
+      console.error('Execution failed:', err);
+      alert('Failed to complete execution. Please try again.');
+    }
   }
 
   async function handleUploadDocument() {
