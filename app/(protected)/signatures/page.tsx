@@ -173,7 +173,7 @@ export default function LeaseExecutionPage() {
 
       // Create execution package with real SHA-256 hash
       const { createExecutionPackage } = await import('@/lib/signing/pdf-flattener');
-      const { packageBytes, certificate } = await createExecutionPackage(
+      const { packageBytes, pdfHash, certificateId } = await createExecutionPackage(
         pdfBytes, activeRequest.fields || [], pageRects,
         activeRequest.id, session?.user?.email || 'Unknown', session?.user?.email || '',
         activeRequest.document_name
