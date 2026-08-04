@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { adminEngine } from '@/lib/platform/admin/engine';
 import { supabase } from '@/lib/supabase';
+import { adminEngine } from '@/lib/platform/admin/engine';
 import { signingEngine } from '@/lib/signing/engine';
 import DocumentViewer from '@/app/components/signing/DocumentViewer';
 import SignaturePad from '@/app/components/signing/SignaturePad';
 import type { SigningField } from '@/lib/signing/types';
-import { Lock } from 'lucide-react';
+import { Lock, Upload } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LeaseExecutionPage() {
@@ -20,8 +20,11 @@ export default function LeaseExecutionPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [hasProAccess, setHasProAccess] = useState(false);
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+  const [uploadName, setUploadName] = useState('');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
 
-    useEffect(() => { loadRequests(); checkAccess(); }, []);
+  useEffect(() => { loadRequests(); checkAccess(); }, []);
 
   async function checkAccess() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -38,12 +41,45 @@ export default function LeaseExecutionPage() {
       setHasProAccess(hasAccess);
     }
   }
+
   async function loadRequests() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     const { data } = await supabase.from('signature_requests').select('*').eq('created_by', session.user.id).order('created_at', { ascending: false });
     setRequests(data || []);
   }
+
+  function openRequest(request: any) {
+    setActiveRequest(request);
+    if (request.fields?.length > 0) {
+      const maxPage = Math.max(...request.fields.map((f: SigningField) => f.page));
+      setTotalPages(maxPage);
+    }
+  }
+
+  async function handleUploadDocument() {
+    if (!uploadFile || !uploadName) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const filePath = `signatures/${session.user.id}/${Date.now()}-${uploadFile.name}`;
+    await supabase.storage.from('documents').upload(filePath, uploadFile);
+    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath);
+    const { data: entities } = await supabase.rpc('auth_entities');
+    await supabase.from('signature_requests').insert({
+      entity_id: entities?.[0] || '',
+      request_type: 'document',
+      document_name: uploadName,
+      document_url: urlData?.publicUrl || '',
+      fields: [],
+      status: 'draft',
+      created_by: session.user.id,
+    });
+    setShowUpload(false);
+    setUploadName('');
+    setUploadFile(null);
+    await loadRequests();
+  }
+
   async function handleFieldClick(field: SigningField) {
     if (field.type === 'initial' && !field.isReplica && !field.value) {
       setPendingReplicateField(field);
@@ -54,13 +90,7 @@ export default function LeaseExecutionPage() {
     setActiveField(field);
     setShowSignaturePad(true);
   }
-  function openRequest(request: any) {
-    setActiveRequest(request);
-    if (request.fields?.length > 0) {
-      const maxPage = Math.max(...request.fields.map((f: SigningField) => f.page));
-      setTotalPages(maxPage);
-    }
-  }
+
   async function handleSignatureSave(data: string) {
     if (!activeField || !activeRequest) return;
     await signingEngine.updateField(activeRequest.id, activeField.id, data);
@@ -118,16 +148,18 @@ export default function LeaseExecutionPage() {
           <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 mb-1">Lease Execution</p>
           <h1 className="text-2xl font-light tracking-[-0.02em] text-white">Signatures</h1>
         </div>
-                {hasProAccess {!hasProAccess && ({!hasProAccess && ( (
-          <button onClick={() => setShowUpload(true)} className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-xs font-medium text-black hover:bg-zinc-200 transition-all">
-            <Upload className="w-3 h-3" /> New Document
-          </button>
-        )}
-        {!hasProAccess {!hasProAccess && ({!hasProAccess && ( (
-          <Link href="/signatures/pro" className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.03] px-4 py-2 text-xs text-amber-400 hover:border-amber-500/30 transition-all">
-            <Lock className="w-3 h-3" /> Document Signing Pro
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {hasProAccess && (
+            <button onClick={() => setShowUpload(true)} className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-xs font-medium text-black hover:bg-zinc-200 transition-all">
+              <Upload className="w-3 h-3" /> New Document
+            </button>
+          )}
+          {!hasProAccess && (
+            <Link href="/signatures/pro" className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.03] px-4 py-2 text-xs text-amber-400 hover:border-amber-500/30 transition-all">
+              <Lock className="w-3 h-3" /> Document Signing Pro
+            </Link>
+          )}
+        </div>
       </div>
 
       {activeRequest ? (
@@ -137,7 +169,7 @@ export default function LeaseExecutionPage() {
               <button onClick={() => setActiveRequest(null)} className="text-sm text-zinc-500 hover:text-white">← Back</button>
               <div>
                 <p className="text-sm font-medium text-white">{activeRequest.document_name}</p>
-                <p className="text-xs text-zinc-500">{activeRequest.request_type === 'lease' ? 'Lease Execution' : 'Document'}</p>
+                <p className="text-xs text-zinc-500">{activeRequest.request_type === 'lease' ? 'Lease Execution' : 'Document Signing'}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -194,6 +226,24 @@ export default function LeaseExecutionPage() {
                     <button onClick={() => setShowReplicatePrompt(false)} className="w-full text-sm text-zinc-500 hover:text-zinc-300 py-2">
                       Cancel
                     </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Upload Document Modal */}
+          {showUpload && (
+            <>
+              <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowUpload(false)} />
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+                  <p className="text-sm font-medium text-white mb-4">Upload Document for Signing</p>
+                  <input value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="Document name" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none mb-3" />
+                  <input type="file" accept=".pdf" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} className="w-full text-sm text-zinc-400 mb-4" />
+                  <div className="flex gap-3">
+                    <button onClick={handleUploadDocument} className="flex-1 rounded-lg bg-white py-2.5 text-sm font-medium text-black hover:bg-zinc-200">Upload and Create</button>
+                    <button onClick={() => setShowUpload(false)} className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm text-white hover:border-white/20">Cancel</button>
                   </div>
                 </div>
               </div>
