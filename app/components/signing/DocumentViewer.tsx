@@ -1,14 +1,11 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { CoordinateTransformService, type CanvasField } from '@/lib/signing/coordinate-transform-service';
 import type { SigningField } from '@/lib/signing/types';
 import { Document, Page, pdfjs } from 'react-pdf';
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs`; //
-  
-  
-
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs`;
 
 interface Props {
   fileUrl: string;
@@ -27,13 +24,21 @@ export default function DocumentViewer({ fileUrl, fields, onFieldAdd, onFieldMov
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const pageRef = useRef<HTMLDivElement>(null);
+  const clickedFieldRef = useRef(false);
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) { setNumPages(numPages); }
 
+  const handleFieldClick = useCallback((e: React.MouseEvent, field: SigningField) => {
+    e.stopPropagation();
+    e.preventDefault();
+    clickedFieldRef.current = true;
+    onFieldClick(field);
+    setTimeout(() => { clickedFieldRef.current = false; }, 100);
+  }, [onFieldClick]);
+
   function handlePageClick(e: React.MouseEvent) {
-    if (e.target !== pageRef.current) return;
-    if ((e.target as HTMLElement).closest(".signing-field")) return;
     if (readOnly || dragging) return;
+    if (clickedFieldRef.current) return;
     const rect = pageRef.current?.getBoundingClientRect();
     if (!rect || !pageDims) return;
     const x = (e.clientX - rect.left) / scale;
@@ -42,9 +47,9 @@ export default function DocumentViewer({ fileUrl, fields, onFieldAdd, onFieldMov
     onFieldAdd({ ...norm, id: crypto.randomUUID(), type: 'signature' });
   }
 
-  function handleMouseDown(e: React.MouseEvent, field: SigningField) {
-    if (readOnly) { onFieldClick(field); return; }
+  function handleFieldMouseDown(e: React.MouseEvent, field: SigningField) {
     e.stopPropagation();
+    if (readOnly) { onFieldClick(field); return; }
     setDragging(field.id);
     const rect = pageRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -85,8 +90,9 @@ export default function DocumentViewer({ fileUrl, fields, onFieldAdd, onFieldMov
           {pageFields.map(field => {
             const px = pageDims ? CoordinateTransformService.toPixels(field as CanvasField, pageDims) : field;
             return (
-              <div key={field.id} onMouseDown={(e) => handleMouseDown(e, field)}
-                onClick={(e) => { e.stopPropagation(); onFieldClick(field); }}
+              <div key={field.id} 
+                onMouseDown={(e) => handleFieldMouseDown(e, field)}
+                onClick={(e) => handleFieldClick(e, field)}
                 style={{ position: 'absolute', left: px.x, top: px.y, width: px.width, height: px.height,
                   cursor: readOnly ? 'pointer' : 'move', zIndex: dragging === field.id ? 50 : 10,
                   border: field.value ? '2px solid rgba(16,185,129,0.5)' : '2px dashed rgba(255,255,255,0.3)',
@@ -94,7 +100,7 @@ export default function DocumentViewer({ fileUrl, fields, onFieldAdd, onFieldMov
                   display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {field.value ? (
                   field.type === 'signature' || field.type === 'initial' || field.type === 'witness' ? (
-                    <img src={field.value} alt="Signature" className="max-w-full max-h-full object-contain" />
+                    <img src={field.value} alt="Signature" className="max-w-full max-h-full object-contain" style={{ background: 'transparent' }} />
                   ) : <span className="text-xs text-emerald-400">{field.value}</span>
                 ) : (
                   <span className="text-[10px] text-zinc-500">
