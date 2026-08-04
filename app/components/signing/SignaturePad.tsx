@@ -215,7 +215,7 @@ export default function SignaturePad({ value, onChange, onClear, disabled = fals
 
       {/* Draw Mode */}
       {mode === 'draw' && (
-        <div className="relative border border-[var(--border-default)] rounded-xl overflow-hidden bg-white" style={{ minHeight: '200px' }}>
+        <div className="relative border border-[var(--border-default)] rounded-xl overflow-hidden bg-transparent" style={{ minHeight: "200px", backgroundColor: "transparent" }}>
           <canvas
             ref={canvasRef}
             onMouseDown={startDraw}
@@ -226,7 +226,7 @@ export default function SignaturePad({ value, onChange, onClear, disabled = fals
             onTouchMove={drawMove}
             onTouchEnd={endDraw}
             className="w-full cursor-crosshair touch-none block"
-            style={{ height: '200px', touchAction: 'none', backgroundColor: '#ffffff' }}
+            style={{ height: '200px', touchAction: 'none', backgroundColor: "transparent" }}
           />
           <div className="absolute bottom-2 left-2 text-xs text-gray-400 bg-white/90 px-2 py-0.5 rounded">
             Draw your signature

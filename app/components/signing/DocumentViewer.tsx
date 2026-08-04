@@ -31,6 +31,8 @@ export default function DocumentViewer({ fileUrl, fields, onFieldAdd, onFieldMov
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) { setNumPages(numPages); }
 
   function handlePageClick(e: React.MouseEvent) {
+    if (e.target !== pageRef.current) return;
+    if ((e.target as HTMLElement).closest(".signing-field")) return;
     if (readOnly || dragging) return;
     const rect = pageRef.current?.getBoundingClientRect();
     if (!rect || !pageDims) return;
