@@ -118,7 +118,12 @@ export default function LeaseExecutionPage() {
           <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 mb-1">Lease Execution</p>
           <h1 className="text-2xl font-light tracking-[-0.02em] text-white">Signatures</h1>
         </div>
-                {!hasProAccess && (
+                {hasProAccess {!hasProAccess && ({!hasProAccess && ( (
+          <button onClick={() => setShowUpload(true)} className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-xs font-medium text-black hover:bg-zinc-200 transition-all">
+            <Upload className="w-3 h-3" /> New Document
+          </button>
+        )}
+        {!hasProAccess {!hasProAccess && ({!hasProAccess && ( (
           <Link href="/signatures/pro" className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.03] px-4 py-2 text-xs text-amber-400 hover:border-amber-500/30 transition-all">
             <Lock className="w-3 h-3" /> Document Signing Pro
           </Link>
