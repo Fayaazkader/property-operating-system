@@ -267,6 +267,7 @@ export default function LeaseExecutionPage() {
               onFieldMove={handleFieldMove}
               onFieldClick={handleFieldClick}
               onFieldDoubleClick={handleFieldDoubleClick}
+              onFieldDelete={handleDeleteField}
               readOnly={activeRequest.status === 'completed'}
               placingMode={viewMode === 'place' && !!activeTool}
             />
