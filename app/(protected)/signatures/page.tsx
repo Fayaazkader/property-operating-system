@@ -93,7 +93,7 @@ export default function LeaseExecutionPage() {
     setActiveRequest({ ...activeRequest, fields: updatedFields });
     await supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
     setSelectedField(newField);
-    if (!duplicateMode) { setActiveTool(null); setViewMode('select'); }
+    if (!duplicateFieldId) { setActiveTool(null); setViewMode('select'); }
   }
 
   async function handleFieldMove(fieldId: string, x: number, y: number) {
