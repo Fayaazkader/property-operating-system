@@ -40,6 +40,7 @@ export default function LeaseExecutionPage() {
   // Tool state
   const [activeTool, setActiveTool] = useState<ToolType>(null);
   const [duplicateMode, setDuplicateMode] = useState(false);
+  const [duplicateFieldId, setDuplicateFieldId] = useState<string | null>(null);
   const [signerRole, setSignerRole] = useState<SignerRole>('tenant');
   const [viewMode, setViewMode] = useState<ViewMode>('select');
 
@@ -96,7 +97,7 @@ export default function LeaseExecutionPage() {
 
   async function handleFieldMove(fieldId: string, x: number, y: number) {
     if (!activeRequest) return;
-    const updatedFields = (activeRequest.fields || []).map(f => f.id === fieldId ? { ...f, x, y } : f);
+    const updatedFields = (activeRequest.fields || []).map((f: any) => f.id === fieldId ? { ...f, x, y } : f);
     setActiveRequest({ ...activeRequest, fields: updatedFields });
     await signingEngine.moveField(activeRequest.id, fieldId, x, y, false);
   }
@@ -113,7 +114,7 @@ export default function LeaseExecutionPage() {
 
   async function handleDeleteField(fieldId: string) {
     if (!activeRequest) return;
-    const updatedFields = (activeRequest.fields || []).filter(f => f.id !== fieldId);
+    const updatedFields = (activeRequest.fields || []).filter((f: any) => f.id !== fieldId);
     setActiveRequest({ ...activeRequest, fields: updatedFields });
     setSelectedField(null);
     await supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
@@ -144,7 +145,7 @@ export default function LeaseExecutionPage() {
     else if (action === 'odd') pages = Array.from({ length: totalPages }, (_, i) => i + 1).filter(p => p % 2 === 1);
     else if (action === 'even') pages = Array.from({ length: totalPages }, (_, i) => i + 1).filter(p => p % 2 === 0);
     const replicas = replicateInitials(pendingReplicateField, totalPages, pages);
-    const updatedFields = [...(activeRequest.fields || []), ...replicas].map(f => f.id === pendingReplicateField!.id ? { ...f, replicatePages: pages } : f);
+    const updatedFields = [...(activeRequest.fields || []), ...replicas].map((f: any) => f.id === pendingReplicateField!.id ? { ...f, replicatePages: pages } : f);
     await supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
     setShowReplicatePrompt(false); setPendingReplicateField(null);
     await refreshRequest();
@@ -257,19 +258,44 @@ export default function LeaseExecutionPage() {
             )}
           </div>
 
-          {/* Center: PDF Viewer */}
+                    {/* Center: PDF Viewer */}
           <div className="flex-1 overflow-auto p-4">
             <DocumentViewer
               fileUrl={activeRequest.document_url}
               fields={activeRequest.fields || []}
+              activeTool={activeTool}
+              duplicateFieldId={duplicateFieldId}
               selectedFieldId={selectedField?.id}
-              onFieldAdd={handleFieldAdd}
+              placingMode={viewMode === 'place' && !!activeTool}
+              readOnly={activeRequest.status === 'completed'}
+              onPageClick={(x, y, page) => {
+                if (!activeRequest || !activeTool) return;
+                const sourceField = duplicateFieldId 
+                  ? (activeRequest.fields || []).find((f: any) => f.id === duplicateFieldId)
+                  : null;
+                const newField: SigningField = sourceField
+                  ? { ...sourceField, id: crypto.randomUUID(), x, y, page }
+                  : { 
+                      id: crypto.randomUUID(), 
+                      type: activeTool as any, 
+                      page, x, y, 
+                      width: activeTool === 'checkbox' ? 24 : 200, 
+                      height: activeTool === 'checkbox' ? 24 : 50, 
+                      signerRole: activeTool === 'witness' ? 'witness' : signerRole 
+                    };
+                handleFieldAdd(newField);
+              }}
               onFieldMove={handleFieldMove}
+              onFieldResize={(id, w, h) => {
+                if (!activeRequest) return;
+                const updatedFields = (activeRequest.fields || []).map((f: any) => 
+                  f.id === id ? { ...f, width: w, height: h } : f
+                );
+                setActiveRequest({ ...activeRequest, fields: updatedFields });
+                supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
+              }}
               onFieldClick={handleFieldClick}
               onFieldDoubleClick={handleFieldDoubleClick}
-              onFieldDelete={handleDeleteField}
-              readOnly={activeRequest.status === 'completed'}
-              placingMode={viewMode === 'place' && !!activeTool}
             />
           </div>
 
@@ -287,7 +313,7 @@ export default function LeaseExecutionPage() {
                   <p className="text-[10px] text-zinc-500">Signer</p>
                   {(['landlord', 'tenant', 'witness'] as SignerRole[]).map(role => (
                     <button key={role} onClick={async () => {
-                      const updatedFields = (activeRequest.fields || []).map(f => f.id === selectedField.id ? { ...f, signerRole: role } : f);
+                      const updatedFields = (activeRequest.fields || []).map((f: any) => f.id === selectedField.id ? { ...f, signerRole: role } : f);
                       setActiveRequest({ ...activeRequest, fields: updatedFields });
                       setSelectedField({ ...selectedField, signerRole: role });
                       await supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);

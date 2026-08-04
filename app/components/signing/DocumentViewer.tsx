@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { CoordinateTransformService, type CanvasField } from '@/lib/signing/coordinate-transform-service';
 import type { SigningField } from '@/lib/signing/types';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -11,80 +11,73 @@ interface Props {
   fileUrl: string;
   fields: SigningField[];
   activeTool?: string | null;
-  duplicateMode?: boolean;
+  duplicateFieldId?: string | null;
   selectedFieldId?: string;
   placingMode?: boolean;
-  onFieldAdd: (field: SigningField) => void;
+  readOnly?: boolean;
+  onPageClick: (x: number, y: number, page: number) => void;
   onFieldMove: (id: string, x: number, y: number) => void;
+  onFieldResize: (id: string, width: number, height: number) => void;
   onFieldClick: (field: SigningField) => void;
   onFieldDoubleClick?: (field: SigningField) => void;
-  onFieldDelete?: (id: string) => void;
-  readOnly?: boolean;
 }
 
 export default function DocumentViewer({ 
-  fileUrl, fields, activeTool, duplicateMode, selectedFieldId, placingMode,
-  onFieldAdd, onFieldMove, onFieldClick, onFieldDoubleClick, onFieldDelete, readOnly 
+  fileUrl, fields, activeTool, duplicateFieldId, selectedFieldId, placingMode, readOnly,
+  onPageClick, onFieldMove, onFieldResize, onFieldClick, onFieldDoubleClick,
 }: Props) {
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1.2);
   const [pageDims, setPageDims] = useState<{ width: number; height: number } | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
+  const [resizing, setResizing] = useState<{ id: string; handle: string } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, w: 0, h: 0, mx: 0, my: 0 });
   const pageRef = useRef<HTMLDivElement>(null);
   const isProcessingRef = useRef(false);
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) { setNumPages(numPages); }
 
-  // Page click — place field
+  // Page click — emit coordinates only, parent decides what to create
   function handlePageClick(e: React.MouseEvent) {
-    if (readOnly || dragging || !activeTool || !placingMode) return;
+    if (readOnly || dragging || resizing || !placingMode) return;
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
 
     const rect = pageRef.current?.getBoundingClientRect();
-    if (!rect || !pageDims) { isProcessingRef.current = false; return; }
+    if (!rect) { isProcessingRef.current = false; return; }
 
     const x = (e.clientX - rect.left) / scale;
     const y = (e.clientY - rect.top) / scale;
+    onPageClick(Math.round(x), Math.round(y), currentPage);
 
-    const field: SigningField = {
-      id: crypto.randomUUID(),
-      type: activeTool as any,
-      page: currentPage,
-      x: Math.round(x),
-      y: Math.round(y),
-      width: activeTool === 'checkbox' ? 24 : 200,
-      height: activeTool === 'checkbox' ? 24 : 50,
-    };
-
-    onFieldAdd(field);
     setTimeout(() => { isProcessingRef.current = false; }, 150);
   }
 
-  // Field click — select or start drag
-  function handleFieldMouseDown(e: React.MouseEvent, field: SigningField) {
+  // Field mouse down — select, start drag, or start resize
+  function handleFieldMouseDown(e: React.MouseEvent, field: SigningField, handle?: string) {
     e.stopPropagation();
     e.preventDefault();
-
     if (readOnly) { onFieldClick(field); return; }
 
-    // Select field
     onFieldClick(field);
 
-    // Start drag
     const rect = pageRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    const clickX = (e.clientX - rect.left) / scale;
-    const clickY = (e.clientY - rect.top) / scale;
+    const mx = (e.clientX - rect.left) / scale;
+    const my = (e.clientY - rect.top) / scale;
 
-    setDragging(field.id);
-    setDragOffset({
-      x: clickX - field.x,
-      y: clickY - field.y,
-    });
+    if (handle) {
+      // Start resize
+      setResizing({ id: field.id, handle });
+      setResizeStart({ x: field.x, y: field.y, w: field.width, h: field.height, mx, my });
+    } else {
+      // Start drag
+      setDragging(field.id);
+      setDragOffset({ x: mx - field.x, y: my - field.y });
+    }
   }
 
   function handleFieldDoubleClick(e: React.MouseEvent, field: SigningField) {
@@ -93,19 +86,38 @@ export default function DocumentViewer({
     onFieldDoubleClick?.(field);
   }
 
-  // Global mouse move — handle drag
+  // Global mouse move — drag or resize
   useEffect(() => {
-    if (!dragging) return;
+    if (!dragging && !resizing) return;
 
     function handleGlobalMouseMove(e: MouseEvent) {
       if (!pageRef.current) return;
       const rect = pageRef.current.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / scale - dragOffset.x;
-      const y = (e.clientY - rect.top) / scale - dragOffset.y;
-      onFieldMove(dragging!, Math.round(x), Math.round(y));
+      const mx = (e.clientX - rect.left) / scale;
+      const my = (e.clientY - rect.top) / scale;
+
+      if (dragging) {
+        const x = mx - dragOffset.x;
+        const y = my - dragOffset.y;
+        onFieldMove(dragging, Math.round(x), Math.round(y));
+      }
+
+      if (resizing) {
+        const dx = mx - resizeStart.mx;
+        const dy = my - resizeStart.my;
+        let newW = resizeStart.w;
+        let newH = resizeStart.h;
+
+        if (resizing.handle.includes('e')) newW = Math.max(20, resizeStart.w + dx);
+        if (resizing.handle.includes('w')) newW = Math.max(20, resizeStart.w - dx);
+        if (resizing.handle.includes('s')) newH = Math.max(20, resizeStart.h + dy);
+        if (resizing.handle.includes('n')) newH = Math.max(20, resizeStart.h - dy);
+
+        onFieldResize(resizing.id, Math.round(newW), Math.round(newH));
+      }
     }
 
-    function handleGlobalMouseUp() { setDragging(null); }
+    function handleGlobalMouseUp() { setDragging(null); setResizing(null); }
 
     window.addEventListener('mousemove', handleGlobalMouseMove);
     window.addEventListener('mouseup', handleGlobalMouseUp);
@@ -113,23 +125,33 @@ export default function DocumentViewer({
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
     };
-  }, [dragging, dragOffset, scale, onFieldMove]);
-
-  // Keyboard: Delete selected field
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Delete' && selectedFieldId) {
-        onFieldDelete?.(selectedFieldId);
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedFieldId, onFieldDelete]);
+  }, [dragging, resizing, dragOffset, resizeStart, scale, onFieldMove, onFieldResize]);
 
   const pageFields = fields.filter(f => f.page === currentPage);
 
+  const toolLabel = activeTool ? `${activeTool.charAt(0).toUpperCase() + activeTool.slice(1)} Tool` : '';
+  const duplicatingLabel = duplicateFieldId ? 'Duplicating' : '';
+
   return (
     <div className="space-y-4">
+      {/* Tool banner */}
+      {activeTool && placingMode && (
+        <div className="flex items-center justify-between bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-white font-medium">{toolLabel}</span>
+            <span className="text-[10px] text-zinc-500">Click anywhere to place · Press ESC to cancel</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {duplicatingLabel && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">{duplicatingLabel}</span>
+            )}
+            {!duplicatingLabel && (
+              <span className="text-[10px] text-zinc-600">Single placement</span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between bg-zinc-900 rounded-xl p-3">
         <div className="flex items-center gap-3">
           <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1} className="px-3 py-1 rounded-lg border border-white/[0.08] text-xs text-white hover:border-white/20 disabled:opacity-30">Prev</button>
@@ -152,7 +174,6 @@ export default function DocumentViewer({
               onLoadSuccess={(page: any) => { setPageDims({ width: page.originalWidth, height: page.originalHeight }); }} />
           </Document>
           
-          {/* Field Overlays */}
           {pageFields.map(field => {
             const px = pageDims ? CoordinateTransformService.toPixels(field as CanvasField, pageDims) : field;
             const isSelected = selectedFieldId === field.id;
@@ -183,13 +204,12 @@ export default function DocumentViewer({
                   </span>
                 )}
 
-                {/* Resize handles on selected field */}
                 {isSelected && !readOnly && (
                   <>
-                    <div className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-white rounded-full cursor-nw-resize" />
-                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white rounded-full cursor-ne-resize" />
-                    <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-white rounded-full cursor-sw-resize" />
-                    <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white rounded-full cursor-se-resize" />
+                    <div className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-white rounded-full cursor-nw-resize" onMouseDown={(e) => handleFieldMouseDown(e, field, 'nw')} />
+                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white rounded-full cursor-ne-resize" onMouseDown={(e) => handleFieldMouseDown(e, field, 'ne')} />
+                    <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-white rounded-full cursor-sw-resize" onMouseDown={(e) => handleFieldMouseDown(e, field, 'sw')} />
+                    <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white rounded-full cursor-se-resize" onMouseDown={(e) => handleFieldMouseDown(e, field, 'se')} />
                   </>
                 )}
               </div>
