@@ -71,10 +71,11 @@ export class SigningEngine {
     const { data: request } = await supabase.from('signature_requests').select('*').eq('id', requestId).single();
     if (!request) throw new Error('Request not found');
 
-    // Compute SHA-256 of executed PDF bytes
+    // Compute'SHA-256'of executed PDF bytes
     let executionHash = '';
     if (executedPdfBytes) {
-      const hashBuffer = await crypto.subtle.digest('SHA-256', executedPdfBytes);
+      const hashBuffer = const bytes = executedPdfBytes instanceof Uint8Array ? executedPdfBytes : new Uint8Array(executedPdfBytes);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
       executionHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
