@@ -138,8 +138,8 @@ export default function LeaseExecutionPage() {
     setSelectedField({ ...selectedField, value: data });
     if (!selectedField || !activeRequest) return;
     setShowSignaturePad(false); setPendingSignature('');
-    // Refresh in background
-    refreshRequest().catch(() => {});
+    // Already updated locally — skip refresh to prevent overwrite
+    // refreshRequest().catch(() => {});
   }
 
   async function handleReplicate(action: string) {
@@ -153,8 +153,8 @@ export default function LeaseExecutionPage() {
     const updatedFields = [...(activeRequest.fields || []), ...replicas].map((f: any) => f.id === pendingReplicateField!.id ? { ...f, replicatePages: pages } : f);
     await supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
     setShowReplicatePrompt(false); setPendingReplicateField(null);
-    // Refresh in background
-    refreshRequest().catch(() => {});
+    // Already updated locally — skip refresh to prevent overwrite
+    // refreshRequest().catch(() => {});
   }
 
   async function handleComplete() {
@@ -356,7 +356,7 @@ export default function LeaseExecutionPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
               <p className="text-sm font-medium text-white mb-4">{selectedField?.type === 'signature' ? 'Signature' : selectedField?.type === 'initial' ? 'Initials' : 'Sign'}</p>
-              <SignaturePad value={selectedField?.value || pendingSignature} onChange={(data) => setPendingSignature(data)} onClear={() => setPendingSignature('')} />
+              <SignaturePad value={pendingSignature || selectedField?.value || ''} onChange={(data) => setPendingSignature(data)} onClear={() => setPendingSignature('')} />
               <button onClick={() => { if (pendingSignature) handleSignatureSave(pendingSignature); }} className="w-full mt-2 rounded-lg bg-white py-2 text-sm font-medium text-black hover:bg-gray-100">Done</button>
               <button onClick={() => setShowSignaturePad(false)} className="w-full mt-2 rounded-lg border border-white/[0.08] py-2 text-sm text-white hover:border-white/20">Cancel</button>
             </div>
