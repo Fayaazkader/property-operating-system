@@ -70,14 +70,13 @@ export class SigningEngine {
   ): Promise<void> {
     const { data: request } = await supabase.from('signature_requests').select('*').eq('id', requestId).single();
     if (!request) throw new Error('Request not found');
-
-    // Compute'SHA-256'of executed PDF bytes
-    let executionHash = '';
+        let executionHash = '';
     if (executedPdfBytes) {
-      const hashBuffer = const bytes = executedPdfBytes instanceof Uint8Array ? executedPdfBytes : new Uint8Array(executedPdfBytes);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
+      const bytes = executedPdfBytes instanceof Uint8Array ? executedPdfBytes : new Uint8Array(executedPdfBytes);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', bytes as BufferSource);
       executionHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
+
 
     // Generate certificate
     const certificate = generateSignatureCertificate(requestId, request.fields, signerName, signerEmail);
