@@ -232,23 +232,6 @@ export default function LeaseExecutionPage() {
             </>
           )}
 
-//          {/* Upload Document Modal */}
-//          {showUpload && (
-//            <>
-//              <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowUpload(false)} />
-//              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-//                <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-//                  <p className="text-sm font-medium text-white mb-4">Upload Document for Signing</p>
-//                  <input value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="Document name" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none mb-3" />
-//                  <input type="file" accept=".pdf" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} className="w-full text-sm text-zinc-400 mb-4" />
-//                  <div className="flex gap-3">
-//                    <button onClick={handleUploadDocument} className="flex-1 rounded-lg bg-white py-2.5 text-sm font-medium text-black hover:bg-zinc-200">Upload and Create</button>
-//                    <button onClick={() => setShowUpload(false)} className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm text-white hover:border-white/20">Cancel</button>
-//                  </div>
-//                </div>
-//              </div>
-//            </>
-//          )}
         </div>
       ) : (
         <div className="rounded-xl border border-white/[0.06] overflow-hidden">
@@ -270,3 +253,22 @@ export default function LeaseExecutionPage() {
         </div>
       )}
     </div>
+      {showUpload && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowUpload(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+              <p className="text-sm font-medium text-white mb-4">Upload Document for Signing</p>
+              <input value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="Document name" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none mb-3" />
+              <input type="file" accept=".pdf" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} className="w-full text-sm text-zinc-400 mb-4" />
+              <div className="flex gap-3">
+                <button onClick={handleUploadDocument} className="flex-1 rounded-lg bg-white py-2.5 text-sm font-medium text-black hover:bg-zinc-200">Upload and Create</button>
+                <button onClick={() => setShowUpload(false)} className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm text-white hover:border-white/20">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
