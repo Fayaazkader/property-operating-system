@@ -7,23 +7,30 @@ import { Document, Page, pdfjs } from 'react-pdf';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs`;
 
+interface PageClickEvent {
+  x: number;
+  y: number;
+  page: number;
+  normalizedWidth: number;
+  normalizedHeight: number;
+}
+
 interface Props {
   fileUrl: string;
   fields: SigningField[];
-  activeTool?: string | null;
-  duplicateFieldId?: string | null;
   selectedFieldId?: string;
-  placingMode?: boolean;
   readOnly?: boolean;
-  onPageClick: (x: number, y: number, page: number) => void;
+  showCrosshair?: boolean;
+  toolBanner?: { label: string; sublabel: string } | null;
+  onPageClick: (event: PageClickEvent) => void;
   onFieldMove: (id: string, x: number, y: number) => void;
-  onFieldResize: (id: string, width: number, height: number) => void;
+  onFieldResize: (id: string, x: number, y: number, width: number, height: number) => void;
   onFieldClick: (field: SigningField) => void;
   onFieldDoubleClick?: (field: SigningField) => void;
 }
 
 export default function DocumentViewer({ 
-  fileUrl, fields, activeTool, duplicateFieldId, selectedFieldId, placingMode, readOnly,
+  fileUrl, fields, selectedFieldId, readOnly, showCrosshair, toolBanner,
   onPageClick, onFieldMove, onFieldResize, onFieldClick, onFieldDoubleClick,
 }: Props) {
   const [numPages, setNumPages] = useState(0);
@@ -39,18 +46,30 @@ export default function DocumentViewer({
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) { setNumPages(numPages); }
 
-  // Page click — emit coordinates only, parent decides what to create
+  // Emit normalized coordinates — viewer converts to storage units
   function handlePageClick(e: React.MouseEvent) {
-    if (readOnly || dragging || resizing || !placingMode) return;
+    if (readOnly || dragging || resizing || !showCrosshair) return;
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
 
     const rect = pageRef.current?.getBoundingClientRect();
-    if (!rect) { isProcessingRef.current = false; return; }
+    if (!rect || !pageDims) { isProcessingRef.current = false; return; }
 
-    const x = (e.clientX - rect.left) / scale;
-    const y = (e.clientY - rect.top) / scale;
-    onPageClick(Math.round(x), Math.round(y), currentPage);
+    // Convert click to storage-normalized coordinates
+    const pixelX = (e.clientX - rect.left) / scale;
+    const pixelY = (e.clientY - rect.top) / scale;
+    const normX = pixelX / pageDims.width;
+    const normY = pixelY / pageDims.height;
+    const normW = 200 / pageDims.width;
+    const normH = 50 / pageDims.height;
+
+    onPageClick({
+      x: Math.round(normX * 10000) / 10000,
+      y: Math.round(normY * 10000) / 10000,
+      page: currentPage,
+      normalizedWidth: Math.round(normW * 10000) / 10000,
+      normalizedHeight: Math.round(normH * 10000) / 10000,
+    });
 
     setTimeout(() => { isProcessingRef.current = false; }, 150);
   }
@@ -60,7 +79,6 @@ export default function DocumentViewer({
     e.stopPropagation();
     e.preventDefault();
     if (readOnly) { onFieldClick(field); return; }
-
     onFieldClick(field);
 
     const rect = pageRef.current?.getBoundingClientRect();
@@ -69,14 +87,18 @@ export default function DocumentViewer({
     const mx = (e.clientX - rect.left) / scale;
     const my = (e.clientY - rect.top) / scale;
 
+    // Convert field storage coords to pixel coords for interaction
+    const px = pageDims ? field.x * pageDims.width : field.x;
+    const py = pageDims ? field.y * pageDims.height : field.y;
+    const pw = pageDims ? field.width * pageDims.width : field.width;
+    const ph = pageDims ? field.height * pageDims.height : field.height;
+
     if (handle) {
-      // Start resize
       setResizing({ id: field.id, handle });
-      setResizeStart({ x: field.x, y: field.y, w: field.width, h: field.height, mx, my });
+      setResizeStart({ x: px, y: py, w: pw, h: ph, mx, my });
     } else {
-      // Start drag
       setDragging(field.id);
-      setDragOffset({ x: mx - field.x, y: my - field.y });
+      setDragOffset({ x: mx - px, y: my - py });
     }
   }
 
@@ -97,23 +119,40 @@ export default function DocumentViewer({
       const my = (e.clientY - rect.top) / scale;
 
       if (dragging) {
-        const x = mx - dragOffset.x;
-        const y = my - dragOffset.y;
-        onFieldMove(dragging, Math.round(x), Math.round(y));
+        const px = mx - dragOffset.x;
+        const py = my - dragOffset.y;
+        // Convert back to normalized
+        if (pageDims) {
+          onFieldMove(dragging, Math.round(px / pageDims.width * 10000) / 10000, Math.round(py / pageDims.height * 10000) / 10000);
+        }
       }
 
       if (resizing) {
         const dx = mx - resizeStart.mx;
         const dy = my - resizeStart.my;
+        let newX = resizeStart.x;
+        let newY = resizeStart.y;
         let newW = resizeStart.w;
         let newH = resizeStart.h;
 
+        // Resize width
         if (resizing.handle.includes('e')) newW = Math.max(20, resizeStart.w + dx);
-        if (resizing.handle.includes('w')) newW = Math.max(20, resizeStart.w - dx);
-        if (resizing.handle.includes('s')) newH = Math.max(20, resizeStart.h + dy);
-        if (resizing.handle.includes('n')) newH = Math.max(20, resizeStart.h - dy);
+        if (resizing.handle.includes('w')) { newW = Math.max(20, resizeStart.w - dx); newX = resizeStart.x + dx; }
 
-        onFieldResize(resizing.id, Math.round(newW), Math.round(newH));
+        // Resize height
+        if (resizing.handle.includes('s')) newH = Math.max(20, resizeStart.h + dy);
+        if (resizing.handle.includes('n')) { newH = Math.max(20, resizeStart.h - dy); newY = resizeStart.y + dy; }
+
+        // Convert back to normalized
+        if (pageDims) {
+          onFieldResize(
+            resizing.id,
+            Math.round(newX / pageDims.width * 10000) / 10000,
+            Math.round(newY / pageDims.height * 10000) / 10000,
+            Math.round(newW / pageDims.width * 10000) / 10000,
+            Math.round(newH / pageDims.height * 10000) / 10000
+          );
+        }
       }
     }
 
@@ -125,29 +164,18 @@ export default function DocumentViewer({
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
     };
-  }, [dragging, resizing, dragOffset, resizeStart, scale, onFieldMove, onFieldResize]);
+  }, [dragging, resizing, dragOffset, resizeStart, scale, pageDims, onFieldMove, onFieldResize]);
 
   const pageFields = fields.filter(f => f.page === currentPage);
-
-  const toolLabel = activeTool ? `${activeTool.charAt(0).toUpperCase() + activeTool.slice(1)} Tool` : '';
-  const duplicatingLabel = duplicateFieldId ? 'Duplicating' : '';
 
   return (
     <div className="space-y-4">
       {/* Tool banner */}
-      {activeTool && placingMode && (
+      {toolBanner && (
         <div className="flex items-center justify-between bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2">
           <div className="flex items-center gap-3">
-            <span className="text-xs text-white font-medium">{toolLabel}</span>
-            <span className="text-[10px] text-zinc-500">Click anywhere to place · Press ESC to cancel</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {duplicatingLabel && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">{duplicatingLabel}</span>
-            )}
-            {!duplicatingLabel && (
-              <span className="text-[10px] text-zinc-600">Single placement</span>
-            )}
+            <span className="text-xs text-white font-medium">{toolBanner.label}</span>
+            <span className="text-[10px] text-zinc-500">{toolBanner.sublabel}</span>
           </div>
         </div>
       )}
@@ -167,7 +195,7 @@ export default function DocumentViewer({
 
       <div className="border border-white/[0.06] rounded-xl overflow-hidden bg-zinc-900 flex justify-center">
         <div ref={pageRef}
-          style={{ position: 'relative', cursor: readOnly ? 'default' : placingMode && activeTool ? 'crosshair' : 'default' }}
+          style={{ position: 'relative', cursor: readOnly ? 'default' : showCrosshair ? 'crosshair' : 'default' }}
           onClick={handlePageClick}>
           <Document file={fileUrl} onLoadSuccess={onDocumentLoadSuccess} loading={<div className="p-20 text-zinc-500">Loading...</div>}>
             <Page pageNumber={currentPage} scale={scale} renderTextLayer={false} renderAnnotationLayer={false}
@@ -175,7 +203,14 @@ export default function DocumentViewer({
           </Document>
           
           {pageFields.map(field => {
-            const px = pageDims ? CoordinateTransformService.toPixels(field as CanvasField, pageDims) : field;
+            // Convert normalized storage coords to pixel coords for rendering
+            const px = pageDims ? {
+              x: field.x * pageDims.width,
+              y: field.y * pageDims.height,
+              width: field.width * pageDims.width,
+              height: field.height * pageDims.height,
+            } : { x: field.x, y: field.y, width: field.width, height: field.height };
+
             const isSelected = selectedFieldId === field.id;
             return (
               <div key={field.id}

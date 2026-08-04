@@ -258,17 +258,19 @@ export default function LeaseExecutionPage() {
             )}
           </div>
 
-                    {/* Center: PDF Viewer */}
+                      {/* Center: PDF Viewer */}
           <div className="flex-1 overflow-auto p-4">
             <DocumentViewer
               fileUrl={activeRequest.document_url}
               fields={activeRequest.fields || []}
-              activeTool={activeTool}
-              duplicateFieldId={duplicateFieldId}
               selectedFieldId={selectedField?.id}
-              placingMode={viewMode === 'place' && !!activeTool}
               readOnly={activeRequest.status === 'completed'}
-              onPageClick={(x, y, page) => {
+              showCrosshair={viewMode === 'place' && !!activeTool}
+              toolBanner={activeTool && viewMode === 'place' ? {
+                label: `${activeTool.charAt(0).toUpperCase() + activeTool.slice(1)} Tool`,
+                sublabel: duplicateFieldId ? 'Duplicating — click to place copies' : 'Click anywhere to place · ESC to cancel'
+              } : null}
+              onPageClick={({ x, y, page, normalizedWidth, normalizedHeight }) => {
                 if (!activeRequest || !activeTool) return;
                 const sourceField = duplicateFieldId 
                   ? (activeRequest.fields || []).find((f: any) => f.id === duplicateFieldId)
@@ -279,17 +281,17 @@ export default function LeaseExecutionPage() {
                       id: crypto.randomUUID(), 
                       type: activeTool as any, 
                       page, x, y, 
-                      width: activeTool === 'checkbox' ? 24 : 200, 
-                      height: activeTool === 'checkbox' ? 24 : 50, 
+                      width: normalizedWidth, 
+                      height: normalizedHeight, 
                       signerRole: activeTool === 'witness' ? 'witness' : signerRole 
                     };
                 handleFieldAdd(newField);
               }}
               onFieldMove={handleFieldMove}
-              onFieldResize={(id, w, h) => {
+              onFieldResize={(id, x, y, w, h) => {
                 if (!activeRequest) return;
                 const updatedFields = (activeRequest.fields || []).map((f: any) => 
-                  f.id === id ? { ...f, width: w, height: h } : f
+                  f.id === id ? { ...f, x, y, width: w, height: h } : f
                 );
                 setActiveRequest({ ...activeRequest, fields: updatedFields });
                 supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
