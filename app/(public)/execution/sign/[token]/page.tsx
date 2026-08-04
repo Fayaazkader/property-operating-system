@@ -363,7 +363,7 @@ const response = await fetch(`/api/execution/${execution.id}/sign`, {
             value={signature}
             onChange={setSignature}
             onClear={() => setSignature('')}
-            disabled={isSigning}
+            
           />
 
           {/* Agreement Checkbox */}

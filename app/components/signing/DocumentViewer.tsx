@@ -226,7 +226,7 @@ export default function DocumentViewer({
                 }}>
                 {field.value ? (
                   field.type === 'signature' || field.type === 'initial' || field.type === 'witness' ? (
-                    <img src={field.value} alt="Signature" className="max-w-full max-h-full object-contain" style={{ background: 'transparent', mixBlendMode: 'multiply' }} />
+                    <img src={field.value} alt="Signature" style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'transparent', mixBlendMode: 'multiply' }} />
                   ) : field.type === 'checkbox' ? (
                     <span className="text-lg text-emerald-400">✓</span>
                   ) : (
