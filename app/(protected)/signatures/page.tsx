@@ -31,6 +31,7 @@ export default function LeaseExecutionPage() {
   const [showReplicatePrompt, setShowReplicatePrompt] = useState(false);
   const [pendingReplicateField, setPendingReplicateField] = useState<SigningField | null>(null);
   const [totalPages, setTotalPages] = useState(1);
+  const [duplicateFieldId, setDuplicateFieldId] = useState<string | null>(null);
   const [hasProAccess, setHasProAccess] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [uploadName, setUploadName] = useState('');
@@ -39,16 +40,15 @@ export default function LeaseExecutionPage() {
 
   // Tool state
   const [activeTool, setActiveTool] = useState<ToolType>(null);
-  const [duplicateMode, setDuplicateMode] = useState(false);
-  const [duplicateFieldId, setDuplicateFieldId] = useState<string | null>(null);
-  const [signerRole, setSignerRole] = useState<SignerRole>('tenant');
+  
+    const [signerRole, setSignerRole] = useState<SignerRole>('tenant');
   const [viewMode, setViewMode] = useState<ViewMode>('select');
 
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (!activeRequest) return;
-      if (e.key === 'Escape') { setActiveTool(null); setDuplicateMode(false); setViewMode('select'); }
+      if (e.key === 'Escape') { setActiveTool(null); setDuplicateFieldId(null); setViewMode('select'); }
       if (e.key === 'Delete' && selectedField) { handleDeleteField(selectedField.id); }
       if ((e.ctrlKey || e.metaKey) && e.key === 'd' && selectedField) { e.preventDefault(); duplicateField(selectedField); }
     }
@@ -75,14 +75,15 @@ export default function LeaseExecutionPage() {
   }
 
   function openRequest(request: any) {
+    setActiveRequest(request); setActiveTool(null); setDuplicateFieldId(null); setViewMode('select'); setSelectedField(null);
     setActiveRequest(request);
-    setActiveTool(null); setDuplicateMode(false); setViewMode('select'); setSelectedField(null);
+    setActiveTool(null); setDuplicateFieldId(null); setViewMode('select'); setSelectedField(null);
     if (request.fields?.length > 0) setTotalPages(Math.max(...request.fields.map((f: SigningField) => f.page)));
   }
 
   function selectTool(tool: ToolType) {
     if (activeTool === tool) { setActiveTool(null); setViewMode('select'); return; }
-    setActiveTool(tool); setViewMode('place'); setDuplicateMode(false); setSelectedField(null);
+    setActiveTool(tool); setViewMode('place'); setDuplicateFieldId(null); setSelectedField(null);
   }
 
   async function handleFieldAdd(field: SigningField) {
@@ -234,9 +235,6 @@ export default function LeaseExecutionPage() {
                     ))}
                   </div>
                 )}
-                <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
-                  <input type="checkbox" checked={duplicateMode} onChange={(e) => setDuplicateMode(e.target.checked)} className="rounded" /> Duplicate mode
-                </label>
                 <button onClick={() => { setActiveTool(null); setViewMode('select'); }} className="w-full rounded-lg border border-white/[0.08] py-1.5 text-xs text-white hover:border-white/20">Done</button>
               </div>
             )}
@@ -298,6 +296,7 @@ export default function LeaseExecutionPage() {
               }}
               onFieldClick={handleFieldClick}
               onFieldDoubleClick={handleFieldDoubleClick}
+              onPageCountChange={(count) => setTotalPages(count)}
             />
           </div>
 
