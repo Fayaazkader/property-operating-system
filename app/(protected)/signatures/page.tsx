@@ -31,8 +31,6 @@ export default function LeaseExecutionPage() {
     if (!session) return;
     const { data: profile } = await supabase.from('profiles').select('platform_role').eq('id', session.user.id).single();
     if (profile?.platform_role === 'platform_admin') { setIsPlatformAdmin(true); setHasProAccess(true); return; }
-    const { data: entities } = console.log("Storage error:", storageError);
-    if (storageError) { alert("Upload failed: " + storageError.message); setShowUpload(false); return; }
     const { data: entities } = await supabase.rpc('auth_entities');
     if (entities?.length) { const hasAccess = await adminEngine.isFeatureEnabled(entities[0], 'document_signing_pro', session.user.id); setHasProAccess(hasAccess); }
   }
@@ -50,17 +48,15 @@ export default function LeaseExecutionPage() {
   }
 
   async function handleUploadDocument() {
-    console.log("handleUploadDocument called", uploadFile, uploadName);
     if (!uploadFile || !uploadName) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     const filePath = `signatures/${Date.now()}.pdf`;
-    const { error: storageError } = await supabase.storage.from('documents').upload(filePath, uploadFile);
-    const { data: urlData } = const { error: storageError } = await supabase.storage.from('documents').createSignedUrl(filePath, 86400);
-    const { data: entities } = console.log("Storage error:", storageError);
-    if (storageError) { alert("Upload failed: " + storageError.message); setShowUpload(false); return; }
+    const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, uploadFile);
+    if (uploadError) { alert('Upload failed: ' + uploadError.message); return; }
+    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath);
     const { data: entities } = await supabase.rpc('auth_entities');
-    await supabase.from('signature_requests').insert({ entity_id: entities?.[0] || '', request_type: 'document', document_name: uploadName, document_url: urlData?.signedUrl || '', fields: [], status: 'draft', created_by: session.user.id });
+    await supabase.from('signature_requests').insert({ entity_id: entities?.[0] || '', request_type: 'document', document_name: uploadName, document_url: urlData?.publicUrl || '', fields: [], status: 'draft', created_by: session.user.id });
     setShowUpload(false); setUploadName(''); setUploadFile(null);
     await loadRequests();
   }
