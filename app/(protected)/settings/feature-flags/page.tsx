@@ -15,6 +15,7 @@ const SYSTEM_FLAGS = [
   { key: 'conversation_platform', name: 'Conversation Platform', description: 'Enable AI conversation features', category: 'platform' },
   { key: 'document_intelligence', name: 'Document Intelligence', description: 'Enable OCR and document processing', category: 'platform' },
   { key: 'bank_integration', name: 'Bank Integration', description: 'Enable direct bank integration', category: 'platform' },
+  { key: 'document_signing_pro', name: 'Document Signing Pro', description: 'Unlock premium document signing features', category: 'platform' },
 ];
 
 export default function FeatureFlagsPage() {
