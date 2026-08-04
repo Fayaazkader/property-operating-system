@@ -8,6 +8,9 @@ import { Document, Page, pdfjs } from 'react-pdf';
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs`;
 
 interface Props {
+  selectedFieldId?: string;
+  onFieldDoubleClick?: (field: SigningField) => void;
+  placingMode?: boolean;
   fileUrl: string;
   fields: SigningField[];
   onFieldAdd: (field: SigningField) => void;
@@ -16,7 +19,7 @@ interface Props {
   readOnly?: boolean;
 }
 
-export default function DocumentViewer({ fileUrl, fields, onFieldAdd, onFieldMove, onFieldClick, readOnly }: Props) {
+export default function DocumentViewer({ fileUrl, fields, selectedFieldId, onFieldAdd, onFieldMove, onFieldClick, onFieldDoubleClick, readOnly, placingMode }: Props) {
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1.2);
@@ -82,7 +85,7 @@ export default function DocumentViewer({ fileUrl, fields, onFieldAdd, onFieldMov
       </div>
 
       <div className="border border-white/[0.06] rounded-xl overflow-hidden bg-zinc-900 flex justify-center">
-        <div ref={pageRef} style={{ position: 'relative', cursor: readOnly ? 'default' : 'crosshair' }}
+        <div ref={pageRef} style={{ position: 'relative', cursor: readOnly ? "default" : placingMode ? "crosshair" : "default" }}
           onClick={handlePageClick} onMouseMove={handleMouseMove} onMouseUp={() => setDragging(null)} onMouseLeave={() => setDragging(null)}>
           <Document file={fileUrl} onLoadSuccess={onDocumentLoadSuccess} loading={<div className="p-20 text-zinc-500">Loading...</div>}>
             <Page pageNumber={currentPage} scale={scale} renderTextLayer={false} renderAnnotationLayer={false} onLoadSuccess={(page: any) => { setPageDims({ width: page.originalWidth, height: page.originalHeight }); }} />
@@ -92,10 +95,11 @@ export default function DocumentViewer({ fileUrl, fields, onFieldAdd, onFieldMov
             return (
               <div key={field.id} 
                 onMouseDown={(e) => handleFieldMouseDown(e, field)}
+                onDoubleClick={() => onFieldDoubleClick?.(field)}
                 onClick={(e) => handleFieldClick(e, field)}
                 style={{ position: 'absolute', left: px.x, top: px.y, width: px.width, height: px.height,
                   cursor: readOnly ? 'pointer' : 'move', zIndex: dragging === field.id ? 50 : 10,
-                  border: field.value ? '2px solid rgba(16,185,129,0.5)' : '2px dashed rgba(255,255,255,0.3)',
+                  border: selectedFieldId === field.id ? "2px solid rgba(255,255,255,0.6)" : field.value ? "2px solid rgba(16,185,129,0.5)" : "2px dashed rgba(255,255,255,0.3)",
                   borderRadius: '8px', background: field.value ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.03)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {field.value ? (
