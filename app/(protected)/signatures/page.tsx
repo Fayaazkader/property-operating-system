@@ -54,9 +54,9 @@ export default function LeaseExecutionPage() {
     if (!session) return;
     const filePath = `signatures/${session.user.id}/${Date.now()}-${uploadFile.name}`;
     await supabase.storage.from('documents').upload(filePath, uploadFile);
-    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath);
+    const { data: urlData } = await supabase.storage.from('documents').createSignedUrl(filePath, 86400);
     const { data: entities } = await supabase.rpc('auth_entities');
-    await supabase.from('signature_requests').insert({ entity_id: entities?.[0] || '', request_type: 'document', document_name: uploadName, document_url: urlData?.publicUrl || '', fields: [], status: 'draft', created_by: session.user.id });
+    await supabase.from('signature_requests').insert({ entity_id: entities?.[0] || '', request_type: 'document', document_name: uploadName, document_url: urlData?.signedUrl || '', fields: [], status: 'draft', created_by: session.user.id });
     setShowUpload(false); setUploadName(''); setUploadFile(null);
     await loadRequests();
   }
