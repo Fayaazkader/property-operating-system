@@ -16,6 +16,7 @@ interface PageClickEvent {
 }
 
 interface Props {
+  onPageCountChange?: (count: number) => void;
   fileUrl: string;
   fields: SigningField[];
   selectedFieldId?: string;
@@ -44,7 +45,7 @@ export default function DocumentViewer({
   const pageRef = useRef<HTMLDivElement>(null);
   const isProcessingRef = useRef(false);
 
-  function onDocumentLoadSuccess({ numPages }: { numPages: number }) { setNumPages(numPages); }
+  function onDocumentLoadSuccess({ numPages }: { numPages: number }) { setNumPages(numPages); onPageCountChange?.(numPages); }
 
   // Emit normalized coordinates — viewer converts to storage units
   function handlePageClick(e: React.MouseEvent) {
@@ -219,8 +220,8 @@ export default function DocumentViewer({
                 style={{
                   position: 'absolute', left: px.x, top: px.y, width: px.width, height: px.height,
                   cursor: readOnly ? 'pointer' : 'move', zIndex: isSelected ? 50 : dragging === field.id ? 40 : 10,
-                  border: isSelected ? '2px solid rgba(255,255,255,0.7)' : field.value ? '2px solid rgba(16,185,129,0.4)' : '2px dashed rgba(255,255,255,0.25)',
-                  borderRadius: '6px', background: isSelected ? 'rgba(255,255,255,0.06)' : field.value ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.02)',
+                  border: isSelected ? '2px solid rgba(255,255,255,0.8)' : field.value ? 'none' : '2px solid rgba(16,185,129,0.5)',
+                  borderRadius: '6px', background: isSelected ? 'rgba(255,255,255,0.1)' : field.value ? 'transparent' : 'rgba(16,185,129,0.15)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'border-color 0.15s, background 0.15s',
                 }}>
@@ -233,7 +234,7 @@ export default function DocumentViewer({
                     <span className="text-xs text-emerald-400 font-medium">{field.value}</span>
                   )
                 ) : (
-                  <span className="text-[10px] text-zinc-500 font-light select-none">
+                  <span className="text-xs text-emerald-300 font-medium select-none">
                     {field.type === 'signature' ? 'Signature' : field.type === 'initial' ? 'Initials' : field.type === 'witness' ? 'Witness' : field.type === 'date' ? 'Date' : field.type === 'checkbox' ? '☐' : field.type}
                     {field.signerRole ? ` · ${field.signerRole}` : ''}
                   </span>
