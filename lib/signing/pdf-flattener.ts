@@ -136,23 +136,34 @@ export async function generateCertificatePage(
 
   return pdfDoc.save();
 }
+export interface ExecutionPackage {
+  packageBytes: Uint8Array;
+  certificate: {
+    id: string;
+    hash: string;
+    algorithm: string;
+  };
+}
+
 export async function createExecutionPackage(
   originalPdfBytes: ArrayBuffer,
   fields: SigningField[],
   pageRects: Array<{ page: number; width: number; height: number }>,
   requestId: string, signerName: string, signerEmail: string, documentName: string
-): Promise<{ packageBytes: Uint8Array; pdfHash: string; certificateId: string }> {
-  
-  // 1. Flatten signatures onto PDF
-  const signedPdf = await flattenSignatures(originalPdfBytes, fields, pageRects);
-
-  // 2. Generate certificate ID once
+): Promise<ExecutionPackage> {
   const certificateId = crypto.randomUUID();
 
-  // 3. Generate certificate page with placeholder hash
-  const certPdf = await generateCertificatePage(requestId, signerName, signerEmail, fields, documentName, '', certificateId);
+  // 1. Flatten signatures onto the executed document
+  const signedPdf = await flattenSignatures(originalPdfBytes, fields, pageRects);
 
-  // 4. Merge signed PDF + certificate
+  // 2. Hash the executed document only (not the certificate page)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', signedPdf as BufferSource);
+  const pdfHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+  // 3. Generate certificate page with the document hash
+  const certPdf = await generateCertificatePage(requestId, signerName, signerEmail, fields, documentName, pdfHash, certificateId);
+
+  // 4. Merge executed PDF + certificate page (single merge, hash stays valid)
   const signedDoc = await PDFDocument.load(signedPdf);
   const certDoc = await PDFDocument.load(certPdf);
   const mergedDoc = await PDFDocument.create();
@@ -161,19 +172,8 @@ export async function createExecutionPackage(
   const certPages = await mergedDoc.copyPages(certDoc, certDoc.getPageIndices());
   certPages.forEach(p => mergedDoc.addPage(p));
 
-  // 5. Hash the FINAL merged PDF (includes certificate)
-  const finalBytes = await mergedDoc.save();
-  const hashBuffer = await crypto.subtle.digest('SHA-256', finalBytes as BufferSource);
-  const pdfHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-
-  // 6. Rebuild certificate with real hash
-  const finalCertPdf = await generateCertificatePage(requestId, signerName, signerEmail, fields, documentName, pdfHash, certificateId);
-  const finalCertDoc = await PDFDocument.load(finalCertPdf);
-  const finalMergedDoc = await PDFDocument.create();
-  const finalSignedPages = await finalMergedDoc.copyPages(signedDoc, signedDoc.getPageIndices());
-  finalSignedPages.forEach(p => finalMergedDoc.addPage(p));
-  const finalCertPages = await finalMergedDoc.copyPages(finalCertDoc, finalCertDoc.getPageIndices());
-  finalCertPages.forEach(p => finalMergedDoc.addPage(p));
-
-  return { packageBytes: await finalMergedDoc.save(), pdfHash, certificateId };
+  return {
+    packageBytes: await mergedDoc.save(),
+    certificate: { id: certificateId, hash: pdfHash, algorithm: 'SHA-256' },
+  };
 }
