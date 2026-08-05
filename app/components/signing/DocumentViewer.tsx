@@ -212,11 +212,12 @@ export default function DocumentViewer({
           {pageFields.map(field => {
             // Convert normalized storage coords to pixel coords for rendering
             const px = pageDims ? {
-              x: field.x * pageDims.width,
-              y: field.y * pageDims.height,
-              width: field.width * pageDims.width,
-              height: field.height * pageDims.height,
-            } : { x: field.x, y: field.y, width: field.width, height: field.height };
+            const px = pageDims ? {
+              x: (field.x || 0) * pageDims.width,
+              y: (field.y || 0) * pageDims.height,
+              width: (field.width || 0.1) * pageDims.width,
+              height: (field.height || 0.05) * pageDims.height,
+            } : { x: field.x || 0, y: field.y || 0, width: field.width || 50, height: field.height || 20 };
 
             const isSelected = selectedFieldId === field.id;
             return (
