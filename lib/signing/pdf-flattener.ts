@@ -34,10 +34,10 @@ export async function flattenSignatures(
     if (!rect) continue;
 
     const x = field.x * rect.width;
-    let y = (1 - field.y - field.height) * rect.height;
-    if (y < 0) y = 10;
+    const y = rect.height * (1 - field.y) - (field.height * rect.height);
+    const finalY = Math.max(0, y);
     if (y < 0) y = rect.height - (field.y * rect.height);
-    if (y < 0) y = 10;
+    const finalY = Math.max(0, y);
     const w = field.width * rect.width;
     const h = field.height * rect.height;
 
@@ -55,7 +55,7 @@ if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
 } else {
   image = await pdfDoc.embedPng(imageBytes);
 }
-          page.drawImage(image, { x, y, width: w, height: h, opacity: 0.9 });
+          page.drawImage(image, { x, y: finalY, width: w, height: h, opacity: 0.9 });
         }
       } else if (field.type === 'date' || field.type === 'text') {
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
