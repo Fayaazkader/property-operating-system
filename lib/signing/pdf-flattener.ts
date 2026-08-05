@@ -48,6 +48,7 @@ export async function flattenSignatures(
             ? await pdfDoc.embedJpg(imageBytes)
             : await pdfDoc.embedPng(imageBytes);
           if (isNaN(x) || isNaN(finalY)) { console.warn("Skipping field with NaN coords"); continue; }
+          console.log("field.y:", field.y, "field.height:", field.height, "rect.height:", rect.height);
           console.log("drawImage page", pageIndex, "x", x, "y", finalY, "w", w, "h", h);
           page.drawImage(image, { x, y: finalY, width: w, height: h, opacity: 0.9 });
         }
