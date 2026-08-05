@@ -38,6 +38,7 @@ export async function flattenSignatures(
     try {
       if (field.type === 'signature' || field.type === 'initial' || field.type === 'witness') {
         const base64 = field.value.split(',')[1];
+        console.log("Position: x=" + x + " y=" + y + " w=" + w + " h=" + h + " rectW=" + rect.width + " rectH=" + rect.height);
         console.log("Embedding field " + field.type + " hasValue " + !!field.value + " page " + field.page);
         if (base64) {
           const imageBytes = base64ToBytes(base64);
