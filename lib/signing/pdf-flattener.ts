@@ -34,7 +34,8 @@ export async function flattenSignatures(
     if (!rect) continue;
 
     const x = field.x * rect.width;
-    let y = rect.height - (field.y * rect.height) - (field.height * rect.height);
+    let y = (1 - field.y - field.height) * rect.height;
+    if (y < 0) y = 10;
     if (y < 0) y = rect.height - (field.y * rect.height);
     if (y < 0) y = 10;
     const w = field.width * rect.width;
