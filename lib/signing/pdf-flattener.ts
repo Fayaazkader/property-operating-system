@@ -125,15 +125,18 @@ export async function generateCertificatePage(
     if (y < 60) break;
   }
 
-  y -= 30;
+    y -= 30;
+  page.drawText('Document Integrity:', { x: 50, y, size: 12, font: boldFont, color: rgb(0, 0, 0) });
+  y -= 20;
+  page.drawText('SHA-256 (Executed Document)', { x: 50, y, size: 8, font, color: rgb(0.4, 0.4, 0.4) });
+  y -= 15;
+  page.drawText(pdfHash, { x: 50, y, size: 8, font: monoFont, color: rgb(0.3, 0.3, 0.3) });
+  y -= 25;
   page.drawText('Verification:', { x: 50, y, size: 10, font: boldFont, color: rgb(0, 0, 0) });
   y -= 18;
   page.drawText('This document was signed using AssetFlow\'s digital execution platform.', { x: 50, y, size: 9, font, color: rgb(0.3, 0.3, 0.3) });
   y -= 15;
-  page.drawText('The signatures have been cryptographically embedded into the PDF.', { x: 50, y, size: 9, font, color: rgb(0.3, 0.3, 0.3) });
-  y -= 15;
-  page.drawText(`SHA-256: ${pdfHash}`, { x: 50, y, size: 8, font: monoFont, color: rgb(0.5, 0.5, 0.5) });
-
+  page.drawText('The SHA-256 hash above represents the executed document excluding this certificate page.', { x: 50, y, size: 8, font, color: rgb(0.4, 0.4, 0.4) });
   return pdfDoc.save();
 }
 export interface ExecutionPackage {
