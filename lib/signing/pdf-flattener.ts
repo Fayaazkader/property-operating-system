@@ -19,10 +19,7 @@ export async function flattenSignatures(
   fields: SigningField[],
   pageRects: Array<{ page: number; width: number; height: number }>
 ): Promise<Uint8Array> {
-  const srcDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-  const pdfDoc = await PDFDocument.create();
-  const copiedPages = await pdfDoc.copyPages(srcDoc, srcDoc.getPageIndices());
-  copiedPages.forEach(p => pdfDoc.addPage(p));
+  const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
   const pages = pdfDoc.getPages();
 
   for (const field of fields) {
@@ -40,25 +37,25 @@ export async function flattenSignatures(
     const h = field.height * rect.height;
 
     try {
-      if (field.type === 'signature' || field.type === 'initial' || field.type === 'witness') {
-        const base64 = field.value.split(',')[1];
+      if (field.type === "signature" || field.type === "initial" || field.type === "witness") {
+        const base64 = field.value.split(",")[1];
         if (base64) {
           const imageBytes = base64ToBytes(base64);
-          const mimeType = field.value.split(';')[0].split(':')[1] || 'image/png';
-          const image = mimeType === 'image/jpeg' || mimeType === 'image/jpg'
+          const mimeType = field.value.split(";")[0].split(":")[1] || "image/png";
+          const image = mimeType === "image/jpeg" || mimeType === "image/jpg"
             ? await pdfDoc.embedJpg(imageBytes)
             : await pdfDoc.embedPng(imageBytes);
           page.drawImage(image, { x, y: finalY, width: w, height: h, opacity: 0.9 });
         }
-      } else if (field.type === 'date' || field.type === 'text') {
+      } else if (field.type === "date" || field.type === "text") {
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
         page.drawText(field.value, { x, y: finalY + h - 12, size: 10, font, color: rgb(0, 0, 0) });
-      } else if (field.type === 'checkbox') {
+      } else if (field.type === "checkbox") {
         const font = await pdfDoc.embedFont(StandardFonts.ZapfDingbats);
-        page.drawText('✓', { x, y: finalY, size: 14, font, color: rgb(0, 0, 0) });
+        page.drawText("\u2713", { x, y: finalY, size: 14, font, color: rgb(0, 0, 0) });
       }
     } catch (err) {
-      console.error("Embed failed for field", field.id, err);
+      console.error("Embed failed", field.id, err);
     }
   }
 
