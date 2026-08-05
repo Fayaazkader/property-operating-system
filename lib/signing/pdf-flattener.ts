@@ -19,7 +19,7 @@ export async function flattenSignatures(
   fields: SigningField[],
   pageRects: Array<{ page: number; width: number; height: number }>
 ): Promise<Uint8Array> {
-  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
   const pages = pdfDoc.getPages();
 
   for (const field of fields) {

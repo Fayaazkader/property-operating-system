@@ -224,7 +224,7 @@ export default function DocumentViewer({
                 style={{
                   position: 'absolute', left: px.x, top: px.y, width: px.width, height: px.height,
                   cursor: readOnly ? 'pointer' : 'move', zIndex: isSelected ? 50 : dragging === field.id ? 40 : 10,
-                  border: isSelected ? '2px solid rgba(255,255,255,0.8)' : field.value ? 'none' : '2px solid rgba(16,185,129,0.5)',
+                  border: isSelected ? '2px solid rgba(0,0,0,0.8)' : field.value ? 'none' : '2px solid rgba(16,185,129,0.5)',
                   borderRadius: '6px', background: isSelected ? 'rgba(255,255,255,0.1)' : field.value ? 'transparent' : 'rgba(16,185,129,0.15)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'border-color 0.15s, background 0.15s',

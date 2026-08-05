@@ -139,6 +139,10 @@ export default function LeaseExecutionPage() {
     setSelectedField({ ...selectedField, value: data });
     if (!selectedField || !activeRequest) return;
     setShowSignaturePad(false); setPendingSignature('');
+    if (selectedField.type === 'initial' && !selectedField.isReplica) {
+  setPendingReplicateField({ ...selectedField, value: data });
+  setShowReplicatePrompt(true);
+}
     // Already updated locally — skip refresh to prevent overwrite
     // refreshRequest().catch(() => {});
   }
@@ -165,7 +169,7 @@ export default function LeaseExecutionPage() {
       // Get real page dimensions from the PDF
       const response = await fetch(activeRequest.document_url);
       const pdfBytes = await response.arrayBuffer();
-      const pdfDoc = await PDFDocument.load(pdfBytes);
+      const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
       const pageRects = pdfDoc.getPages().map((page, i) => {
         const { width, height } = page.getSize();
         return { page: i + 1, width, height };
