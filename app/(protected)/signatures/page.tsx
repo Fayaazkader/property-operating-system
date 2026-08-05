@@ -199,6 +199,30 @@ export default function LeaseExecutionPage() {
     }
   }
 
+    async function handleDownloadExecuted() {
+    if (!activeRequest) return;
+    try {
+      const response = await fetch(activeRequest.document_url);
+      const pdfBytes = await response.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+      const pageRects = pdfDoc.getPages().map((page, i) => {
+        const { width, height } = page.getSize();
+        return { page: i + 1, width, height };
+      });
+      const { createExecutionPackage } = await import('@/lib/signing/pdf-flattener');
+      const { packageBytes } = await createExecutionPackage(
+        pdfBytes, activeRequest.fields || [], pageRects,
+        activeRequest.id, 'User', '', activeRequest.document_name
+      );
+      const blob = new Blob([packageBytes as BlobPart], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `executed-${activeRequest.document_name}`; a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed:', err);
+    }
+  }
   async function handleUploadDocument() {
     if (!uploadFile || !uploadName) return;
     const { data: { session } } = await supabase.auth.getSession();
@@ -247,7 +271,7 @@ export default function LeaseExecutionPage() {
               )}
               {activeRequest.status === 'completed' && (
                 <>
-                  <button onClick={() => window.open(activeRequest.document_url, '_blank')} className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white hover:border-white/20 flex items-center gap-1">
+                  <button onClick={handleDownloadExecuted} className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white hover:border-white/20 flex items-center gap-1">
                     <Download className="w-3 h-3" /> Download
                   </button>
                   <button className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.03] px-3 py-1.5 text-xs text-emerald-400 hover:border-emerald-500/30 flex items-center gap-1">
@@ -391,7 +415,31 @@ export default function LeaseExecutionPage() {
             <div className="rounded-xl border border-white/[0.06] overflow-hidden">
               <table className="w-full text-sm">
                 <thead><tr className="border-b border-white/[0.06] bg-white/[0.02]"><th className="text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">Document</th><th className="text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">Type</th><th className="text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">Status</th><th className="text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">Date</th></tr></thead>
-                <tbody>{requests.length === 0 ? (<tr><td colSpan={4} className="py-12 text-center text-sm text-zinc-500">No signature requests yet.</td></tr>) : requests.map(r => (<tr key={r.id} onClick={() => openRequest(r)} className="border-b border-white/[0.03] hover:bg-white/[0.01] cursor-pointer"><td className="py-2.5 px-4 text-white font-light text-xs">{r.document_name}</td><td className="py-2.5 px-4 text-zinc-400 text-xs">{r.request_type === 'lease' ? 'Lease' : 'Document'}</td><td className="py-2.5 px-4"><span className={`text-[10px] px-2 py-0.5 rounded-full ${r.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : r.status === 'sent' ? 'bg-amber-500/10 text-amber-400' : 'bg-zinc-800 text-zinc-500'}`}>{r.status}</span></td><td className="py-2.5 px-4 text-zinc-500 text-xs">{r.created_at?.split('T')[0]}</td></tr>))}</tbody></table>
+                <tbody>{requests.length === 0 ? (<tr><td colSpan={4} className="py-12 text-center text-sm text-zinc-500">No signature requests yet.</td></tr>) : requests.map(r => (<tr key={r.id} onClick={() => openRequest(r)} className="border-b border-white/[0.03] hover:bg-white/[0.01] cursor-pointer"><td className="py-2.5 px-4 text-white font-light text-xs">{r.document_name}</td><td className="py-2.5 px-4 text-zinc-400 text-xs">{r.request_type === 'lease' ? 'Lease' : 'Document'}</td><td className="py-2.5 px-4"><span className={`text-[10px] px-2 py-0.5 rounded-full ${r.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : r.status === 'sent' ? 'bg-amber-500/10 text-amber-400' : 'bg-zinc-800 text-zinc-500'}`}>{r.status}</span></td><td className="py-2.5 px-4 text-zinc-500 text-xs">{r.created_at?.split('T')[0]}</td><td className="py-2.5 px-4" onClick={(e) => e.stopPropagation()}>
+  <div className="flex items-center gap-1">
+    {r.status === 'completed' && (
+      <button onClick={async () => {
+        // Quick download from list
+        const resp = await fetch(r.document_url);
+        const bytes = await resp.arrayBuffer();
+        const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+        const rects = doc.getPages().map((p, i) => {
+          const { width, height } = p.getSize();
+          return { page: i + 1, width, height };
+        });
+        const { createExecutionPackage } = await import('@/lib/signing/pdf-flattener');
+        const pkg = await createExecutionPackage(bytes, r.fields || [], rects, r.id, '', '', r.document_name);
+        const blob = new Blob([pkg.packageBytes as BlobPart], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `executed-${r.document_name}`; a.click();
+        URL.revokeObjectURL(url);
+      }} className="rounded border border-white/[0.08] px-2 py-1 text-[10px] text-zinc-400 hover:text-white">
+        <Download className="w-3 h-3" />
+      </button>
+    )}
+  </div>
+</td></tr>))}</tbody></table>
             </div>
           </div>
         </div>
