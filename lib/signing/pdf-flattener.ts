@@ -28,7 +28,7 @@ export async function flattenSignatures(
     if (pageIndex < 0 || pageIndex >= pages.length) continue;
     const page = pages[pageIndex];
     const rect = pageRects.find(r => r.page === field.page);
-    if (!rect) continue;
+    if (!rect) { console.warn("No rect for field page", field.page, "available:", pageRects.map(r => r.page)); continue; }
 
     const x = field.x * rect.width;
     const y = rect.height * (1 - field.y) - (field.height * rect.height);
@@ -45,6 +45,7 @@ export async function flattenSignatures(
           const image = mimeType === "image/jpeg" || mimeType === "image/jpg"
             ? await pdfDoc.embedJpg(imageBytes)
             : await pdfDoc.embedPng(imageBytes);
+          if (isNaN(x) || isNaN(finalY)) { console.warn("Skipping field with NaN coords"); continue; }
           page.drawImage(image, { x, y: finalY, width: w, height: h, opacity: 0.9 });
         }
       } else if (field.type === "date" || field.type === "text") {
