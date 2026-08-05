@@ -7,7 +7,7 @@ import { signingEngine } from '@/lib/signing/engine';
 import DocumentViewer from '@/app/components/signing/DocumentViewer';
 import SignaturePad from '@/app/components/signing/SignaturePad';
 import type { SigningField } from '@/lib/signing/types';
-import { Lock, Upload, PenLine, Type, Calendar, CheckSquare, Users, X, Copy, ArrowLeft, Trash2, Layers } from 'lucide-react';
+import { Lock, Upload, PenLine, Type, Calendar, CheckSquare, Users, X, Copy, ArrowLeft, Trash2, Layers, Download, Send } from 'lucide-react';
 import Link from 'next/link';
 import { PDFDocument } from 'pdf-lib';
 
@@ -238,11 +238,23 @@ export default function LeaseExecutionPage() {
         <div className="flex items-center gap-2">
           {hasProAccess && !activeRequest && (<button onClick={() => setShowUpload(true)} className="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-zinc-200"><Upload className="w-3 h-3" /> New Document</button>)}
           {!hasProAccess && !activeRequest && (<Link href="/signatures/pro" className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.03] px-3 py-1.5 text-xs text-amber-400 hover:border-amber-500/30"><Lock className="w-3 h-3" /> Document Signing Pro</Link>)}
-          {activeRequest && (
+                    {activeRequest && (
             <div className="flex items-center gap-3">
               <span className={`text-xs px-2 py-0.5 rounded-full ${activeRequest.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>{activeRequest.status}</span>
               <span className="text-xs text-zinc-500">{activeRequest.document_name}</span>
-              {allFieldsSigned && activeRequest.status !== 'completed' && (<button onClick={handleComplete} className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-zinc-200">Complete Execution</button>)}
+              {allFieldsSigned && activeRequest.status !== 'completed' && (
+                <button onClick={handleComplete} className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-zinc-200">Complete Execution</button>
+              )}
+              {activeRequest.status === 'completed' && (
+                <>
+                  <button onClick={() => window.open(activeRequest.document_url, '_blank')} className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white hover:border-white/20 flex items-center gap-1">
+                    <Download className="w-3 h-3" /> Download
+                  </button>
+                  <button className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.03] px-3 py-1.5 text-xs text-emerald-400 hover:border-emerald-500/30 flex items-center gap-1">
+                    <Send className="w-3 h-3" /> Share
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
