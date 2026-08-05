@@ -157,6 +157,7 @@ export async function createExecutionPackage(
   const certificateId = crypto.randomUUID();
 
   // 1. Flatten signatures onto the executed document
+  console.log('Flattening fields:., fields.length, .pageRects:', pageRects);
   const signedPdf = await flattenSignatures(originalPdfBytes, fields, pageRects);
 
   // 2. Hash the executed document only (not the certificate page)
