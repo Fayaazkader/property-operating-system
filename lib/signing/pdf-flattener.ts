@@ -22,6 +22,7 @@ export async function flattenSignatures(
   const srcDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
   const pdfDoc = await PDFDocument.create();
   const copiedPages = await pdfDoc.copyPages(srcDoc, srcDoc.getPageIndices());
+  const pages = pdfDoc.getPages();
   copiedPages.forEach(p => pdfDoc.addPage(p));
   const pages = pdfDoc.getPages();
 
