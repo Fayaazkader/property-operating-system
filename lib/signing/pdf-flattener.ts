@@ -42,6 +42,7 @@ export async function flattenSignatures(
         if (base64) {
           const imageBytes = base64ToBytes(base64);
           const mimeType = field.value.split(";")[0].split(":")[1] || "image/png";
+          console.log("Image bytes length:", imageBytes.length, "mime:", mimeType);
           const image = mimeType === "image/jpeg" || mimeType === "image/jpg"
             ? await pdfDoc.embedJpg(imageBytes)
             : await pdfDoc.embedPng(imageBytes);
