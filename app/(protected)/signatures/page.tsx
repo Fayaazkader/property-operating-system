@@ -154,8 +154,8 @@ export default function LeaseExecutionPage() {
     let pages: number[] = [pendingReplicateField.page];
     if (action === 'all') pages = Array.from({ length: totalPages }, (_, i) => i + 1);
     else if (action === 'odd') pages = Array.from({ length: totalPages }, (_, i) => i + 1).filter(p => p % 2 === 1);
-    console.log("Replicating initial to pages:", pages, "replicas created:", replicas.length, "template value exists:", !!pendingReplicateField.value);
     const replicas = replicateInitials(pendingReplicateField, totalPages, pages);
+    console.log("Replicas:", replicas.length, "value:", !!pendingReplicateField.value);
     console.log("Replicating initial to pages:", pages, "replicas created:", replicas.length, "template value exists:", !!pendingReplicateField.value);
     const updatedFields = [...(activeRequest.fields || []), ...replicas].map((f: any) => f.id === pendingReplicateField!.id ? { ...f, replicatePages: pages } : f);
     await supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
