@@ -347,7 +347,6 @@ export default function LeaseExecutionPage() {
                 sublabel: duplicateFieldId ? 'Duplicating — click to place copies' : 'Click anywhere to place · ESC to cancel'
               } : null}
               onPageClick={({ x, y, page, normalizedWidth, normalizedHeight }) => {
-                const safeY = Math.min(y, 1 - normalizedHeight - 0.01);
                 if (!activeRequest || !activeTool) return;
                 const sourceField = duplicateFieldId 
                   ? (activeRequest.fields || []).find((f: any) => f.id === duplicateFieldId)
@@ -357,7 +356,7 @@ export default function LeaseExecutionPage() {
                   : { 
                       id: crypto.randomUUID(), 
                       type: activeTool as any, 
-                      page, x, safeY, 
+                      page, x, y, 
                       width: normalizedWidth || 0.1, 
                       height: normalizedHeight || 0.05, 
                                             signerRole: activeTool === 'witness' ? 'witness' : signerRole,
