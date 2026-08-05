@@ -105,7 +105,7 @@ export default function DocumentViewer({
       setResizeStart({ x: px, y: py, w: pw, h: ph, mx, my });
     } else {
       didDragRef.current = false; setDragging(field.id);
-      setDragOffset({ x: mx - px, y: my - py });
+      setDragOffset({ x: mx - px, y: my - (py || 0) });
     }
   }
 
@@ -128,7 +128,7 @@ export default function DocumentViewer({
       didDragRef.current = true;
         if (dragging) {
         const px = mx - dragOffset.x;
-        const py = my - dragOffset.y;
+        const py = my - (dragOffset.y || 0);
         // Convert back to normalized
         if (pageDims) {
           onFieldMove(dragging, Math.round(px / pageDims.width * 10000) / 10000, Math.round(py / pageDims.height * 10000) / 10000);
