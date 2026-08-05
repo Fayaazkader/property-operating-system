@@ -51,6 +51,7 @@ export default function DocumentViewer({
 
   // Emit normalized coordinates — viewer converts to storage units
   function handlePageClick(e: React.MouseEvent) {
+    if (!pageDims) return;
     if (readOnly || dragging || resizing || !showCrosshair) return;
     if (didDragRef.current) { didDragRef.current = false; return; }
     if (isProcessingRef.current) return;

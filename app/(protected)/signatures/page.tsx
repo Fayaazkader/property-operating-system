@@ -98,6 +98,7 @@ export default function LeaseExecutionPage() {
   }
 
   async function handleFieldMove(fieldId: string, x: number, y: number) {
+    console.log("handleFieldMove", fieldId, "x:", x, "y:", y);
     if (!activeRequest) return;
     const updatedFields = (activeRequest.fields || []).map((f: any) => f.id === fieldId ? { ...f, x, y } : f);
     setActiveRequest({ ...activeRequest, fields: updatedFields });
