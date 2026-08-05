@@ -1,0 +1,17 @@
+[1mdiff --git a/app/components/signing/DocumentViewer.tsx b/app/components/signing/DocumentViewer.tsx[m
+[1mindex bbf330d..927a20b 100644[m
+[1m--- a/app/components/signing/DocumentViewer.tsx[m
+[1m+++ b/app/components/signing/DocumentViewer.tsx[m
+[36m@@ -68,8 +68,10 @@[m [mexport default function DocumentViewer({[m
+     const normH = 50 / pageDims.height;[m
+ [m
+     onPageClick({[m
+[31m-      x: Math.round(normX * 10000) / 10000,[m
+[31m-      y: Math.round(normY * 10000) / 10000,[m
+[32m+[m[32m      x: Math.max(0, Math.min(1, Math.round(normX * 10000) / 10000)),[m
+[32m+[m[32m      y: Math.max(0, Math.min(1, Math.round(normY * 10000) / 10000)),[m
+[32m+[m[41m      [m
+[32m+[m[41m      [m
+       page: currentPage,[m
+       normalizedWidth: Math.round(normW * 10000) / 10000,[m
+       normalizedHeight: Math.round(normH * 10000) / 10000,[m
