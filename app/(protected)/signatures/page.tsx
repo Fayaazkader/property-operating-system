@@ -354,7 +354,7 @@ export default function LeaseExecutionPage() {
                   : { 
                       id: crypto.randomUUID(), 
                       type: activeTool as any, 
-                      page, x, y, 
+                      page, y, 
                       width: normalizedWidth, 
                       height: normalizedHeight, 
                                             signerRole: activeTool === 'witness' ? 'witness' : signerRole,

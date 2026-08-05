@@ -171,8 +171,8 @@ export async function createExecutionPackage(
   const certPdf = await generateCertificatePage(requestId, signerName, signerEmail, fields, documentName, pdfHash, certificateId);
 
   // 4. Merge executed PDF + certificate page (single merge, hash stays valid)
-  const signedDoc = await PDFDocument.load(signedPdf, { ignoreEncryption: true });
-  const certDoc = await PDFDocument.load(certPdf, { ignoreEncryption: true });
+  const signedDoc = await PDFDocument.load(signedPdf);
+  const certDoc = await PDFDocument.load(certPdf);
   const mergedDoc = await PDFDocument.create();
   const signedPages = await mergedDoc.copyPages(signedDoc, signedDoc.getPageIndices());
   signedPages.forEach(p => mergedDoc.addPage(p));
