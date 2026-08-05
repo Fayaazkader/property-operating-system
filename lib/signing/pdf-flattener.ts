@@ -32,7 +32,8 @@ export async function flattenSignatures(
     if (!rect) { console.warn("No rect for field page", field.page, "available:", pageRects.map(r => r.page)); continue; }
 
     const x = field.x * rect.width;
-    const y = rect.height * (1 - field.y) - (field.height * rect.height);
+    const clampedY = Math.min(field.y, 1 - field.height);
+    const y = rect.height * (1 - clampedY) - (field.height * rect.height);
     const finalY = Math.max(0, y);
     const w = field.width * rect.width;
     const h = field.height * rect.height;
