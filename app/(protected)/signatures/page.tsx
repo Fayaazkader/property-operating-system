@@ -93,6 +93,7 @@ export default function LeaseExecutionPage() {
     const updatedFields = [...(activeRequest.fields || []), newField];
     setActiveRequest({ ...activeRequest, fields: updatedFields });
     await supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
+    setActiveRequest({ ...activeRequest, fields: updatedFields });
     setSelectedField(newField);
     if (!duplicateFieldId) { setActiveTool(null); setViewMode('select'); }
   }
@@ -121,6 +122,7 @@ export default function LeaseExecutionPage() {
     setActiveRequest({ ...activeRequest, fields: updatedFields });
     setSelectedField(null);
     await supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
+    setActiveRequest({ ...activeRequest, fields: updatedFields });
   }
 
   function duplicateField(field: SigningField) {
@@ -159,6 +161,7 @@ export default function LeaseExecutionPage() {
     console.log("Replicating initial to pages:", pages, "replicas created:", replicas.length, "template value exists:", !!pendingReplicateField.value);
     const updatedFields = [...(activeRequest.fields || []), ...replicas].map((f: any) => f.id === pendingReplicateField!.id ? { ...f, replicatePages: pages } : f);
     await supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
+    setActiveRequest({ ...activeRequest, fields: updatedFields });
     setShowReplicatePrompt(false); setPendingReplicateField(null);
     // Already updated locally — skip refresh to prevent overwrite
     // refreshRequest().catch(() => {});
@@ -397,6 +400,7 @@ export default function LeaseExecutionPage() {
                       setActiveRequest({ ...activeRequest, fields: updatedFields });
                       setSelectedField({ ...selectedField, signerRole: role });
                       await supabase.from('signature_requests').update({ fields: updatedFields }).eq('id', activeRequest.id);
+    setActiveRequest({ ...activeRequest, fields: updatedFields });
                     }} className={`w-full text-left px-2 py-1 rounded text-xs capitalize ${selectedField.signerRole === role ? 'text-white bg-white/[0.06]' : 'text-zinc-500 hover:text-white'}`}>{role}</button>
                   ))}
                 </div>
