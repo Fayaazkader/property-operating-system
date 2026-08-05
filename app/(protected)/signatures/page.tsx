@@ -356,8 +356,8 @@ export default function LeaseExecutionPage() {
                       id: crypto.randomUUID(), 
                       type: activeTool as any, 
                       page, x, safeY, 
-                      width: normalizedWidth, 
-                      height: normalizedHeight, 
+                      width: normalizedWidth || 0.1, 
+                      height: normalizedHeight || 0.05, 
                                             signerRole: activeTool === 'witness' ? 'witness' : signerRole,
                       value: activeTool === 'date' ? new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : undefined,
                     };
