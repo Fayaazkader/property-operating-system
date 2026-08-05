@@ -64,6 +64,7 @@ if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
         page.drawText('✓', { x, y, size: 14, font, color: rgb(0, 0, 0) });
       }
     } catch (err) {
+      console.error("Embed failed for field", field.id, err);
       console.warn(`Failed to embed field ${field.id}:`, err);
     }
   }
