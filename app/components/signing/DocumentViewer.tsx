@@ -210,8 +210,6 @@ export default function DocumentViewer({
           </Document>
           
           {pageFields.map(field => {
-            // Convert normalized storage coords to pixel coords for rendering
-            const px = pageDims ? {
             const px = pageDims ? {
               x: (field.x || 0) * pageDims.width,
               y: (field.y || 0) * pageDims.height,
