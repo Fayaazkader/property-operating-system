@@ -68,8 +68,10 @@ export default function DocumentViewer({
     const normH = 50 / pageDims.height;
 
     onPageClick({
-      x: Math.round(normX * 10000) / 10000,
-      y: Math.round(normY * 10000) / 10000,
+      x: Math.max(0, Math.min(1, Math.round(normX * 10000) / 10000)),
+      y: Math.max(0, Math.min(1, Math.round(normY * 10000) / 10000)),
+      
+      
       page: currentPage,
       normalizedWidth: Math.round(normW * 10000) / 10000,
       normalizedHeight: Math.round(normH * 10000) / 10000,
