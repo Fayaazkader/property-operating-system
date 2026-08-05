@@ -36,37 +36,29 @@ export async function flattenSignatures(
     const x = field.x * rect.width;
     const y = rect.height * (1 - field.y) - (field.height * rect.height);
     const finalY = Math.max(0, y);
-    if (y < 0) y = rect.height - (field.y * rect.height);
-    const finalY = Math.max(0, y);
     const w = field.width * rect.width;
     const h = field.height * rect.height;
 
     try {
       if (field.type === 'signature' || field.type === 'initial' || field.type === 'witness') {
         const base64 = field.value.split(',')[1];
-        console.log("Position: x=" + x + " y=" + y + " w=" + w + " h=" + h + " rectW=" + rect.width + " rectH=" + rect.height);
-        console.log("Embedding field " + field.type + " hasValue " + !!field.value + " page " + field.page);
         if (base64) {
           const imageBytes = base64ToBytes(base64);
           const mimeType = field.value.split(';')[0].split(':')[1] || 'image/png';
-let image;
-if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
-  image = await pdfDoc.embedJpg(imageBytes);
-} else {
-  image = await pdfDoc.embedPng(imageBytes);
-}
+          const image = mimeType === 'image/jpeg' || mimeType === 'image/jpg'
+            ? await pdfDoc.embedJpg(imageBytes)
+            : await pdfDoc.embedPng(imageBytes);
           page.drawImage(image, { x, y: finalY, width: w, height: h, opacity: 0.9 });
         }
       } else if (field.type === 'date' || field.type === 'text') {
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-        page.drawText(field.value, { x, y: y + h - 12, size: 10, font, color: rgb(0, 0, 0) });
+        page.drawText(field.value, { x, y: finalY + h - 12, size: 10, font, color: rgb(0, 0, 0) });
       } else if (field.type === 'checkbox') {
         const font = await pdfDoc.embedFont(StandardFonts.ZapfDingbats);
-        page.drawText('✓', { x, y, size: 14, font, color: rgb(0, 0, 0) });
+        page.drawText('✓', { x, y: finalY, size: 14, font, color: rgb(0, 0, 0) });
       }
     } catch (err) {
       console.error("Embed failed for field", field.id, err);
-      console.warn(`Failed to embed field ${field.id}:`, err);
     }
   }
 
