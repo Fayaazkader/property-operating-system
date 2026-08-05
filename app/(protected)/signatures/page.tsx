@@ -321,7 +321,8 @@ export default function LeaseExecutionPage() {
                       page, x, y, 
                       width: normalizedWidth, 
                       height: normalizedHeight, 
-                      signerRole: activeTool === 'witness' ? 'witness' : signerRole 
+                                            signerRole: activeTool === 'witness' ? 'witness' : signerRole,
+                      value: activeTool === 'date' ? new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : undefined,
                     };
                 handleFieldAdd(newField);
               }}
