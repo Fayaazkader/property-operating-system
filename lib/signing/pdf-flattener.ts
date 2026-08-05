@@ -38,6 +38,7 @@ export async function flattenSignatures(
     try {
       if (field.type === 'signature' || field.type === 'initial' || field.type === 'witness') {
         const base64 = field.value.split(',')[1];
+        console.log("Embedding field " + field.type + " hasValue " + !!field.value + " page " + field.page);
         if (base64) {
           const imageBytes = base64ToBytes(base64);
           const mimeType = field.value.split(';')[0].split(':')[1] || 'image/png';
@@ -156,8 +157,8 @@ export async function createExecutionPackage(
 ): Promise<ExecutionPackage> {
   const certificateId = crypto.randomUUID();
 
+  console.log("Flattening " + fields.length + " fields with " + pageRects.length + " pageRects");
   // 1. Flatten signatures onto the executed document
-  console.log('Flattening fields:., fields.length, .pageRects:', pageRects);
   const signedPdf = await flattenSignatures(originalPdfBytes, fields, pageRects);
 
   // 2. Hash the executed document only (not the certificate page)
