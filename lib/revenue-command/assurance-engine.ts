@@ -24,6 +24,8 @@ export class RevenueAssuranceEngine {
     const complianceScore = 80; // Placeholder
 
     // Weighted composite
+    const recoverability = dna ? Math.round(((dna.promise_keeping_rate || 0.5) * 40 + (dna.deposit_usage_count ? 60 - dna.deposit_usage_count * 20 : 50)) * 10) / 10 : 50;
+
     const overallScore = Math.round(
       (paymentReliability * 0.35) +
       (behaviourStability * 0.20) +
@@ -109,7 +111,6 @@ export class RevenueAssuranceEngine {
     };
 
     await supabase.from('revenue_digital_twins').upsert({
-      lease_id: leaseId,
       entity_id: entityId,
       ...twin,
       updated_at: new Date().toISOString(),

@@ -3,11 +3,11 @@
 
 import { supabase } from '@/lib/supabase';
 import { publish } from '@/lib/platform/events/event-bus';
-import type { TenantRevenueDNA } from './types';
+import type { TenantRevenueProfile } from './types';
 
 export class RevenueIntelligenceEngine {
   
-  async buildProfile(tenantId: string, entityId: string): Promise<TenantRevenueDNA> {
+  async buildProfile(tenantId: string, entityId: string): Promise<TenantRevenueProfile> {
     // Gather all behavioral data
     const [payments, communications, disputes, maintenance, leaseData] = await Promise.all([
       this.getPaymentHistory(tenantId),
@@ -17,7 +17,7 @@ export class RevenueIntelligenceEngine {
       this.getLeaseInfo(tenantId),
     ]);
 
-    const dna: TenantRevenueDNA = {
+    const dna: TenantRevenueProfile = {
       tenant_id: tenantId,
       entity_id: entityId,
       
@@ -172,13 +172,13 @@ export class RevenueIntelligenceEngine {
     return data || [];
   }
 
-  async getDNA(tenantId: string): Promise<TenantRevenueDNA | null> {
+  async getDNA(tenantId: string): Promise<TenantRevenueProfile | null> {
     const { data } = await supabase
       .from('tenant_revenue_profile')
       .select('*')
       .eq('tenant_id', tenantId)
       .single();
-    return data as TenantRevenueDNA | null;
+    return data as TenantRevenueProfile | null;
   }
 
   // --- Calculation helpers ---
@@ -236,8 +236,8 @@ export class RevenueIntelligenceEngine {
     return 'stable';
   }
 
-  private calculatePromiseKeepingRate(payments: any[]): number {
-    const { data } = supabase
+  private async calculatePromiseKeepingRate(payments: any[]): number {
+    const { data } = await supabase
       .from('payment_commitments')
       .select('*')
       .eq('tenant_id', payments[0]?.tenant_id);
