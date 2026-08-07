@@ -26,12 +26,20 @@ export interface TenantRevenueProfile {
 export interface RevenueAssuranceScore {
   lease_id: string;
   overall_score: number;
+  current_risk: number;
+  future_risk: number;
+  recoverability: number;
   payment_reliability: number;
   behaviour_stability: number;
   communication_score: number;
   financial_health: number;
   compliance_score: number;
   confidence_level: number;
+  trend: string;
+  explanation: Record<string, any>;
+  recommended_action?: string;
+  action_urgency?: string;
+}
   trend: string;
   explanation: Record<string, any>;
   recommended_action?: string;

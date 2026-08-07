@@ -9,22 +9,26 @@ import type { RevenueAssuranceScore, RevenueDigitalTwin } from './types';
 export class RevenueAssuranceEngine {
 
   async scoreLease(leaseId: string, entityId: string): Promise<RevenueAssuranceScore> {
-    const { data: lease } = await supabase.from('leases').select('*, tenant:tenant_id(*)').eq('id', leaseId).single();
+    const { data: lease } = await supabase
+      .from('leases')
+      .select('*, tenant:tenant_id(*)')
+      .eq('id', leaseId)
+      .single();
+    
     if (!lease) throw new Error('Lease not found');
 
     const tenantId = lease.tenant_id;
     const dna = await revenueSignalsEngine.getDNA(tenantId);
     const anomalies = await revenueSignalsEngine.detectBehaviorAnomalies(tenantId);
 
-    // Component scores
     const paymentReliability = dna ? (dna.collection_confidence || 0.5) * 100 : 50;
     const behaviourStability = dna ? this.calculateBehaviourStability(dna, anomalies) : 50;
     const communicationScore = dna ? (dna.contact_reliability || 0.5) * 100 : 50;
     const financialHealth = dna ? this.calculateFinancialHealth(dna) : 50;
-    const complianceScore = 80; // Placeholder
-
-    // Weighted composite
-    const recoverability = dna ? Math.round(((dna.promise_keeping_rate || 0.5) * 40 + (dna.deposit_usage_count ? 60 - dna.deposit_usage_count * 20 : 50)) * 10) / 10 : 50;
+    const complianceScore = 80;
+    const recoverability = dna 
+      ? Math.round(((dna.promise_keeping_rate || 0.5) * 40 + (dna.deposit_usage_count ? 60 - dna.deposit_usage_count * 20 : 50)) * 10) / 10 
+      : 50;
 
     const overallScore = Math.round(
       (paymentReliability * 0.35) +
@@ -34,11 +38,10 @@ export class RevenueAssuranceEngine {
       (complianceScore * 0.10)
     );
 
-    // Build explanation
     const explanation: Record<string, any> = {
       payment_reliability: {
         score: paymentReliability,
-        factors: dna ? [`Average payment day: ${dna.avg_payment_day || 'N/A'}`, `Collection confidence: ${Math.round((dna.collection_confidence || 0) * 100)}%`] : [],
+        factors: dna ? [`Avg payment day: ${dna.avg_payment_day || 'N/A'}`] : [],
       },
       behaviour_stability: {
         score: behaviourStability,
@@ -46,25 +49,36 @@ export class RevenueAssuranceEngine {
       },
       communication: {
         score: communicationScore,
-        factors: dna ? [`Preferred channel: ${dna.preferred_channel}`, `Reminder effectiveness: ${Math.round((dna.reminder_effectiveness || 0) * 100)}%`] : [],
+        factors: dna ? [`Preferred: ${dna.preferred_channel}`] : [],
       },
       financial_health: {
         score: financialHealth,
-        factors: dna ? [`Disputes raised: ${dna.disputes_raised || 0}`, `Promise keeping: ${Math.round((dna.promise_keeping_rate || 0) * 100)}%`] : [],
+        factors: dna ? [`Disputes: ${dna.disputes_raised || 0}`] : [],
       },
     };
 
-    // Determine action
     let recommendedAction = 'None';
     let actionUrgency = 'none';
-    if (overallScore < 30) { recommendedAction = 'Call tenant immediately'; actionUrgency = 'critical'; }
-    else if (overallScore < 50) { recommendedAction = 'Send WhatsApp reminder and follow up'; actionUrgency = 'high'; }
-    else if (overallScore < 70) { recommendedAction = 'Monitor closely'; actionUrgency = 'medium'; }
-    else if (overallScore < 90) { recommendedAction = 'Standard billing'; actionUrgency = 'low'; }
+    if (overallScore < 30) {
+      recommendedAction = 'Call tenant immediately';
+      actionUrgency = 'critical';
+    } else if (overallScore < 50) {
+      recommendedAction = 'Send WhatsApp reminder';
+      actionUrgency = 'high';
+    } else if (overallScore < 70) {
+      recommendedAction = 'Monitor closely';
+      actionUrgency = 'medium';
+    } else if (overallScore < 90) {
+      recommendedAction = 'Standard billing';
+      actionUrgency = 'low';
+    }
 
     const score: RevenueAssuranceScore = {
       lease_id: leaseId,
       overall_score: overallScore,
+      current_risk: 100 - overallScore,
+      future_risk: 0,
+      recoverability,
       payment_reliability: paymentReliability,
       behaviour_stability: behaviourStability,
       communication_score: communicationScore,
@@ -77,7 +91,6 @@ export class RevenueAssuranceEngine {
       action_urgency: actionUrgency,
     };
 
-    // Persist
     await supabase.from('revenue_assurance_scores').insert({
       entity_id: entityId,
       ...score,
@@ -128,13 +141,14 @@ export class RevenueAssuranceEngine {
 
     if (!leases?.length) return;
 
-    let expectedToday = 0, collectedToday = 0, atRisk = 0;
+    let expectedToday = 0;
+    let atRisk = 0;
     const priorities: any[] = [];
 
     for (const lease of leases) {
       const score = await this.scoreLease(lease.id, entityId);
       expectedToday += lease.monthly_rental || 0;
-      
+
       if (score.overall_score < 50) {
         atRisk += lease.monthly_rental || 0;
         priorities.push({
@@ -146,17 +160,16 @@ export class RevenueAssuranceEngine {
       }
     }
 
-    const stillExpected = expectedToday - collectedToday;
-    const collectionConfidence = expectedToday > 0 
-      ? Math.round(((expectedToday - atRisk) / expectedToday) * 100) / 100 
+    const collectionConfidence = expectedToday > 0
+      ? Math.round(((expectedToday - atRisk) / expectedToday) * 100) / 100
       : 1;
 
     await supabase.from('revenue_outlooks').upsert({
       entity_id: entityId,
       snapshot_date: new Date().toISOString().split('T')[0],
       expected_today: expectedToday,
-      collected_today: collectedToday,
-      still_expected: stillExpected,
+      collected_today: 0,
+      still_expected: expectedToday,
       at_risk: atRisk,
       collection_confidence: collectionConfidence,
       top_priorities: priorities.slice(0, 5),
@@ -170,7 +183,53 @@ export class RevenueAssuranceEngine {
     });
   }
 
-  // --- Private helpers ---
+  async calculateRevenueProtected(
+    entityId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<{
+    total_due: number;
+    collected: number;
+    protected_amount: number;
+    lost: number;
+    actions_taken: number;
+  }> {
+    const { data: leases } = await supabase
+      .from('leases')
+      .select('id, monthly_rental')
+      .eq('owner_entity_id', entityId)
+      .eq('lease_status', 'Active');
+
+    let totalDue = 0;
+    let protectedAmount = 0;
+    let actionsTaken = 0;
+
+    for (const lease of (leases || [])) {
+      totalDue += lease.monthly_rental || 0;
+
+      const { count } = await supabase
+        .from('communications')
+        .select('*', { count: 'exact', head: true })
+        .eq('entity_id', entityId)
+        .gte('created_at', startDate)
+        .lte('created_at', endDate);
+
+      actionsTaken += count || 0;
+
+      const score = await this.scoreLease(lease.id, entityId);
+      if (score.overall_score >= 50) {
+        protectedAmount += lease.monthly_rental || 0;
+      }
+    }
+
+    return {
+      total_due: totalDue,
+      collected: 0,
+      protected_amount: protectedAmount,
+      lost: Math.max(0, totalDue - protectedAmount),
+      actions_taken: actionsTaken,
+    };
+  }
 
   private calculateBehaviourStability(dna: any, anomalies: string[]): number {
     let score = 80;
@@ -204,63 +263,4 @@ export class RevenueAssuranceEngine {
   }
 }
 
-
-  async calculateRevenueProtected(entityId: string, startDate: string, endDate: string): Promise<{
-    total_due: number;
-    collected: number;
-    protected_amount: number;
-    lost: number;
-    actions_taken: number;
-  }> {
-    const { data: leases } = await supabase
-      .from("leases")
-      .select("id, monthly_rental")
-      .eq("owner_entity_id", entityId)
-      .eq("lease_status", "Active");
-    let totalDue = 0, collected = 0, protectedAmount = 0, actionsTaken = 0;
-    for (const lease of (leases || [])) {
-      totalDue += lease.monthly_rental || 0;
-      const { count } = await supabase
-        .from("communications")
-        .select("*", { count: "exact", head: true })
-        .eq("entity_id", entityId)
-        .gte("created_at", startDate)
-        .lte("created_at", endDate);
-      actionsTaken += count || 0;
-      const score = await this.scoreLease(lease.id, entityId);
-      if (score.overall_score >= 50) protectedAmount += lease.monthly_rental || 0;
-    }
-    return { total_due: totalDue, collected, protected_amount: protectedAmount, lost: Math.max(0, totalDue - protectedAmount), actions_taken: actionsTaken };
-  }
-
-  async calculateRevenueProtected(entityId: string, startDate: string, endDate: string): Promise<{
-    total_due: number;
-    collected: number;
-    protected_amount: number;
-    lost: number;
-    actions_taken: number;
-  }> {
-    const { data: leases } = await supabase
-      .from("leases")
-      .select("id, monthly_rental")
-      .eq("owner_entity_id", entityId)
-      .eq("lease_status", "Active");
-
-    let totalDue = 0, collected = 0, protectedAmount = 0, actionsTaken = 0;
-
-    for (const lease of (leases || [])) {
-      totalDue += lease.monthly_rental || 0;
-      const { count } = await supabase
-        .from("communications")
-        .select("*", { count: "exact", head: true })
-        .eq("entity_id", entityId)
-        .gte("created_at", startDate)
-        .lte("created_at", endDate);
-      actionsTaken += count || 0;
-      const score = await this.scoreLease(lease.id, entityId);
-      if (score.overall_score >= 50) protectedAmount += lease.monthly_rental || 0;
-    }
-
-    return { total_due: totalDue, collected, protected_amount: protectedAmount, lost: Math.max(0, totalDue - protectedAmount), actions_taken: actionsTaken };
-  }
 export const revenueAssuranceEngine = new RevenueAssuranceEngine();
