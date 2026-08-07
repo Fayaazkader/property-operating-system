@@ -77,7 +77,6 @@ export class RevenueAssuranceEngine {
 
     // Persist
     await supabase.from('revenue_assurance_scores').insert({
-      lease_id: leaseId,
       entity_id: entityId,
       ...score,
       explanation: JSON.stringify(explanation),
