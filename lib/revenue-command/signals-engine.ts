@@ -310,4 +310,4 @@ export class RevenueIntelligenceEngine {
   }
 }
 
-export const revenueIntelligenceEngine = new RevenueIntelligenceEngine();
+export const revenueSignalsEngine = new RevenueIntelligenceEngine();

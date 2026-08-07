@@ -3,7 +3,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { publish } from '@/lib/platform/events/event-bus';
-import { revenueIntelligenceEngine } from './intelligence-engine';
+import { revenueSignalsEngine } from './signals-engine';
 import type { RevenueAssuranceScore, RevenueDigitalTwin } from './types';
 
 export class RevenueAssuranceEngine {
@@ -13,8 +13,8 @@ export class RevenueAssuranceEngine {
     if (!lease) throw new Error('Lease not found');
 
     const tenantId = lease.tenant_id;
-    const dna = await revenueIntelligenceEngine.getDNA(tenantId);
-    const anomalies = await revenueIntelligenceEngine.detectBehaviorAnomalies(tenantId);
+    const dna = await revenueSignalsEngine.getDNA(tenantId);
+    const anomalies = await revenueSignalsEngine.detectBehaviorAnomalies(tenantId);
 
     // Component scores
     const paymentReliability = dna ? (dna.collection_confidence || 0.5) * 100 : 50;
