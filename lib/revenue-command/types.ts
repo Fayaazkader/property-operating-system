@@ -40,11 +40,6 @@ export interface RevenueAssuranceScore {
   recommended_action?: string;
   action_urgency?: string;
 }
-  trend: string;
-  explanation: Record<string, any>;
-  recommended_action?: string;
-  action_urgency?: string;
-}
 
 export interface RevenueDigitalTwin {
   lease_id: string;

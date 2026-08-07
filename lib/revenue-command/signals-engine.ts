@@ -27,7 +27,7 @@ export class RevenueIntelligenceEngine {
       collection_confidence: this.calculateCollectionConfidence(payments),
       seasonal_pattern: this.detectSeasonality(payments),
       payment_trend: this.detectPaymentTrend(payments),
-      promise_keeping_rate: this.calculatePromiseKeepingRate(payments),
+      promise_keeping_rate: await this.calculatePromiseKeepingRate(payments),
       
       // Communication DNA
       preferred_channel: this.detectPreferredChannel(communications),
@@ -234,7 +234,7 @@ export class RevenueIntelligenceEngine {
     return 'stable';
   }
 
-  private async calculatePromiseKeepingRate(payments: any[]): number {
+  private async calculatePromiseKeepingRate(payments: any[]): Promise<number> {
     const { data } = await supabase
       .from('payment_commitments')
       .select('*')
