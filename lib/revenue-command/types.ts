@@ -1,6 +1,6 @@
 // lib/revenue-command/types.ts
 
-export interface TenantRevenueDNA {
+export interface TenantRevenueProfile {
   tenant_id: string;
   entity_id: string;
   industry?: string;

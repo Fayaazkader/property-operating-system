@@ -1,5 +1,5 @@
 // lib/revenue-command/intelligence-engine.ts
-// Revenue Intelligence — Learns tenant behavior, builds DNA, detects anomalies
+// Revenue Signals — Learns tenant behavior, builds DNA, detects anomalies
 
 import { supabase } from '@/lib/supabase';
 import { publish } from '@/lib/platform/events/event-bus';
@@ -7,7 +7,7 @@ import type { TenantRevenueDNA } from './types';
 
 export class RevenueIntelligenceEngine {
   
-  async buildTenantDNA(tenantId: string, entityId: string): Promise<TenantRevenueDNA> {
+  async buildProfile(tenantId: string, entityId: string): Promise<TenantRevenueDNA> {
     // Gather all behavioral data
     const [payments, communications, disputes, maintenance, leaseData] = await Promise.all([
       this.getPaymentHistory(tenantId),
@@ -48,7 +48,7 @@ export class RevenueIntelligenceEngine {
     };
 
     // Persist
-    await supabase.from('tenant_revenue_dna').upsert({
+    await supabase.from('tenant_revenue_profile').upsert({
       tenant_id: tenantId,
       entity_id: entityId,
       ...dna,
@@ -57,7 +57,7 @@ export class RevenueIntelligenceEngine {
 
     await publish('revenue.dna.updated', {
       correlationId: crypto.randomUUID(),
-      source: 'revenue-intelligence',
+      source: 'revenue-signals',
       version: '1.0',
       payload: { tenantId, entityId, dna },
     });
@@ -174,7 +174,7 @@ export class RevenueIntelligenceEngine {
 
   async getDNA(tenantId: string): Promise<TenantRevenueDNA | null> {
     const { data } = await supabase
-      .from('tenant_revenue_dna')
+      .from('tenant_revenue_profile')
       .select('*')
       .eq('tenant_id', tenantId)
       .single();
