@@ -17,6 +17,6 @@ export * from './expectations-engine';
 export * from './forecasting-engine';
 export * from './reporting-engine';
 // Revenue Command
-import { revenueAssuranceEngine } from './revenue-command/assurance-engine';
+import { revenueAssuranceEngine } from '../revenue-command/assurance-engine';
 
 export { financialApi } from './api';
