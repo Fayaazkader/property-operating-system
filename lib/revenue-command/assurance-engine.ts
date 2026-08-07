@@ -217,6 +217,34 @@ export class RevenueAssuranceEngine {
       .select("id, monthly_rental")
       .eq("owner_entity_id", entityId)
       .eq("lease_status", "Active");
+    let totalDue = 0, collected = 0, protectedAmount = 0, actionsTaken = 0;
+    for (const lease of (leases || [])) {
+      totalDue += lease.monthly_rental || 0;
+      const { count } = await supabase
+        .from("communications")
+        .select("*", { count: "exact", head: true })
+        .eq("entity_id", entityId)
+        .gte("created_at", startDate)
+        .lte("created_at", endDate);
+      actionsTaken += count || 0;
+      const score = await this.scoreLease(lease.id, entityId);
+      if (score.overall_score >= 50) protectedAmount += lease.monthly_rental || 0;
+    }
+    return { total_due: totalDue, collected, protected_amount: protectedAmount, lost: Math.max(0, totalDue - protectedAmount), actions_taken: actionsTaken };
+  }
+
+  async calculateRevenueProtected(entityId: string, startDate: string, endDate: string): Promise<{
+    total_due: number;
+    collected: number;
+    protected_amount: number;
+    lost: number;
+    actions_taken: number;
+  }> {
+    const { data: leases } = await supabase
+      .from("leases")
+      .select("id, monthly_rental")
+      .eq("owner_entity_id", entityId)
+      .eq("lease_status", "Active");
 
     let totalDue = 0, collected = 0, protectedAmount = 0, actionsTaken = 0;
 
