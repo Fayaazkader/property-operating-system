@@ -49,8 +49,6 @@ export class RevenueIntelligenceEngine {
 
     // Persist
     await supabase.from('tenant_revenue_profile').upsert({
-      tenant_id: tenantId,
-      entity_id: entityId,
       ...dna,
       last_updated: new Date().toISOString(),
     }, { onConflict: 'tenant_id' });
