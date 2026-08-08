@@ -90,9 +90,10 @@ export default function RevenueCommandCentre() {
     init();
   }, []);
 
-  if (loading) return <div className="p-20 text-zinc-500 text-center">Loading...</div>;
+  if (loading) return <div className="p-20 text-white text-4xl text-center bg-red-500">LOADING...</div>;
 
   return (
+    <div className="p-4 bg-green-500 text-black text-sm">DEBUG: Page is rendering. EntityId: {entityId || "none"}</div>
     <div className="mx-auto max-w-6xl space-y-10 px-8 pt-12 pb-24">
       
       <MorningBrief entityId={entityId} />
