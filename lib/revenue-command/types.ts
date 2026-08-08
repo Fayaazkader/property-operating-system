@@ -39,7 +39,7 @@ export interface RevenueAssuranceScore {
   communication_score: number;
   financial_health: number;
   compliance_score: number;
-  confidence_level: number;
+  collection_confidence: number;
   trend: string;
   explanation: Record<string, any>;
   recommended_action?: string;
