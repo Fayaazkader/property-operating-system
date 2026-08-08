@@ -79,10 +79,9 @@ export default function RevenueCommandCentre() {
     init();
   }, []);
 
-  if (loading) return <div className="p-20 text-white">Loading Command Centre...</div>;
+  if (loading) return null;
 
   return (
-    <div className="p-4 text-white text-xs">Debug: entityId={entityId} outlook={outlook ? "YES" : "NO"} states={Object.keys(stateSummary).length} feed={activityFeed.length}</div>
     <div className="mx-auto max-w-6xl space-y-10 px-8 pt-12 pb-24">
       
       {/* MORNING BRIEF — existing component */}
