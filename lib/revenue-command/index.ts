@@ -1,6 +1,5 @@
 // Revenue Operations (domain)
 // External product name: Revenue Command
-// Internal workspace: Revenue Operations Workspace
 
 export * from './types';
 export * from './signals-engine';
@@ -16,3 +15,4 @@ export * from './activity-feed';
 export * from './learning-engine';
 export * from './state-engine';
 export * from './policies-engine';
+export * from './decision-registry';

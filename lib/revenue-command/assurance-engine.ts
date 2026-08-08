@@ -89,7 +89,7 @@ export class RevenueAssuranceEngine {
       explanation,
       recommended_action: recommendedAction,
       action_urgency: actionUrgency,
-      revenue_protected: 0,
+      protected_revenue: 0,
     };
 
     await supabase.from('revenue_assurance_scores').insert({

@@ -33,7 +33,7 @@ export interface RevenueAssuranceScore {
   future_risk: number;
   recoverability: number;
   collection_confidence: number;
-  revenue_protected: number;
+  protected_revenue: number;
   payment_reliability: number;
   behaviour_stability: number;
   communication_score: number;

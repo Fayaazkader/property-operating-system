@@ -69,13 +69,13 @@ export class BehaviourLearningEngine {
     return results.sort((a, b) => b.success_rate - a.success_rate);
   }
 
-  async getBestChannel(tenantType: string, entityId: string): Promise<string> {
+  async getBestDecision(tenantType: string, entityId: string): Promise<string> {
     const effectiveness = await this.getChannelEffectiveness(entityId);
     const best = effectiveness[0];
     return best?.channel || 'whatsapp';
   }
 
-  async updateConfidence(decisionType: string, success: boolean): Promise<void> {
+  async learnFromOutcome(decisionType: string, success: boolean): Promise<void> {
     // Update the confidence model for future decisions
     // In production, this would update a Bayesian model or similar
     const { data } = await supabase
