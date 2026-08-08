@@ -9,7 +9,7 @@ export type RevenueState =
   | 'healthy' 
   | 'watching' 
   | 'at_risk' 
-  | 'recovering' 
+  | 'intervening' | 'recovering' 
   | 'protected' 
   | 'legal' 
   | 'terminated';
@@ -49,12 +49,6 @@ export class RevenueStateEngine {
   }
 
   async transition(
-    leaseId: string,
-    entityId: string,
-    toState: RevenueState,
-    reason: string,
-    triggeredBy: string
-  )
     leaseId: string,
     entityId: string,
     toState: RevenueState,
