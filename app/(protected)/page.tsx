@@ -22,14 +22,10 @@ export default function RevenueCommandCentre() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.replace('/landing'); return; }
 
-      const { data: entityArray } = await supabase.rpc(.auth_entities.);
+      const { data: entityArray } = await supabase.rpc('auth_entities');
       const entities = entityArray || [];
       const entities = entityArray || [];
-      if (!entities?.length) { setLoading(false);
-      } catch (err) {
-        console.error("Command Centre init error:", err);
-        setLoading(false);
-      } return; }
+      if (!entities?.length) { setLoading(false); return; }
       console.log("Entity from auth:", entities[0]); setEntityId(entities[0]);
 
       // Load outlook — generate live if no snapshot
@@ -79,10 +75,6 @@ export default function RevenueCommandCentre() {
       setActivityFeed(activity || []);
 
       setLoading(false);
-      } catch (err) {
-        console.error("Command Centre init error:", err);
-        setLoading(false);
-      }
     }
     init();
   }, []);
