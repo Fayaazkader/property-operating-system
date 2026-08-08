@@ -1,7 +1,7 @@
 // lib/revenue-command/strategy-engine.ts
 // Revenue Strategy — Portfolio-level revenue optimization goals
 
-import { supabase } from '@/lib/supabase';
+import type { RevenueStrategy } from './types';
 
 export class RevenueStrategyEngine {
 
@@ -14,8 +14,10 @@ export class RevenueStrategyEngine {
         target_value: 60,
         current_value: 0,
         unit: '%',
-        deadline: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0],
+        owner: undefined,
         status: 'active',
+        review_frequency: 'monthly',
+        deadline: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0],
       },
       {
         id: 'dso_reduction',
@@ -24,8 +26,10 @@ export class RevenueStrategyEngine {
         target_value: 5,
         current_value: 0,
         unit: 'days',
-        deadline: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0],
+        owner: undefined,
         status: 'active',
+        review_frequency: 'monthly',
+        deadline: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0],
       },
       {
         id: 'arrears_reduction',
@@ -34,8 +38,10 @@ export class RevenueStrategyEngine {
         target_value: 2,
         current_value: 0,
         unit: '%',
-        deadline: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0],
+        owner: undefined,
         status: 'active',
+        review_frequency: 'monthly',
+        deadline: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0],
       },
       {
         id: 'collection_confidence',
@@ -44,14 +50,15 @@ export class RevenueStrategyEngine {
         target_value: 97,
         current_value: 0,
         unit: '%',
-        deadline: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0],
+        owner: undefined,
         status: 'active',
+        review_frequency: 'monthly',
+        deadline: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0],
       },
     ];
   }
 
   async updateProgress(entityId: string, goalId: string, currentValue: number): Promise<void> {
-    // Update strategy progress — will be persisted when strategy table is created
     console.log(`Strategy ${goalId} progress: ${currentValue}`);
   }
 }
