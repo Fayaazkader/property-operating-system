@@ -10,3 +10,5 @@ export * from './interventions-engine';
 export * from './explainability-engine';
 export * from './opportunity-engine';
 export * from './strategy-engine';
+export * from './decisions-engine';
+export * from './activity-feed';

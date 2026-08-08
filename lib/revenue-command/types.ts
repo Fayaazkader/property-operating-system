@@ -3,6 +3,7 @@
 export interface TenantRevenueProfile {
   tenant_id: string;
   entity_id: string;
+  property_id?: string;
   industry?: string;
   tenant_type?: string;
   years_as_tenant?: number;
@@ -21,6 +22,8 @@ export interface TenantRevenueProfile {
   maintenance_trend?: string;
   utility_trend?: string;
   assigned_playbook?: string;
+  lease_behaviour?: Record<string, any>;
+  property_behaviour?: Record<string, any>;
 }
 
 export interface RevenueAssuranceScore {
@@ -29,6 +32,8 @@ export interface RevenueAssuranceScore {
   current_risk: number;
   future_risk: number;
   recoverability: number;
+  collection_confidence: number;
+  revenue_protected: number;
   payment_reliability: number;
   behaviour_stability: number;
   communication_score: number;
@@ -93,3 +98,58 @@ export interface RevenueOutlook {
     action: string;
   }>;
 }
+
+export interface RevenueDecision {
+  id: string;
+  entity_id: string;
+  lease_id: string;
+  tenant_id: string;
+  decision_type: string;
+  confidence: number;
+  signals_considered: string[];
+  chosen_action: string;
+  alternative_actions: string[];
+  executed: boolean;
+  executed_at?: string;
+  outcome?: string;
+}
+
+export interface RevenueStrategy {
+  id: string;
+  entity_id: string;
+  goal_name: string;
+  target_value: number;
+  current_value: number;
+  unit: string;
+  owner?: string;
+  status: string;
+  review_frequency: string;
+  deadline?: string;
+}
+
+export interface RevenueOpportunity {
+  lease_id: string;
+  tenant_name: string;
+  opportunity_type: string;
+  description: string;
+  potential_value: number;
+  probability: number;
+  expected_value: number;
+  confidence: number;
+  required_effort: string;
+  action: string;
+}
+
+export interface RevenueActivityEvent {
+  id: string;
+  entity_id: string;
+  reference_type: string;
+  reference_id: string;
+  signal_category: string;
+  event_type: string;
+  description?: string;
+  metadata?: Record<string, any>;
+  occurred_at: string;
+}
+
+export type SignalCategory = 'financial' | 'behaviour' | 'communication' | 'legal' | 'operational' | 'external';

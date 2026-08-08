@@ -11,6 +11,16 @@ export interface RevenueOpportunity {
   potential_value: number;
   probability: number;
   expected_value: number;
+  confidence: number;
+  required_effort: string;
+  action: string;
+  lease_id: string;
+  tenant_name: string;
+  opportunity_type: string;
+  description: string;
+  potential_value: number;
+  probability: number;
+  expected_value: number;
   action: string;
 }
 
