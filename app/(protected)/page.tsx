@@ -22,7 +22,9 @@ export default function RevenueCommandCentre() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.replace('/landing'); return; }
 
-      const { data: entityArray } = await supabase.rpc('auth_entities');
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: accessRows } = await supabase.from('user_entity_access').select('entity_id').eq('user_id', user?.id).limit(1);
+      const entityArray = accessRows?.map((r: any) => r.entity_id) || [];
       const entities = entityArray || [];
       if (!entities?.length) { setLoading(false); return; }
       console.log("Entity from auth:", entities[0]); setEntityId(entities[0]);
