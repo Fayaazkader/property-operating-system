@@ -3,17 +3,6 @@
 
 import { supabase } from '@/lib/supabase';
 
-export interface RevenueStrategy {
-  id: string;
-  entity_id: string;
-  goal_name: string;
-  target_value: number;
-  current_value: number;
-  unit: string;
-  deadline: string;
-  status: string;
-}
-
 export class RevenueStrategyEngine {
 
   async getDefaultStrategies(entityId: string): Promise<RevenueStrategy[]> {

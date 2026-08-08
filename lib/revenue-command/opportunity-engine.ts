@@ -3,7 +3,7 @@
 
 import { supabase } from '@/lib/supabase';
 
-export interface RevenueOpportunity {
+interface RevenueOpportunity {
   lease_id: string;
   tenant_name: string;
   opportunity_type: string;
