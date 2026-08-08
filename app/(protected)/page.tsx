@@ -24,7 +24,6 @@ export default function RevenueCommandCentre() {
 
       const { data: entityArray } = await supabase.rpc('auth_entities');
       const entities = entityArray || [];
-      const entities = entityArray || [];
       if (!entities?.length) { setLoading(false); return; }
       console.log("Entity from auth:", entities[0]); setEntityId(entities[0]);
 
