@@ -27,6 +27,7 @@ const STATE_TRANSITIONS: Record<RevenueState, RevenueState[]> = {
   healthy: ['watching', 'at_risk', 'terminated'],
   watching: ['healthy', 'at_risk', 'protected'],
   at_risk: [.watching., .intervening., .recovering., 'protected', 'legal', 'terminated'],
+  intervening: ['recovering', 'protected', 'at_risk', 'terminated'],
   recovering: ['healthy', 'watching', 'at_risk', 'terminated'],
   protected: ['healthy', 'recovering', 'at_risk', 'legal', 'terminated'],
   legal: ['recovering', 'protected', 'terminated'],
