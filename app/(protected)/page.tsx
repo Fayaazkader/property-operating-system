@@ -22,7 +22,8 @@ export default function RevenueCommandCentre() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.replace('/landing'); return; }
 
-      const { data: entities } = await supabase.rpc('auth_entities');
+      const { data: entityArray } = await supabase.rpc(.auth_entities.);
+      const entities = entityArray || [];
       if (!entities?.length) { setLoading(false);
       } catch (err) {
         console.error("Command Centre init error:", err);
