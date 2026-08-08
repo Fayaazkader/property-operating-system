@@ -3,11 +3,11 @@
 
 import { supabase } from '@/lib/supabase';
 import { publish } from '@/lib/platform/events/event-bus';
-import type { TenantRevenueProfile } from './types';
+import type { CommercialBehaviourProfile } from './types';
 
 export class RevenueIntelligenceEngine {
   
-  async buildProfile(tenantId: string, entityId: string): Promise<TenantRevenueProfile> {
+  async buildProfile(tenantId: string, entityId: string): Promise<CommercialBehaviourProfile> {
     // Gather all behavioral data
     const [payments, communications, disputes, maintenance, leaseData] = await Promise.all([
       this.getPaymentHistory(tenantId),
@@ -17,7 +17,7 @@ export class RevenueIntelligenceEngine {
       this.getLeaseInfo(tenantId),
     ]);
 
-    const dna: TenantRevenueProfile = {
+    const dna: CommercialBehaviourProfile = {
       tenant_id: tenantId,
       entity_id: entityId,
       
@@ -48,7 +48,7 @@ export class RevenueIntelligenceEngine {
     };
 
     // Persist
-    await supabase.from('tenant_revenue_profile').upsert({
+    await supabase.from('commercial_behaviour_profile').upsert({
       ...dna,
       last_updated: new Date().toISOString(),
     }, { onConflict: 'tenant_id' });
@@ -170,13 +170,13 @@ export class RevenueIntelligenceEngine {
     return data || [];
   }
 
-  async getDNA(tenantId: string): Promise<TenantRevenueProfile | null> {
+  async getDNA(tenantId: string): Promise<CommercialBehaviourProfile | null> {
     const { data } = await supabase
-      .from('tenant_revenue_profile')
+      .from('commercial_behaviour_profile')
       .select('*')
       .eq('tenant_id', tenantId)
       .single();
-    return data as TenantRevenueProfile | null;
+    return data as CommercialBehaviourProfile | null;
   }
 
   // --- Calculation helpers ---

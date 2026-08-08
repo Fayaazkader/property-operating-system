@@ -1,5 +1,6 @@
 // Revenue Operations (domain) — implemented as revenue-command
-// "Revenue Command" is the external name for the UI experience
+// External product name: Revenue Command
+// Internal workspace: Revenue Operations Workspace
 
 export * from './types';
 export * from './signals-engine';
@@ -12,3 +13,4 @@ export * from './opportunity-engine';
 export * from './strategy-engine';
 export * from './decisions-engine';
 export * from './activity-feed';
+export * from './learning-engine';
