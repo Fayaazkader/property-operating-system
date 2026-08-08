@@ -23,7 +23,7 @@ export default function RevenueCommandCentre() {
 
       const { data: entities } = await supabase.rpc('auth_entities');
       if (!entities?.length) { setLoading(false); return; }
-      setEntityId(entities[0]);
+      console.log("Entity from auth:", entities[0]); setEntityId(entities[0]);
 
       // Load outlook — generate live if no snapshot
       const today = new Date().toISOString().split('T')[0];
