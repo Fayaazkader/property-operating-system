@@ -83,6 +83,7 @@ export default function MorningBrief({ entityId }: { entityId: string }) {
         <h1 className="text-3xl font-light tracking-[-0.02em] text-white">
           {greeting}{displayName ? `, ${displayName}` : ''}.
         </h1>
+        <p className="text-sm text-zinc-500 font-light mt-1">Here's what's changed since you were last here.</p>
       </div>
 
       {/* Period Indicators */}
