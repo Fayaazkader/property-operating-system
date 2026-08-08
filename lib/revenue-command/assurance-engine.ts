@@ -84,11 +84,12 @@ export class RevenueAssuranceEngine {
       communication_score: communicationScore,
       financial_health: financialHealth,
       compliance_score: complianceScore,
-      confidence_level: dna ? dna.collection_confidence || 0.8 : 0.5,
+      collection_confidence: dna ? dna.collection_confidence || 0.8 : 0.5,
       trend: dna?.payment_trend || 'stable',
       explanation,
       recommended_action: recommendedAction,
       action_urgency: actionUrgency,
+      revenue_protected: 0,
     };
 
     await supabase.from('revenue_assurance_scores').insert({
@@ -114,7 +115,7 @@ export class RevenueAssuranceEngine {
     const twin: RevenueDigitalTwin = {
       lease_id: leaseId,
       expected_collection: lease?.monthly_rental,
-      collection_confidence: score.confidence_level,
+      collection_confidence: score.collection_confidence,
       revenue_risk: score.overall_score < 40 ? 'high' : score.overall_score < 70 ? 'medium' : 'low',
       behaviour_trend: score.trend,
       recommended_action: score.recommended_action,
