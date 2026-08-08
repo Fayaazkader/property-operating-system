@@ -24,6 +24,7 @@ export default function RevenueCommandCentre() {
 
       const { data: entityArray } = await supabase.rpc(.auth_entities.);
       const entities = entityArray || [];
+      const entities = entityArray || [];
       if (!entities?.length) { setLoading(false);
       } catch (err) {
         console.error("Command Centre init error:", err);
