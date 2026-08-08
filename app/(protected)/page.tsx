@@ -73,6 +73,7 @@ export default function RevenueCommandCentre() {
         .limit(10);
       setActivityFeed(activity || []);
 
+      } catch (err) { console.error("Init error:", err); }
       setLoading(false);
     }
     init();
