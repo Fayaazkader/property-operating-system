@@ -1,6 +1,6 @@
 // lib/revenue-command/types.ts
 
-export interface CommercialBehaviourProfile {
+export interface BehaviourProfile {
   tenant_id: string;
   entity_id: string;
   property_id?: string;

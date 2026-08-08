@@ -3,11 +3,11 @@
 
 import { supabase } from '@/lib/supabase';
 import { publish } from '@/lib/platform/events/event-bus';
-import type { CommercialBehaviourProfile } from './types';
+import type { BehaviourProfile } from './types';
 
 export class RevenueIntelligenceEngine {
   
-  async buildProfile(tenantId: string, entityId: string): Promise<CommercialBehaviourProfile> {
+  async buildProfile(tenantId: string, entityId: string): Promise<BehaviourProfile> {
     // Gather all behavioral data
     const [payments, communications, disputes, maintenance, leaseData] = await Promise.all([
       this.getPaymentHistory(tenantId),
@@ -17,7 +17,7 @@ export class RevenueIntelligenceEngine {
       this.getLeaseInfo(tenantId),
     ]);
 
-    const dna: CommercialBehaviourProfile = {
+    const dna: BehaviourProfile = {
       tenant_id: tenantId,
       entity_id: entityId,
       
@@ -170,13 +170,13 @@ export class RevenueIntelligenceEngine {
     return data || [];
   }
 
-  async getDNA(tenantId: string): Promise<CommercialBehaviourProfile | null> {
+  async getDNA(tenantId: string): Promise<BehaviourProfile | null> {
     const { data } = await supabase
       .from('tenant_revenue_profile')
       .select('*')
       .eq('tenant_id', tenantId)
       .single();
-    return data as CommercialBehaviourProfile | null;
+    return data as BehaviourProfile | null;
   }
 
   // --- Calculation helpers ---

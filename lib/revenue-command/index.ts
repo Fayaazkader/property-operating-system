@@ -15,3 +15,4 @@ export * from './decisions-engine';
 export * from './activity-feed';
 export * from './learning-engine';
 export * from './state-engine';
+export * from './policies-engine';

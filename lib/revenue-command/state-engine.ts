@@ -26,7 +26,7 @@ export interface StateTransition {
 const STATE_TRANSITIONS: Record<RevenueState, RevenueState[]> = {
   healthy: ['watching', 'at_risk', 'terminated'],
   watching: ['healthy', 'at_risk', 'protected'],
-  at_risk: ['watching', 'recovering', 'protected', 'legal', 'terminated'],
+  at_risk: [.watching., .intervening., .recovering., 'protected', 'legal', 'terminated'],
   recovering: ['healthy', 'watching', 'at_risk', 'terminated'],
   protected: ['healthy', 'recovering', 'at_risk', 'legal', 'terminated'],
   legal: ['recovering', 'protected', 'terminated'],
