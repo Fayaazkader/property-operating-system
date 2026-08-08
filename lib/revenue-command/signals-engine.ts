@@ -48,7 +48,7 @@ export class RevenueIntelligenceEngine {
     };
 
     // Persist
-    await supabase.from('commercial_behaviour_profile').upsert({
+    await supabase.from('tenant_revenue_profile').upsert({
       ...dna,
       last_updated: new Date().toISOString(),
     }, { onConflict: 'tenant_id' });
@@ -172,7 +172,7 @@ export class RevenueIntelligenceEngine {
 
   async getDNA(tenantId: string): Promise<CommercialBehaviourProfile | null> {
     const { data } = await supabase
-      .from('commercial_behaviour_profile')
+      .from('tenant_revenue_profile')
       .select('*')
       .eq('tenant_id', tenantId)
       .single();

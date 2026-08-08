@@ -1,4 +1,4 @@
-// Revenue Operations (domain) — implemented as revenue-command
+// Revenue Operations (domain)
 // External product name: Revenue Command
 // Internal workspace: Revenue Operations Workspace
 
@@ -14,3 +14,4 @@ export * from './strategy-engine';
 export * from './decisions-engine';
 export * from './activity-feed';
 export * from './learning-engine';
+export * from './state-engine';

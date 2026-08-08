@@ -20,7 +20,7 @@ export interface ChannelEffectiveness {
   sample_size: number;
 }
 
-export class RevenueLearningEngine {
+export class BehaviourLearningEngine {
 
   async recordResult(params: {
     intervention_id: string;
@@ -98,4 +98,4 @@ export class RevenueLearningEngine {
   }
 }
 
-export const revenueLearningEngine = new RevenueLearningEngine();
+export const behaviourLearningEngine = new BehaviourLearningEngine();

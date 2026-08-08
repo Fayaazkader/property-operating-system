@@ -4,7 +4,7 @@
 import { supabase } from '@/lib/supabase';
 import type { RevenueActivityEvent, SignalCategory } from './types';
 
-export class RevenueActivityFeed {
+export class ActivityFeed {
 
   async record(params: {
     entity_id: string;
@@ -15,7 +15,7 @@ export class RevenueActivityFeed {
     description?: string;
     metadata?: Record<string, any>;
   }): Promise<void> {
-    await supabase.from('revenue_activity_feed').insert({
+    await supabase.from('activity_feed').insert({
       entity_id: params.entity_id,
       reference_type: params.reference_type,
       reference_id: params.reference_id,
@@ -33,7 +33,7 @@ export class RevenueActivityFeed {
     limit: number = 50
   ): Promise<RevenueActivityEvent[]> {
     const { data } = await supabase
-      .from('revenue_activity_feed')
+      .from('activity_feed')
       .select('*')
       .eq('entity_id', entityId)
       .eq('reference_type', referenceType)
@@ -46,7 +46,7 @@ export class RevenueActivityFeed {
 
   async getPortfolioActivity(entityId: string, limit: number = 100): Promise<RevenueActivityEvent[]> {
     const { data } = await supabase
-      .from('revenue_activity_feed')
+      .from('activity_feed')
       .select('*')
       .eq('entity_id', entityId)
       .order('occurred_at', { ascending: false })
@@ -56,4 +56,4 @@ export class RevenueActivityFeed {
   }
 }
 
-export const revenueActivityFeed = new RevenueActivityFeed();
+export const activityFeed = new ActivityFeed();
