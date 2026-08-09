@@ -1,25 +1,15 @@
-// lib/maintenance/engine.ts
-// Maintenance Engine — Issue → Work Order → Supplier → Invoice lifecycle
-
 import { supabase } from '@/lib/supabase';
 import { publish } from '@/lib/platform/events/event-bus';
+import { supplierMatchingEngine } from './supplier-matching';
 import type { MaintenanceIssue, WorkOrder, EntryChannel } from './types';
 
 export class MaintenanceEngine {
 
   async createIssue(params: {
-    entity_id: string;
-    property_id: string;
-    title: string;
-    description?: string;
-    category?: string;
-    priority?: string;
-    reported_via?: EntryChannel;
-    reported_by?: string;
-    tenant_id?: string;
-    lease_id?: string;
-    unit_id?: string;
-    photo_urls?: string[];
+    entity_id: string; property_id: string; title: string;
+    description?: string; category?: string; priority?: string;
+    reported_via?: EntryChannel; reported_by?: string;
+    tenant_id?: string; lease_id?: string; unit_id?: string; photo_urls?: string[];
   }): Promise<MaintenanceIssue> {
     const { data: existing } = await supabase
       .from('maintenance_issues')
@@ -86,25 +76,9 @@ export class MaintenanceEngine {
     const { data: wo } = await supabase.from('work_orders').select('*').eq('id', workOrderId).single();
     if (!wo) return null;
 
-    // Get matching profile from DB
     const priority = (wo as any)?.priority || 'routine';
-    const { data: profile } = await supabase
-      .from('supplier_matching_profiles')
-      .select('*')
-      .eq('entity_id', entityId)
-      .eq('priority', priority)
-      .single();
-
-    const { data: scores } = await supabase
-      .from('supplier_scores')
-      .select('*, suppliers!inner(id, supplier_name)')
-      .eq('entity_id', entityId)
-      .order('overall_score', { ascending: false })
-      .limit(5);
-
-    if (!scores?.length) return null;
-
-    const bestSupplier = scores[0] as any;
+    const bestSupplier = await supplierMatchingEngine.getBestSupplier(entityId, wo.category || 'other', priority);
+    if (!bestSupplier) return null;
 
     await supabase.from('work_orders').update({
       supplier_id: bestSupplier.supplier_id, status: 'assigned',
@@ -125,12 +99,10 @@ export class MaintenanceEngine {
     }).select('id').single();
 
     if (error) throw error;
-
     await publish('maintenance.visit.scheduled', {
       correlationId: crypto.randomUUID(), source: 'maintenance-engine', version: '1.0',
       payload: { visitId: data.id, workOrderId, supplierId, scheduledAt },
     });
-
     return data.id;
   }
 
@@ -144,7 +116,6 @@ export class MaintenanceEngine {
     }).eq('id', workOrderId);
 
     const { data: wo } = await supabase.from('work_orders').select('*').eq('id', workOrderId).single();
-
     await supabase.from('expected_supplier_invoices').insert({
       work_order_id: workOrderId, supplier_id: wo.supplier_id, entity_id: wo.entity_id,
       expected_amount: cost, expected_date: new Date().toISOString().split('T')[0], status: 'pending',
@@ -156,7 +127,6 @@ export class MaintenanceEngine {
     });
   }
 
-  // Delegate to Platform Approval Engine
   async requestApproval(issueId: string, entityId: string, estimatedCost: number): Promise<void> {
     await publish('approval.requested', {
       correlationId: crypto.randomUUID(), source: 'maintenance-engine', version: '1.0',
