@@ -40,9 +40,10 @@ async function initializePlatform(): Promise<void> {
 
   logger.info('  ✓ Automation Engine initialized');
 
+    const { communicationsWorker } = await import('@/lib/communications/queue-worker');
+  communicationsWorker.start();
+  logger.info('✅ AssetFlow Platform initialized.');
   initialized = true;
-  await import(.@/lib/communications/queue-worker.).then(m => m.communicationsWorker.start());
-  logger.info(.✅ AssetFlow Platform initialized.);
 }
 
 initializePlatform().catch((error) => {
