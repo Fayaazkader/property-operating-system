@@ -14,6 +14,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState("");
   const [isFirstLogin, setIsFirstLogin] = useState(false);
+  const [entityIdList, setEntityIdList] = useState<string[]>([]);
   const [data, setData] = useState<any>({
     leases: [], transactions: [], recentLeases: [], communications: [],
     unallocated: [], vacantUnits: [], stmtPeriod: null, finPeriod: null,
@@ -32,7 +33,7 @@ if (profile?.first_login) setIsFirstLogin(true);
 
 
       const { data: entityIds } = await supabase.rpc('auth_entities');
-      const entityIdList = entityIds || [];
+      const entityIdList = entityIds || []; setEntityIdList(entityIdList);
 
       const { data: bankAccounts } = entityIdList.length > 0 
         ? await supabase.from("bank_accounts").select("id").in("entity_id", entityIdList) : { data: [] };
