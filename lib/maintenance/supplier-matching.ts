@@ -1,5 +1,5 @@
 // lib/maintenance/supplier-matching.ts
-// Supplier Matching Engine — Hard filters → Weighted scoring → Ranking
+// Supplier Matching Engine — Hard filters with expiry checks → Weighted scoring → Ranking
 
 import { supabase } from '@/lib/supabase';
 
@@ -19,7 +19,7 @@ export interface SupplierRanking {
 
 export class SupplierMatchingEngine {
 
-  async rankSuppliers(entityId: string, category: string, priority: string, propertyId?: string): Promise<SupplierRanking[]> {
+  async rankSuppliers(entityId: string, category: string, priority: string): Promise<SupplierRanking[]> {
     const { data: profile } = await supabase
       .from('supplier_matching_profiles')
       .select('*')
@@ -29,7 +29,7 @@ export class SupplierMatchingEngine {
 
     const { data: scores } = await supabase
       .from('supplier_scores')
-      .select('*, suppliers!inner(id, supplier_name)')
+      .select('*, suppliers!inner(id, supplier_name, insurance_valid, insurance_expiry, trade_certified, trade_certificate_expiry, preferred_supplier, after_hours, max_travel_radius_km)')
       .eq('entity_id', entityId)
       .order('overall_score', { ascending: false })
       .limit(50);
@@ -37,22 +37,42 @@ export class SupplierMatchingEngine {
     if (!scores?.length) return [];
 
     const p = profile || {};
+    const now = new Date();
     const rankings: SupplierRanking[] = [];
 
     for (const s of (scores as any[])) {
-      // HARD FILTERS — exclude ineligible suppliers
-      if (p.require_insurance && !s.suppliers?.insurance_valid) {
-        rankings.push({ supplier_id: s.supplier_id, supplier_name: s.suppliers?.supplier_name || 'Unknown', overall_score: 0, trade_match: 0, response_score: 0, distance_score: 0, availability_score: 0, rating_score: 0, workload_score: 0, filtered_out: true, filter_reason: 'Insurance required' });
-        continue;
+      const supplier = s.suppliers || {};
+
+      // HARD FILTER: Insurance (with expiry check)
+      if (p.require_insurance) {
+        const insured = supplier.insurance_valid && 
+          (!supplier.insurance_expiry || new Date(supplier.insurance_expiry) >= now);
+        if (!insured) {
+          rankings.push(emptyRanking(s, 'Insurance required or expired'));
+          continue;
+        }
       }
-      if (p.require_trade_certification && !s.trade_match) {
-        rankings.push({ supplier_id: s.supplier_id, supplier_name: s.suppliers?.supplier_name || 'Unknown', overall_score: 0, trade_match: 0, response_score: 0, distance_score: 0, availability_score: 0, rating_score: 0, workload_score: 0, filtered_out: true, filter_reason: 'Trade certification required' });
-        continue;
+
+      // HARD FILTER: Trade certification (with expiry check)
+      if (p.require_trade_certification) {
+        const certified = supplier.trade_certified && 
+          (!supplier.trade_certificate_expiry || new Date(supplier.trade_certificate_expiry) >= now);
+        if (!certified) {
+          rankings.push(emptyRanking(s, 'Trade certification required or expired'));
+          continue;
+        }
       }
+
+      // HARD FILTER: Max capacity
       if (p.max_active_jobs && s.current_workload >= p.max_active_jobs) {
-        rankings.push({ supplier_id: s.supplier_id, supplier_name: s.suppliers?.supplier_name || 'Unknown', overall_score: 0, trade_match: 0, response_score: 0, distance_score: 0, availability_score: 0, rating_score: 0, workload_score: 0, filtered_out: true, filter_reason: 'At max capacity' });
+        rankings.push(emptyRanking(s, 'At max capacity'));
         continue;
       }
+
+      // HARD FILTER: Preferred suppliers only
+      if (p.preferred_supplier_only && !supplier.preferred_supplier) {
+        rankings.push(emptyRanking(s, 'Preferred suppliers only'));
+        continue;
       }
 
       // WEIGHTED SCORING
@@ -71,7 +91,7 @@ export class SupplierMatchingEngine {
 
       rankings.push({
         supplier_id: s.supplier_id,
-        supplier_name: (s as any).suppliers?.supplier_name || 'Unknown',
+        supplier_name: supplier.supplier_name || 'Unknown',
         overall_score: Math.round(weighted * 100) / 100,
         trade_match: s.trade_match || 0,
         response_score: Math.round(responseScore * 100) / 100,
@@ -89,6 +109,16 @@ export class SupplierMatchingEngine {
     const rankings = await this.rankSuppliers(entityId, category, priority);
     return rankings.find(r => !r.filtered_out) || null;
   }
+}
+
+function emptyRanking(s: any, reason: string): SupplierRanking {
+  return {
+    supplier_id: s.supplier_id,
+    supplier_name: s.suppliers?.supplier_name || 'Unknown',
+    overall_score: 0, trade_match: 0, response_score: 0,
+    distance_score: 0, availability_score: 0, rating_score: 0, workload_score: 0,
+    filtered_out: true, filter_reason: reason,
+  };
 }
 
 export const supplierMatchingEngine = new SupplierMatchingEngine();
