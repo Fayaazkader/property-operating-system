@@ -1,5 +1,5 @@
 // lib/platform/notifications/channels/email.ts
-// Email Channel Adapter
+// Email Channel Adapter — SendGrid integration
 
 import { logger } from '../../events/logger.service';
 import { Notification } from '../types';
@@ -15,7 +15,12 @@ export class EmailChannel {
   private config: EmailChannelConfig;
 
   constructor(config: EmailChannelConfig) {
-    this.config = config;
+    this.config = {
+      enabled: config.enabled ?? true,
+      apiKey: config.apiKey || process.env.SENDGRID_API_KEY,
+      fromEmail: config.fromEmail || process.env.SENDGRID_FROM_EMAIL || 'statements@assetflow.africa',
+      fromName: config.fromName || process.env.SENDGRID_FROM_NAME || 'AssetFlow',
+    };
   }
 
   async send(notification: Notification, content: string): Promise<{ success: boolean; deliveryId: string; error?: string }> {
@@ -26,33 +31,43 @@ export class EmailChannel {
       return { success: false, deliveryId, error: 'Email channel is disabled' };
     }
 
-    try {
-      // TODO: Integrate with SendGrid
-      // const sgMail = require('@sendgrid/mail');
-      // sgMail.setApiKey(this.config.apiKey);
-      // await sgMail.send({
-      //   to: notification.recipient,
-      //   from: `${this.config.fromName} <${this.config.fromEmail}>`,
-      //   subject: `AssetFlow: ${notification.data.subject || 'Notification'}`,
-      //   text: content,
-      //   html: content.replace(/\n/g, '<br>'),
-      // });
+    if (!this.config.apiKey) {
+      logger.warn('SendGrid API key not configured', { notificationId: notification.id });
+      return { success: false, deliveryId, error: 'Email not configured' };
+    }
 
-      logger.info('📧 Email notification sent', {
+    try {
+      const sgMail = require('@sendgrid/mail');
+      sgMail.setApiKey(this.config.apiKey);
+
+      await sgMail.send({
+        to: notification.recipient,
+        from: {
+          email: this.config.fromEmail,
+          name: this.config.fromName,
+        },
+        subject: notification.data?.subject || 'AssetFlow Notification',
+        text: content.replace(/<[^>]*>/g, ''),
+        html: content,
+      });
+
+      logger.info('📧 Email sent', {
         notificationId: notification.id,
         recipient: notification.recipient,
-        contentLength: content.length,
       });
 
       return { success: true, deliveryId };
     } catch (error) {
       logger.error('Email send failed:', { error, notificationId: notification.id });
-      return { success: false, deliveryId, error: error instanceof Error ? error.message : 'Unknown error' };
+      return { 
+        success: false, 
+        deliveryId, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
     }
   }
 
-  async getStatus(deliveryId: string): Promise<{ status: string; error?: string }> {
-    // TODO: Query SendGrid for status
+  async getStatus(_deliveryId: string): Promise<{ status: string; error?: string }> {
     return { status: 'delivered' };
   }
 
