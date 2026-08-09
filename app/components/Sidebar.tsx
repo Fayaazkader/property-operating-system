@@ -54,6 +54,7 @@ export default function Sidebar() {
     { label: "Commercial Leasing", href: "/leasing", icon: FileText, desc: "Opportunities · Brokers · Deals" },
     { label: "Communications", href: "/communications", icon: MessageSquare, desc: "Email · WhatsApp · Statements", count: counts.communications },
     { label: "Tasks", href: "/tasks", icon: CheckSquare, desc: "Workflows · Approvals · Follow Ups", count: counts.tasks },
+    { label: "Maintenance", href: "/maintenance", icon: Wrench, desc: "Issues · Work Orders · Suppliers" },
   ];
 
   const portfolioItems: NavItem[] = [
