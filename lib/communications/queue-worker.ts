@@ -1,5 +1,5 @@
 // lib/communications/queue-worker.ts
-// Queue Worker — Polls communications_queue and delivers messages
+// Queue Worker — Atomic claim via RPC, production-ready
 
 import { supabase } from '@/lib/supabase';
 import { deliver } from './services/delivery-service';
@@ -9,13 +9,13 @@ import { logger } from '@/lib/platform/events/logger.service';
 export class CommunicationsWorker {
   private running = false;
   private interval: NodeJS.Timeout | null = null;
+  private isProcessing = false;
 
   start(intervalMs: number = 30000): void {
     if (this.running) return;
     this.running = true;
     logger.info('Communications Worker started');
-
-    this.process(); // Run immediately
+    this.process();
     this.interval = setInterval(() => this.process(), intervalMs);
   }
 
@@ -26,17 +26,22 @@ export class CommunicationsWorker {
   }
 
   private async process(): Promise<void> {
-    try {
-      // Fetch queued messages due for delivery
-      const { data: messages } = await supabase
-        .from('communications_queue')
-        .select('*')
-        .eq('status', 'queued')
-        .lte('scheduled_for', new Date().toISOString())
-        .order('scheduled_for', { ascending: true })
-        .limit(50);
+    if (this.isProcessing) return; // Prevent overlapping runs
+    this.isProcessing = true;
 
-      if (!messages?.length) return;
+    try {
+      const { data: messages, error } = await supabase.rpc('claim_next_messages', { p_limit: 50 });
+
+      if (error) {
+        logger.error('Claim messages error', { error });
+        this.isProcessing = false;
+        return;
+      }
+
+      if (!messages?.length) {
+        this.isProcessing = false;
+        return;
+      }
 
       for (const msg of messages) {
         await this.processMessage(msg);
@@ -44,14 +49,11 @@ export class CommunicationsWorker {
     } catch (error) {
       logger.error('Queue worker error', { error });
     }
+    this.isProcessing = false;
   }
 
   private async processMessage(msg: any): Promise<void> {
     try {
-      // Mark as processing
-      await supabase.from('communications_queue').update({ status: 'processing' }).eq('id', msg.id);
-
-      // Deliver
       const result = await deliver({
         channel: msg.channel,
         recipient: msg.recipient,
@@ -60,7 +62,6 @@ export class CommunicationsWorker {
       });
 
       if (result.success) {
-        // Success
         await supabase.from('communications_queue').update({
           status: 'completed',
           provider_message_id: result.messageId,
@@ -76,12 +77,10 @@ export class CommunicationsWorker {
           sourceId: msg.id,
         });
       } else {
-        // Failed — retry or dead letter
         const attempts = (msg.attempts || 0) + 1;
         const maxAttempts = msg.max_attempts || 3;
 
         if (attempts < maxAttempts) {
-          // Exponential backoff: 2min, 4min, 8min
           const backoffMinutes = Math.pow(2, attempts);
           const nextRetry = new Date(Date.now() + backoffMinutes * 60000).toISOString();
 
@@ -92,7 +91,6 @@ export class CommunicationsWorker {
             next_retry_at: nextRetry,
           }).eq('id', msg.id);
         } else {
-          // Dead letter
           await supabase.from('communications_queue').update({
             status: 'failed',
             attempts,
@@ -100,9 +98,7 @@ export class CommunicationsWorker {
             processed_at: new Date().toISOString(),
           }).eq('id', msg.id);
 
-          logger.error('Message permanently failed', {
-            queueId: msg.id, attempts, error: result.error,
-          });
+          logger.error('Message permanently failed', { queueId: msg.id, attempts, error: result.error });
         }
       }
     } catch (error) {
