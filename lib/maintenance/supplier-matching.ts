@@ -123,15 +123,5 @@ function emptyRanking(s: any, reason: string): SupplierRanking {
 
 export const supplierMatchingEngine = new SupplierMatchingEngine();
 
-  // Check conflicts inside matching engine
-  async getEligibleSuppliers(entityId: string, category: string, priority: string): Promise<SupplierRanking[]> {
-    const { data: conflicts } = await supabase
-      .from('supplier_conflicts')
-      .select('supplier_id')
-      .eq('entity_id', entityId)
-      .eq('is_active', true);
-
-    const blockedIds = (conflicts || []).map(c => c.supplier_id);
-    const rankings = await this.rankSuppliers(entityId, category, priority);
     return rankings.filter(r => !blockedIds.includes(r.supplier_id) && !r.filtered_out);
   }
