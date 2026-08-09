@@ -9,7 +9,7 @@ export default function RevenueCommandSections({ entityId }: { entityId: string 
   const [activityFeed, setActivityFeed] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!entityId) return;
+    console.log("RevenueCommandSections entityId:", entityId); if (!entityId) return;
     async function load() {
       try {
         const today = new Date().toISOString().split('T')[0];
