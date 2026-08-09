@@ -85,3 +85,132 @@ export interface MaintenanceSchedule {
   supplier_id?: string;
   auto_generate: boolean;
 }
+
+export interface PropertyAsset {
+  id: string;
+  entity_id: string;
+  property_id: string;
+  name: string;
+  category: string;
+  make?: string;
+  model?: string;
+  serial_number?: string;
+  install_date?: string;
+  warranty_expiry?: string;
+  last_serviced?: string;
+  status: string;
+}
+
+export interface MaintenanceSLA {
+  id: string;
+  entity_id: string;
+  priority: string;
+  response_hours: number;
+  arrival_hours: number;
+  resolution_hours: number;
+}
+
+export interface ApprovalRule {
+  id: string;
+  entity_id: string;
+  rule_name: string;
+  condition_field: string;
+  condition_operator: string;
+  condition_value: string;
+  approval_level: string;
+}
+
+export interface MaintenanceJournal {
+  issue_id: string;
+  issue: MaintenanceIssue;
+  work_orders: WorkOrder[];
+  visits: SupplierVisit[];
+  timeline: Array<{ timestamp: string; event: string; detail: string }>;
+  sla_status?: { response_deadline: string; arrival_deadline: string; resolution_deadline: string; breached: boolean };
+}
+
+export interface PropertyAsset {
+  id: string;
+  entity_id: string;
+  property_id: string;
+  name: string;
+  category: string;
+  make?: string;
+  model?: string;
+  serial_number?: string;
+  install_date?: string;
+  warranty_expiry?: string;
+  last_serviced?: string;
+  status: string;
+}
+
+export interface MaintenanceSLA {
+  id: string;
+  entity_id: string;
+  priority: string;
+  response_hours: number;
+  arrival_hours: number;
+  resolution_hours: number;
+}
+
+export interface ApprovalRule {
+  id: string;
+  entity_id: string;
+  rule_name: string;
+  condition_field: string;
+  condition_operator: string;
+  condition_value: string;
+  approval_level: string;
+}
+
+export interface MaintenanceJournal {
+  issue_id: string;
+  issue: MaintenanceIssue;
+  work_orders: WorkOrder[];
+  visits: SupplierVisit[];
+  timeline: Array<{ timestamp: string; event: string; detail: string }>;
+  sla_status?: { response_deadline: string; arrival_deadline: string; resolution_deadline: string; breached: boolean };
+}
+
+export interface PropertyAsset {
+  id: string;
+  entity_id: string;
+  property_id: string;
+  name: string;
+  category: string;
+  make?: string;
+  model?: string;
+  serial_number?: string;
+  install_date?: string;
+  warranty_expiry?: string;
+  last_serviced?: string;
+  status: string;
+}
+
+export interface MaintenanceSLA {
+  id: string;
+  entity_id: string;
+  priority: string;
+  response_hours: number;
+  arrival_hours: number;
+  resolution_hours: number;
+}
+
+export interface ApprovalRule {
+  id: string;
+  entity_id: string;
+  rule_name: string;
+  condition_field: string;
+  condition_operator: string;
+  condition_value: string;
+  approval_level: string;
+}
+
+export interface MaintenanceJournal {
+  issue_id: string;
+  issue: MaintenanceIssue;
+  work_orders: WorkOrder[];
+  visits: SupplierVisit[];
+  timeline: Array<{ timestamp: string; event: string; detail: string }>;
+  sla_status?: { response_deadline: string; arrival_deadline: string; resolution_deadline: string; breached: boolean };
+}
