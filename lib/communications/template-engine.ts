@@ -1,5 +1,5 @@
 // lib/communications/template-engine.ts
-// Template Engine — DB-backed with code fallbacks
+// Template Engine — DB-first with code fallbacks
 
 import { supabase } from '@/lib/supabase';
 
@@ -27,42 +27,52 @@ const fallbackTemplates: Record<string, { subject?: string; body: string }> = {
   },
 };
 
-async function getTemplate(entityId: string, templateId: string): Promise<{ subject?: string; body: string }> {
-  const [channel, ...typeParts] = templateId.split('_').reverse();
-  const templateType = typeParts.reverse().join('_');
-
-  const { data } = await supabase
-    .from('communication_templates')
-    .select('subject, body')
-    .eq('entity_id', entityId)
-    .eq('channel', channel)
-    .eq('template_type', templateType)
-    .single();
-
-  if (data) return { subject: data.subject || undefined, body: data.body };
-
-  return fallbackTemplates[templateId] || { body: '' };
-}
-
-export function getTemplateBody(entityId: string, templateId: string, data: Record<string, string>): string {
-  // Async in real usage — simplified for sync template rendering
-  const fallback = fallbackTemplates[templateId];
-  if (!fallback) return data.body || '';
-
-  let rendered = fallback.body;
+function render(template: string, data: Record<string, string>): string {
+  let rendered = template;
   for (const [key, value] of Object.entries(data)) {
     rendered = rendered.replace(new RegExp(`{{${key}}}`, 'g'), value || '');
   }
   return rendered;
 }
 
-export function getTemplateSubject(entityId: string, templateId: string, data: Record<string, string>): string {
-  const fallback = fallbackTemplates[templateId];
-  if (!fallback?.subject) return '';
+export async function getTemplateBody(entityId: string, templateId: string, data: Record<string, string>): Promise<string> {
+  try {
+    const parts = templateId.split('_');
+    const channel = parts[parts.length - 1];
+    const templateType = parts.slice(0, -1).join('_');
 
-  let rendered = fallback.subject;
-  for (const [key, value] of Object.entries(data)) {
-    rendered = rendered.replace(new RegExp(`{{${key}}}`, 'g'), value || '');
-  }
-  return rendered;
+    const { data: row } = await supabase
+      .from('communication_templates')
+      .select('body')
+      .eq('entity_id', entityId)
+      .eq('channel', channel)
+      .eq('template_type', templateType)
+      .single();
+
+    if (row?.body) return render(row.body, data);
+  } catch {}
+
+  const fallback = fallbackTemplates[templateId];
+  return fallback ? render(fallback.body, data) : data.body || '';
+}
+
+export async function getTemplateSubject(entityId: string, templateId: string, data: Record<string, string>): Promise<string> {
+  try {
+    const parts = templateId.split('_');
+    const channel = parts[parts.length - 1];
+    const templateType = parts.slice(0, -1).join('_');
+
+    const { data: row } = await supabase
+      .from('communication_templates')
+      .select('subject')
+      .eq('entity_id', entityId)
+      .eq('channel', channel)
+      .eq('template_type', templateType)
+      .single();
+
+    if (row?.subject) return render(row.subject, data);
+  } catch {}
+
+  const fallback = fallbackTemplates[templateId];
+  return fallback?.subject ? render(fallback.subject, data) : '';
 }

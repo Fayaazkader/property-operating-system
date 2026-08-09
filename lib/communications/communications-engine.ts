@@ -55,8 +55,8 @@ export class CommunicationsEngine {
 
       // 4. Get template
       const templateId = `${request.type}_ready_${channel}`;
-      const body = getTemplateBody(request.entityId, templateId, request.templateData || {});
-      const subject = getTemplateSubject(request.entityId, templateId, request.templateData || {});
+      const body = await getTemplateBody(request.entityId, templateId, request.templateData || {});
+      const subject = await getTemplateSubject(request.entityId, templateId, request.templateData || {});
 
       // 5. Deliver
       const result = await deliver({
