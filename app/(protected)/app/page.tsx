@@ -313,7 +313,7 @@ if (profile?.first_login) setIsFirstLogin(true);
           </div>
         </div>
       )}
-      <RevenueCommandSections entityId={entityId} />
+      <RevenueCommandSections entityId={entityIdList?.[0] || ""} />
     </div>
   );
 }
