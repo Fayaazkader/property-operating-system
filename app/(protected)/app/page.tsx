@@ -183,7 +183,7 @@ if (profile?.first_login) setIsFirstLogin(true);
           {portfolioHealthy ? "Your portfolio is healthy. A few items need attention." : `${attentionItems.length} items require attention. ${criticalLeases.length} ${criticalLeases.length === 1 ? "is" : "are"} critical.`}
         </p>
         <div className="pt-2">
-      <RevenueCommandSections entityId={entityId} />
+
           <button onClick={open} className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-3 text-sm text-[var(--text-muted)] text-left hover:border-[var(--border-hover)] transition-colors">
             🔍 Search tenants, leases, statements, receipts...
           </button>
@@ -313,6 +313,7 @@ if (profile?.first_login) setIsFirstLogin(true);
           </div>
         </div>
       )}
+      <RevenueCommandSections entityId={entityId} />
     </div>
   );
 }
