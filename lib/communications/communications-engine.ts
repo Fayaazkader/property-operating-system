@@ -1,10 +1,9 @@
 // lib/communications/communications-engine.ts
-// Communications Engine — Thin orchestrator. Delegates to services.
+// Communications Engine — Queues messages, never delivers directly
 
+import { supabase } from '@/lib/supabase';
 import { resolveRecipient } from './services/recipient-resolver';
 import { resolvePreferences } from './services/preference-resolver';
-import { deliver } from './services/delivery-service';
-import { logCommunication } from './services/audit-logger';
 import { getTemplateBody, getTemplateSubject } from './template-engine';
 import { publish } from '@/lib/platform/events/event-bus';
 import { logger } from '@/lib/platform/events/logger.service';
@@ -20,78 +19,60 @@ export interface CommunicationRequest {
   channels?: ('email' | 'whatsapp' | 'sms')[];
   templateData?: Record<string, string>;
   attachments?: Array<{ filename: string; content: string; type: string }>;
+  scheduledFor?: string;
 }
 
 export class CommunicationsEngine {
 
-  async send(request: CommunicationRequest): Promise<void> {
+  async send(request: CommunicationRequest): Promise<string[]> {
+    const ids: string[] = [];
+
     // 1. Resolve recipient
     const recipient = await resolveRecipient(request.tenantId);
     if (!recipient) {
       logger.warn('Recipient not found', { tenantId: request.tenantId });
-      return;
+      return ids;
     }
 
     // 2. Resolve preferences
     const prefs = await resolvePreferences(request.tenantId, request.entityId);
     const channels = request.channels || prefs.preferredChannels;
 
-    // 3. Queue communication request
-    await publish('communication.requested', {
-      correlationId: crypto.randomUUID(),
-      source: 'communications-engine',
-      version: '1.0',
-      payload: { ...request, recipient, preferences: prefs },
-    });
-
-    const results: string[] = [];
-
     for (const channel of channels) {
-      // Skip disabled channels
-      if (channel === 'email' && !prefs.emailEnabled) continue;
-      if (channel === 'whatsapp' && !prefs.whatsappEnabled) continue;
-      if (!recipient.email && channel === 'email') continue;
-      if (!recipient.whatsappNumber && channel === 'whatsapp') continue;
+      if (channel === 'email' && (!prefs.emailEnabled || !recipient.email)) continue;
+      if (channel === 'whatsapp' && (!prefs.whatsappEnabled || !recipient.whatsappNumber)) continue;
 
-      // 4. Get template
+      // 3. Render template
       const templateId = `${request.type}_ready_${channel}`;
       const body = await getTemplateBody(request.entityId, templateId, request.templateData || {});
       const subject = await getTemplateSubject(request.entityId, templateId, request.templateData || {});
 
-      // 5. Deliver
-      const result = await deliver({
+      // 4. Queue — never deliver directly
+      const { data } = await supabase.from('communications_queue').insert({
+        entity_id: request.entityId,
+        tenant_id: request.tenantId,
+        type: request.type,
         channel,
         recipient: channel === 'email' ? recipient.email! : recipient.whatsappNumber!,
-        subject,
+        subject: subject || null,
         body,
-        attachments: request.attachments,
-      });
+        status: 'queued',
+        scheduled_for: request.scheduledFor || new Date().toISOString(),
+      }).select('id').single();
 
-      results.push(`${channel}:${result.success ? 'sent' : 'failed'}`);
+      if (data) ids.push(data.id);
     }
 
-    // 6. Audit
-    const status = results.length === 0 ? 'skipped' 
-      : results.every(r => r.includes('sent')) ? 'delivered' 
-      : results.every(r => r.includes('failed')) ? 'failed' 
-      : 'partial';
+    if (ids.length > 0) {
+      await publish('communication.queued', {
+        correlationId: crypto.randomUUID(),
+        source: 'communications-engine',
+        version: '1.0',
+        payload: { tenantId: request.tenantId, type: request.type, queueIds: ids, count: ids.length },
+      });
+    }
 
-    await logCommunication({
-      tenantId: request.tenantId,
-      type: request.type,
-      channels: channels,
-      body: request.templateData?.body || '',
-      status,
-      sourceId: request.templateData?.sourceId,
-    });
-
-    // 7. Publish result
-    await publish('communication.sent', {
-      correlationId: crypto.randomUUID(),
-      source: 'communications-engine',
-      version: '1.0',
-      payload: { tenantId: request.tenantId, type: request.type, results, status },
-    });
+    return ids;
   }
 }
 
