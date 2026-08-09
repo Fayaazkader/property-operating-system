@@ -148,6 +148,7 @@ if (profile?.first_login) setIsFirstLogin(true);
         <h1 className="text-4xl font-semibold tracking-tight text-[var(--text-primary)]">
   {greeting}{displayName ? `, ${displayName}` : ""}
 </h1>
+      <RevenueCommandSections entityId={entityIdList?.[0] || ""} />
 {isFirstLogin && (
   <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
     <p className="text-xs uppercase tracking-[0.2em] text-emerald-300 mb-3">Getting Started</p>
@@ -314,7 +315,7 @@ if (profile?.first_login) setIsFirstLogin(true);
           </div>
         </div>
       )}
-      <RevenueCommandSections entityId={entityIdList?.[0] || ""} />
+
     </div>
   );
 }
