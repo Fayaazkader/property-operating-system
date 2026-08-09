@@ -1,10 +1,5 @@
-import { HomePage } from '@/components/marketing/pages/HomePage';
-import { MarketingLayout } from '@/components/marketing/layout/MarketingLayout';
+import { redirect } from 'next/navigation';
 
 export default function Home() {
-  return (
-    <MarketingLayout>
-      <HomePage />
-    </MarketingLayout>
-  );
+  redirect('/landing');
 }
