@@ -45,7 +45,6 @@ export default function RevenueCommandSections({ entityId }: { entityId: string 
 
   return (
     <div className="space-y-6">
-      
       <div className="space-y-3">
         <p className="text-xs tracking-[0.2em] uppercase text-zinc-500">Revenue Outlook</p>
         <div className="grid grid-cols-4 gap-3">
@@ -83,17 +82,19 @@ export default function RevenueCommandSections({ entityId }: { entityId: string 
         <div className="space-y-2">
           <p className="text-xs tracking-[0.2em] uppercase text-zinc-500">Portfolio State</p>
           <div className="flex gap-3 flex-wrap">
-            {['healthy','watching','at_risk','intervening','recovering','protected','legal'].map(state => (
-              <div key={state} className="flex items-center gap-1.5">
-                <div className={'w-1.5 h-1.5 rounded-full ' + (
-                  state === 'healthy' ? 'bg-emerald-400' : state === 'watching' ? 'bg-blue-400' :
-                  state === 'at_risk' ? 'bg-amber-400' : state === 'intervening' ? 'bg-orange-400' :
-                  state === 'recovering' ? 'bg-cyan-400' : state === 'protected' ? 'bg-green-400' : 'bg-red-400'
-                )} />
-                <span className="text-[11px] text-zinc-400 capitalize">{state.replace('_',' ')}</span>
-                <span className="text-[11px] text-white font-medium">{stateSummary[state] || 0}</span>
-              </div>
-            ))}
+            {['healthy','watching','at_risk','intervening','recovering','protected','legal'].map(state => {
+              const colors: Record<string, string> = {
+                healthy: 'bg-emerald-400', watching: 'bg-blue-400', at_risk: 'bg-amber-400',
+                intervening: 'bg-orange-400', recovering: 'bg-cyan-400', protected: 'bg-green-400', legal: 'bg-red-400'
+              };
+              return (
+                <div key={state} className="flex items-center gap-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full ${colors[state]}`} />
+                  <span className="text-[11px] text-zinc-400 capitalize">{state.replace('_',' ')}</span>
+                  <span className="text-[11px] text-white font-medium">{stateSummary[state] || 0}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -102,16 +103,19 @@ export default function RevenueCommandSections({ entityId }: { entityId: string 
         <div className="space-y-2">
           <p className="text-xs tracking-[0.2em] uppercase text-zinc-500">Recent Activity</p>
           <div className="rounded-xl border border-white/[0.06] overflow-hidden">
-            {activityFeed.map((event: any, i: number) => (
-              <div key={i} className="flex items-center gap-3 px-3 py-2 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.01] transition-colors">
-                <div className={'w-1.5 h-1.5 rounded-full flex-shrink-0 ' + (
-                  event.signal_category === 'financial' ? 'bg-emerald-400' : event.signal_category === 'behaviour' ? 'bg-amber-400' :
-                  event.signal_category === 'communication' ? 'bg-blue-400' : event.signal_category === 'legal' ? 'bg-red-400' : 'bg-zinc-600'
-                )} />
-                <p className="text-xs text-zinc-300 font-light flex-1 truncate">{event.description || event.event_type}</p>
-                <span className="text-[10px] text-zinc-600 flex-shrink-0">{event.occurred_at ? new Date(event.occurred_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
-              </div>
-            ))}
+            {activityFeed.map((event: any, i: number) => {
+              const colors: Record<string, string> = {
+                financial: 'bg-emerald-400', behaviour: 'bg-amber-400',
+                communication: 'bg-blue-400', legal: 'bg-red-400'
+              };
+              return (
+                <div key={i} className="flex items-center gap-3 px-3 py-2 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.01] transition-colors">
+                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${colors[event.signal_category] || 'bg-zinc-600'}`} />
+                  <p className="text-xs text-zinc-300 font-light flex-1 truncate">{event.description || event.event_type}</p>
+                  <span className="text-[10px] text-zinc-600 flex-shrink-0">{event.occurred_at ? new Date(event.occurred_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
