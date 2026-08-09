@@ -122,6 +122,3 @@ function emptyRanking(s: any, reason: string): SupplierRanking {
 }
 
 export const supplierMatchingEngine = new SupplierMatchingEngine();
-
-    return rankings.filter(r => !blockedIds.includes(r.supplier_id) && !r.filtered_out);
-  }
