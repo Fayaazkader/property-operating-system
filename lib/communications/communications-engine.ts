@@ -1,9 +1,12 @@
 // lib/communications/communications-engine.ts
-// Communications Engine — Central hub for all outbound communications
+// Communications Engine — Thin orchestrator. Delegates to services.
 
-import { supabase } from '@/lib/supabase';
+import { resolveRecipient } from './services/recipient-resolver';
+import { resolvePreferences } from './services/preference-resolver';
+import { deliver } from './services/delivery-service';
+import { logCommunication } from './services/audit-logger';
+import { getTemplateBody, getTemplateSubject } from './template-engine';
 import { publish } from '@/lib/platform/events/event-bus';
-import { getWhatsAppProvider, getEmailProvider } from './providers/registry';
 import { logger } from '@/lib/platform/events/logger.service';
 
 export type CommunicationType = 
@@ -14,89 +17,80 @@ export interface CommunicationRequest {
   tenantId: string;
   entityId: string;
   type: CommunicationType;
-  subject?: string;
-  body: string;
-  data?: Record<string, any>;
   channels?: ('email' | 'whatsapp' | 'sms')[];
+  templateData?: Record<string, string>;
   attachments?: Array<{ filename: string; content: string; type: string }>;
 }
 
 export class CommunicationsEngine {
 
   async send(request: CommunicationRequest): Promise<void> {
-    // Get tenant contact info
-    const { data: tenant } = await supabase
-      .from('tenants')
-      .select('email, whatsapp_number, tenant_name')
-      .eq('id', request.tenantId)
-      .single();
-
-    if (!tenant) {
-      logger.warn('Tenant not found for communication', { tenantId: request.tenantId });
+    // 1. Resolve recipient
+    const recipient = await resolveRecipient(request.tenantId);
+    if (!recipient) {
+      logger.warn('Recipient not found', { tenantId: request.tenantId });
       return;
     }
 
-    // Get tenant communication preferences
-    const { data: prefs } = await supabase
-      .from('statement_overrides')
-      .select('*')
-      .eq('entity_id', request.entityId)
-      .eq('tenant_id', request.tenantId);
+    // 2. Resolve preferences
+    const prefs = await resolvePreferences(request.tenantId, request.entityId);
+    const channels = request.channels || prefs.preferredChannels;
 
-    const overrideMap: Record<string, string> = {};
-    for (const p of (prefs || [])) { overrideMap[p.setting_key] = p.setting_value; }
-
-    const channels = request.channels || ['email'];
-    const results: string[] = [];
-
-    // Send via email
-    if (channels.includes('email') && tenant.email) {
-      const emailProvider = getEmailProvider();
-      const result = await emailProvider.send({
-        to: tenant.email,
-        subject: request.subject || `AssetFlow: ${request.type}`,
-        text: request.body,
-        html: request.body.replace(/\n/g, '<br>'),
-        attachments: request.attachments,
-      });
-      results.push(`email:${result.success ? 'sent' : 'failed'}`);
-    }
-
-    // Send via WhatsApp
-    if (channels.includes('whatsapp') && tenant.whatsapp_number) {
-      const waProvider = getWhatsAppProvider();
-      const result = await waProvider.send(tenant.whatsapp_number, request.body);
-      results.push(`whatsapp:${result.success ? 'sent' : 'failed'}`);
-    }
-
-    // Log to communications audit trail
-    await supabase.from('communications').insert({
-      tenant_id: request.tenantId,
-      event_type: `${request.type}_sent`,
-      channel: channels.join(','),
-      message_body: request.body.substring(0, 500),
-      status: results.every(r => r.includes('sent')) ? 'delivered' : 'partial',
-      source_type: request.type,
-      source_id: request.data?.sourceId || null,
+    // 3. Queue communication request
+    await publish('communication.requested', {
+      correlationId: crypto.randomUUID(),
+      source: 'communications-engine',
+      version: '1.0',
+      payload: { ...request, recipient, preferences: prefs },
     });
 
-    // Publish event
+    const results: string[] = [];
+
+    for (const channel of channels) {
+      // Skip disabled channels
+      if (channel === 'email' && !prefs.emailEnabled) continue;
+      if (channel === 'whatsapp' && !prefs.whatsappEnabled) continue;
+      if (!recipient.email && channel === 'email') continue;
+      if (!recipient.whatsappNumber && channel === 'whatsapp') continue;
+
+      // 4. Get template
+      const templateId = `${request.type}_ready_${channel}`;
+      const body = getTemplateBody(request.entityId, templateId, request.templateData || {});
+      const subject = getTemplateSubject(request.entityId, templateId, request.templateData || {});
+
+      // 5. Deliver
+      const result = await deliver({
+        channel,
+        recipient: channel === 'email' ? recipient.email! : recipient.whatsappNumber!,
+        subject,
+        body,
+        attachments: request.attachments,
+      });
+
+      results.push(`${channel}:${result.success ? 'sent' : 'failed'}`);
+    }
+
+    // 6. Audit
+    const status = results.length === 0 ? 'skipped' 
+      : results.every(r => r.includes('sent')) ? 'delivered' 
+      : results.every(r => r.includes('failed')) ? 'failed' 
+      : 'partial';
+
+    await logCommunication({
+      tenantId: request.tenantId,
+      type: request.type,
+      channels: channels,
+      body: request.templateData?.body || '',
+      status,
+      sourceId: request.templateData?.sourceId,
+    });
+
+    // 7. Publish result
     await publish('communication.sent', {
       correlationId: crypto.randomUUID(),
       source: 'communications-engine',
       version: '1.0',
-      payload: {
-        tenantId: request.tenantId,
-        type: request.type,
-        channels,
-        results,
-      },
-    });
-
-    logger.info('Communication sent', {
-      tenantId: request.tenantId,
-      type: request.type,
-      results: results.join(', '),
+      payload: { tenantId: request.tenantId, type: request.type, results, status },
     });
   }
 }
