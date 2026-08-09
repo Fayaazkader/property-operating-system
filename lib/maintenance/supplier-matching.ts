@@ -53,9 +53,6 @@ export class SupplierMatchingEngine {
         rankings.push({ supplier_id: s.supplier_id, supplier_name: s.suppliers?.supplier_name || 'Unknown', overall_score: 0, trade_match: 0, response_score: 0, distance_score: 0, availability_score: 0, rating_score: 0, workload_score: 0, filtered_out: true, filter_reason: 'At max capacity' });
         continue;
       }
-      if (p.preferred_supplier_only && !s.is_preferred) {
-        rankings.push({ supplier_id: s.supplier_id, supplier_name: s.suppliers?.supplier_name || 'Unknown', overall_score: 0, trade_match: 0, response_score: 0, distance_score: 0, availability_score: 0, rating_score: 0, workload_score: 0, filtered_out: true, filter_reason: 'Preferred suppliers only' });
-        continue;
       }
 
       // WEIGHTED SCORING
