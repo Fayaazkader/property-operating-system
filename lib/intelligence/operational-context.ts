@@ -1,9 +1,9 @@
 // lib/intelligence/operational-context.ts
-// Operational Context — One call gives every workspace AI, signals, timeline, actions
+// Operational Context — Orchestrates domain providers. Never queries tables directly.
 
 import { getDomainSignals } from './signal-registry';
 import { recommendationEngine } from './recommendation-engine';
-import { supabase } from '@/lib/supabase';
+import { getRelatedObjects } from './relationship-provider';
 import type { IntelligenceSignal, Recommendation } from './types';
 
 export interface SuggestedAction {
@@ -20,37 +20,27 @@ export interface OperationalContext {
   recommendation: Recommendation | null;
   actions: SuggestedAction[];
   timeline: Array<{ timestamp: string; event: string; detail: string }>;
-  relatedObjects: {
-    maintenance?: any[];
-    inspections?: any[];
-    leases?: any[];
-    suppliers?: any[];
-    invoices?: any[];
-  };
+  relationships: Record<string, Array<{ id: string; type: string; title: string; href: string; status?: string }>>;
 }
 
 export async function getOperationalContext(
   domain: string,
-  entityId: string,
-  entityType?: string
+  entityId: string
 ): Promise<OperationalContext> {
 
-  // 1. Get signals for this entity
+  // 1. Get signals from signal registry
   const domainSignals = await getDomainSignals(domain as any);
-  const relevantSignals = domainSignals.filter(s => 
-    s.affected_entity_id === entityId || s.affected_entity_type === entityType
-  );
+  const relevantSignals = domainSignals.filter(s => s.affected_entity_id === entityId);
 
-  // 2. Get recommendation
+  // 2. Get recommendation from recommendation engine
   const recs = await recommendationEngine.generate();
   const recommendation = recs.find(r => 
     r.signals.some(sid => relevantSignals.some(ds => ds.id === sid))
   ) || null;
 
-  // 3. Determine health
-  const activeCount = relevantSignals.filter(s => s.status === 'active').length;
+  // 3. Determine health from signals
   const criticalCount = relevantSignals.filter(s => s.severity === 'critical' || s.severity === 'high').length;
-  const health = criticalCount > 0 ? 'red' : activeCount > 0 ? 'amber' : 'green';
+  const health = criticalCount > 0 ? 'red' : relevantSignals.length > 0 ? 'amber' : 'green';
 
   // 4. Build actions from recommendation
   const actions: SuggestedAction[] = recommendation ? [{
@@ -59,27 +49,18 @@ export async function getOperationalContext(
     priority: recommendation.priority,
   }] : [];
 
-  // 5. Build timeline from signals
+  // 5. Timeline from signals only — timeline is separate from activity feed
   const timeline = relevantSignals
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 10)
     .map(s => ({
       timestamp: s.created_at,
       event: s.source_event?.replace(/_/g, ' ') || 'Signal',
       detail: s.title,
     }));
 
-  // 6. Get related objects
-  const relatedObjects: any = {};
-  
-  try {
-    const { data: maint } = await supabase.from('maintenance_issues').select('id, title').eq('property_id', entityId).limit(3);
-    if (maint?.length) relatedObjects.maintenance = maint;
-  } catch {}
-
-  try {
-    const { data: insp } = await supabase.from('inspections').select('id, title').eq('property_id', entityId).limit(3);
-    if (insp?.length) relatedObjects.inspections = insp;
-  } catch {}
+  // 6. Get related objects from relationship provider
+  const relationships = await getRelatedObjects(entityId);
 
   return {
     entityId,
@@ -89,6 +70,6 @@ export async function getOperationalContext(
     recommendation,
     actions,
     timeline,
-    relatedObjects,
+    relationships,
   };
 }
