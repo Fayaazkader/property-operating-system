@@ -269,17 +269,7 @@ export default function OperationsHub() {
                       </div>
                     </div>
 
-                    {/* Quick Actions — first 2 links */}
-                    <div className="flex gap-2 mb-4">
-                      {mod.links.slice(0, 2).map((link: any, j: number) => (
-                        <Link key={j} href={link.href}
-                          className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-medium text-black hover:bg-gray-100 transition-all">
-                          {link.label}
-                        </Link>
-                      ))}
-                    </div>
-
-                    <p className="text-[9px] uppercase tracking-[0.15em] text-zinc-600 mb-2">Related</p>
+                    <p className="text-[9px] uppercase tracking-[0.15em] text-zinc-600 mb-2 mt-1">Related</p>
                     <div className="grid grid-cols-3 gap-2">
                       {mod.links.map((link, j) => (
                         <Link
