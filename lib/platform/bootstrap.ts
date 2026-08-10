@@ -42,6 +42,10 @@ async function initializePlatform(): Promise<void> {
 
     const { communicationsWorker } = await import('@/lib/communications/queue-worker');
   communicationsWorker.start();
+  // Register relationship resolvers
+  await import('@/lib/maintenance/relationship-resolver');
+  await import('@/lib/inspections/relationship-resolver');
+  await import('@/lib/financial/relationship-resolver');
   logger.info('✅ AssetFlow Platform initialized.');
   initialized = true;
 }

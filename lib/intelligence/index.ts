@@ -4,3 +4,4 @@ export * from './portfolio-engine';
 export * from './recommendation-engine';
 export * from './operational-context';
 export * from './relationship-provider';
+export * from './timeline-provider';

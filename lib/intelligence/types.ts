@@ -1,7 +1,7 @@
 // lib/intelligence/types.ts
 // Platform-standard intelligence signals — every domain publishes these
 
-export type SignalDomain = 'maintenance' | 'inspections' | 'revenue' | 'supplier' | 'communications' | 'compliance' | 'tenant';
+export type SignalDomain = 'maintenance' | 'inspections' | 'revenue' | 'supplier' | 'communications' | 'compliance' | 'tenant' | 'utilities';
 export type SignalSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type SignalCategory = 'risk' | 'opportunity' | 'anomaly' | 'status';
 
