@@ -1,5 +1,6 @@
 export * from './types';
 export * from './relationship-types';
+export * from './module-manifest';
 export * from './signal-registry';
 export * from './portfolio-engine';
 export * from './recommendation-engine';
