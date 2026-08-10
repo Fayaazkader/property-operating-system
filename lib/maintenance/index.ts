@@ -1,5 +1,6 @@
-// lib/maintenance/index.ts — Public API only. UI imports from here, never from services/.
+// lib/maintenance/index.ts — Public API only
 export * from './types';
+export * from './contracts';
 export * from './engine';
 export * from './queries';
 export * from './commands';
