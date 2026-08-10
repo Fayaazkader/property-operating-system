@@ -1,5 +1,1 @@
-import { redirect } from 'next/navigation';
-
-export default function Home() {
-  redirect('/landing');
-}
+export { default } from './(protected)/page';
