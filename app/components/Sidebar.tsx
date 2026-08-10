@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useCommandPalette } from "@/lib/platform/CommandPaletteContext";
 import { supabase } from "@/lib/supabase";
 import { 
-  Home, Receipt, Landmark, MessageSquare, CheckSquare, Wrench, PenLine,
+  Home, Receipt, Landmark, MessageSquare, CheckSquare, ClipboardCheck, Wrench, PenLine,
   Building2, Users, Briefcase, Calendar, Search, Pin, PinOff, FileText, BarChart3
 } from "lucide-react";
 
