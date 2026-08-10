@@ -107,9 +107,23 @@ export default function RecoveryCaseWorkspace() {
 
       {/* Actions */}
         <div className="flex gap-2">
-          <button className="rounded-full bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100">Recalculate</button>
-          <button className="rounded-full border border-white/[0.08] px-4 py-2 text-xs text-white hover:border-white/20">Review Allocation</button>
-          <button className="rounded-full border border-white/[0.08] px-4 py-2 text-xs text-white hover:border-white/20">Send to Billing</button>
+          {recovery.status === 'budgeted' && (
+            <button className="rounded-full bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100">Calculate Recovery</button>
+          )}
+          {recovery.status === 'expense_recorded' && (
+            <button className="rounded-full bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100">Calculate Recovery</button>
+          )}
+          {recovery.status === 'calculated' && (
+            <>
+              <button className="rounded-full bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100">Approve</button>
+              <button className="rounded-full border border-white/[0.08] px-4 py-2 text-xs text-white hover:border-white/20">Recalculate</button>
+            </>
+          )}
+          {(recovery.status === 'billed' || recovery.status === 'recovered') && (
+            <button className="rounded-full border border-white/[0.08] px-4 py-2 text-xs text-white hover:border-white/20">
+              {recovery.status === 'billed' ? 'View Invoice' : 'View Payment'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -146,24 +160,33 @@ export default function RecoveryCaseWorkspace() {
 
         {/* AI Explanation */}
         <div className="mt-8 pt-6 border-t border-white/[0.04] space-y-3">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Analysis</p>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Why {recoveryRate}%?</p>
           <div className="space-y-2 text-[11px] font-light">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-              <span className="text-zinc-400">Category: <span className="text-white capitalize">{recovery.recovery_category?.replace(/_/g, ' ') || 'Unknown'}</span></span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-              <span className="text-zinc-400">Status: <span className="text-white capitalize">{recovery.status?.replace(/_/g, ' ') || 'Unknown'}</span></span>
-            </div>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className={`w-3 h-3 ${isLeaking ? 'text-red-400' : 'text-emerald-400'} flex-shrink-0`} />
-              <span className="text-zinc-400">Leakage: <span className={isLeaking ? 'text-red-400' : 'text-emerald-400'}>{isLeaking ? 'Yes' : 'No'}</span></span>
-            </div>
+            {recoveryRate < 90 && (
+              <>
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-3 h-3 text-amber-400 flex-shrink-0" />
+                  <span className="text-zinc-400">Recovery is below target because:</span>
+                </div>
+                <p className="text-zinc-500 ml-5">• Actual expense (R{(recovery.actual_expense || 0).toLocaleString()}) exceeds budgeted (R{(recovery.budgeted_amount || 0).toLocaleString()})</p>
+                <p className="text-zinc-500 ml-5">• Tenant allocation may not reflect full consumption</p>
+                <p className="text-zinc-500 ml-5">• Municipal tariff or meter reading may have changed</p>
+                <p className="text-zinc-500 ml-5">• Estimated leakage: R{variance.toLocaleString()}</p>
+                <p className="text-zinc-500 ml-5">• Confidence: {Math.min(95, 60 + ((100 - recoveryRate) * 0.5))}%</p>
+              </>
+            )}
+            {recoveryRate >= 90 && (
+              <>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                  <span className="text-zinc-400">Recovery is healthy. Variance is within acceptable range.</span>
+                </div>
+              </>
+            )}
           </div>
           {isLeaking && (
-            <p className="text-[11px] text-zinc-500 font-light leading-relaxed">
-              Recommended: Review meter allocation and tenant share percentages. Consider recalculating before billing.
+            <p className="text-[11px] text-zinc-400 font-light leading-relaxed mt-2">
+              Recommended: Review meter allocation and tenant share percentages before billing.
             </p>
           )}
         </div>
