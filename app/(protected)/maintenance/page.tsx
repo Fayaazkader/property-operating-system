@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Search, Plus, Zap, Clock, Shield, MapPin, Wrench, X, CheckCircle, AlertTriangle } from 'lucide-react';
+import { slaEngine } from '@/lib/maintenance/sla-engine';
 import Link from 'next/link';
 
 export default function MaintenanceCommand() {
@@ -10,6 +11,7 @@ export default function MaintenanceCommand() {
   const [selectedIssue, setSelectedIssue] = useState<any>(null);
   const [selectedWorkOrders, setSelectedWorkOrders] = useState<any[]>([]);
   const [selectedVisits, setSelectedVisits] = useState<any[]>([]);
+  const [selectedSLA, setSelectedSLA] = useState<any>(null);
   const [attention, setAttention] = useState<any[]>([]);
   const [stats, setStats] = useState({ active: 0, emergency: 0, slaHealthy: 97, predictedSpend: 184000, waitingAssignment: 0, slaBreaches: 0, scheduledVisits: 0 });
   const [loading, setLoading] = useState(true);
@@ -48,6 +50,21 @@ export default function MaintenanceCommand() {
   useEffect(() => { loadData(); }, [loadData]);
 
   async function selectIssue(issue: any) {
+    setSelectedIssue(issue);
+    // Get real SLA
+    try {
+      const { data: entities } = await supabase.rpc("auth_entities");
+      if (entities?.length && issue.priority) {
+        const sla = await slaEngine.getSLA(entities[0], issue.priority);
+        if (sla) {
+          const reported = new Date(issue.created_at);
+          const deadline = new Date(reported.getTime() + sla.response_hours * 3600000);
+          const remaining = Math.max(0, Math.floor((deadline.getTime() - Date.now()) / 60000));
+          setSelectedSLA({ hours: sla.response_hours, remaining, breached: remaining === 0 });
+        }
+      }
+    } catch {}
+
     setSelectedIssue(issue);
     const { data: wo } = await supabase.from('work_orders').select('*').eq('issue_id', issue.id);
     setSelectedWorkOrders(wo || []);
@@ -126,6 +143,18 @@ export default function MaintenanceCommand() {
           </div>
         </div>
 
+        {/* Portfolio Summary */}
+        <div className="px-4 py-3 border-b border-white/[0.04] space-y-1 flex-shrink-0">
+          <div className="flex items-center justify-between text-[10px]">
+            <span className="text-zinc-500">Portfolio</span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px] font-light">
+            <div className="flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-red-400"></div><span className="text-zinc-400">{stats.emergency} Emergencies</span></div>
+            <div className="flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-amber-400"></div><span className="text-zinc-400">{stats.active} Active</span></div>
+            <div className="flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-blue-400"></div><span className="text-zinc-400">{stats.scheduledVisits} Visits</span></div>
+            <div className="flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-zinc-500"></div><span className="text-zinc-400">{stats.slaBreaches} SLA Risks</span></div>
+          </div>
+        </div>
         <div className="flex-1 overflow-y-auto">
           {filteredIssues.length === 0 ? (
             <div className="p-8 text-center text-xs text-zinc-600">No issues</div>
@@ -168,11 +197,22 @@ export default function MaintenanceCommand() {
               <button onClick={() => setSelectedIssue(null)} className="text-zinc-600 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
 
-            {/* Operational Context */}
+            {/* Operational Context — Dynamic by state */}
+            <div className={`rounded-xl border p-4 mb-4 ${
+              selectedIssue.priority === "emergency" ? "border-red-500/20 bg-red-500/[0.02]" :
+              selectedIssue.status === "resolved" || selectedIssue.status === "closed" ? "border-emerald-500/20 bg-emerald-500/[0.02]" :
+              "border-white/[0.04] bg-white/[0.01]"
+            }`}>
+              <p className="text-sm text-white font-light">
+                {selectedIssue.priority === "emergency" ? "🔴 Emergency — requires immediate action" :
+                 selectedIssue.status === "resolved" || selectedIssue.status === "closed" ? "🟢 Completed — awaiting AP invoice" :
+                 "🟡 In Progress"}
+              </p>
+            </div>
             <div className="grid grid-cols-4 gap-3">
               <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] p-3">
                 <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-500 mb-1">SLA</p>
-                <p className="text-sm font-light text-emerald-400">38 min remaining</p>
+                <p className={`text-sm font-light ${selectedSLA?.breached ? "text-red-400" : "text-emerald-400"}`}>{selectedSLA ? `${selectedSLA.remaining} min remaining` : "Calculating..."}</p>
               </div>
               <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] p-3">
                 <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-500 mb-1">Supplier</p>
@@ -297,6 +337,7 @@ export default function MaintenanceCommand() {
           {/* AI Assistant Panel */}
           <div className="mt-8 pt-6 border-t border-white/[0.04] space-y-3">
             <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Assistant</p>
+            <p className="text-[10px] text-zinc-600 font-light">Why this recommendation:</p>
             <div className="space-y-2 text-[11px] font-light">
               <div className="flex items-center gap-2"><CheckCircle className="w-3 h-3 text-emerald-400 flex-shrink-0" /><span className="text-zinc-400">Diagnosis: <span className="text-white">Burst isolation valve</span></span></div>
               <div className="flex items-center gap-2"><CheckCircle className="w-3 h-3 text-emerald-400 flex-shrink-0" /><span className="text-zinc-400">Confidence: <span className="text-white">96%</span></span></div>
