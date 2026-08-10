@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase';
 import { Search, Plus, Zap, Clock, Shield, MapPin, Wrench, X, CheckCircle, AlertTriangle } from 'lucide-react';
 import { slaEngine } from '@/lib/maintenance/sla-engine';
 import { supplierMatchingEngine } from '@/lib/maintenance/supplier-matching';
-import { slaEngine } from '@/lib/maintenance/sla-engine';
 import Link from 'next/link';
 
 export default function MaintenanceCommand() {
@@ -17,9 +16,7 @@ export default function MaintenanceCommand() {
   const [attention, setAttention] = useState<any[]>([]);
   const [stats, setStats] = useState({ active: 0, emergency: 0, slaHealthy: 97, predictedSpend: 184000, waitingAssignment: 0, slaBreaches: 0, scheduledVisits: 0 });
   const [loading, setLoading] = useState(true);
-  const [selectedSLA, setSelectedSLA] = useState<any>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
-  const [selectedTimeline, setSelectedTimeline] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('attention');
 
@@ -261,8 +258,7 @@ export default function MaintenanceCommand() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-white font-light">{selectedSupplier?.name || "ABC Plumbing"}</p>
-              <p className="text-[11px] text-zinc-500 mt-0.5">{selectedSupplier ? `${Math.round(selectedSupplier.score * 100)}% match` : "97% match"} · ETA 34 min · SLA compliant</p>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">97% match · ETA 34 min · SLA compliant</p>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">{selectedSupplier ? `${Math.round(selectedSupplier.score * 100)}% match` : "97% match"} · ETA 34 min · SLA compliant</p>
                 </div>
                 <button className="rounded-full bg-white px-4 py-2 text-[11px] font-medium text-black hover:bg-gray-100">Assign</button>
               </div>
@@ -320,15 +316,9 @@ export default function MaintenanceCommand() {
             <div className="space-y-4">
               <div className="relative pl-5">
                 <div className="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-black bg-amber-400" />
-                <p className="text-[10px] text-zinc-600">{selectedTimeline.length > 0 ? selectedTimeline.map((e: any, i: number) => (
-                <div key={i} className="relative pl-5">
-                  <div className={`absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-black ${e.signal_category === "financial" ? "bg-emerald-400" : "bg-zinc-500"}`} />
-                  <p className="text-[10px] text-zinc-600">{e.occurred_at ? new Date(e.occurred_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }) : ""}</p>
-                  <p className="text-xs text-white font-light mt-0.5">{e.event_type?.replace(/_/g, " ") || "Event"}</p>
-                </div>
-              )) : (selectedIssue.created_at ? new Date(selectedIssue.created_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
+                <p className="text-[10px] text-zinc-600">{selectedIssue.created_at ? new Date(selectedIssue.created_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
                 <p className="text-xs text-white font-light mt-0.5">Reported</p>
-                <p className="text-[10px] text-zinc-600">Via {selectedIssue.reported_via}</p>)
+                <p className="text-[10px] text-zinc-600">Via {selectedIssue.reported_via}</p>
               </div>
               <div className="relative pl-5">
                 <div className="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-black bg-blue-400" />
