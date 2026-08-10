@@ -251,7 +251,35 @@ export default function OperationsHub() {
                 {/* Expanded — Portal to everything related */}
                 {expandedModule === mod.key && (
                   <div className="px-5 pb-5 border-t border-white/[0.04] pt-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600 mb-3">Everything {mod.label}</p>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600 mb-3">{mod.label} Command</p>
+                    
+                    {/* Operational Summary */}
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <div className="rounded-lg border border-white/[0.03] bg-white/[0.01] px-3 py-2">
+                        <p className="text-[9px] uppercase tracking-[0.15em] text-zinc-600">Status</p>
+                        <p className={`text-xs font-light mt-0.5 ${mod.statusColor}`}>{mod.insight}</p>
+                      </div>
+                      <div className="rounded-lg border border-white/[0.03] bg-white/[0.01] px-3 py-2">
+                        <p className="text-[9px] uppercase tracking-[0.15em] text-zinc-600">Overview</p>
+                        <p className="text-xs font-light text-white mt-0.5">{mod.value}</p>
+                      </div>
+                      <div className="rounded-lg border border-white/[0.03] bg-white/[0.01] px-3 py-2">
+                        <p className="text-[9px] uppercase tracking-[0.15em] text-zinc-600">Detail</p>
+                        <p className="text-xs font-light text-zinc-400 mt-0.5">{mod.detail}</p>
+                      </div>
+                    </div>
+
+                    {/* Quick Actions — first 2 links */}
+                    <div className="flex gap-2 mb-4">
+                      {mod.links.slice(0, 2).map((link: any, j: number) => (
+                        <Link key={j} href={link.href}
+                          className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-medium text-black hover:bg-gray-100 transition-all">
+                          {link.label}
+                        </Link>
+                      ))}
+                    </div>
+
+                    <p className="text-[9px] uppercase tracking-[0.15em] text-zinc-600 mb-2">Related</p>
                     <div className="grid grid-cols-3 gap-2">
                       {mod.links.map((link, j) => (
                         <Link
