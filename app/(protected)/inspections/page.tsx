@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { inspectionsEngine } from '@/lib/inspections/engine';
+import { getPropertyHealth, getOvernightChanges } from '@/lib/inspections/property-health';
 import { Calendar, CheckCircle, AlertTriangle, Shield, Clock, ArrowRight, ArrowUp, ArrowDown, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 
@@ -11,6 +12,8 @@ export default function InspectionsCommand() {
   const [overdue, setOverdue] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [propertyHealth, setPropertyHealth] = useState<any>({ green: 0, amber: 0, red: 0 });
+  const [overnightChanges, setOvernightChanges] = useState<string[]>([]);
   const [stats, setStats] = useState({ total: 0, overdueCount: 0, upcomingCount: 0, highRiskFindings: 0, completedThisMonth: 0, prevHighRisk: 0, prevCompliance: 0, prevOverdue: 0 });
 
   useEffect(() => {
@@ -18,7 +21,11 @@ export default function InspectionsCommand() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const { data: entities } = await supabase.rpc('auth_entities');
-      if (!entities?.length) { setLoading(false); return; }
+      if (!entities?.length) { const health = await getPropertyHealth(entityId);
+      setPropertyHealth(health);
+      const changes = await getOvernightChanges(entityId);
+      setOvernightChanges(changes);
+      setLoading(false); return; }
       const entityId = entities[0];
 
       const [up, ov, hist] = await Promise.all([
@@ -40,6 +47,10 @@ export default function InspectionsCommand() {
         prevCompliance: lastMonth.length,
         prevOverdue: ov.length,
       });
+      const health = await getPropertyHealth(entityId);
+      setPropertyHealth(health);
+      const changes = await getOvernightChanges(entityId);
+      setOvernightChanges(changes);
       setLoading(false);
     }
     load();
@@ -119,6 +130,40 @@ export default function InspectionsCommand() {
           </div>
         ))}
       </div>
+
+      {/* PROPERTY HEALTH */}
+      <div className="rounded-xl border border-white/[0.05] bg-white/[0.01] p-5">
+        <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-4">Property Health</p>
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-emerald-400" />
+            <span className="text-sm text-white font-light">{propertyHealth.green}</span>
+            <span className="text-[11px] text-zinc-500">Green</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-amber-400" />
+            <span className="text-sm text-white font-light">{propertyHealth.amber}</span>
+            <span className="text-[11px] text-zinc-500">Amber</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-400" />
+            <span className="text-sm text-white font-light">{propertyHealth.red}</span>
+            <span className="text-[11px] text-zinc-500">Red</span>
+          </div>
+        </div>
+      </div>
+
+      {/* OVERNIGHT CHANGES */}
+      {overnightChanges.length > 0 && (
+        <div className="rounded-xl border border-white/[0.05] bg-white/[0.01] p-5">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-3">Overnight Changes</p>
+          <div className="space-y-1.5">
+            {overnightChanges.map((change, i) => (
+              <p key={i} className="text-xs text-zinc-400 font-light">· {change}</p>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* COMPLIANCE MAP */}
       {categories.length > 0 && (
