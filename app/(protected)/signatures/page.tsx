@@ -454,7 +454,7 @@ export default function LeaseExecutionPage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowSignaturePad(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="bg-[var(--bg-primary)] border border-white/[0.08] rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
               <p className="text-sm font-medium text-white mb-4">{selectedField?.type === 'signature' ? 'Signature' : selectedField?.type === 'initial' ? 'Initials' : 'Sign'}</p>
               <SignaturePad value={pendingSignature || selectedField?.value || ''} onChange={(data) => setPendingSignature(data)} onClear={() => setPendingSignature('')} />
               <button onClick={() => { if (pendingSignature) handleSignatureSave(pendingSignature); }} className="w-full mt-2 rounded-lg bg-white py-2 text-sm font-medium text-black hover:bg-gray-100">Done</button>
@@ -469,7 +469,7 @@ export default function LeaseExecutionPage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowReplicatePrompt(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 w-full max-w-sm text-center" onClick={e => e.stopPropagation()}>
+            <div className="bg-[var(--bg-primary)] border border-white/[0.08] rounded-2xl p-6 w-full max-w-sm text-center" onClick={e => e.stopPropagation()}>
               <p className="text-sm font-medium text-white mb-2">Initial Placed</p>
               <p className="text-xs text-zinc-400 mb-6">Replicate to other pages?</p>
               <div className="space-y-2">
@@ -488,9 +488,9 @@ export default function LeaseExecutionPage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowUpload(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="bg-[var(--bg-primary)] border border-white/[0.08] rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
               <p className="text-sm font-medium text-white mb-4">Upload Document for Signing</p>
-              <input value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="Document name" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none mb-3" />
+              <input value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="Document name" className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none mb-3" />
               <div className="border-2 border-dashed border-white/[0.1] rounded-xl p-6 text-center cursor-pointer hover:border-white/20 transition-all mb-4" onClick={() => (document.querySelector('.file-input-hidden') as HTMLInputElement)?.click()}>
                 {uploadFile ? (<p className="text-sm text-emerald-400">{uploadFile.name}</p>) : (<><p className="text-sm text-zinc-400">Click to select PDF</p><p className="text-xs text-zinc-600 mt-1">or drag and drop</p></>)}
                 <input type="file" accept=".pdf" className="file-input-hidden hidden" onChange={(e) => { setUploadFile(e.target.files?.[0] || null); }} />

@@ -60,7 +60,7 @@ export default function LetterOfDemandPage() {
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8">
       <div><p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 mb-2">Revenue Operations</p><h1 className="text-2xl font-light tracking-[-0.02em] text-white">Letters of Demand</h1></div>
-      <div className="flex gap-3"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tenant..." className="flex-1 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /></div>
+      <div className="flex gap-3"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tenant..." className="flex-1 rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" /></div>
 
       {filtered.length === 0 ? (
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-8 text-center"><p className="text-sm text-zinc-500">No tenants currently eligible for Letters of Demand.</p></div>

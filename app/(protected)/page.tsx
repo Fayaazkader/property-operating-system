@@ -119,7 +119,7 @@ export default function OperationsHub() {
   ];
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-[var(--bg-primary)]">
       
       {/* HERO — Compressed */}
       <section className={`px-8 pt-20 pb-8 transition-all duration-1000 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>

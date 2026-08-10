@@ -258,7 +258,7 @@ await supabase
               <span className="text-zinc-500 text-xs">▼</span>
             </button>
             {showPresetDropdown && (
-              <div className="absolute left-0 right-0 z-40 mt-1 rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
+              <div className="absolute left-0 right-0 z-40 mt-1 rounded-2xl border border-zinc-700 bg-[var(--bg-secondary)] shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
                 <button
                   type="button"
                   onClick={() => { setActivePreset(null); setShowPresetDropdown(false); }}
@@ -327,7 +327,7 @@ await supabase
 
       {/* Import History */}
       {importHistory.length > 0 && (
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+        <div className="rounded-3xl border border-zinc-800 bg-[var(--bg-secondary)] p-6">
           <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-4">Recent Imports</p>
           <div className="space-y-2">
             {importHistory.map((batch: any, idx: number) => (
@@ -349,7 +349,7 @@ await supabase
 
       {/* Empty State */}
       {importHistory.length === 0 && !loading && (
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-12 text-center">
+        <div className="rounded-3xl border border-zinc-800 bg-[var(--bg-secondary)] p-12 text-center">
           <p className="text-zinc-500">No imports yet. Select a bank preset and upload your first statement.</p>
         </div>
       )}
@@ -401,7 +401,7 @@ function CustomDropdown({ value, options, onChange, placeholder, disabled }: {
         <span className="text-zinc-500 text-xs">▼</span>
       </button>
       {open && (
-        <div className="absolute left-0 right-0 z-40 mt-1 rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
+        <div className="absolute left-0 right-0 z-40 mt-1 rounded-2xl border border-zinc-700 bg-[var(--bg-secondary)] shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
           {options.map(opt => (
             <button
               key={opt.id}

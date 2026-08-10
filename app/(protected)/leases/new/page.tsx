@@ -277,14 +277,14 @@ console.log("RULES CREATED:", rulesCreated);
         <div className="w-56 flex-shrink-0 space-y-1">
           {SECTIONS.map((section, i) => (
             <button key={section} onClick={() => setActiveSection(i)}
-              className={`w-full text-left px-4 py-2.5 rounded-2xl text-sm transition-colors ${activeSection === i ? "bg-white text-black font-medium" : "text-zinc-400 hover:bg-zinc-900 hover:text-white"}`}>
+              className={`w-full text-left px-4 py-2.5 rounded-2xl text-sm transition-colors ${activeSection === i ? "bg-white text-black font-medium" : "text-zinc-400 hover:bg-[var(--bg-secondary)] hover:text-white"}`}>
               {section}
             </button>
           ))}
         </div>
 
         {/* Right Form */}
-        <div className="flex-1 rounded-3xl border border-zinc-800 bg-zinc-900 p-6 min-h-[500px]">
+        <div className="flex-1 rounded-3xl border border-zinc-800 bg-[var(--bg-secondary)] p-6 min-h-[500px]">
           {/* Section 1: Lease Information */}
           {activeSection === 0 && (
             <div className="space-y-4">
@@ -293,7 +293,7 @@ console.log("RULES CREATED:", rulesCreated);
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Lease Number</label>
                   <input type="text" value={leaseNumber} readOnly
-                    className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-400 outline-none font-mono cursor-default" />
+                    className="w-full rounded-2xl border border-zinc-800 bg-[var(--bg-secondary)]/60 px-4 py-3 text-sm text-zinc-400 outline-none font-mono cursor-default" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Lease Type *</label>
@@ -550,7 +550,7 @@ console.log("RULES CREATED:", rulesCreated);
               </div>
               
               {leaseType === "Retail" && (
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 space-y-3">
+                <div className="rounded-2xl border border-zinc-800 bg-[var(--bg-primary)] p-4 space-y-3">
                   <label className="flex items-center gap-3">
                     <input type="checkbox" checked={hasTurnover} onChange={(e) => setHasTurnover(e.target.checked)} className="rounded" />
                     <span className="text-sm text-white">Turnover Rental</span>
@@ -572,7 +572,7 @@ console.log("RULES CREATED:", rulesCreated);
                 </div>
               )}
 
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+              <div className="rounded-2xl border border-zinc-800 bg-[var(--bg-primary)] p-4">
                 <p className="text-xs text-zinc-500 mb-3">Recovery Rules</p>
                 <div className="grid grid-cols-2 gap-2">
                   {RECOVERY_TYPES.map(rec => (
@@ -615,7 +615,7 @@ console.log("RULES CREATED:", rulesCreated);
               ) : (
                 <div className="space-y-2">
                   {revenueStreams.map((rs, i) => (
-                    <div key={i} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm">
+                    <div key={i} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-[var(--bg-primary)] px-4 py-3 text-sm">
                       <span className="text-white">{rs.name}</span>
                       <div className="flex items-center gap-4 text-xs">
                         <span className="text-zinc-400">{rs.amount}</span>
@@ -632,7 +632,7 @@ console.log("RULES CREATED:", rulesCreated);
           {activeSection === 6 && (
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-4">Documents</p>
-              <div className="rounded-2xl border border-dashed border-zinc-700 bg-zinc-950 p-8 text-center">
+              <div className="rounded-2xl border border-dashed border-zinc-700 bg-[var(--bg-primary)] p-8 text-center">
                 <p className="text-zinc-500">📄 Drag & drop lease documents here</p>
                 <p className="text-xs text-zinc-600 mt-1">Lease Agreement, Suretyships, Guarantees, Resolutions, Addendums</p>
               </div>
@@ -643,7 +643,7 @@ console.log("RULES CREATED:", rulesCreated);
           {activeSection === 7 && (
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-4">Lease Intelligence</p>
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+              <div className="rounded-2xl border border-zinc-800 bg-[var(--bg-primary)] p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-white">Lease Readiness</span>
                   <span className={`text-sm font-bold ${readiness >= 80 ? "text-emerald-400" : readiness >= 50 ? "text-amber-400" : "text-red-400"}`}>{readiness}%</span>
@@ -659,8 +659,8 @@ console.log("RULES CREATED:", rulesCreated);
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4"><p className="text-xs text-zinc-500">Monthly Revenue</p><p className="text-xl font-bold text-white">R{baseRental ? parseFloat(baseRental).toLocaleString() : "0"}</p></div>
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4"><p className="text-xs text-zinc-500">Annual Revenue</p><p className="text-xl font-bold text-white">R{annualRevenue.toLocaleString()}</p></div>
+                <div className="rounded-2xl border border-zinc-800 bg-[var(--bg-primary)] p-4"><p className="text-xs text-zinc-500">Monthly Revenue</p><p className="text-xl font-bold text-white">R{baseRental ? parseFloat(baseRental).toLocaleString() : "0"}</p></div>
+                <div className="rounded-2xl border border-zinc-800 bg-[var(--bg-primary)] p-4"><p className="text-xs text-zinc-500">Annual Revenue</p><p className="text-xl font-bold text-white">R{annualRevenue.toLocaleString()}</p></div>
               </div>
               <button onClick={handleCreate} disabled={loading}
                 className="w-full rounded-2xl bg-white text-black px-6 py-4 text-sm font-semibold hover:bg-zinc-200 disabled:opacity-40">

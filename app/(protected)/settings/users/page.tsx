@@ -86,7 +86,7 @@ export default function UsersPage() {
                 <td className="py-2.5 px-4 text-zinc-400 text-xs">{u.email}</td>
                 <td className="py-2.5 px-4">
                   {editingUser === u.id ? (
-                    <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="rounded border border-white/[0.08] bg-zinc-900 px-2 py-1 text-xs text-white outline-none">
+                    <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="rounded border border-white/[0.08] bg-[var(--bg-secondary)] px-2 py-1 text-xs text-white outline-none">
                       <option value="">Select...</option>{roles.map(r => (<option key={r.id} value={r.name}>{r.name}</option>))}
                     </select>
                   ) : (<span className="text-xs text-zinc-400">{u.role}</span>)}
@@ -135,14 +135,14 @@ export default function UsersPage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowInvite(false)} />
           <div className="fixed inset-4 z-50 flex items-center justify-center p-4">
-            <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="bg-[var(--bg-primary)] border border-white/[0.08] rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-center mb-4"><p className="text-sm font-medium text-white">Invite User</p><button onClick={() => setShowInvite(false)} className="text-zinc-500 hover:text-white">✕</button></div>
               <div className="space-y-4">
-                <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="Email address" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" />
-                <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none"><option value="">Select role...</option>{roles.map(r => (<option key={r.id} value={r.name}>{r.name}</option>))}</select>
+                <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="Email address" className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" />
+                <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none"><option value="">Select role...</option>{roles.map(r => (<option key={r.id} value={r.name}>{r.name}</option>))}</select>
                 <div>
                   <label className="text-[10px] uppercase tracking-wider text-zinc-500 block mb-1">Expires In</label>
-                  <select value={inviteExpiry} onChange={(e) => setInviteExpiry(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none">
+                  <select value={inviteExpiry} onChange={(e) => setInviteExpiry(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none">
                     <option value="1">1 Day</option><option value="3">3 Days</option><option value="7">7 Days</option><option value="14">14 Days</option><option value="30">30 Days</option>
                   </select>
                 </div>

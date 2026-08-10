@@ -126,7 +126,7 @@ export default function AccountWorkspacePage() {
 
       <div className="flex items-center gap-3">
         <div className="flex-1 relative">
-          <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search transactions..." className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" />
+          <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search transactions..." className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-white outline-none" />
           {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs">✕</button>}
         </div>
         <div className="flex gap-1">
@@ -189,7 +189,7 @@ export default function AccountWorkspacePage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedTx(null)} />
           <div className="fixed inset-4 z-50 flex items-center justify-center p-4">
-            <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="bg-[var(--bg-primary)] border border-white/[0.08] rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-center mb-4">
                 <p className="text-sm font-medium text-white">Transaction Detail</p>
                 <button onClick={() => setSelectedTx(null)} className="text-zinc-500 hover:text-white">✕</button>

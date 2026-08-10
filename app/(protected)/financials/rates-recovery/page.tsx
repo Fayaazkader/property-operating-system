@@ -193,7 +193,7 @@ export default function RatesRecoveryPage() {
               
               <div>
                 <label className="text-[10px] text-zinc-600 block mb-1">Property</label>
-                <select value={selectedProperty} onChange={(e) => handlePropertySelect(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none">
+                <select value={selectedProperty} onChange={(e) => handlePropertySelect(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none">
                   <option value="">Select property...</option>
                   {properties.map(p => (<option key={p.id} value={p.id}>{p.property_name}</option>))}
                 </select>
@@ -202,11 +202,11 @@ export default function RatesRecoveryPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] text-zinc-600 block mb-1">Previous Monthly</label>
-                  <input type="number" value={previousRates} onChange={(e) => setPreviousRates(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" placeholder="R10,000" />
+                  <input type="number" value={previousRates} onChange={(e) => setPreviousRates(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" placeholder="R10,000" />
                 </div>
                 <div>
                   <label className="text-[10px] text-zinc-600 block mb-1">New Monthly</label>
-                  <input type="number" value={newRates} onChange={(e) => setNewRates(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" placeholder="R12,000" />
+                  <input type="number" value={newRates} onChange={(e) => setNewRates(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" placeholder="R12,000" />
                 </div>
               </div>
 
@@ -219,17 +219,17 @@ export default function RatesRecoveryPage() {
 
               <div>
                 <label className="text-[10px] text-zinc-600 block mb-1">Effective Date</label>
-                <input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" />
+                <input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" />
               </div>
 
               <div>
                 <label className="text-[10px] text-zinc-600 block mb-1">Municipality</label>
-                <input type="text" value={municipality} onChange={(e) => setMunicipality(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" placeholder="Auto-populated from property" />
+                <input type="text" value={municipality} onChange={(e) => setMunicipality(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" placeholder="Auto-populated from property" />
               </div>
 
               <div>
                 <label className="text-[10px] text-zinc-600 block mb-1">Reason</label>
-                <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" placeholder="Annual Municipal Rates Increase 2026" />
+                <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" placeholder="Annual Municipal Rates Increase 2026" />
               </div>
 
               <button onClick={handleCreateRun} disabled={loading || !selectedProperty || !previousRates || !newRates || !effectiveDate} className="w-full rounded-lg bg-white py-2.5 text-xs font-medium text-black hover:bg-gray-100 disabled:opacity-40 transition-all">
@@ -293,7 +293,7 @@ export default function RatesRecoveryPage() {
         <>
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" onClick={() => setShowApprovalConfirm(false)} />
           <div className="fixed inset-4 z-50 flex items-center justify-center p-4">
-            <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <div className="bg-[var(--bg-primary)] border border-white/[0.08] rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
               <p className="text-sm font-medium text-white mb-4">Confirm Approval</p>
               <div className="space-y-2 text-xs text-zinc-400 mb-6">
                 <p>✓ Update {preview.allocations.length} billing rules</p>
@@ -314,15 +314,15 @@ export default function RatesRecoveryPage() {
         <div className="space-y-6">
           {/* Filters */}
           <div className="flex gap-3">
-            <select value={historyFilter.property} onChange={(e) => setHistoryFilter({ ...historyFilter, property: e.target.value })} className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-xs text-white outline-none">
+            <select value={historyFilter.property} onChange={(e) => setHistoryFilter({ ...historyFilter, property: e.target.value })} className="rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2 text-xs text-white outline-none">
               <option value="">All Properties</option>
               {properties.map(p => (<option key={p.id} value={p.id}>{p.property_name}</option>))}
             </select>
-            <select value={historyFilter.year} onChange={(e) => setHistoryFilter({ ...historyFilter, year: e.target.value })} className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-xs text-white outline-none">
+            <select value={historyFilter.year} onChange={(e) => setHistoryFilter({ ...historyFilter, year: e.target.value })} className="rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2 text-xs text-white outline-none">
               <option value="">All Years</option>
               {[2026, 2025, 2024].map(y => (<option key={y} value={y}>{y}</option>))}
             </select>
-            <select value={historyFilter.status} onChange={(e) => setHistoryFilter({ ...historyFilter, status: e.target.value })} className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-xs text-white outline-none">
+            <select value={historyFilter.status} onChange={(e) => setHistoryFilter({ ...historyFilter, status: e.target.value })} className="rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2 text-xs text-white outline-none">
               <option value="">All Statuses</option>
               <option value="draft">Draft</option>
               <option value="preview">Preview</option>

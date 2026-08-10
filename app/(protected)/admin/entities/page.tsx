@@ -176,7 +176,7 @@ export default function EntitiesPage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => { setShowCreate(false); resetForm(); }} />
           <div className="fixed inset-4 z-50 overflow-y-auto flex items-start justify-center p-4">
-            <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-8 max-w-lg w-full" onClick={e => e.stopPropagation()}>
+            <div className="bg-[var(--bg-primary)] border border-white/[0.08] rounded-2xl p-8 max-w-lg w-full" onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-light text-white">{editingId ? 'Edit Entity' : 'Create Entity'}</h2>
                 <button onClick={() => { setShowCreate(false); resetForm(); }} className="text-zinc-500 hover:text-white">✕</button>
@@ -185,35 +185,35 @@ export default function EntitiesPage() {
               <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                 <p className="text-[10px] uppercase tracking-wider text-zinc-600">Identity</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="text-[10px] text-zinc-500 block mb-1">Entity Name *</label><input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /></div>
-                  <div><label className="text-[10px] text-zinc-500 block mb-1">Entity Code</label><input value={entityCode} onChange={(e) => setEntityCode(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" placeholder="Auto-generated" /></div>
+                  <div><label className="text-[10px] text-zinc-500 block mb-1">Entity Name *</label><input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" /></div>
+                  <div><label className="text-[10px] text-zinc-500 block mb-1">Entity Code</label><input value={entityCode} onChange={(e) => setEntityCode(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" placeholder="Auto-generated" /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="text-[10px] text-zinc-500 block mb-1">Trading Name</label><input value={tradingName} onChange={(e) => setTradingName(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /></div>
-                  <div><label className="text-[10px] text-zinc-500 block mb-1">Country</label><select value={country} onChange={(e) => setCountry(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none"><option>South Africa</option><option>Namibia</option><option>Botswana</option><option>Zimbabwe</option></select></div>
+                  <div><label className="text-[10px] text-zinc-500 block mb-1">Trading Name</label><input value={tradingName} onChange={(e) => setTradingName(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" /></div>
+                  <div><label className="text-[10px] text-zinc-500 block mb-1">Country</label><select value={country} onChange={(e) => setCountry(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none"><option>South Africa</option><option>Namibia</option><option>Botswana</option><option>Zimbabwe</option></select></div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="text-[10px] text-zinc-500 block mb-1">Registration Number</label><input value={regNumber} onChange={(e) => setRegNumber(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /></div>
-                  <div><label className="text-[10px] text-zinc-500 block mb-1">VAT Number</label><input value={vatNumber} onChange={(e) => setVatNumber(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /></div>
+                  <div><label className="text-[10px] text-zinc-500 block mb-1">Registration Number</label><input value={regNumber} onChange={(e) => setRegNumber(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" /></div>
+                  <div><label className="text-[10px] text-zinc-500 block mb-1">VAT Number</label><input value={vatNumber} onChange={(e) => setVatNumber(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" /></div>
                 </div>
 
                 <p className="text-[10px] uppercase tracking-wider text-zinc-600 pt-2">Contact</p>
-                <div><label className="text-[10px] text-zinc-500 block mb-1">Physical Address</label><input value={physicalAddress} onChange={(e) => setPhysicalAddress(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /></div>
-                <div><label className="text-[10px] text-zinc-500 block mb-1">Postal Address</label><input value={postalAddress} onChange={(e) => setPostalAddress(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /></div>
+                <div><label className="text-[10px] text-zinc-500 block mb-1">Physical Address</label><input value={physicalAddress} onChange={(e) => setPhysicalAddress(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" /></div>
+                <div><label className="text-[10px] text-zinc-500 block mb-1">Postal Address</label><input value={postalAddress} onChange={(e) => setPostalAddress(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" /></div>
                 <div className="grid grid-cols-3 gap-3">
-                  <div><label className="text-[10px] text-zinc-500 block mb-1">Telephone</label><input value={telephone} onChange={(e) => setTelephone(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /></div>
-                  <div><label className="text-[10px] text-zinc-500 block mb-1">Email</label><input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /></div>
-                  <div><label className="text-[10px] text-zinc-500 block mb-1">Website</label><input value={website} onChange={(e) => setWebsite(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" /></div>
+                  <div><label className="text-[10px] text-zinc-500 block mb-1">Telephone</label><input value={telephone} onChange={(e) => setTelephone(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" /></div>
+                  <div><label className="text-[10px] text-zinc-500 block mb-1">Email</label><input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" /></div>
+                  <div><label className="text-[10px] text-zinc-500 block mb-1">Website</label><input value={website} onChange={(e) => setWebsite(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" /></div>
                 </div>
 
                 <p className="text-[10px] uppercase tracking-wider text-zinc-600 pt-2">Financial Configuration</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="text-[10px] text-zinc-500 block mb-1">Financial Year Start</label><select value={financialYearStart} onChange={(e) => setFinancialYearStart(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none">{['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, i) => (<option key={m} value={i+1}>{m}</option>))}</select></div>
-                  <div><label className="text-[10px] text-zinc-500 block mb-1">Accounting Mode</label><select value={accountingMode} onChange={(e) => setAccountingMode(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none"><option value="accrual">Accrual</option><option value="cash">Cash</option></select></div>
+                  <div><label className="text-[10px] text-zinc-500 block mb-1">Financial Year Start</label><select value={financialYearStart} onChange={(e) => setFinancialYearStart(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none">{['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, i) => (<option key={m} value={i+1}>{m}</option>))}</select></div>
+                  <div><label className="text-[10px] text-zinc-500 block mb-1">Accounting Mode</label><select value={accountingMode} onChange={(e) => setAccountingMode(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none"><option value="accrual">Accrual</option><option value="cash">Cash</option></select></div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="text-[10px] text-zinc-500 block mb-1">Base Currency</label><input value={baseCurrency} onChange={(e) => setBaseCurrency(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" placeholder="ZAR" /></div>
-                  <div><label className="text-[10px] text-zinc-500 block mb-1">Status</label><select value={isActive ? 'active' : 'inactive'} onChange={(e) => setIsActive(e.target.value === 'active')} className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+                  <div><label className="text-[10px] text-zinc-500 block mb-1">Base Currency</label><input value={baseCurrency} onChange={(e) => setBaseCurrency(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none" placeholder="ZAR" /></div>
+                  <div><label className="text-[10px] text-zinc-500 block mb-1">Status</label><select value={isActive ? 'active' : 'inactive'} onChange={(e) => setIsActive(e.target.value === 'active')} className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
                 </div>
               </div>
 

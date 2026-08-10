@@ -250,7 +250,7 @@ const { data: auditLogs } =
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
 
-        <button className="group rounded-[2rem] border border-zinc-800 bg-zinc-900 p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-zinc-700 hover:bg-zinc-800">
+        <button className="group rounded-[2rem] border border-zinc-800 bg-[var(--bg-secondary)] p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-zinc-700 hover:bg-zinc-800">
 
           <p className="mb-3 text-sm uppercase tracking-[0.25em] text-zinc-500">
 
@@ -274,7 +274,7 @@ const { data: auditLogs } =
 
         </button>
 
-        <button className="group rounded-[2rem] border border-zinc-800 bg-zinc-900 p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-zinc-700 hover:bg-zinc-800">
+        <button className="group rounded-[2rem] border border-zinc-800 bg-[var(--bg-secondary)] p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-zinc-700 hover:bg-zinc-800">
 
           <p className="mb-3 text-sm uppercase tracking-[0.25em] text-zinc-500">
 
@@ -300,7 +300,7 @@ const { data: auditLogs } =
 
       </div>
 
-      <div className="mb-12 rounded-[2rem] border border-zinc-800 bg-zinc-900 p-8">
+      <div className="mb-12 rounded-[2rem] border border-zinc-800 bg-[var(--bg-secondary)] p-8">
 
         <div className="mb-8">
 
@@ -398,7 +398,7 @@ const { data: auditLogs } =
         </div>
 
       </div>
-<div className="rounded-[2rem] border border-zinc-800 bg-zinc-900 p-8">
+<div className="rounded-[2rem] border border-zinc-800 bg-[var(--bg-secondary)] p-8">
 
   <div className="mb-8 flex items-center justify-between">
 
@@ -485,7 +485,7 @@ const { data: auditLogs } =
   </div>
 
 </div>
-<div className="mt-12 rounded-[2rem] border border-zinc-800 bg-zinc-900 p-8">
+<div className="mt-12 rounded-[2rem] border border-zinc-800 bg-[var(--bg-secondary)] p-8">
 
   <div className="mb-8">
 
@@ -679,7 +679,7 @@ const { data: auditLogs } =
   </div>
 
 </div>
-<div className="mt-12 rounded-[2rem] border border-zinc-800 bg-zinc-900 p-8">
+<div className="mt-12 rounded-[2rem] border border-zinc-800 bg-[var(--bg-secondary)] p-8">
 
   <div className="mb-8">
 

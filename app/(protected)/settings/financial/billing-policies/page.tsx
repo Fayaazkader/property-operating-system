@@ -134,7 +134,7 @@ export default function BillingPoliciesPage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-8 w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="bg-[var(--bg-primary)] border border-white/[0.08] rounded-2xl p-8 w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
               <p className="text-sm font-medium text-white mb-6">{editingId ? 'Edit Policy' : 'New Policy'}</p>
               
               <div className="space-y-4">

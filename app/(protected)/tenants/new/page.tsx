@@ -167,7 +167,7 @@ export default function LeaseActivationPage() {
   const fieldLabel = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
   return (
-    <div className="min-h-screen bg-black flex">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex">
       <div className="flex-1 p-8 max-w-3xl mx-auto">
         <div className="flex items-center gap-4 mb-10">
           <Link href="/tenants" className="text-sm text-zinc-500 hover:text-white">← Tenants</Link>

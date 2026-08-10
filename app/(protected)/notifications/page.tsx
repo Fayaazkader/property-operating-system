@@ -70,7 +70,7 @@ export default function NotificationsPage() {
         subtitle="Real-time operational alerts and executive intelligence."
       />
 
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-8">
+      <div className="rounded-3xl border border-zinc-800 bg-[var(--bg-secondary)] p-8">
         <div className="flex items-center justify-between mb-10">
           <div>
             <h2 className="text-2xl font-bold text-white">Active Notifications</h2>
@@ -83,7 +83,7 @@ export default function NotificationsPage() {
 
         <div className="space-y-4">
           {notifications.length === 0 && (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-10 text-center">
+            <div className="rounded-2xl border border-zinc-800 bg-[var(--bg-primary)] p-10 text-center">
               <p className="text-zinc-500">No active operational notifications.</p>
             </div>
           )}
@@ -127,7 +127,7 @@ export default function NotificationsPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 mb-3">Notification</p>
               <p className="text-2xl font-bold text-white">{selectedNotification.message}</p>
             </div>
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
+            <div className="rounded-2xl border border-zinc-800 bg-[var(--bg-primary)] p-6">
               <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 mb-3">Operational Insight</p>
               <p className="text-zinc-400 leading-7">{selectedNotification.detail}</p>
             </div>
