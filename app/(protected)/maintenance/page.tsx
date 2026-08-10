@@ -90,14 +90,6 @@ export default function MaintenanceCommand() {
     } catch {}
 
     // Get work orders and visits
-    const { data: wo } = await supabase.from('work_orders').select('*').eq('issue_id', issue.id);
-    setSelectedWorkOrders(wo || []);
-    if (wo?.length) {
-      const woIds = wo.map((w: any) => w.id);
-      const { data: visits } = await supabase.from('supplier_visits').select('*').in('work_order_id', woIds);
-      setSelectedVisits(visits || []);
-    } else {
-      setSelectedVisits([]);
     }
 
     // Get timeline from activity_feed (event-driven)
