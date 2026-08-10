@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, DollarSign, Building2, Clock, Activity, Zap, FileText, X } from 'lucide-react';
+import { recommendationEngine } from '@/lib/intelligence/recommendation-engine';
+import { getDomainSignals } from '@/lib/intelligence/signal-registry';
 import Link from 'next/link';
 
 export default function RecoveryCaseWorkspace() {
@@ -12,6 +14,8 @@ export default function RecoveryCaseWorkspace() {
   const [recovery, setRecovery] = useState<any>(null);
   const [property, setProperty] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [signals, setSignals] = useState<any[]>([]);
+  const [recommendation, setRecommendation] = useState<any>(null);
 
   useEffect(() => {
     async function load() {
@@ -21,6 +25,11 @@ export default function RecoveryCaseWorkspace() {
         const { data: prop } = await supabase.from('properties').select('property_name').eq('id', rec.property_id).single();
         setProperty(prop);
       }
+      const domainSignals = await getDomainSignals("utilities");
+      setSignals(domainSignals.filter(s => s.affected_entity_id === id));
+      const recs = await recommendationEngine.generate();
+      const relevantRec = recs.find(r => r.signals.some((sid: string) => domainSignals.some(ds => ds.id === sid)));
+      setRecommendation(relevantRec || null);
       setLoading(false);
     }
     load();
@@ -168,11 +177,17 @@ export default function RecoveryCaseWorkspace() {
                   <AlertTriangle className="w-3 h-3 text-amber-400 flex-shrink-0" />
                   <span className="text-zinc-400">Recovery is below target because:</span>
                 </div>
-                <p className="text-zinc-500 ml-5">• Actual expense (R{(recovery.actual_expense || 0).toLocaleString()}) exceeds budgeted (R{(recovery.budgeted_amount || 0).toLocaleString()})</p>
-                <p className="text-zinc-500 ml-5">• Tenant allocation may not reflect full consumption</p>
-                <p className="text-zinc-500 ml-5">• Municipal tariff or meter reading may have changed</p>
-                <p className="text-zinc-500 ml-5">• Estimated leakage: R{variance.toLocaleString()}</p>
-                <p className="text-zinc-500 ml-5">• Confidence: {Math.min(95, 60 + ((100 - recoveryRate) * 0.5))}%</p>
+                {signals.length > 0 ? signals.slice(0, 4).map((s: any, i: number) => (
+                  <p key={i} className="text-zinc-500 ml-5">• {s.explanation}</p>
+                )) : (
+                  <>
+                    <p className="text-zinc-500 ml-5">• Actual expense exceeds budgeted</p>
+                    <p className="text-zinc-500 ml-5">• Tenant allocation may not reflect full consumption</p>
+                    <p className="text-zinc-500 ml-5">• Municipal tariff or meter reading may have changed</p>
+                    <p className="text-zinc-500 ml-5">• Estimated leakage: R{variance.toLocaleString()}</p>
+                  </>
+                )}
+                <p className="text-zinc-500 ml-5">• Confidence: {recommendation ? `${recommendation.confidence}%` : `${Math.min(95, 60 + ((100 - recoveryRate) * 0.5))}%`}</p>
               </>
             )}
             {recoveryRate >= 90 && (
