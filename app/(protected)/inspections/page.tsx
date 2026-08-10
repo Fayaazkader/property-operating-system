@@ -47,10 +47,6 @@ export default function InspectionsCommand() {
         prevCompliance: lastMonth.length,
         prevOverdue: ov.length,
       });
-      const health = await getPropertyHealth(entityId);
-      setPropertyHealth(health);
-      const changes = await getOvernightChanges(entityId);
-      setOvernightChanges(changes);
       setLoading(false);
     }
     load();
