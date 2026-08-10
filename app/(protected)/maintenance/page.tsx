@@ -14,7 +14,7 @@ export default function MaintenanceCommand() {
   const [selectedVisits, setSelectedVisits] = useState<any[]>([]);
   const [selectedSLA, setSelectedSLA] = useState<any>(null);
   const [attention, setAttention] = useState<any[]>([]);
-  const [stats, setStats] = useState({ active: 0, emergency: 0, slaHealthy: 97, predictedSpend: 184000, waitingAssignment: 0, slaBreaches: 0, scheduledVisits: 0 });
+  const [stats, setStats] = useState({ active: 0, emergency: 0, slaHealthy: 100, predictedSpend: 0, waitingAssignment: 0, slaBreaches: 0, scheduledVisits: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [search, setSearch] = useState('');
@@ -40,7 +40,7 @@ export default function MaintenanceCommand() {
     const active = all.filter(i => !['resolved', 'closed'].includes(i.status)).length;
     const emergency = all.filter(i => i.priority === 'emergency' && !['resolved', 'closed'].includes(i.status)).length;
     const waitingAssignment = all.filter(i => i.status === 'reported').length;
-    setStats({ active, emergency, slaHealthy: 97, predictedSpend: 184000, waitingAssignment, slaBreaches: 2, scheduledVisits: 14 });
+    setStats({ active, emergency, slaHealthy: stats.active > 0 ? Math.round((stats.active - stats.emergency) / stats.active * 100) : 100, predictedSpend: 0, waitingAssignment, slaBreaches: all.filter(i => i.priority === "emergency" && i.status === "reported").length, scheduledVisits: all.filter(i => i.status === "in_progress").length });
 
     const feed: any[] = [];
     all.filter(i => i.priority === 'emergency' && i.status === 'reported').forEach(i => feed.push({ type: 'emergency', issue: i, context: `No supplier · ${minutesAgo(i.created_at)}min`, action: 'Assign' }));
@@ -257,8 +257,8 @@ export default function MaintenanceCommand() {
               <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Recommendations</p>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-white font-light">{selectedSupplier?.name || "ABC Plumbing"}</p>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">{selectedSupplier ? `${Math.round(selectedSupplier.score * 100)}% match` : "97% match"} · ETA 34 min · SLA compliant</p>
+                  <p className="text-sm text-white font-light">{selectedSupplier?.name || "—"}</p>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">{selectedSupplier ? `${Math.round(selectedSupplier.score * 100)}% match · SLA compliant` : "No supplier matched yet"}</p>
                 </div>
                 <button className="rounded-full bg-white px-4 py-2 text-[11px] font-medium text-black hover:bg-gray-100">Assign</button>
               </div>
@@ -288,7 +288,7 @@ export default function MaintenanceCommand() {
 
               <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] p-5">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-3">Recommended Next Action</p>
-                <p className="text-sm text-white font-light">Assign supplier to Water Leak at Building A</p>
+                <p className="text-sm text-white font-light">{attention.length > 0 ? attention[0].issue.title : "No urgent actions required"}</p>
                 <button className="mt-3 rounded-full bg-white px-4 py-2 text-[11px] font-medium text-black hover:bg-gray-100">Take Action</button>
               </div>
 
