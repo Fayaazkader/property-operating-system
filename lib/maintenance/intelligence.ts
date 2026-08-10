@@ -11,7 +11,7 @@ export class MaintenanceIntelligence {
     // Emergency issues
     const { data: emergencies } = await supabase
       .from('maintenance_issues')
-      .select('id, title')
+      .select('id, title, status')
       .eq('entity_id', entityId)
       .eq('priority', 'emergency')
       .in('status', ['reported', 'classified']);
@@ -37,7 +37,7 @@ export class MaintenanceIntelligence {
     // Overdue work orders
     const { data: overdue } = await supabase
       .from('work_orders')
-      .select('id, title')
+      .select('id, title, status')
       .eq('entity_id', entityId)
       .in('status', ['pending', 'assigned'])
       .lt('scheduled_date', new Date().toISOString().split('T')[0]);
