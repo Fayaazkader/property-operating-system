@@ -1,2 +1,5 @@
+// lib/inspections/index.ts — Public API only.
+export * from './types';
 export * from './engine';
-export * from '@/lib/property-operations/inspections/inspection.types';
+export * from './queries';
+export * from './commands';
