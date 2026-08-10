@@ -31,8 +31,8 @@
 
 /* ===== MIDNIGHT THEME (Default) ===== */
 .dark, .theme-midnight {
-  --bg-primary: #0F1115;
-  --bg-secondary: #171A21;
+  --bg-primary: #000000;
+  --bg-secondary: #0A0A0A;
   --bg-elevated: #1E232D;
   --border-default: #2A313D;
   --border-hover: #3A4252;
