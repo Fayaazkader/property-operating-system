@@ -1,12 +1,17 @@
 // lib/intelligence/module-manifest.ts
-// Module Manifest — Every module declares what it provides. Bootstrap discovers them.
+// Module Manifest — Metadata separate from services
 
 import type { RelationshipEdge } from './relationship-types';
 
-export interface ModuleManifest {
+export interface ModuleMetadata {
   domain: string;
   label: string;
-  relationships: {
+  description?: string;
+  icon?: string;
+}
+
+export interface ModuleServices {
+  relationships?: {
     resolvers: Record<string, (entityId: string) => Promise<RelationshipEdge[]>>;
     needs: Array<{ domain: string; priority: number }>;
   };
@@ -15,32 +20,33 @@ export interface ModuleManifest {
   };
 }
 
+export interface ModuleManifest {
+  metadata: ModuleMetadata;
+  services: ModuleServices;
+}
+
 const manifests: Map<string, ModuleManifest> = new Map();
 
 export function registerManifest(manifest: ModuleManifest): void {
-  manifests.set(manifest.domain, manifest);
+  manifests.set(manifest.metadata.domain, manifest);
 }
 
 export function getManifest(domain: string): ModuleManifest | undefined {
   return manifests.get(domain);
 }
 
-export function getAllManifests(): ModuleManifest[] {
-  return Array.from(manifests.values());
-}
-
 export function getRelationshipsForWorkspace(workspace: string): Array<{ domain: string; priority: number }> {
   const manifest = manifests.get(workspace);
-  return manifest?.relationships?.needs || [];
+  return manifest?.services?.relationships?.needs || [];
 }
 
 export function resolveRelationships(entityId: string, workspace: string): Record<string, Promise<RelationshipEdge[]>> {
   const manifest = manifests.get(workspace);
-  if (!manifest) return {};
+  if (!manifest?.services?.relationships) return {};
 
   const result: Record<string, Promise<RelationshipEdge[]>> = {};
-  for (const need of (manifest.relationships?.needs || [])) {
-    const resolver = manifest.relationships?.resolvers[need.domain];
+  for (const need of manifest.services.relationships.needs) {
+    const resolver = manifest.services.relationships.resolvers[need.domain];
     if (resolver) {
       result[need.domain] = resolver(entityId).catch(() => []);
     }
