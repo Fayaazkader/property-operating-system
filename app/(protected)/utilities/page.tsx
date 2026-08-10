@@ -108,7 +108,7 @@ export default function UtilitiesWorkspace() {
                 <tr><td colSpan={6} className="py-12 text-center text-xs text-zinc-500">No recovery data yet.</td></tr>
               ) : (
                 recoveries.map((r, i) => (
-                  <tr key={r.id || i} className="border-b border-white/[0.03] hover:bg-white/[0.01]">
+                  <tr key={r.id || i} className="border-b border-white/[0.03] hover:bg-white/[0.01] cursor-pointer" onClick={() => window.location.href = `/utilities/${r.id}`}>
                     <td className="py-2 px-4 text-white font-light text-xs">{propMap.get(r.property_id) || '—'}</td>
                     <td className="py-2 px-4 text-zinc-400 text-xs capitalize">{r.recovery_category?.replace(/_/g, ' ') || '—'}</td>
                     <td className="py-2 px-4 text-right text-zinc-400 text-xs">R{(r.budgeted_amount || 0).toLocaleString()}</td>

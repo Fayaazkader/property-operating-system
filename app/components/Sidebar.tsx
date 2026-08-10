@@ -7,7 +7,8 @@ import { useCommandPalette } from "@/lib/platform/CommandPaletteContext";
 import { supabase } from "@/lib/supabase";
 import { 
   Home, Receipt, Landmark, MessageSquare, CheckSquare, ClipboardCheck, Wrench, PenLine,
-  Building2, Users, Briefcase, Calendar, Search, Pin, PinOff, FileText, BarChart3
+  Building2, Users, Briefcase, Calendar, Search, Pin, PinOff, FileText, BarChart3,
+  Zap,
 } from "lucide-react";
 
 type NavItem = {
