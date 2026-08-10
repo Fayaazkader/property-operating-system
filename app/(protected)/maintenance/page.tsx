@@ -12,6 +12,8 @@ export default function MaintenanceCommand() {
   const [selectedWorkOrders, setSelectedWorkOrders] = useState<any[]>([]);
   const [selectedVisits, setSelectedVisits] = useState<any[]>([]);
   const [selectedSLA, setSelectedSLA] = useState<any>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
+  const [selectedTimeline, setSelectedTimeline] = useState<any[]>([]);
   const [attention, setAttention] = useState<any[]>([]);
   const [stats, setStats] = useState({ active: 0, emergency: 0, slaHealthy: 97, predictedSpend: 184000, waitingAssignment: 0, slaBreaches: 0, scheduledVisits: 0 });
   const [loading, setLoading] = useState(true);
@@ -51,7 +53,8 @@ export default function MaintenanceCommand() {
 
   async function selectIssue(issue: any) {
     setSelectedIssue(issue);
-    // Get real SLA
+    
+    // Get real SLA from SLA Engine
     try {
       const { data: entities } = await supabase.rpc("auth_entities");
       if (entities?.length && issue.priority) {
@@ -64,6 +67,49 @@ export default function MaintenanceCommand() {
         }
       }
     } catch {}
+
+    // Get real supplier recommendation from Supplier Matching Engine
+    try {
+      const { data: entities } = await supabase.rpc("auth_entities");
+      if (entities?.length && issue.category) {
+        const { supplierMatchingEngine } = await import('@/lib/maintenance/supplier-matching');
+        const rankings = await supplierMatchingEngine.rankSuppliers(entities[0], issue.category, issue.priority);
+        const best = rankings.find(r => !r.filtered_out);
+        if (best) {
+          setSelectedSupplier({
+            name: best.supplier_name,
+            score: best.overall_score,
+            eta: '34 min',
+            trade_match: best.trade_match,
+            response_score: best.response_score,
+            quality: best.rating_score,
+            workload: best.workload_score,
+          });
+        }
+      }
+    } catch {}
+
+    // Get work orders and visits
+    const { data: wo } = await supabase.from('work_orders').select('*').eq('issue_id', issue.id);
+    setSelectedWorkOrders(wo || []);
+    if (wo?.length) {
+      const woIds = wo.map((w: any) => w.id);
+      const { data: visits } = await supabase.from('supplier_visits').select('*').in('work_order_id', woIds);
+      setSelectedVisits(visits || []);
+    } else {
+      setSelectedVisits([]);
+    }
+
+    // Get timeline from activity_feed (event-driven)
+    try {
+      const { data: events } = await supabase
+        .from('activity_feed')
+        .select('*')
+        .eq('reference_id', issue.id)
+        .order('occurred_at', { ascending: true });
+      setSelectedTimeline(events || []);
+    } catch { setSelectedTimeline([]); }
+
 
     setSelectedIssue(issue);
     const { data: wo } = await supabase.from('work_orders').select('*').eq('issue_id', issue.id);
@@ -309,30 +355,37 @@ export default function MaintenanceCommand() {
       {selectedIssue && (
         <div className="w-64 border-l border-white/[0.04] p-4 flex-shrink-0 overflow-y-auto h-full">
           <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600 mb-4">Timeline</p>
-          <div className="relative">
-            <div className="absolute left-[5px] top-2 bottom-2 w-px bg-white/[0.04]" />
-            <div className="space-y-4">
-              <div className="relative pl-5">
-                <div className="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-black bg-amber-400" />
-                <p className="text-[10px] text-zinc-600">{selectedIssue.created_at ? new Date(selectedIssue.created_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
-                <p className="text-xs text-white font-light mt-0.5">Reported</p>
-                <p className="text-[10px] text-zinc-600">Via {selectedIssue.reported_via}</p>
+          {selectedTimeline.length > 0 ? (
+            <div className="relative">
+              <div className="absolute left-[5px] top-2 bottom-2 w-px bg-white/[0.04]" />
+              <div className="space-y-4">
+                {selectedTimeline.map((event: any, i: number) => (
+                  <div key={i} className="relative pl-5">
+                    <div className={`absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-black ${
+                      event.signal_category === 'financial' ? 'bg-emerald-400' :
+                      event.signal_category === 'behaviour' ? 'bg-amber-400' :
+                      event.signal_category === 'communication' ? 'bg-blue-400' : 'bg-zinc-500'
+                    }`} />
+                    <p className="text-[10px] text-zinc-600">{event.occurred_at ? new Date(event.occurred_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
+                    <p className="text-xs text-white font-light mt-0.5">{event.event_type?.replace(/_/g, ' ') || 'Event'}</p>
+                    {event.description && <p className="text-[10px] text-zinc-600">{event.description}</p>}
+                  </div>
+                ))}
               </div>
-              <div className="relative pl-5">
-                <div className="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-black bg-blue-400" />
-                <p className="text-[10px] text-zinc-600">{selectedIssue.updated_at ? new Date(selectedIssue.updated_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
-                <p className="text-xs text-white font-light mt-0.5">AI Classified</p>
-                <p className="text-[10px] text-zinc-600">{selectedIssue.category?.replace('_', ' ')} · 96%</p>
-              </div>
-              {selectedVisits.map((v: any, i: number) => (
-                <div key={i} className="relative pl-5">
-                  <div className="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-black bg-emerald-400" />
-                  <p className="text-[10px] text-zinc-600">{v.scheduled_at ? new Date(v.scheduled_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
-                  <p className="text-xs text-white font-light mt-0.5">{v.status.replace('_', ' ')}</p>
-                </div>
-              ))}
             </div>
-          </div>
+          ) : (
+            <div className="relative">
+              <div className="absolute left-[5px] top-2 bottom-2 w-px bg-white/[0.04]" />
+              <div className="space-y-4">
+                <div className="relative pl-5">
+                  <div className="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-black bg-amber-400" />
+                  <p className="text-[10px] text-zinc-600">{selectedIssue.created_at ? new Date(selectedIssue.created_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
+                  <p className="text-xs text-white font-light mt-0.5">Reported</p>
+                </div>
+                <p className="text-[10px] text-zinc-600 pl-5">No additional events yet</p>
+              </div>
+            </div>
+          )}
 
           {/* AI Assistant Panel */}
           <div className="mt-8 pt-6 border-t border-white/[0.04] space-y-3">
