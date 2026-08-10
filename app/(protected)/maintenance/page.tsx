@@ -110,7 +110,7 @@ export default function MaintenanceCommand() {
   };
 
   return (
-    <div className="flex h-full bg-black" style={{ height: 'calc(100vh - 4rem)' }}>
+    <div className="flex h-full bg-[var(--bg-primary)]" style={{ height: 'calc(100vh - 4rem)' }}>
       
       {/* COLUMN 1: Inbox */}
       <div className="w-80 border-r border-white/[0.04] flex flex-col flex-shrink-0 h-full">
