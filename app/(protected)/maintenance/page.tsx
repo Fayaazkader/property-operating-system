@@ -98,36 +98,6 @@ export default function MaintenanceCommand() {
       const { data: events } = await supabase
         .from('activity_feed').select('*').eq('reference_id', issue.id).order('occurred_at', { ascending: true });
       setSelectedTimeline(events || []);
-    } catch { setSelectedTimeline([]); }
-  }
-
-      }
-    } catch {}
-
-    // Get real supplier recommendation from Supplier Matching Engine
-    try {
-      const { data: entities } = await supabase.rpc("auth_entities");
-      if (entities?.length && issue.category) {
-        const { supplierMatchingEngine } = await import('@/lib/maintenance/supplier-matching');
-        const rankings = await supplierMatchingEngine.rankSuppliers(entities[0], issue.category, issue.priority);
-        const best = rankings.find(r => !r.filtered_out);
-        if (best) {
-          setSelectedSupplier({
-            name: best.supplier_name,
-            score: best.overall_score,
-            eta: '34 min',
-            trade_match: best.trade_match,
-            response_score: best.response_score,
-            quality: best.rating_score,
-            workload: best.workload_score,
-          });
-        }
-      }
-    } catch {}
-
-    // Get work orders and visits
-    }
-
     // Get timeline from activity_feed (event-driven)
     try {
       const { data: events } = await supabase
