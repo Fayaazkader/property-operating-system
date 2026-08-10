@@ -46,6 +46,7 @@ async function initializePlatform(): Promise<void> {
   await import('@/lib/maintenance/relationship-resolver');
   await import('@/lib/inspections/relationship-resolver');
   await import('@/lib/financial/relationship-resolver');
+  await import('@/lib/procurement/manifest');
   logger.info('✅ AssetFlow Platform initialized.');
   initialized = true;
 }

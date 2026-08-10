@@ -58,6 +58,7 @@ export default function Sidebar() {
     { label: "Maintenance", href: "/maintenance", icon: Wrench, desc: "Issues · Work Orders · Suppliers" },
     { label: "Inspections", href: "/inspections", icon: ClipboardCheck, desc: "Routine · Compliance · Reports" },
     { label: "Utilities", href: "/utilities", icon: Zap, desc: "Meters · Recoveries · Analysis" },
+    { label: "Procurement", href: "/procurement", icon: FileText, desc: "RFQs · POs · Invoices" },
   ];
 
   const portfolioItems: NavItem[] = [
