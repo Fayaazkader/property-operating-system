@@ -8,5 +8,3 @@ export const matchSupplier = maintenanceEngine.matchSupplier.bind(maintenanceEng
 export const scheduleVisit = maintenanceEngine.scheduleVisit.bind(maintenanceEngine);
 export const completeWork = maintenanceEngine.completeWork.bind(maintenanceEngine);
 export const requestApproval = maintenanceEngine.requestApproval.bind(maintenanceEngine);
-export const requestQuotes = maintenanceEngine.requestQuotes.bind(maintenanceEngine);
-export const approveQuote = maintenanceEngine.approveQuote.bind(maintenanceEngine);
