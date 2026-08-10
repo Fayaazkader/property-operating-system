@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, DollarSign, Building2, Clock, Activity, Zap, FileText, X } from 'lucide-react';
+import Link from 'next/link';
 
 export default function RecoveryCaseWorkspace() {
   const { id } = useParams();
@@ -88,7 +89,23 @@ export default function RecoveryCaseWorkspace() {
           </div>
         )}
 
-        {/* Actions */}
+        {/* Cross-links */}
+      <div className="flex gap-2 flex-wrap">
+        <a href={`/properties`} className="flex items-center gap-1.5 rounded-full border border-white/[0.06] px-3 py-1.5 text-[10px] text-zinc-400 hover:text-white hover:border-white/15 transition-all">
+          <Building2 className="w-3 h-3" /> Property
+        </a>
+        <a href={`/financials/revenue`} className="flex items-center gap-1.5 rounded-full border border-white/[0.06] px-3 py-1.5 text-[10px] text-zinc-400 hover:text-white hover:border-white/15 transition-all">
+          <DollarSign className="w-3 h-3" /> Revenue
+        </a>
+        <a href={`/maintenance`} className="flex items-center gap-1.5 rounded-full border border-white/[0.06] px-3 py-1.5 text-[10px] text-zinc-400 hover:text-white hover:border-white/15 transition-all">
+          <Activity className="w-3 h-3" /> Maintenance
+        </a>
+        <a href={`/inspections`} className="flex items-center gap-1.5 rounded-full border border-white/[0.06] px-3 py-1.5 text-[10px] text-zinc-400 hover:text-white hover:border-white/15 transition-all">
+          <CheckCircle className="w-3 h-3" /> Inspections
+        </a>
+      </div>
+
+      {/* Actions */}
         <div className="flex gap-2">
           <button className="rounded-full bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100">Recalculate</button>
           <button className="rounded-full border border-white/[0.08] px-4 py-2 text-xs text-white hover:border-white/20">Review Allocation</button>
