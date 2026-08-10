@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, DollarSign, Building2, Clock, Activity, Zap, FileText, X } from 'lucide-react';
-import { recommendationEngine } from '@/lib/intelligence/recommendation-engine';
-import { getDomainSignals } from '@/lib/intelligence/signal-registry';
+import { getOperationalContext } from '@/lib/intelligence/operational-context';
 import Link from 'next/link';
 
 export default function RecoveryCaseWorkspace() {
@@ -25,11 +24,9 @@ export default function RecoveryCaseWorkspace() {
         const { data: prop } = await supabase.from('properties').select('property_name').eq('id', rec.property_id).single();
         setProperty(prop);
       }
-      const domainSignals = await getDomainSignals("utilities");
-      setSignals(domainSignals.filter(s => s.affected_entity_id === id));
-      const recs = await recommendationEngine.generate();
-      const relevantRec = recs.find(r => r.signals.some((sid: string) => domainSignals.some(ds => ds.id === sid)));
-      setRecommendation(relevantRec || null);
+      const context = await getOperationalContext('utilities', id as string);
+      setSignals(context.signals);
+      setRecommendation(context.recommendation);
       setLoading(false);
     }
     load();
