@@ -139,6 +139,14 @@ export default function MaintenanceCommand() {
             className="flex items-center gap-2 rounded-full border border-white/[0.08] px-4 py-2 text-xs text-zinc-400 hover:text-white hover:border-white/20 transition-all">
             <Plus className="w-3.5 h-3.5" /> New Issue
           </Link>
+          <Link href="/maintenance/inbox"
+            className="flex items-center gap-2 rounded-full border border-white/[0.08] px-4 py-2 text-xs text-zinc-400 hover:text-white hover:border-white/20 transition-all">
+            Inbox
+          </Link>
+          <Link href="/maintenance/assets"
+            className="flex items-center gap-2 rounded-full border border-white/[0.08] px-4 py-2 text-xs text-zinc-400 hover:text-white hover:border-white/20 transition-all">
+            Asset Health
+          </Link>
           <Link href="/maintenance/preventative"
             className="flex items-center gap-2 rounded-full border border-white/[0.08] px-4 py-2 text-xs text-zinc-400 hover:text-white hover:border-white/20 transition-all">
             <Shield className="w-3.5 h-3.5" /> Preventative
