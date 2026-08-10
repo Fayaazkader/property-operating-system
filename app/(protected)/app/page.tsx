@@ -226,7 +226,7 @@ export default function OperationsHub() {
             {modules.map((mod, i) => (
               <div key={mod.key}
                 className={`relative rounded-2xl border border-white/[0.04] bg-white/[0.01] transition-all duration-500 ${
-                  expandedModule === mod.key ? 'col-span-4 bg-white/[0.03] border-white/[0.08]' : mod.span === 2 ? 'col-span-2' : ''
+                  expandedModule === mod.key ? 'col-span-4 bg-white/[0.03] border-white/[0.08] ring-1 ring-white/[0.06] shadow-2xl shadow-white/[0.02]' : mod.span === 2 ? 'col-span-2' : ''
                 }`}
                 style={{ 
                   opacity: visible ? 1 : 0, 
