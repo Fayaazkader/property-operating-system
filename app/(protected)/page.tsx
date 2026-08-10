@@ -10,8 +10,6 @@ import {
   Calendar, Building2, Search, ChevronRight, ArrowRight
 } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
-
 export default function OperationsHub() {
   const router = useRouter();
   const { open } = useCommandPalette();

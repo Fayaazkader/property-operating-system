@@ -1,5 +1,5 @@
-import OperationsHub from './(protected)/page';
+import { redirect } from 'next/navigation';
 
 export default function Home() {
-  return <OperationsHub />;
+  redirect('/app');
 }
