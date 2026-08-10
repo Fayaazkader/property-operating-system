@@ -21,11 +21,7 @@ export default function InspectionsCommand() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const { data: entities } = await supabase.rpc('auth_entities');
-      if (!entities?.length) { const health = await getPropertyHealth(entityId);
-      setPropertyHealth(health);
-      const changes = await getOvernightChanges(entityId);
-      setOvernightChanges(changes);
-      setLoading(false); return; }
+      if (!entities?.length) { setLoading(false); return; }
       const entityId = entities[0];
 
       const [up, ov, hist] = await Promise.all([
@@ -38,6 +34,10 @@ export default function InspectionsCommand() {
       setHistory(hist);
 
       const lastMonth = hist.filter(i => i.completed_date && new Date(i.completed_date).getMonth() === new Date().getMonth() - 1);
+      const health = await getPropertyHealth(entityId);
+      setPropertyHealth(health);
+      const changes = await getOvernightChanges(entityId);
+      setOvernightChanges(changes);
       setStats({
         total: up.length + ov.length + hist.length,
         overdueCount: ov.length, upcomingCount: up.length,
