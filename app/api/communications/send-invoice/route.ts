@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
   const { invoice_id, send_email, send_whatsapp } = await request.json();
 
-  // 1. Fetch invoice from database — the single source of truth
+  // Fetch invoice from database — the single source of truth
   const { data: invoice } = await supabase
     .from('invoices')
     .select('*, tenant:tenant_id(*), lease:lease_id(*), lines:invoice_lines(*)')
@@ -29,64 +29,72 @@ export async function POST(request: NextRequest) {
 
   if (!invoice) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
 
-  // 2. Validate required fields
-  if (!(invoice as any).due_date) {
+  const inv = invoice as any;
+
+  // Validate required fields before sending
+  if (!inv.invoice_number) {
+    return NextResponse.json({ error: "Invoice has no invoice number — cannot send" }, { status: 422 });
+  }
+  if (!inv.due_date) {
     return NextResponse.json({ error: "Invoice has no due date — cannot send" }, { status: 422 });
   }
 
-  // 3. RBAC
+  // RBAC
   const { data: access } = await supabase
     .from('user_entity_access')
     .select('entity_id')
     .eq('user_id', user.id)
-    .eq('entity_id', (invoice as any).entity_id)
+    .eq('entity_id', inv.entity_id)
     .single();
-
   if (!access) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
-  const entityId = (invoice as any).entity_id;
-  const tenantId = (invoice as any).tenant_id;
-  const tenant = (invoice as any).tenant || {};
-  const lease = (invoice as any).lease || {};
-  const lines = (invoice as any).lines || [];
-  const propertyId = lease.property_id;
+  const entityId = inv.entity_id;
+  const tenantId = inv.tenant_id;
+  const tenant = inv.tenant || {};
+  const lease = inv.lease || {};
+  const lines = inv.lines || [];
 
-  // 4. Fetch property and entity from database
+  // Fetch property and entity
   const [{ data: property }, { data: entity }] = await Promise.all([
-    supabase.from('properties').select('property_name').eq('id', propertyId).single(),
+    supabase.from('properties').select('property_name').eq('id', lease.property_id).single(),
     supabase.from('entities').select('entity_name, address, bank_details').eq('id', entityId).single(),
   ]);
 
-  // 5. Build invoice PDF data — 100% from database
+  // Validate we have all required data
+  if (!tenant.tenant_name || !property?.property_name || !entity?.entity_name) {
+    return NextResponse.json({ error: "Missing required tenant/property/entity data — cannot send" }, { status: 422 });
+  }
+
+  // Build invoice PDF data — 100% from database
   const invoiceData = {
-    invoice_number: (invoice as any).invoice_number || `INV-${invoice_id.substring(0, 8).toUpperCase()}`,
-    invoice_date: (invoice as any).invoice_date || new Date().toISOString().split('T')[0],
-    due_date: (invoice as any).due_date,
-    tenant_name: tenant.tenant_name || 'Tenant',
-    property_name: property?.property_name || 'Property',
-    entity_name: entity?.entity_name || 'AssetFlow',
-    entity_address: entity?.address || '',
-    bank_details: entity?.bank_details || 'On file',
+    invoice_number: inv.invoice_number,
+    invoice_date: inv.invoice_date || new Date().toISOString().split('T')[0],
+    due_date: inv.due_date,
+    tenant_name: tenant.tenant_name,
+    property_name: property.property_name,
+    entity_name: entity.entity_name,
+    entity_address: entity.address || '',
+    bank_details: entity.bank_details || 'On file',
     line_items: lines.map((l: any) => ({
       description: l.description || 'Charge',
       amount: l.amount || 0,
       vat_rate: l.vat_rate,
     })),
-    sub_total: (invoice as any).sub_total || (invoice as any).amount || 0,
-    vat_amount: (invoice as any).vat_amount || 0,
-    total: (invoice as any).total || ((invoice as any).amount || 0) + ((invoice as any).vat_amount || 0),
+    sub_total: inv.sub_total || inv.amount || 0,
+    vat_amount: inv.vat_amount || 0,
+    total: inv.total || (inv.amount || 0) + (inv.vat_amount || 0),
   };
 
-  // 6. Generate PDF
+  // Generate PDF
   const pdfBytes = await generateInvoicePDF(invoiceData);
 
-  // 7. Upload with signed URL (24hr expiry)
+  // Upload with signed URL (24hr expiry)
   const signedUrl = await uploadAndGetSignedUrl('documents', `invoices/${invoiceData.invoice_number}.pdf`, pdfBytes);
 
   const results: any = { email: null, whatsapp: null, errors: [] };
   const preview = `Invoice ${invoiceData.invoice_number} — R${invoiceData.total.toLocaleString()}`;
 
-  // 8. Send Email
+  // Send Email
   if (send_email && tenant.email) {
     try {
       sgMail.setApiKey(process.env.SENDGRID_API_KEY || '');
@@ -105,7 +113,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 9. Send WhatsApp via template
+  // Send WhatsApp via template
   if (send_whatsapp && tenant.whatsapp_number) {
     try {
       const client = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
