@@ -10,7 +10,7 @@ import { getInvoiceForDelivery, InvoiceValidationError } from "@/lib/revenue/inv
 
 export async function POST(request: NextRequest) {
   // 1. Authenticate
-  const cookieStore = await cookies();
+  const cookieStore = request.cookies;
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
