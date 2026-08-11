@@ -1,6 +1,6 @@
 // lib/revenue/invoice-service.ts
 // Invoice Service — Fetches validated invoice data for delivery
-// NO hardcoded values. NO fallbacks. Fail on missing required data.
+// ZERO hardcoded values. ZERO fallbacks. Fail on ANY missing required data.
 
 import { supabase } from '@/lib/supabase';
 
@@ -28,111 +28,99 @@ export interface InvoiceDeliveryData {
   reference: string;
 }
 
+class InvoiceValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvoiceValidationError';
+  }
+}
+
 export async function getInvoiceForDelivery(invoiceId: string): Promise<InvoiceDeliveryData> {
-  // Fetch invoice from sub-ledger with tenant and lease data
   const { data: entry, error } = await supabase
     .from('sub_ledger_entries')
     .select(`
       id, description, debit_amount, credit_amount, vat_amount, vat_rate,
       reference_type, reference_id, posted_at,
-      tenant:tenant_id(id, tenant_name, email, whatsapp_number, whatsapp_enabled),
+      tenant:tenant_id(id, tenant_name, email, whatsapp_number),
       lease:lease_id(id, property_id, lease_ref)
     `)
     .eq('id', invoiceId)
     .eq('ledger_type', 'tenant')
     .single();
 
-  if (error || !entry) throw new Error('Invoice not found');
+  if (error || !entry) throw new InvoiceValidationError('Invoice not found');
 
   const inv = entry as any;
 
-  // Validate required tenant data
-  if (!inv.tenant?.tenant_name) throw new Error('Invoice missing tenant name');
-  if (!inv.tenant?.id) throw new Error('Invoice missing tenant ID');
+  // Validate tenant
+  if (!inv.tenant?.tenant_name) throw new InvoiceValidationError('Missing tenant name');
+  if (!inv.tenant?.id) throw new InvoiceValidationError('Missing tenant ID');
 
-  // Get property
-  let propertyName = '';
-  let propertyAddress = '';
-  if (inv.lease?.property_id) {
-    const { data: prop } = await supabase
-      .from('properties')
-      .select('property_name, billing_address')
-      .eq('id', inv.lease.property_id)
-      .single();
-    if (prop) {
-      propertyName = prop.property_name || '';
-      propertyAddress = prop.billing_address || '';
-    }
-  }
-  if (!propertyName) throw new Error('Invoice missing property');
+  // Validate lease and property
+  if (!inv.lease?.property_id) throw new InvoiceValidationError('Missing property');
+  const { data: prop } = await supabase
+    .from('properties')
+    .select('property_name, billing_address')
+    .eq('id', inv.lease.property_id)
+    .single();
+  if (!prop?.property_name) throw new InvoiceValidationError('Missing property name');
 
-  // Get entity from tenant's entity
+  // Validate entity
   const { data: tenantEntity } = await supabase
     .from('tenants')
     .select('entity_id')
     .eq('id', inv.tenant.id)
     .single();
-
-  const entityId = tenantEntity?.entity_id;
-  if (!entityId) throw new Error('Invoice missing entity');
+  if (!tenantEntity?.entity_id) throw new InvoiceValidationError('Missing entity');
 
   const { data: entityData } = await supabase
     .from('entities')
     .select('entity_name, address, bank_details')
-    .eq('id', entityId)
+    .eq('id', tenantEntity.entity_id)
+    .single();
+  if (!entityData?.entity_name) throw new InvoiceValidationError('Missing entity name');
+
+  // Validate invoice number and due date from source record
+  if (inv.reference_type !== 'invoice' || !inv.reference_id) {
+    throw new InvoiceValidationError('Missing source invoice reference');
+  }
+
+  const { data: sourceInvoice } = await supabase
+    .from('invoices')
+    .select('invoice_number, due_date, period')
+    .eq('id', inv.reference_id)
     .single();
 
-  if (!entityData?.entity_name) throw new Error('Entity not found');
+  if (!sourceInvoice?.invoice_number) throw new InvoiceValidationError('Missing invoice number');
+  if (!sourceInvoice?.due_date) throw new InvoiceValidationError('Missing due date');
 
-  // Get financial period for period name
-  let periodName = '';
-  const { data: periods } = await supabase
-    .from('financial_periods')
-    .select('period_name')
-    .eq('entity_id', entityId)
-    .eq('period_type', 'financial')
-    .lte('period_start', new Date().toISOString())
-    .order('period_start', { ascending: false })
-    .limit(1)
-    .single();
-  
-  periodName = periods?.period_name || new Date().toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
-
-  // Get invoice number and due date from the source invoice/billing record
-  let invoiceNumber = '';
-  let dueDate = '';
-
-  if (inv.reference_type === 'invoice' && inv.reference_id) {
-    const { data: sourceInvoice } = await supabase
-      .from('invoices')
-      .select('invoice_number, due_date, period')
-      .eq('id', inv.reference_id)
+  // Validate period
+  let periodName = sourceInvoice.period;
+  if (!periodName) {
+    const { data: period } = await supabase
+      .from('financial_periods')
+      .select('period_name')
+      .eq('entity_id', tenantEntity.entity_id)
+      .eq('period_type', 'financial')
+      .lte('period_start', new Date().toISOString())
+      .order('period_start', { ascending: false })
+      .limit(1)
       .single();
-    
-    if (sourceInvoice) {
-      invoiceNumber = sourceInvoice.invoice_number || '';
-      dueDate = sourceInvoice.due_date || '';
-      if (sourceInvoice.period) periodName = sourceInvoice.period;
-    }
+    if (!period?.period_name) throw new InvoiceValidationError('Missing financial period');
+    periodName = period.period_name;
   }
 
-  // FAIL if required fields are missing — no fallbacks
-  if (!invoiceNumber) throw new Error('Invoice number not found on source record');
-  if (!dueDate) throw new Error('Invoice due date not found on source record');
+  // Validate amount
+  const debit = inv.debit_amount;
+  if (!debit || debit <= 0) throw new InvoiceValidationError('Missing or invalid invoice amount');
 
-  // Get VAT rate from the journal line or chart of accounts
-  let vatRate = 0;
-  if (inv.vat_rate) {
-    vatRate = inv.vat_rate;
-  } else if (inv.vat_amount && inv.debit_amount) {
-    vatRate = Math.round((inv.vat_amount / inv.debit_amount) * 100);
-  }
-  // If still no VAT rate, check the account
+  // Validate VAT rate
+  let vatRate = inv.vat_rate;
   if (!vatRate) {
     const { data: journalLine } = await supabase
       .from('journal_lines')
       .select('account_id')
-      .eq('id', inv.reference_id)
+      .eq('reference_id', inv.reference_id)
       .single();
     
     if (journalLine) {
@@ -143,35 +131,42 @@ export async function getInvoiceForDelivery(invoiceId: string): Promise<InvoiceD
         .single();
       
       if (account?.vat_category === 'standard') {
-        vatRate = account.vat_rate || 15;
+        vatRate = account.vat_rate;
       }
     }
   }
+  if (!vatRate && inv.vat_amount && inv.vat_amount > 0) {
+    throw new InvoiceValidationError('VAT amount present but VAT rate not found');
+  }
 
-  const debit = inv.debit_amount || 0;
+  // Validate description
+  if (!inv.description) throw new InvoiceValidationError('Missing invoice description');
+
   const vat = inv.vat_amount || 0;
 
   return {
     invoice_id: invoiceId,
-    invoice_number: invoiceNumber,
+    invoice_number: sourceInvoice.invoice_number,
     tenant_id: inv.tenant.id,
     tenant_name: inv.tenant.tenant_name,
     tenant_email: inv.tenant.email || undefined,
     tenant_whatsapp: inv.tenant.whatsapp_number || undefined,
-    lease_id: inv.lease?.id,
-    property_name: propertyName,
-    property_address: propertyAddress || undefined,
-    entity_id: entityId,
+    lease_id: inv.lease.id,
+    property_name: prop.property_name,
+    property_address: prop.billing_address || undefined,
+    entity_id: tenantEntity.entity_id,
     entity_name: entityData.entity_name,
     entity_address: entityData.address || '',
     bank_details: entityData.bank_details || '',
     period: periodName,
-    due_date: dueDate,
-    line_items: [{ description: inv.description || 'Rental', amount: debit }],
+    due_date: sourceInvoice.due_date,
+    line_items: [{ description: inv.description, amount: debit }],
     sub_total: debit,
     vat_amount: vat,
-    vat_rate: vatRate,
+    vat_rate: vatRate || 0,
     total: debit + vat,
-    reference: inv.lease?.lease_ref || invoiceNumber,
+    reference: inv.lease.lease_ref || sourceInvoice.invoice_number,
   };
 }
+
+export { InvoiceValidationError };

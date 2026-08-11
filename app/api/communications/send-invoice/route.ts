@@ -6,7 +6,7 @@ import twilio from "twilio";
 import { generateInvoicePDF } from "@/lib/revenue/invoice-pdf-generator";
 import { uploadAndGetSignedUrl } from "@/lib/communications/signed-urls";
 import { logCommunication } from "@/lib/communications/communication-log";
-import { getInvoiceForDelivery } from "@/lib/revenue/invoice-service";
+import { getInvoiceForDelivery, InvoiceValidationError } from "@/lib/revenue/invoice-service";
 
 export async function POST(request: NextRequest) {
   // 1. Authenticate
@@ -171,6 +171,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
+    if (error instanceof InvoiceValidationError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 422 });
+    }
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
