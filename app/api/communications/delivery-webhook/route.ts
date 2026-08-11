@@ -6,23 +6,18 @@ export async function POST(request: NextRequest) {
   const url = request.url;
 
   try {
-    // ─── TWILIO WEBHOOK ───
-    // Twilio sends application/x-www-form-urlencoded, NOT JSON
+    // ─── TWILIO WEBHOOK (x-www-form-urlencoded) ───
     if (contentType.includes('application/x-www-form-urlencoded')) {
       const twilioSignature = request.headers.get('x-twilio-signature');
-      
-      // REQUIRED: No signature = reject
       if (!twilioSignature) {
         return NextResponse.json({ error: 'Missing Twilio signature' }, { status: 401 });
       }
 
-      // Parse the raw form body
       const formBody = await request.text();
       const params = new URLSearchParams(formBody);
       const twilioParams: Record<string, string> = {};
       params.forEach((value, key) => { twilioParams[key] = value; });
 
-      // Verify signature against the ACTUAL webhook parameters
       const twilio = require('twilio');
       const isValid = twilio.validateRequest(
         process.env.TWILIO_AUTH_TOKEN!,
@@ -35,10 +30,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid Twilio signature' }, { status: 401 });
       }
 
-      // Signature valid — process status update
       const messageSid = twilioParams['MessageSid'];
       const messageStatus = twilioParams['MessageStatus'];
-      
       if (messageSid && messageStatus) {
         await updateCommunicationStatus(messageSid, mapTwilioStatus(messageStatus));
       }
@@ -46,33 +39,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // ─── SENDGRID WEBHOOK ───
-    // SendGrid sends JSON array
+    // ─── SENDGRID WEBHOOK (JSON, signed) ───
     if (contentType.includes('application/json')) {
-      const body = await request.json();
+      const verificationKey = process.env.SENDGRID_WEBHOOK_VERIFICATION_KEY;
+      
+      // MANDATORY: verification key must be configured
+      if (!verificationKey) {
+        return NextResponse.json({ error: 'SendGrid webhook verification not configured' }, { status: 503 });
+      }
 
-      // Verify SendGrid signed webhook
+      const rawBody = await request.text();
       const sendgridSignature = request.headers.get('x-twilio-email-event-webhook-signature');
       const sendgridTimestamp = request.headers.get('x-twilio-email-event-webhook-timestamp');
-      
-      if (sendgridSignature && sendgridTimestamp) {
-        const { EventWebhook, EventWebhookHeader } = require('@sendgrid/eventwebhook');
-        const ew = new EventWebhook();
-        const rawBody = JSON.stringify(body);
-        
-        try {
-          const signatureHeader: any = {};
-          signatureHeader[EventWebhookHeader.SIGNATURE().toLowerCase()] = sendgridSignature;
-          signatureHeader[EventWebhookHeader.TIMESTAMP().toLowerCase()] = sendgridTimestamp;
-          
-          ew.verifySignature(signatureHeader, rawBody, process.env.SENDGRID_WEBHOOK_VERIFICATION_KEY || process.env.SENDGRID_API_KEY || '');
-        } catch {
-          return NextResponse.json({ error: 'Invalid SendGrid signature' }, { status: 401 });
-        }
-      }
-      // If SendGrid webhook verification is not configured, still process but log warning
-      // In production, this should be configured
 
+      // MANDATORY: signature and timestamp required
+      if (!sendgridSignature || !sendgridTimestamp) {
+        return NextResponse.json({ error: 'Missing SendGrid signature headers' }, { status: 401 });
+      }
+
+      // Verify against EXACT raw body (not JSON.parsed + stringified)
+      const { EventWebhook, EventWebhookHeader } = require('@sendgrid/eventwebhook');
+      const ew = new EventWebhook();
+      const signatureHeader: any = {};
+      signatureHeader[EventWebhookHeader.SIGNATURE().toLowerCase()] = sendgridSignature;
+      signatureHeader[EventWebhookHeader.TIMESTAMP().toLowerCase()] = sendgridTimestamp;
+
+      let verified = false;
+      try {
+        verified = ew.verifySignature(signatureHeader, rawBody, verificationKey);
+      } catch {
+        verified = false;
+      }
+
+      if (!verified) {
+        return NextResponse.json({ error: 'Invalid SendGrid signature' }, { status: 401 });
+      }
+
+      // Signature valid — parse and process
+      const body = JSON.parse(rawBody);
       if (Array.isArray(body)) {
         for (const event of body) {
           if (event.sg_message_id && event.event) {

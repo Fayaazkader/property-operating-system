@@ -153,6 +153,7 @@ export async function getInvoiceForDelivery(invoiceId: string): Promise<InvoiceD
     tenant_whatsapp: inv.tenant.whatsapp_number || undefined,
     lease_id: inv.lease.id,
     property_name: prop.property_name,
+    // Optional — address may not be configured
     property_address: prop.billing_address || undefined,
     entity_id: tenantEntity.entity_id,
     entity_name: entityData.entity_name,
@@ -165,6 +166,7 @@ export async function getInvoiceForDelivery(invoiceId: string): Promise<InvoiceD
     vat_amount: vat,
     vat_rate: vatRate || 0,
     total: debit + vat,
+    // Optional — lease reference preferred; invoice number is valid fallback
     reference: inv.lease.lease_ref || sourceInvoice.invoice_number,
   };
 }
