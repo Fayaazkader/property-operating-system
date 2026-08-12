@@ -91,17 +91,34 @@ export async function freezeBilling(params: {
           },
         });
       }
+      // Find the journal that was just created for this tenant
+      const { data: journal } = await supabase
+        .from('journals')
+        .select('id')
+        .eq('entity_id', params.entityId)
+        .eq('source_id', sourceId)
+        .eq('source_event', 'rental_invoice_raised')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
 
-      // Find the actual sub-ledger entry created by posting
+      if (!journal?.id) {
+        throw new Error(`Posted journal could not be located for ${sourceId}`);
+      }
+
+      // Find the sub-ledger entry linked to this journal
       const { data: subLedgerEntry } = await supabase
         .from('sub_ledger_entries')
         .select('id')
         .eq('tenant_id', tenant.tenantId)
-        .order('posted_at', { ascending: false })
-        .limit(1)
+        .eq('reference_id', journal.id)
         .single();
 
-      const authoritativeInvoiceId = subLedgerEntry?.id || sourceId;
+      if (!subLedgerEntry?.id) {
+        throw new Error(`Sub-ledger entry could not be located for journal ${journal.id}`);
+      }
+
+      const authoritativeInvoiceId = subLedgerEntry.id;
 
       // Create authoritative statement
       const { data: statement } = await supabase
