@@ -79,11 +79,11 @@ export async function POST(request: NextRequest) {
     const vatTotal = tenantWorksheet.charges.reduce((s: number, c: any) => s + (c.vatAmount || 0), 0);
     const total = subTotal + vatTotal;
 
-    // Due date — must come from period, no fallback
-    if (!period.period_end) {
-      return NextResponse.json({ error: "Invoice due date is not configured — period has no end date" }, { status: 422 });
+    // Due date from billing period end — REPLACE with payment terms model when built
+    if (!worksheet.periodEnd) {
+      return NextResponse.json({ error: "Invoice due date is not available — period has no end date" }, { status: 422 });
     }
-    const dueDate = period.period_end;
+    const dueDate = worksheet.periodEnd;
 
     const invoiceNumber = `INV-${period.period_name.replace(/\s/g, '-')}-${tenant_id.substring(0, 6).toUpperCase()}`;
     // Generate PDF
