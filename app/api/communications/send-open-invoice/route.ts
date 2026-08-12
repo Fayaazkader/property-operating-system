@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import sgMail from "@sendgrid/mail";
 import twilio from "twilio";
+import { buildRevenueContext } from '@/lib/revenue/revenue-context-builder';
 import { generateInvoicePDF } from "@/lib/revenue/invoice-pdf-generator";
 import { uploadAndGetSignedUrl } from "@/lib/communications/signed-urls";
 import { logCommunication } from "@/lib/communications/communication-log";
@@ -57,40 +58,34 @@ export async function POST(request: NextRequest) {
     const { data: period } = await supabase.from('financial_periods').select('period_name, period_start, period_end').eq('id', period_id).single();
     if (!period) return NextResponse.json({ error: "Period not found" }, { status: 404 });
 
-    // Get current charges from billing worksheet
-    const { data: charges } = await supabase
-      .from('charges')
-      .select('description, amount, vat_amount, total, source')
-      .eq('tenant_id', tenant_id)
-      .eq('period_id', period_id)
-      .eq('status', 'active');
+       // Get current billing state from the LIVE worksheet — same source as the Revenue page
+    const worksheet = await buildRevenueContext(entity_id, null, period_id, period_id);
+    const tenantWorksheet = worksheet.tenants?.find((t: any) => t.tenantId === tenant_id);
 
-    let lineItems: Array<{ description: string; amount: number }> = [];
-    let subTotal = 0;
-    let vatTotal = 0;
-
-    if (charges && charges.length > 0) {
-      lineItems = charges.map((c: any) => ({
-        description: c.description,
-        amount: c.total || c.amount || 0,
-      }));
-      subTotal = charges.reduce((s: number, c: any) => s + (c.amount || 0), 0);
-      vatTotal = charges.reduce((s: number, c: any) => s + (c.vat_amount || 0), 0);
-    } else {
-      // No charges table yet — use lease as source
-      const rent = lease.monthly_rental || 0;
-      if (rent <= 0) return NextResponse.json({ error: "No charges found for this tenant" }, { status: 422 });
-      lineItems = [{ description: 'Monthly Rental', amount: rent }];
-      subTotal = rent;
+    if (!tenantWorksheet) {
+      return NextResponse.json({ error: "Tenant not found in current billing worksheet" }, { status: 422 });
     }
 
+    if (!tenantWorksheet.charges || tenantWorksheet.charges.length === 0) {
+      return NextResponse.json({ error: "No billable charges found for this tenant and period" }, { status: 422 });
+    }
+
+    const lineItems = tenantWorksheet.charges.map((c: any) => ({
+      description: c.description,
+      amount: c.total || c.amount || 0,
+    }));
+
+    const subTotal = tenantWorksheet.charges.reduce((s: number, c: any) => s + (c.amount || 0), 0);
+    const vatTotal = tenantWorksheet.charges.reduce((s: number, c: any) => s + (c.vatAmount || 0), 0);
     const total = subTotal + vatTotal;
 
-    // Get due date from billing period
-    const dueDate = period.period_end || new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+    // Due date — must come from period, no fallback
+    if (!period.period_end) {
+      return NextResponse.json({ error: "Invoice due date is not configured — period has no end date" }, { status: 422 });
+    }
+    const dueDate = period.period_end;
 
     const invoiceNumber = `INV-${period.period_name.replace(/\s/g, '-')}-${tenant_id.substring(0, 6).toUpperCase()}`;
-
     // Generate PDF
     const pdfBytes = await generateInvoicePDF({
       invoice_number: invoiceNumber,
