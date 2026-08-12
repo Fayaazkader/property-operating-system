@@ -8,6 +8,7 @@ import { trackEvent, AnalyticsEvents } from '@/lib/analytics/tracker';
 import { postingEngine } from '@/lib/financial/posting-engine';
 import { buildRevenueContext } from '@/lib/revenue/revenue-context-builder';
 import { billingAssembly } from '@/lib/revenue/billing-assembly';
+import { freezeBilling } from '@/lib/revenue/billing-freeze';
 import type { BillingTenant, RevenueContext } from '@/lib/revenue/types';
 import type { BillingSnapshot } from '@/lib/revenue/billing-assembly';
 import ImportUtilitiesModal from '@/app/components/financials/ImportUtilitiesModal';
@@ -143,66 +144,84 @@ export default function RevenueOperationsPage() {
     setShowDetailModal(true);
   }
 
-  async function handleSendBilling() {
-        setSending(true);
-    const ready = billingTenants.filter(t => t.ready);
-    const isResend = worksheetStatus === 'already_billed';
-    setSendProgress({ current: 0, total: ready.length, stage: 'Generating invoices...' });
-    let delivered = 0, failed = 0;
-    const invoiceIds: string[] = [];
-    for (let i = 0; i < ready.length; i++) {
-      const t = ready[i];
+    // ─── SEND INVOICES — Delivery only. No financial mutation. ───
+  async function handleSendInvoices() {
+    setSending(true);
+
+    // Find frozen statements for THIS specific period only
+    const { data: statements } = await supabase
+      .from('statements_generated')
+      .select('id, tenant_id, statement_data')
+      .eq('entity_id', entityId)
+      .eq('status', 'issued')
+      .order('generated_at', { ascending: false });
+
+    // Filter to tenants in the current worksheet + this period
+    const tenantIds = billingTenants.map((t: any) => t.tenantId);
+    const relevantStatements = (statements || []).filter((s: any) => {
+      const data = s.statement_data || {};
+      return tenantIds.includes(s.tenant_id) && 
+             (data.period_name === currentPeriod || data.period_id === stmtPeriodId);
+    });
+
+    if (relevantStatements.length === 0) {
+      setSendResult({ delivered: 0, failed: 0, total: 0 });
+      setSending(false);
+      return;
+    }
+
+    setSendProgress({ current: 0, total: relevantStatements.length, stage: 'Sending invoices...' });
+
+    let sent = 0, sendFailed = 0;
+
+    for (let i = 0; i < relevantStatements.length; i++) {
+      const stmt = relevantStatements[i] as any;
       try {
-        setSendProgress({ current: i + 1, total: ready.length, stage: 'Generating invoices...' });
-        const leaseAmount = t.charges.filter(c => c.source === 'lease').reduce((s, c) => s + c.amount, 0);
-        if (leaseAmount > 0) {
-          if (!isResend) {
-          await postingEngine.post({ source_engine: 'revenue', business_event: 'rental_invoice_raised', entity_id: entityId, amount: leaseAmount, period_id: finPeriodId, occurred_at: new Date().toISOString(), effective_date: periodStartDate || new Date().toISOString().split('T')[0], dimensions: { tenant_id: t.tenantId, lease_id: t.leaseId }, metadata: { source_id: `INV-${currentPeriod}-${t.tenantName}`, created_by: 'system' } });
-            invoiceIds.push(`INV-${currentPeriod}-${t.tenantName}`);
+        setSendProgress({ current: i + 1, total: relevantStatements.length, stage: 'Sending...' });
+
+        const { data: tenant } = await supabase
+          .from('tenants')
+          .select('email, whatsapp_number')
+          .eq('id', stmt.tenant_id)
+          .single();
+
+        if (tenant) {
+          const response = await fetch('/api/communications/send-invoice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              invoice_id: stmt.id,
+              send_email: !!tenant.email,
+              send_whatsapp: !!tenant.whatsapp_number,
+            }),
+          });
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || `HTTP ${response.status}`);
           }
-          // Save to statements_generated so tenant can view invoice
-          try {
-            await supabase.from('statements_generated').insert({
-              entity_id: entityId,
-              tenant_id: t.tenantId,
-              statement_data: {
-                tenant_name: t.tenantName,
-                property_name: t.property_name || 'Unknown',
-                lease_ref: t.leaseRef || 'N/A',
-                statement_date: periodStartDate || currentPeriod,
-                posted_lines: t.charges.map((c: any) => ({
-                  date: periodStartDate || new Date().toISOString().split('T')[0],
-                  description: c.description,
-                  debit: c.amount, vat_amount: c.vatAmount,
-                  credit: 0,
-                  balance: c.total,
-                  section: 'posted'
-                })),
-                closing_balance: t.total,
-                version: 1,
-                status: 'issued',
-                generated_at: new Date().toISOString()
-              },
-              version: 1,
-              status: 'issued',
-              generated_at: new Date().toISOString()
-            });
-          } catch (e) {
-            console.error('Failed to save statement for', t.tenantName, e);
+
+          const result = await response.json();
+          if (!result.success) {
+            throw new Error(result.error || 'Delivery failed');
           }
         }
-        setSendProgress({ current: i + 1, total: ready.length, stage: 'Sending communications...' });
-        await triggerCommunication({ tenant_id: t.tenantId, event_type: 'statement_available', source_type: 'statement', source_id: `INV-${currentPeriod}`, merge_data: { period: currentPeriod } });
-        delivered++;
-      } catch (err) { console.error('Send failed', t.tenantName, err); failed++; }
+
+        sent++;
+      } catch (err: any) {
+        console.error('Send failed for statement', stmt.id, err);
+        sendFailed++;
+      }
     }
-    try { await billingAssembly.saveSnapshot({ entity_id: entityId, period: currentPeriod, property_id: searchType === 'property' ? selectedSearchId : null, property_name: billingTenants[0]?.property_name || '', tenant_count: ready.length, invoices_generated: delivered, statements_generated: delivered, emails_delivered: delivered, whatsapp_delivered: Math.floor(delivered * 0.8), failed, invoice_ids: invoiceIds }); } catch (e) { console.error('Snapshot save failed:', e); }
-    setSendResult({ delivered, failed, total: ready.length });
+
+    setSendResult({ delivered: sent, failed: sendFailed, total: relevantStatements.length });
     setSending(false);
-    setLastBilling(new Date().toLocaleString());
-    await refreshHistory(entityId);
-    logAudit({ action: 'create', resource_type: 'billing', resource_label: `Billing sent for ${currentPeriod}`, new_values: { period: currentPeriod, delivered, failed } });
-    trackEvent(AnalyticsEvents.STATEMENT_GENERATED, 'revenue', { count: delivered, failed });
+    logAudit({
+      action: 'export',
+      resource_type: 'billing',
+      resource_label: `Invoices sent for ${currentPeriod}`,
+      new_values: { period: currentPeriod, sent, failed: sendFailed },
+    });
   }
 
     async function handleViewSnapshot(snapshot: BillingSnapshot) {
@@ -290,25 +309,19 @@ export default function RevenueOperationsPage() {
             <div className="flex items-center justify-between mb-3"><p className="text-xs text-zinc-400">{billingTenants.length} tenants · R{totalPreviewAmount.toLocaleString()} total</p></div>
             <table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06]"><th className="text-left py-2 text-[10px] font-medium text-zinc-500 uppercase">Tenant</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Rent</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Utils</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Manual</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-10">Docs</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-16">Status</th><th className="text-right py-2 text-[10px] font-medium text-zinc-500 uppercase w-28">Total</th></tr></thead>
               <tbody>{billingTenants.map(t => (<tr key={t.tenantId} onClick={() => openDetailModal(t)} className="border-b border-white/[0.03] hover:bg-white/[0.02] cursor-pointer transition-colors"><td className="py-2 text-white font-light text-xs">{t.tenantName}<br /><span className="text-[10px] text-zinc-500">{t.property_name}</span></td><td className="py-2 text-center text-xs">{t.charges.some(c => c.source === 'lease') ? '✓' : '—'}</td><td className="py-2 text-center text-xs">{t.charges.some(c => c.source === 'utility') ? '✓' : '—'}</td><td className="py-2 text-center text-xs">{t.charges.filter(c => c.source === 'manual').length || '—'}</td><td className="py-2 text-center text-xs text-zinc-500">{t.documents.length || '—'}</td><td className="py-2 text-center">{t.ready ? <span className="text-emerald-400 text-xs">✓</span> : <span className="text-amber-400 text-xs">⚠</span>}</td><td className="py-2 text-right text-white font-medium tabular-nums text-xs">R{t.total.toLocaleString()}</td></tr>))}</tbody></table>
-            {worksheetStatus === 'already_billed' ? (
-  <div className="mt-4 space-y-2">
-    <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-      <p className="text-xs text-amber-400 font-medium">Billing already generated for this period.</p>
-      <p className="text-[11px] text-amber-500/70 mt-1">No additional charges detected from the previous run.</p>
-    </div>
-    <button onClick={handleSendBilling} className="w-full rounded-lg border border-amber-500/30 py-2.5 text-xs font-medium text-amber-400 hover:bg-amber-500/10 transition-all">
-      Resend Existing Invoices
-    </button>
-  </div>
-) : worksheetStatus === 'period_closed' ? (
-  <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-    <p className="text-xs text-red-400">Period is closed</p>
-  </div>
-) : (
-  <button onClick={handleSendBilling} disabled={billingTenants.filter(t => t.ready).length === 0} className="mt-4 w-full rounded-lg bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40 transition-all">
-    Send Billing ({billingTenants.filter(t => t.ready).length} ready)
-  </button>
-)}
+                        <div className="mt-4 space-y-2">
+              <button onClick={handleSendInvoices} disabled={sending || billingTenants.filter((t: any) => t.ready).length === 0} className="w-full rounded-lg bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40 transition-all">
+                {sending ? 'Sending...' : `Send Invoice${billingTenants.filter((t: any) => t.ready).length !== 1 ? 's' : ''} (${billingTenants.filter((t: any) => t.ready).length} ready)`}
+              </button>
+              {worksheetStatus === 'already_billed' && (
+                <p className="text-[10px] text-zinc-600 text-center">Invoices already sent for this period. You can resend anytime.</p>
+              )}
+              {worksheetStatus === 'period_closed' && (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 mt-2">
+                  <p className="text-xs text-red-400">Period is closed. Sending is still available.</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
         {!previewLoading && hasSearched && billingTenants.length === 0 && <p className="text-xs text-zinc-500 py-4 text-center">No tenants found. Try a different search.</p>}
