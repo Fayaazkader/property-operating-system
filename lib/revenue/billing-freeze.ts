@@ -91,31 +91,32 @@ export async function freezeBilling(params: {
           },
         });
       }
-      // Find the journal that was just created for this tenant
-      const { data: journal } = await supabase
+            // Find the journal that was just created for this tenant
+      const { data: journals, error: journalError } = await supabase
         .from('journals')
         .select('id')
         .eq('entity_id', params.entityId)
         .eq('source_id', sourceId)
         .eq('source_event', 'rental_invoice_raised')
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (!journal?.id) {
+      if (journalError || !journals?.length) {
         throw new Error(`Posted journal could not be located for ${sourceId}`);
       }
 
+      const journalId = journals[0].id;
+
       // Find the sub-ledger entry linked to this journal
-      const { data: subLedgerEntry } = await supabase
+      const { data: subLedgerEntry, error: subLedgerError } = await supabase
         .from('sub_ledger_entries')
         .select('id')
         .eq('tenant_id', tenant.tenantId)
-        .eq('reference_id', journal.id)
+        .eq('reference_id', journalId)
         .single();
 
-      if (!subLedgerEntry?.id) {
-        throw new Error(`Sub-ledger entry could not be located for journal ${journal.id}`);
+      if (subLedgerError || !subLedgerEntry?.id) {
+        throw new Error(`Sub-ledger entry could not be located for journal ${journalId}`);
       }
 
       const authoritativeInvoiceId = subLedgerEntry.id;
