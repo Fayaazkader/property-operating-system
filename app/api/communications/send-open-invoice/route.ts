@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
 
     const { data: period } = await supabase.from('financial_periods').select('period_name, period_start, period_end').eq('id', stmt_period_id).single();
 
+    if (!period) return NextResponse.json({ error: "Period not found" }, { status: 404 });
        // Get current billing state from the LIVE worksheet — same source as the Revenue page
     const worksheet = await buildRevenueContext(entity_id, null, stmt_period_id, fin_period_id);
     const tenantWorksheet = worksheet.tenants?.find((t: any) => t.tenantId === tenant_id);
