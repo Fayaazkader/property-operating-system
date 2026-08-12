@@ -144,84 +144,94 @@ export default function RevenueOperationsPage() {
     setShowDetailModal(true);
   }
 
-    // ─── SEND INVOICES — Delivery only. No financial mutation. ───
+     // ─── SEND INVOICES — Delivery only. No financial mutation. ───
   async function handleSendInvoices() {
     setSending(true);
 
-    // Find frozen statements for THIS specific period only
-    const { data: statements } = await supabase
-      .from('statements_generated')
-      .select('id, tenant_id, statement_data')
-      .eq('entity_id', entityId)
-      .eq('status', 'issued')
-      .order('generated_at', { ascending: false });
+    const isClosed = finPeriodStatus === 'closed';
 
-    // Filter to tenants in the current worksheet + this period
-    const tenantIds = billingTenants.map((t: any) => t.tenantId);
-    const relevantStatements = (statements || []).filter((s: any) => {
-      const data = s.statement_data || {};
-      return tenantIds.includes(s.tenant_id) && 
-             (data.period_name === currentPeriod || data.period_id === stmtPeriodId);
-    });
+    if (isClosed) {
+      // CLOSED PERIOD — send from frozen statements
+      const { data: statements } = await supabase
+        .from('statements_generated')
+        .select('id, tenant_id, statement_data')
+        .eq('entity_id', entityId)
+        .eq('status', 'issued')
+        .order('generated_at', { ascending: false });
 
-    if (relevantStatements.length === 0) {
-      setSendResult({ delivered: 0, failed: 0, total: 0 });
-      setSending(false);
-      return;
-    }
+      const relevantStatements = (statements || []).filter((s: any) => {
+        const data = s.statement_data || {};
+        return data.period_name === currentPeriod || data.period_id === stmtPeriodId;
+      });
 
-    setSendProgress({ current: 0, total: relevantStatements.length, stage: 'Sending invoices...' });
+      if (relevantStatements.length === 0) {
+        setSendResult({ delivered: 0, failed: 0, total: 0 });
+        setSending(false);
+        return;
+      }
 
-    let sent = 0, sendFailed = 0;
+      setSendProgress({ current: 0, total: relevantStatements.length, stage: 'Sending...' });
+      let sent = 0, sendFailed = 0;
 
-    for (let i = 0; i < relevantStatements.length; i++) {
-      const stmt = relevantStatements[i] as any;
-      try {
-        setSendProgress({ current: i + 1, total: relevantStatements.length, stage: 'Sending...' });
+      for (let i = 0; i < relevantStatements.length; i++) {
+        const stmt = relevantStatements[i] as any;
+        try {
+          setSendProgress({ current: i + 1, total: relevantStatements.length, stage: 'Sending...' });
+          const invoiceId = stmt.statement_data?.invoice_id;
+          if (!invoiceId) { sendFailed++; continue; }
 
-        const { data: tenant } = await supabase
-          .from('tenants')
-          .select('email, whatsapp_number')
-          .eq('id', stmt.tenant_id)
-          .single();
+          const { data: tenant } = await supabase.from('tenants').select('email, whatsapp_number').eq('id', stmt.tenant_id).single();
+          if (tenant) {
+            const response = await fetch('/api/communications/send-invoice', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ invoice_id: invoiceId, send_email: !!tenant.email, send_whatsapp: !!tenant.whatsapp_number }),
+            });
+            if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
+            const result = await response.json();
+            if (!result.success) throw new Error(result.error || 'Delivery failed');
+          }
+          sent++;
+        } catch (err: any) { console.error('Send failed', stmt.id, err); sendFailed++; }
+      }
+      setSendResult({ delivered: sent, failed: sendFailed, total: relevantStatements.length });
+    } else {
+      // OPEN PERIOD — server resolves current billing state from IDs only
+      const ready = billingTenants.filter((t: any) => t.ready);
+      if (ready.length === 0) {
+        setSendResult({ delivered: 0, failed: 0, total: 0 });
+        setSending(false);
+        return;
+      }
 
-        if (tenant) {
-          const response = await fetch('/api/communications/send-invoice', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+      setSendProgress({ current: 0, total: ready.length, stage: 'Sending...' });
+      let sent = 0, sendFailed = 0;
+
+      for (let i = 0; i < ready.length; i++) {
+        const t = ready[i] as any;
+        try {
+          setSendProgress({ current: i + 1, total: ready.length, stage: 'Sending...' });
+
+          // Browser sends only IDs — server resolves the invoice
+          const response = await fetch('/api/communications/send-open-invoice', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              invoice_id: stmt.id,
-              send_email: !!tenant.email,
-              send_whatsapp: !!tenant.whatsapp_number,
+              tenant_id: t.tenantId,
+              lease_id: t.leaseId,
+              entity_id: entityId,
+              period_id: finPeriodId,
             }),
           });
 
-          if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.error || `HTTP ${response.status}`);
-          }
-
+          if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
           const result = await response.json();
-          if (!result.success) {
-            throw new Error(result.error || 'Delivery failed');
-          }
-        }
-
-        sent++;
-      } catch (err: any) {
-        console.error('Send failed for statement', stmt.id, err);
-        sendFailed++;
+          if (!result.success) throw new Error(result.error || 'Delivery failed');
+          sent++;
+        } catch (err: any) { console.error('Send failed', t.tenantName, err); sendFailed++; }
       }
+      setSendResult({ delivered: sent, failed: sendFailed, total: ready.length });
     }
 
-    setSendResult({ delivered: sent, failed: sendFailed, total: relevantStatements.length });
     setSending(false);
-    logAudit({
-      action: 'export',
-      resource_type: 'billing',
-      resource_label: `Invoices sent for ${currentPeriod}`,
-      new_values: { period: currentPeriod, sent, failed: sendFailed },
-    });
   }
 
     async function handleViewSnapshot(snapshot: BillingSnapshot) {
