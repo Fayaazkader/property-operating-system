@@ -36,29 +36,23 @@ export async function POST(request: NextRequest) {
 
     if (!access) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
-    // SERVER resolves current billing state — browser sends only IDs
-    const { data: tenant } = await supabase.from('tenants').select('tenant_name, email, whatsapp_number').eq('id', tenant_id).single();
-    if (!tenant) return NextResponse.json({ error: "tenant_id, entity_id, stmt_period_id, and fin_period_id are required" }, { status: 400 });
-
-    const { data: lease } = await supabase
-      .from('leases')
-      .select('id, lease_ref, monthly_rental, property_id')
-      .eq('id', lease_id)
-      .eq('tenant_id', tenant_id)
+    // Get tenant contact info (not in worksheet)
+    const { data: tenant } = await supabase
+      .from('tenants')
+      .select('tenant_name, email, whatsapp_number')
+      .eq('id', tenant_id)
       .single();
+    if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 
-    if (!lease) return NextResponse.json({ error: "Lease not found" }, { status: 404 });
-
-    const { data: property } = await supabase.from('properties').select('property_name, billing_address').eq('id', lease.property_id).single();
-    if (!property?.property_name) return NextResponse.json({ error: "Property not found" }, { status: 404 });
-
-    const { data: entity } = await supabase.from('entities').select('entity_name, address, bank_details').eq('id', entity_id).single();
+    // Get entity info (not in worksheet)
+    const { data: entity } = await supabase
+      .from('entities')
+      .select('entity_name, address, bank_details')
+      .eq('id', entity_id)
+      .single();
     if (!entity?.entity_name) return NextResponse.json({ error: "Entity not found" }, { status: 404 });
 
-    const { data: period } = await supabase.from('financial_periods').select('period_name, period_start, period_end').eq('id', stmt_period_id).single();
-
-    if (!period) return NextResponse.json({ error: "Period not found" }, { status: 404 });
-       // Get current billing state from the LIVE worksheet — same source as the Revenue page
+    // BUILD LIVE WORKSHEET — single source of billing truth
     const worksheet = await buildRevenueContext(entity_id, null, stmt_period_id, fin_period_id);
     const tenantWorksheet = worksheet.tenants?.find((t: any) => t.tenantId === tenant_id);
 
@@ -70,6 +64,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No billable charges found for this tenant and period" }, { status: 422 });
     }
 
+    // All billing data from worksheet — single source of truth
+    const propertyName = tenantWorksheet.property_name;
+    if (!propertyName) {
+      return NextResponse.json({ error: "Property name not found in worksheet" }, { status: 422 });
+    }
+
+    const leaseRef = tenantWorksheet.leaseRef || '';
+
     const lineItems = tenantWorksheet.charges.map((c: any) => ({
       description: c.description,
       amount: c.total || c.amount || 0,
@@ -79,19 +81,20 @@ export async function POST(request: NextRequest) {
     const vatTotal = tenantWorksheet.charges.reduce((s: number, c: any) => s + (c.vatAmount || 0), 0);
     const total = subTotal + vatTotal;
 
-    // Due date from billing period end — REPLACE with payment terms model when built
+    // Due date from worksheet period end — REPLACE with payment terms model when built
     if (!worksheet.periodEnd) {
       return NextResponse.json({ error: "Invoice due date is not available — period has no end date" }, { status: 422 });
     }
     const dueDate = worksheet.periodEnd;
 
-    const invoiceNumber = `INV-${period.period_name.replace(/\s/g, '-')}-${tenant_id.substring(0, 6).toUpperCase()}`;
+    const invoiceNumber = `INV-${worksheet.periodName?.replace(/\s/g, '-') || 'period'}-${tenant_id.substring(0, 6).toUpperCase()}`;
+
     // Generate PDF
     const pdfBytes = await generateInvoicePDF({
       invoice_number: invoiceNumber,
       tenant_name: tenant.tenant_name,
-      property_name: property.property_name,
-      period: period.period_name,
+      property_name: propertyName,
+      period: worksheet.periodName || '',
       due_date: dueDate,
       line_items: lineItems,
       sub_total: subTotal,
@@ -100,7 +103,7 @@ export async function POST(request: NextRequest) {
       entity_name: entity.entity_name,
       entity_address: entity.address || '',
       bank_details: entity.bank_details || '',
-      reference: lease.lease_ref || invoiceNumber,
+      reference: leaseRef || invoiceNumber,
     });
 
     const signedUrl = await uploadAndGetSignedUrl('documents', `invoices/${invoiceNumber}.pdf`, pdfBytes, 'application/pdf', 86400);
@@ -115,8 +118,8 @@ export async function POST(request: NextRequest) {
         await sgMail.send({
           to: tenant.email,
           from: { email: "hello@assetflow.africa", name: "AssetFlow" },
-          subject: `Invoice ${invoiceNumber} - ${property.property_name}`,
-          html: `<h2>AssetFlow</h2><p>Dear ${tenant.tenant_name},</p><p>Your invoice for <strong>${period.period_name}</strong> is attached.</p><p style="font-size:18px">Total: <strong>R${total.toLocaleString()}</strong></p>`,
+          subject: `Invoice ${invoiceNumber} - ${propertyName}`,
+          html: `<h2>AssetFlow</h2><p>Dear ${tenant.tenant_name},</p><p>Your invoice for <strong>${worksheet.periodName}</strong> is attached.</p><p style="font-size:18px">Total: <strong>R${total.toLocaleString()}</strong></p>`,
           attachments: [{ filename: `Invoice-${invoiceNumber}.pdf`, content: Buffer.from(pdfBytes).toString('base64'), type: 'application/pdf', disposition: 'attachment' }],
         });
         results.email = { success: true };
