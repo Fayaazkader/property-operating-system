@@ -215,11 +215,12 @@ export default function RevenueOperationsPage() {
           const response = await fetch('/api/communications/send-open-invoice', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              tenant_id: t.tenantId,
-              lease_id: t.leaseId,
-              entity_id: entityId,
-              period_id: finPeriodId,
-            }),
+  tenant_id: t.tenantId,
+  lease_id: t.leaseId,
+  entity_id: entityId,
+  stmt_period_id: stmtPeriodId,
+  fin_period_id: finPeriodId,
+}),
           });
 
           if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);

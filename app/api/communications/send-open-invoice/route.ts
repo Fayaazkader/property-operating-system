@@ -19,10 +19,10 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { tenant_id, lease_id, entity_id, period_id } = await request.json();
+  const { tenant_id, lease_id, entity_id, stmt_period_id, fin_period_id } = await request.json();
 
-  if (!tenant_id || !entity_id || !period_id) {
-    return NextResponse.json({ error: "tenant_id, entity_id, and period_id are required" }, { status: 400 });
+  if (!tenant_id || !entity_id || !stmt_period_id || !fin_period_id) {
+    return NextResponse.json({ error: "tenant_id, entity_id, stmt_period_id, and fin_period_id are required" }, { status: 400 });
   }
 
   try {
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     // SERVER resolves current billing state — browser sends only IDs
     const { data: tenant } = await supabase.from('tenants').select('tenant_name, email, whatsapp_number').eq('id', tenant_id).single();
-    if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+    if (!tenant) return NextResponse.json({ error: "tenant_id, entity_id, stmt_period_id, and fin_period_id are required" }, { status: 400 });
 
     const { data: lease } = await supabase
       .from('leases')
@@ -55,11 +55,10 @@ export async function POST(request: NextRequest) {
     const { data: entity } = await supabase.from('entities').select('entity_name, address, bank_details').eq('id', entity_id).single();
     if (!entity?.entity_name) return NextResponse.json({ error: "Entity not found" }, { status: 404 });
 
-    const { data: period } = await supabase.from('financial_periods').select('period_name, period_start, period_end').eq('id', period_id).single();
-    if (!period) return NextResponse.json({ error: "Period not found" }, { status: 404 });
+    const { data: period } = await supabase.from('financial_periods').select('period_name, period_start, period_end').eq('id', stmt_period_id).single();
 
        // Get current billing state from the LIVE worksheet — same source as the Revenue page
-    const worksheet = await buildRevenueContext(entity_id, null, period_id, period_id);
+    const worksheet = await buildRevenueContext(entity_id, null, stmt_period_id, fin_period_id);
     const tenantWorksheet = worksheet.tenants?.find((t: any) => t.tenantId === tenant_id);
 
     if (!tenantWorksheet) {
