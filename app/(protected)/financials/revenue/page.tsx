@@ -309,18 +309,10 @@ export default function RevenueOperationsPage() {
             <div className="flex items-center justify-between mb-3"><p className="text-xs text-zinc-400">{billingTenants.length} tenants · R{totalPreviewAmount.toLocaleString()} total</p></div>
             <table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06]"><th className="text-left py-2 text-[10px] font-medium text-zinc-500 uppercase">Tenant</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Rent</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Utils</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-14">Manual</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-10">Docs</th><th className="text-center py-2 text-[10px] font-medium text-zinc-500 uppercase w-16">Status</th><th className="text-right py-2 text-[10px] font-medium text-zinc-500 uppercase w-28">Total</th></tr></thead>
               <tbody>{billingTenants.map(t => (<tr key={t.tenantId} onClick={() => openDetailModal(t)} className="border-b border-white/[0.03] hover:bg-white/[0.02] cursor-pointer transition-colors"><td className="py-2 text-white font-light text-xs">{t.tenantName}<br /><span className="text-[10px] text-zinc-500">{t.property_name}</span></td><td className="py-2 text-center text-xs">{t.charges.some(c => c.source === 'lease') ? '✓' : '—'}</td><td className="py-2 text-center text-xs">{t.charges.some(c => c.source === 'utility') ? '✓' : '—'}</td><td className="py-2 text-center text-xs">{t.charges.filter(c => c.source === 'manual').length || '—'}</td><td className="py-2 text-center text-xs text-zinc-500">{t.documents.length || '—'}</td><td className="py-2 text-center">{t.ready ? <span className="text-emerald-400 text-xs">✓</span> : <span className="text-amber-400 text-xs">⚠</span>}</td><td className="py-2 text-right text-white font-medium tabular-nums text-xs">R{t.total.toLocaleString()}</td></tr>))}</tbody></table>
-                        <div className="mt-4 space-y-2">
-              <button onClick={handleSendInvoices} disabled={sending || billingTenants.filter((t: any) => t.ready).length === 0} className="w-full rounded-lg bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40 transition-all">
-                {sending ? 'Sending...' : `Send Invoice${billingTenants.filter((t: any) => t.ready).length !== 1 ? 's' : ''} (${billingTenants.filter((t: any) => t.ready).length} ready)`}
+                                    <div className="mt-4 space-y-2">
+              <button onClick={handleSendInvoices} disabled={sending} className="w-full rounded-lg bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40 transition-all">
+                {sending ? 'Sending...' : 'Send Invoice'}
               </button>
-              {worksheetStatus === 'already_billed' && (
-                <p className="text-[10px] text-zinc-600 text-center">Invoices already sent for this period. You can resend anytime.</p>
-              )}
-              {worksheetStatus === 'period_closed' && (
-                <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 mt-2">
-                  <p className="text-xs text-red-400">Period is closed. Sending is still available.</p>
-                </div>
-              )}
             </div>
           </div>
         )}

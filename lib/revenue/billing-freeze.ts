@@ -3,7 +3,6 @@
 
 import { supabase } from '@/lib/supabase';
 import { postingEngine } from '@/lib/financial/posting-engine';
-import { logAudit } from '@/lib/audit/audit-log';
 
 export interface FreezeResult {
   tenant_id: string;
@@ -24,7 +23,7 @@ export async function freezeBilling(params: {
     tenantName: string;
     leaseId: string;
     property_name: string;
-    charges: Array<{ source: string; description: string; amount: number; vatAmount: number; total: number; glCode?: string }>;
+    charges: Array<{ source: string; description: string; amount: number; vatAmount: number; total: number }>;
   }>;
 }): Promise<{ results: FreezeResult[]; invoiceIds: string[] }> {
   const results: FreezeResult[] = [];
@@ -32,8 +31,9 @@ export async function freezeBilling(params: {
 
   for (const tenant of params.tenants) {
     try {
-      // Check if already posted — idempotent
       const sourceId = `INV-${params.periodName}-${tenant.tenantId}`;
+      
+      // Check if already posted — idempotent
       const { data: existing } = await supabase
         .from('journals')
         .select('id')
@@ -43,7 +43,6 @@ export async function freezeBilling(params: {
         .limit(1);
 
       if (existing?.length) {
-        // Already frozen — skip
         const { data: stmt } = await supabase
           .from('statements_generated')
           .select('id')
@@ -65,14 +64,12 @@ export async function freezeBilling(params: {
         continue;
       }
 
-      // Post each charge type separately for proper accounting
+      // Post each charge type
       for (const charge of tenant.charges) {
         if (charge.amount <= 0) continue;
 
         let businessEvent = 'rental_invoice_raised';
         if (charge.source === 'utility') businessEvent = 'recovery_invoice_raised';
-        if (charge.source === 'manual') businessEvent = 'rental_invoice_raised';
-        if (charge.source === 'escalation') businessEvent = 'rental_invoice_raised';
 
         await postingEngine.post({
           source_engine: 'revenue',
@@ -95,6 +92,17 @@ export async function freezeBilling(params: {
         });
       }
 
+      // Find the actual sub-ledger entry created by posting
+      const { data: subLedgerEntry } = await supabase
+        .from('sub_ledger_entries')
+        .select('id')
+        .eq('tenant_id', tenant.tenantId)
+        .order('posted_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      const authoritativeInvoiceId = subLedgerEntry?.id || sourceId;
+
       // Create authoritative statement
       const { data: statement } = await supabase
         .from('statements_generated')
@@ -102,6 +110,8 @@ export async function freezeBilling(params: {
           entity_id: params.entityId,
           tenant_id: tenant.tenantId,
           statement_data: {
+            invoice_id: authoritativeInvoiceId,
+            invoice_ref: sourceId,
             tenant_name: tenant.tenantName,
             property_name: tenant.property_name || 'Unknown',
             statement_date: params.periodStart || params.periodName,
@@ -127,7 +137,7 @@ export async function freezeBilling(params: {
         tenant_id: tenant.tenantId,
         tenant_name: tenant.tenantName,
         posted: true,
-        invoice_id: sourceId,
+        invoice_id: authoritativeInvoiceId,
         statement_id: statement?.id,
       });
     } catch (err: any) {
