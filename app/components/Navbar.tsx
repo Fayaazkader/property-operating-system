@@ -116,7 +116,7 @@ if (profile?.platform_role === 'platform_admin') setIsPlatformAdmin(true);
       </div>
 
       <div className="flex items-center gap-4 ml-6">
-                {/* Entity Selector */}
+                      {/* Entity Selector — clean dropdown */}
         <div className="relative">
           <button 
             onClick={() => setShowEntitySelector(!showEntitySelector)} 
@@ -131,8 +131,6 @@ if (profile?.platform_role === 'platform_admin') setIsPlatformAdmin(true);
           
           {showEntitySelector && (
             <div className="absolute left-0 mt-2 w-64 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)] shadow-xl py-2 overflow-hidden z-50">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)] px-4 py-2">Scope</p>
-              
               <button 
                 onClick={() => { setActiveEntityId(null); setShowEntitySelector(false); }} 
                 className={`w-full text-left text-sm px-4 py-2 transition-colors ${!activeEntityId ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'}`}
