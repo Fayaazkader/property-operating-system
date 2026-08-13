@@ -7,8 +7,6 @@ import { CommandPalette } from "./layout/CommandPalette";
 import { useCommandPalette } from "@/lib/platform/CommandPaletteContext";
 import { Bell, MessageSquare } from "lucide-react";
 import { trackEvent, AnalyticsEvents } from "@/lib/analytics/tracker";
-import { useEntityContext } from '@/app/context/EntityContext';
-import { ChevronDown } from 'lucide-react';
 
 export default function Navbar() {
   const router = useRouter();
@@ -23,8 +21,7 @@ export default function Navbar() {
   const [finPeriod, setFinPeriod] = useState("");
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const { isOpen, open, close } = useCommandPalette();
-  const { availableEntities, activeEntityId, setActiveEntityId } = useEntityContext();
-const [showEntitySelector, setShowEntitySelector] = useState(false);
+  
   const dropdownRef = useRef<HTMLDivElement>(null);
   const attentionRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -71,16 +68,18 @@ if (profile?.platform_role === 'platform_admin') setIsPlatformAdmin(true);
       setAttentionCount((unallocated || 0) + (expiring || 0));
     }
     loadAttention();
-        async function loadPeriods() {
-      if (!activeEntityId) {
-        setStmtPeriod('');
-        setFinPeriod('');
-        return;
+           async function loadPeriods() {
+      // Display period info — show "Multiple" if entities have different periods
+      const { data: periods } = await supabase.from("financial_periods").select("period_name").eq("period_type", "statement").eq("status", "open").order("period_start", { ascending: false }).limit(5);
+      if (periods && periods.length > 0) {
+        const names = new Set(periods.map((p: any) => p.period_name));
+        setStmtPeriod(names.size === 1 ? periods[0].period_name : 'Multiple');
       }
-      const { data: stmt } = await supabase.from("financial_periods").select("period_name").eq("entity_id", activeEntityId).eq("period_type", "statement").eq("status", "open").order("period_start", { ascending: false }).limit(1).single();
-      if (stmt) setStmtPeriod(stmt.period_name);
-      const { data: fin } = await supabase.from("financial_periods").select("period_name").eq("entity_id", activeEntityId).eq("period_type", "financial").eq("status", "open").order("period_start", { ascending: false }).limit(1).single();
-      if (fin) setFinPeriod(fin.period_name);
+      const { data: finPeriods } = await supabase.from("financial_periods").select("period_name").eq("period_type", "financial").eq("status", "open").order("period_start", { ascending: false }).limit(5);
+      if (finPeriods && finPeriods.length > 0) {
+        const names = new Set(finPeriods.map((p: any) => p.period_name));
+        setFinPeriod(names.size === 1 ? finPeriods[0].period_name : 'Multiple');
+      }
     }
     loadPeriods();
   }, [pathname]);
@@ -121,40 +120,7 @@ if (profile?.platform_role === 'platform_admin') setIsPlatformAdmin(true);
       </div>
 
       <div className="flex items-center gap-4 ml-6">
-                      {/* Entity Selector — clean dropdown */}
-        <div className="relative">
-          <button 
-            onClick={() => setShowEntitySelector(!showEntitySelector)} 
-            className="flex items-center gap-1.5 text-sm text-[var(--text-primary)] hover:opacity-80 transition-opacity"
-          >
-            {activeEntityId 
-              ? availableEntities.find(e => e.entity_id === activeEntityId)?.entity_name || 'Entity'
-              : 'Portfolio'
-            }
-            <ChevronDown className="w-3.5 h-3.5" />
-          </button>
-          
-          {showEntitySelector && (
-            <div className="absolute left-0 mt-2 w-64 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)] shadow-xl py-2 overflow-hidden z-50">
-              <button 
-                onClick={() => { setActiveEntityId(null); setShowEntitySelector(false); }} 
-                className={`w-full text-left text-sm px-4 py-2 transition-colors ${!activeEntityId ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'}`}
-              >
-                Portfolio (All)
-              </button>
-              
-              {availableEntities.map(entity => (
-                <button 
-                  key={entity.entity_id}
-                  onClick={() => { setActiveEntityId(entity.entity_id); setShowEntitySelector(false); }} 
-                  className={`w-full text-left text-sm px-4 py-2 transition-colors ${activeEntityId === entity.entity_id ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'}`}
-                >
-                  {entity.entity_name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+                      
         {stmtPeriod && (
           <span className="rounded-full border border-[var(--border-default)] px-3 py-1 text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)]">STMT {stmtPeriod}</span>
         )}

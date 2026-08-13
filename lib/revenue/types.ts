@@ -20,6 +20,7 @@ export interface BillingDocument {
 }
 
 export interface BillingTenant {
+  entityId: string;
   tenantId: string;
   tenantName: string;
   property_name: string;

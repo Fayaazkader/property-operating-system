@@ -185,153 +185,118 @@ export default function RevenueOperationsPage() {
     setShowDetailModal(true);
   }
 
-     // ─── SEND INVOICES — Delivery only. No financial mutation. ───
+          // ─── SEND INVOICES — Delivery only. No financial mutation. ───
       async function handleSendInvoices() {
-    setSending(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) { setSending(false); alert("Session expired"); return; }
-    const accessToken = session.access_token;
+        setSending(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) { setSending(false); alert("Session expired"); return; }
+        const accessToken = session.access_token;
 
-    let sent = 0, sendFailed = 0;
-    let totalCount = 0;
+        let sent = 0, sendFailed = 0, totalCount = 0;
 
-    if (activeEntityId) {
-      // ENTITY MODE
-      const isClosed = finPeriodStatus === 'closed';
-      if (isClosed) {
-        // Send from frozen statements
-        const { data: statements } = await supabase
-          .from('statements_generated')
-          .select('id, tenant_id, statement_data')
-          .eq('entity_id', activeEntityId)
-          .eq('status', 'issued')
-          .order('generated_at', { ascending: false });
-
-        const relevantStatements = (statements || []).filter((s: any) => {
-          const data = s.statement_data || {};
-          return data.period_name === currentPeriod || data.period_id === stmtPeriodId;
-        });
-
-        totalCount = relevantStatements.length;
-        setSendProgress({ current: 0, total: totalCount, stage: 'Sending...' });
-
-        for (let i = 0; i < relevantStatements.length; i++) {
-          const stmt = relevantStatements[i] as any;
-          try {
-            setSendProgress({ current: i + 1, total: totalCount, stage: 'Sending...' });
-            const invoiceId = stmt.statement_data?.invoice_id;
-            if (!invoiceId) { sendFailed++; continue; }
-            const { data: tenant } = await supabase.from('tenants').select('email, whatsapp_number').eq('id', stmt.tenant_id).single();
-            if (tenant) {
-              const response = await fetch('/api/communications/send-invoice', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-                body: JSON.stringify({ invoice_id: invoiceId, send_email: !!tenant.email, send_whatsapp: !!tenant.whatsapp_number }),
-              });
-              if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
-              const result = await response.json();
-              if (!result.success) throw new Error(result.error || 'Delivery failed');
-            }
-            sent++;
-          } catch (err: any) { console.error('Send failed', stmt.id, err); sendFailed++; }
+        // Current Revenue view — ALL tenants (not filtered by ready yet)
+        const viewTenants = [...billingTenants];
+        if (viewTenants.length === 0) {
+          setSendResult({ delivered: 0, failed: 0, total: 0 });
+          setSending(false);
+          return;
         }
-      } else {
-        // Open period — send from live worksheet
-        const ready = billingTenants.filter((t: any) => t.ready);
-        totalCount = ready.length;
-        setSendProgress({ current: 0, total: totalCount, stage: 'Sending...' });
-        for (let i = 0; i < ready.length; i++) {
-          const t = ready[i] as any;
-          try {
-            setSendProgress({ current: i + 1, total: totalCount, stage: 'Sending...' });
-            const response = await fetch('/api/communications/send-open-invoice', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-              body: JSON.stringify({
-                tenant_id: t.tenantId, lease_id: t.leaseId, entity_id: activeEntityId,
-                stmt_period_id: stmtPeriodId, fin_period_id: finPeriodId,
-              }),
+
+        // Group by authoritative entity
+        const entityGroups = new Map<string, any[]>();
+        for (const t of viewTenants) {
+          const eid = (t as any).entityId;
+          if (!eid) { console.error('Tenant missing entityId:', t.tenantName); sendFailed++; continue; }
+          if (!entityGroups.has(eid)) entityGroups.set(eid, []);
+          entityGroups.get(eid)!.push(t);
+        }
+
+        // Get period context per entity from portfolio builder if available
+        const contextMap = new Map<string, any>();
+        if (worksheet?.entityContexts) {
+          for (const ec of worksheet.entityContexts) {
+            contextMap.set(ec.entityId, ec);
+          }
+        }
+
+        for (const [eid, tenants] of entityGroups) {
+          // Use the portfolio builder's context if available
+          const ctx = contextMap.get(eid);
+          if (!ctx) { console.error('No period context for entity:', eid); sendFailed += tenants.length; continue; }
+
+          const isClosed = ctx.statementStatus === 'closed';
+
+          if (isClosed) {
+            // CLOSED — send frozen statements for these tenants
+            const tenantIds = tenants.map((t: any) => t.tenantId);
+            const { data: statements } = await supabase
+              .from('statements_generated')
+              .select('id, tenant_id, statement_data')
+              .eq('entity_id', eid)
+              .in('tenant_id', tenantIds)
+              .eq('status', 'issued')
+              .order('generated_at', { ascending: false });
+
+            const relevant = (statements || []).filter((s: any) => {
+              const data = s.statement_data || {};
+              return data.period_id === ctx.stmtPeriodId;
             });
-            if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
-            const result = await response.json();
-            if (!result.success) throw new Error(result.error || 'Delivery failed');
-            sent++;
-          } catch (err: any) { console.error('Send failed', t.tenantName, err); sendFailed++; }
-        }
-      }
-        } else if (worksheet?.entityContexts?.length) {
-      // PORTFOLIO MODE — per-entity open/closed using statement period status
-      setSendProgress({ current: 0, total: 0, stage: 'Preparing portfolio invoices...' });
 
-      for (const ec of worksheet.entityContexts) {
-        const isEntityClosed = ec.statementStatus === 'closed';
+            totalCount += relevant.length;
 
-        if (isEntityClosed) {
-          // CLOSED — send from frozen statements, NOT live worksheet
-          const { data: statements } = await supabase
-            .from('statements_generated')
-            .select('id, tenant_id, statement_data')
-            .eq('entity_id', ec.entityId)
-            .eq('status', 'issued')
-            .order('generated_at', { ascending: false });
+            for (const stmt of relevant) {
+              try {
+                const invoiceId = (stmt as any).statement_data?.invoice_id;
+                if (!invoiceId) { sendFailed++; continue; }
+                const { data: tenant } = await supabase.from('tenants').select('email, whatsapp_number').eq('id', (stmt as any).tenant_id).single();
+                if (tenant) {
+                  const response = await fetch('/api/communications/send-invoice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+                    body: JSON.stringify({ invoice_id: invoiceId, send_email: !!tenant.email, send_whatsapp: !!tenant.whatsapp_number }),
+                  });
+                  if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
+                  const result = await response.json();
+                  if (!result.success) throw new Error(result.error || 'Delivery failed');
+                }
+                sent++;
+              } catch (err: any) { console.error('Send failed', (stmt as any).id, err); sendFailed++; }
+            }
+          } else {
+            // OPEN — send live invoices for READY tenants only
+            const readyTenants = tenants.filter((t: any) => t.ready);
+            if (readyTenants.length === 0) continue;
 
-          const relevantStatements = (statements || []).filter((s: any) => {
-            const data = s.statement_data || {};
-            return data.period_id === ec.stmtPeriodId;
-          });
+            // Must have financial period
+            if (!ctx.finPeriodId) { console.error('No financial period for entity:', eid); sendFailed += readyTenants.length; totalCount += readyTenants.length; continue; }
 
-          totalCount += relevantStatements.length;
+            totalCount += readyTenants.length;
 
-          for (let i = 0; i < relevantStatements.length; i++) {
-            const stmt = relevantStatements[i] as any;
-            try {
-              setSendProgress({ current: sent + sendFailed + 1, total: totalCount, stage: 'Sending...' });
-              const invoiceId = stmt.statement_data?.invoice_id;
-              if (!invoiceId) { sendFailed++; continue; }
-              const { data: tenant } = await supabase.from('tenants').select('email, whatsapp_number').eq('id', stmt.tenant_id).single();
-              if (tenant) {
-                const response = await fetch('/api/communications/send-invoice', {
+            for (const t of readyTenants) {
+              try {
+                const response = await fetch('/api/communications/send-open-invoice', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-                  body: JSON.stringify({ invoice_id: invoiceId, send_email: !!tenant.email, send_whatsapp: !!tenant.whatsapp_number }),
+                  body: JSON.stringify({
+                    tenant_id: (t as any).tenantId,
+                    lease_id: (t as any).leaseId,
+                    entity_id: eid,
+                    stmt_period_id: ctx.stmtPeriodId,
+                    fin_period_id: ctx.finPeriodId,
+                  }),
                 });
                 if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
                 const result = await response.json();
                 if (!result.success) throw new Error(result.error || 'Delivery failed');
-              }
-              sent++;
-            } catch (err: any) { console.error('Send failed', stmt.id, err); sendFailed++; }
-          }
-        } else {
-          // OPEN — send from live worksheet
-          const ready = ec.worksheet.tenants.filter((t: any) => t.ready);
-          totalCount += ready.length;
-
-          for (let i = 0; i < ready.length; i++) {
-            const t = ready[i] as any;
-            try {
-              setSendProgress({ current: sent + sendFailed + 1, total: totalCount, stage: 'Sending...' });
-              const response = await fetch('/api/communications/send-open-invoice', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-                body: JSON.stringify({
-                  tenant_id: t.tenantId, lease_id: t.leaseId, entity_id: ec.entityId,
-                  stmt_period_id: ec.stmtPeriodId, fin_period_id: ec.finPeriodId,
-                }),
-              });
-              if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
-              const result = await response.json();
-              if (!result.success) throw new Error(result.error || 'Delivery failed');
-              sent++;
-            } catch (err: any) { console.error('Send failed', t.tenantName, err); sendFailed++; }
+                sent++;
+              } catch (err: any) { console.error('Send failed', (t as any).tenantName, err); sendFailed++; }
+            }
           }
         }
-      }
-    }
 
-    setSendResult({ delivered: sent, failed: sendFailed, total: totalCount });
-    setSending(false);
-  }
+        setSendResult({ delivered: sent, failed: sendFailed, total: totalCount });
+        setSending(false);
+      }
 
     async function handleViewSnapshot(snapshot: BillingSnapshot) {
     if (billingTenants.length > 0) {
