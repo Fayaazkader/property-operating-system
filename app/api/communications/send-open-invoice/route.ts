@@ -35,7 +35,6 @@ export async function POST(request: NextRequest) {
     const { data: access } = await supabase
       .from('user_entity_access')
       .select('entity_id')
-    console.log("RBAC:", { user_id: user.id, entity_id });
       .eq('user_id', user.id)
       .eq('entity_id', entity_id)
       .single();
