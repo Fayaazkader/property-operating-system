@@ -73,7 +73,14 @@ export default function RevenueOperationsPage() {
     async function init() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setLoading(false); return; }
-      const { data: entities } = await supabase.rpc('auth_entities');
+           const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: accessRows } = await supabase
+        .from('user_entity_access')
+        .select('entity_id')
+        .eq('user_id', user?.id);
+
+      const entities = accessRows?.map((r: any) => r.entity_id) || [];
       if (!entities?.length) { setLoading(false); return; }
       const eid = entities[0];
       setEntityId(eid);
