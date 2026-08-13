@@ -56,15 +56,14 @@ export async function resolvePaymentTerms(leaseId: string): Promise<PaymentTerms
     }
   }
 
-    // 4. Platform level — from platform_settings table (must be explicitly configured)
-  const { data: platform } = await supabase
+      const { data: platform } = await supabase
     .from('platform_settings')
-    .select('payment_terms')
-    .limit(1)
+    .select('settings')
+    .eq('entity_id', '00000000-0000-0000-0000-000000000000')
     .single();
 
-  if (platform?.payment_terms?.due_days) {
-    return { ...platform.payment_terms, source: 'platform' };
+  if (platform?.settings?.payment_terms?.due_days != null) {
+    return { ...platform.settings.payment_terms, source: 'platform' };
   }
 
   throw new PaymentTermsError('No payment terms configured for this lease');
