@@ -14,14 +14,12 @@ import type { BillingTenant, RevenueContext } from '@/lib/revenue/types';
 import type { BillingSnapshot } from '@/lib/revenue/billing-assembly';
 import ImportUtilitiesModal from '@/app/components/financials/ImportUtilitiesModal';
 import InvoicePreviewModal from '@/app/components/financials/InvoicePreviewModal';
-import { useEntityContext } from '@/app/context/EntityContext';
 import { getPortfolioHistory } from '@/lib/revenue/portfolio-history';
 
 interface AttentionItem { type: string; count: number; label: string; action: string; }
 
 export default function RevenueOperationsPage() {
   const [entityId, setEntityId] = useState('');
-    const { activeEntityId, activeScope, availableEntities, loading: entityLoading } = useEntityContext();
   const [currentPeriod, setCurrentPeriod] = useState('');
   const [periodStartDate, setPeriodStartDate] = useState('');
   const [stmtPeriodId, setStmtPeriodId] = useState('');
@@ -73,17 +71,26 @@ export default function RevenueOperationsPage() {
   const [docTenantId, setDocTenantId] = useState('');
   
   useEffect(() => {
-    async function init() {
+        async function init() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setLoading(false); return; }
 
-      // Use platform Entity Context
-      const entityIds = activeEntityId ? [activeEntityId] : availableEntities.map(e => e.entity_id);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoading(false); return; }
+
+      // Get all entities user has access to
+      const { data: accessRows } = await supabase
+        .from('user_entity_access')
+        .select('entity_id')
+        .eq('user_id', user.id);
+
+      const entityIds = (accessRows || []).map((r: any) => r.entity_id);
       if (!entityIds.length) { setLoading(false); return; }
 
-      setEntityId(activeEntityId || '');
+      // Portfolio-wide by default
+      setEntityId('');
 
-      // Load properties and tenants across all entities (portfolio or entity scope)
+      // Load properties and tenants across all entities
       const { data: props } = await supabase.from('properties').select('id, property_name').in('entity_id', entityIds).order('property_name');
       setProperties(props || []);
 
@@ -96,23 +103,18 @@ export default function RevenueOperationsPage() {
       const { data: leases } = await supabase.from('leases').select('monthly_rental').eq('lease_status', 'Active').in('owner_entity_id', entityIds);
       setExpectedRevenue((leases || []).reduce((s: number, l: any) => s + (l.monthly_rental || 0), 0));
 
-                   // Load period context based on scope
-      if (activeEntityId) {
-        const { data: period } = await supabase.from('financial_periods').select('id, period_name, status, period_start').eq('entity_id', activeEntityId).eq('period_type', 'statement').eq('status', 'open').order('period_start').limit(1).single();
-        if (period) { setCurrentPeriod(period.period_name); setPeriodStatus(period.status); setPeriodStartDate(period.period_start); setStmtPeriodId(period.id); }
-        const { data: finPeriod } = await supabase.from('financial_periods').select('id, status').eq('entity_id', activeEntityId).eq('period_type', 'financial').eq('status', 'open').order('period_start').limit(1).single();
-        if (finPeriod) { setFinPeriodId(finPeriod.id); setFinPeriodStatus(finPeriod.status); }
-        await refreshHistory(activeEntityId);
-      } else {
-        const portfolioHistory = await getPortfolioHistory(entityIds);
-        setSnapshots(portfolioHistory as any);
-        if (portfolioHistory.length > 0) setLastBilling(new Date(portfolioHistory[0].generated_at).toLocaleString());
-      }
+      // Get first entity's statement period for header display
+      const firstEntity = entityIds[0];
+      const { data: period } = await supabase.from('financial_periods').select('id, period_name, status, period_start').eq('entity_id', firstEntity).eq('period_type', 'statement').eq('status', 'open').order('period_start').limit(1).single();
+      if (period) { setCurrentPeriod(period.period_name); setPeriodStatus(period.status); setPeriodStartDate(period.period_start); setStmtPeriodId(period.id); }
+      const { data: finPeriod } = await supabase.from('financial_periods').select('id, status').eq('entity_id', firstEntity).eq('period_type', 'financial').eq('status', 'open').order('period_start').limit(1).single();
+      if (finPeriod) { setFinPeriodId(finPeriod.id); setFinPeriodStatus(finPeriod.status); }
 
+      await refreshHistory(firstEntity);
       setLoading(false);
     }
-    if (!entityLoading) init();
-  }, [activeEntityId, entityLoading, availableEntities]);
+    init();
+  }, []);
 
   async function refreshHistory(eid: string) {
     const snaps = await billingAssembly.getSnapshots(eid);
@@ -215,10 +217,12 @@ export default function RevenueOperationsPage() {
             contextMap.set(ec.entityId, ec);
           }
         }
+    
 
         for (const [eid, tenants] of entityGroups) {
           // Use the portfolio builder's context if available
           const ctx = contextMap.get(eid);
+                    console.log('SENDING:', { eid, tenantCount: tenants.length, stmtPeriodId: ctx.stmtPeriodId, finPeriodId: ctx.finPeriodId });
           if (!ctx) { console.error('No period context for entity:', eid); sendFailed += tenants.length; continue; }
 
           const isClosed = ctx.statementStatus === 'closed';
