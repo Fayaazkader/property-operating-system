@@ -148,6 +148,9 @@ export default function RevenueOperationsPage() {
   async function handleSendInvoices() {
     setSending(true);
 
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) { setSending(false); alert("Your session has expired. Please sign in again."); return; }
+    const accessToken = session.access_token;
     const isClosed = finPeriodStatus === 'closed';
 
     if (isClosed) {
@@ -182,14 +185,12 @@ export default function RevenueOperationsPage() {
 
           const { data: tenant } = await supabase.from('tenants').select('email, whatsapp_number').eq('id', stmt.tenant_id).single();
           if (tenant) {
-                       const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.access_token) throw new Error('Session expired. Please sign in again.');
 
             const response = await fetch('/api/communications/send-invoice', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`,
+                'Authorization': `Bearer ${accessToken}`,
               },
               body: JSON.stringify({ invoice_id: invoiceId, send_email: !!tenant.email, send_whatsapp: !!tenant.whatsapp_number }),
             });
@@ -219,14 +220,12 @@ export default function RevenueOperationsPage() {
           setSendProgress({ current: i + 1, total: ready.length, stage: 'Sending...' });
 
           // Browser sends only IDs — server resolves the invoice
-                   const { data: { session } } = await supabase.auth.getSession();
-          if (!session?.access_token) throw new Error('Session expired. Please sign in again.');
 
           const response = await fetch('/api/communications/send-open-invoice', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
+              'Authorization': `Bearer ${accessToken}`,
             },
             body: JSON.stringify({
               tenant_id: t.tenantId,
