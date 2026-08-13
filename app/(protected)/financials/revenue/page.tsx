@@ -194,6 +194,7 @@ export default function RevenueOperationsPage() {
         // Current Revenue view — ALL tenants (not filtered by ready yet)
         const viewTenants = [...billingTenants];
         if (viewTenants.length === 0) {
+        console.log("View tenants:", viewTenants.map((t: any) => ({ name: t.tenantName, entityId: t.entityId })));
           setSendResult({ delivered: 0, failed: 0, total: 0 });
           setSending(false);
           return;
