@@ -27,6 +27,7 @@ export async function buildRevenueContext(
   let leaseQuery = supabase.from('leases')
     .select('id, tenant_id, lease_id, property_id, monthly_rental, escalation_percent, commencement_date, lease_start_date, tenants!inner(tenant_name), properties!inner(property_name)')
     .eq('lease_status', 'Active').not('tenant_id', 'is', null).not('property_id', 'is', null);
+  leaseQuery = leaseQuery.eq('owner_entity_id', entityId);
   if (propertyId) leaseQuery = leaseQuery.eq('property_id', propertyId);
 
   const { data: leaseList, error: leaseError } = await leaseQuery;

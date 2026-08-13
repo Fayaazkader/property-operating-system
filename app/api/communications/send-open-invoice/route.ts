@@ -33,7 +33,6 @@ export async function POST(request: NextRequest) {
   try {
     // RBAC
     const { data: access } = await supabase
-    console.log("RBAC check:", { user_id: user.id, entity_id_from_request: entity_id });
       .from('user_entity_access')
       .select('entity_id')
       .eq('user_id', user.id)

@@ -229,7 +229,6 @@ export default function RevenueOperationsPage() {
           setSendProgress({ current: i + 1, total: ready.length, stage: 'Sending...' });
 
           // Browser sends only IDs — server resolves the invoice
-          console.log("Sending for entity:", entityId, "tenant:", t.tenantId);
 
           const response = await fetch('/api/communications/send-open-invoice', {
             method: 'POST',
