@@ -15,6 +15,10 @@ export interface PortfolioRevenueContext {
   allTenants: BillingTenant[];
   totalExpected: number;
   entityCount: number;
+  errors: Array<{
+    entityId: string;
+    reason: string;
+  }>;
 }
 
 export async function buildPortfolioRevenueContext(
@@ -26,6 +30,8 @@ export async function buildPortfolioRevenueContext(
     finPeriodId: string;
     worksheet: RevenueContext;
   }> = [];
+
+  const errors: Array<{ entityId: string; reason: string }> = [];
 
   for (const entityId of entityIds) {
     // Get this entity's open statement period
@@ -50,21 +56,33 @@ export async function buildPortfolioRevenueContext(
       .limit(1)
       .single();
 
-    if (!stmtPeriod?.id || !finPeriod?.id) continue;
+    if (!stmtPeriod?.id) {
+      errors.push({ entityId, reason: 'missing_open_statement_period' });
+      continue;
+    }
 
-    const worksheet = await buildRevenueContext(
-      entityId,
-      null,
-      stmtPeriod.id,
-      finPeriod.id
-    );
+    if (!finPeriod?.id) {
+      errors.push({ entityId, reason: 'missing_open_financial_period' });
+      continue;
+    }
 
-    entityContexts.push({
-      entityId,
-      stmtPeriodId: stmtPeriod.id,
-      finPeriodId: finPeriod.id,
-      worksheet,
-    });
+    try {
+      const worksheet = await buildRevenueContext(
+        entityId,
+        null,
+        stmtPeriod.id,
+        finPeriod.id
+      );
+
+      entityContexts.push({
+        entityId,
+        stmtPeriodId: stmtPeriod.id,
+        finPeriodId: finPeriod.id,
+        worksheet,
+      });
+    } catch (err: any) {
+      errors.push({ entityId, reason: err.message || 'worksheet_build_failed' });
+    }
   }
 
   const allTenants = entityContexts.flatMap(ec => ec.worksheet.tenants);
@@ -75,5 +93,6 @@ export async function buildPortfolioRevenueContext(
     allTenants,
     totalExpected,
     entityCount: entityContexts.length,
+    errors,
   };
 }

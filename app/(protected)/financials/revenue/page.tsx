@@ -7,6 +7,8 @@ import { triggerCommunication } from '@/lib/communications/communication-service
 import { trackEvent, AnalyticsEvents } from '@/lib/analytics/tracker';
 import { postingEngine } from '@/lib/financial/posting-engine';
 import { buildRevenueContext } from '@/lib/revenue/revenue-context-builder';
+import { buildPortfolioRevenueContext } from '@/lib/revenue/portfolio-revenue-builder';
+import { buildPortfolioRevenueContext } from '@/lib/revenue/portfolio-revenue-builder';
 import { billingAssembly } from '@/lib/revenue/billing-assembly';
 import { freezeBilling } from '@/lib/revenue/billing-freeze';
 import type { BillingTenant, RevenueContext } from '@/lib/revenue/types';
@@ -70,35 +72,43 @@ export default function RevenueOperationsPage() {
   const [docTenantResults, setDocTenantResults] = useState<any[]>([]);
   const [docTenantId, setDocTenantId] = useState('');
   
-
   useEffect(() => {
-       async function init() {
+    async function init() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setLoading(false); return; }
 
-      // Use platform Entity Context — no independent entity discovery
-      const eid = activeEntityId; // null = portfolio-wide
-      setEntityId(eid || '');
-
-      // Get ALL entities for portfolio-wide mode, or single entity for scoped mode
-      const entityIds = eid ? [eid] : availableEntities.map(e => e.entity_id);
+      // Use platform Entity Context
+      const entityIds = activeEntityId ? [activeEntityId] : availableEntities.map(e => e.entity_id);
       if (!entityIds.length) { setLoading(false); return; }
 
-      // Load periods for the active entity (or first entity in portfolio mode)
-      const periodEntityId = eid || entityIds[0];
-      const { data: period } = await supabase.from('financial_periods').select('id, period_name, status, period_start').eq('entity_id', periodEntityId).eq('period_type', 'statement').eq('status', 'open').order('period_start').limit(1).single();
-      if (period) { setCurrentPeriod(period.period_name); setPeriodStatus(period.status); setPeriodStartDate(period.period_start); setStmtPeriodId(period.id); }
-      const { data: finPeriod } = await supabase.from('financial_periods').select('id, status').eq('entity_id', periodEntityId).eq('period_type', 'financial').eq('status', 'open').order('period_start').limit(1).single();
-      if (finPeriod) { setFinPeriodId(finPeriod.id); setFinPeriodStatus(finPeriod.status); }
+      setEntityId(activeEntityId || '');
+
+      // Load properties and tenants across all entities (portfolio or entity scope)
       const { data: props } = await supabase.from('properties').select('id, property_name').in('entity_id', entityIds).order('property_name');
       setProperties(props || []);
+
       const { data: tenantList } = await supabase.from('tenants').select('id, tenant_name').in('entity_id', entityIds);
       setTenants(tenantList || []);
+
       const { count } = await supabase.from('leases').select('*', { count: 'exact', head: true }).eq('lease_status', 'Active').in('owner_entity_id', entityIds);
       setActiveTenancies(count || 0);
+
       const { data: leases } = await supabase.from('leases').select('monthly_rental').eq('lease_status', 'Active').in('owner_entity_id', entityIds);
       setExpectedRevenue((leases || []).reduce((s: number, l: any) => s + (l.monthly_rental || 0), 0));
-      await refreshHistory(periodEntityId);
+
+      // If entity-scoped, load its periods for the header display
+      if (activeEntityId) {
+        const { data: period } = await supabase.from('financial_periods').select('id, period_name, status, period_start').eq('entity_id', activeEntityId).eq('period_type', 'statement').eq('status', 'open').order('period_start').limit(1).single();
+        if (period) { setCurrentPeriod(period.period_name); setPeriodStatus(period.status); setPeriodStartDate(period.period_start); setStmtPeriodId(period.id); }
+        const { data: finPeriod } = await supabase.from('financial_periods').select('id, status').eq('entity_id', activeEntityId).eq('period_type', 'financial').eq('status', 'open').order('period_start').limit(1).single();
+        if (finPeriod) { setFinPeriodId(finPeriod.id); setFinPeriodStatus(finPeriod.status); }
+        await refreshHistory(activeEntityId);
+      } else {
+        // Portfolio mode — no single period. Period info comes from each entity context.
+        setCurrentPeriod('Portfolio');
+        await refreshHistory(entityIds[0]); // For history display, use first entity's history
+      }
+
       setLoading(false);
     }
     if (!entityLoading) init();
@@ -110,19 +120,41 @@ export default function RevenueOperationsPage() {
     if (snaps.length > 0) setLastBilling(new Date(snaps[0].generated_at).toLocaleString());
   }
 
-  async function loadPreview(propId?: string, tenantId?: string) {
+      async function loadPreview(propId?: string, tenantId?: string) {
     setPreviewLoading(true);
     try {
-      const worksheet = await buildRevenueContext(entityId || '', propId || null, stmtPeriodId, finPeriodId);
-      let tenants = worksheet.tenants;
-      if (tenantId) tenants = tenants.filter(t => t.tenantId === tenantId);
+      let tenants: any[] = [];
+      let worksheet: any = null;
+
+      if (activeEntityId) {
+        // Entity-scoped
+        const ws = await buildRevenueContext(activeEntityId, propId || null, stmtPeriodId, finPeriodId);
+        tenants = ws.tenants;
+        worksheet = ws;
+      } else if (availableEntities.length > 0) {
+        // Portfolio-wide
+        const portfolio = await buildPortfolioRevenueContext(availableEntities.map(e => e.entity_id));
+        tenants = portfolio.allTenants;
+        worksheet = {
+          entityId: 'portfolio',
+          periodName: 'Portfolio',
+          periodStart: '',
+          periodEnd: '',
+          tenants,
+          isAlreadyBilled: false,
+          totalExpected: portfolio.totalExpected,
+          entityContexts: portfolio.entityContexts,
+          errors: portfolio.errors,
+        };
+      }
+
+      if (tenantId) tenants = tenants.filter((t: any) => t.tenantId === tenantId);
       setBillingTenants(tenants);
       setWorksheet(worksheet);
-    if (worksheet.tenants.length === 0) {
-      setWorksheetStatus(worksheet.isAlreadyBilled ? 'already_billed' : 'ready');
-      setAttentionItems([]);
+      setWorksheetStatus(worksheet?.isAlreadyBilled ? 'already_billed' : 'ready');
+    } catch (err) {
+      console.error('Load preview failed', err);
     }
-    } catch (err) { console.error(err); }
     setPreviewLoading(false);
   }
 
