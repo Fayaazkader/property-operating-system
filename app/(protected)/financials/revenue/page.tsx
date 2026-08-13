@@ -261,7 +261,7 @@ export default function RevenueOperationsPage() {
       }
         } else if (worksheet?.entityContexts?.length) {
       // PORTFOLIO MODE — per-entity open/closed using statement period status
-      setSendProgress({ current: 0, total: 1, stage: 'Preparing portfolio invoices...' });
+      setSendProgress({ current: 0, total: 0, stage: 'Preparing portfolio invoices...' });
 
       for (const ec of worksheet.entityContexts) {
         const isEntityClosed = ec.statementStatus === 'closed';
