@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import sgMail from "@sendgrid/mail";
 import twilio from "twilio";
+import { buildRevenueContext } from '@/lib/revenue/revenue-context-builder';
 import { generateInvoicePDF } from "@/lib/revenue/invoice-pdf-generator";
 import { uploadAndGetSignedUrl } from "@/lib/communications/signed-urls";
 import { logCommunication } from "@/lib/communications/communication-log";
-import { buildRevenueContext } from "@/lib/revenue/revenue-context-builder";
 
 export async function POST(request: NextRequest) {
-  // Auth via Bearer token
   const authHeader = request.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -25,13 +24,11 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { tenant_id, lease_id, entity_id, stmt_period_id, fin_period_id } = await request.json();
-
   if (!tenant_id || !entity_id || !stmt_period_id || !fin_period_id) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
   try {
-    // RBAC
     const { data: access } = await supabase
       .from('user_entity_access')
       .select('entity_id')
@@ -40,32 +37,24 @@ export async function POST(request: NextRequest) {
       .single();
     if (!access) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
-    // Live worksheet — same source as Revenue page
     const worksheet = await buildRevenueContext(entity_id, null, stmt_period_id, fin_period_id);
     const tenantWorksheet = worksheet.tenants?.find((t: any) => t.tenantId === tenant_id);
-    if (!tenantWorksheet) return NextResponse.json({ error: "Tenant not found in current billing worksheet" }, { status: 422 });
-    if (!tenantWorksheet.charges?.length) return NextResponse.json({ error: "No billable charges found" }, { status: 422 });
+    if (!tenantWorksheet) return NextResponse.json({ error: "Tenant not found in worksheet" }, { status: 422 });
+    if (!tenantWorksheet.charges?.length) return NextResponse.json({ error: "No billable charges" }, { status: 422 });
 
-    // Contact info
     const { data: tenant } = await supabase.from('tenants').select('tenant_name, email, whatsapp_number').eq('id', tenant_id).single();
     if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 
-    // Entity info
     const { data: entity } = await supabase.from('entities').select('entity_name, address, bank_details').eq('id', entity_id).single();
     if (!entity?.entity_name) return NextResponse.json({ error: "Entity not found" }, { status: 404 });
 
-    // Build invoice data — line items use amount (excl VAT)
-    const lineItems = tenantWorksheet.charges.map((c: any) => ({
-      description: c.description,
-      amount: c.amount || 0,
-    }));
-
+    const lineItems = tenantWorksheet.charges.map((c: any) => ({ description: c.description, amount: c.amount || 0 }));
     const subTotal = tenantWorksheet.charges.reduce((s: number, c: any) => s + (c.amount || 0), 0);
     const vatTotal = tenantWorksheet.charges.reduce((s: number, c: any) => s + (c.vatAmount || 0), 0);
     const total = subTotal + vatTotal;
 
     const dueDate = worksheet.periodEnd;
-    if (!dueDate) return NextResponse.json({ error: "Invoice due date not available" }, { status: 422 });
+    if (!dueDate) return NextResponse.json({ error: "Due date not available" }, { status: 422 });
 
     const invoiceNumber = `INV-${worksheet.periodName.replace(/\s/g, '-')}-${tenant_id.substring(0, 6).toUpperCase()}`;
 
@@ -90,7 +79,6 @@ export async function POST(request: NextRequest) {
     const results: any = { email: null, whatsapp: null };
     const messagePreview = `Invoice ${invoiceNumber} - R${total.toLocaleString()}`;
 
-    // Send Email
     if (tenant.email) {
       try {
         sgMail.setApiKey(process.env.SENDGRID_API_KEY || '');
@@ -106,7 +94,6 @@ export async function POST(request: NextRequest) {
       } catch (err: any) { results.email = { success: false, error: err.message }; }
     }
 
-    // Send WhatsApp via Content Template
     if (tenant.whatsapp_number && process.env.TWILIO_CONTENT_SID_INVOICE) {
       try {
         const client = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
@@ -127,11 +114,8 @@ export async function POST(request: NextRequest) {
       } catch (err: any) { results.whatsapp = { success: false, error: err.message }; }
     }
 
-    // Zero-channel handling
     const attempted = [!!tenant.email, !!(tenant.whatsapp_number && process.env.TWILIO_CONTENT_SID_INVOICE)].filter(Boolean).length;
-    if (attempted === 0) {
-      return NextResponse.json({ success: false, status: 'no_channels', error: 'Tenant has no configured delivery channels', results }, { status: 422 });
-    }
+    if (attempted === 0) return NextResponse.json({ success: false, status: 'no_channels', error: 'No delivery channels', results }, { status: 422 });
 
     const successful = [results.email?.success, results.whatsapp?.success].filter(Boolean).length;
     const overallStatus = successful === attempted ? 'sent' : successful > 0 ? 'partial' : 'failed';
