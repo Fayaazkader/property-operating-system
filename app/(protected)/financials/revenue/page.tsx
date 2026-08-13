@@ -123,30 +123,27 @@ export default function RevenueOperationsPage() {
       async function loadPreview(propId?: string, tenantId?: string) {
     setPreviewLoading(true);
     try {
-      let tenants: any[] = [];
-      let worksheet: any = null;
+      // Portfolio-wide — build per-entity contexts
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: accessRows } = await supabase
+        .from('user_entity_access')
+        .select('entity_id')
+        .eq('user_id', user?.id);
+      const entityIds = (accessRows || []).map((r: any) => r.entity_id);
 
-      if (activeEntityId) {
-        // Entity-scoped — single entity, single period context
-        const ws = await buildRevenueContext(activeEntityId, propId || null, stmtPeriodId, finPeriodId);
-        tenants = ws.tenants;
-        worksheet = ws;
-      } else if (availableEntities.length > 0) {
-        // Portfolio-wide — build per-entity contexts
-        const portfolio = await buildPortfolioRevenueContext(availableEntities.map(e => e.entity_id));
-        tenants = portfolio.allTenants;
-        worksheet = {
-          entityId: 'portfolio',
-          periodName: null, // No single period name — use per-entity contexts
-          periodStart: null,
-          periodEnd: null,
-          tenants,
-          isAlreadyBilled: false,
-          totalExpected: portfolio.totalExpected,
-          entityContexts: portfolio.entityContexts,
-          errors: portfolio.errors,
-        };
-      }
+      const portfolio = await buildPortfolioRevenueContext(entityIds);
+      let tenants = portfolio.allTenants;
+      const worksheet = {
+        entityId: 'portfolio',
+        periodName: null,
+        periodStart: null,
+        periodEnd: null,
+        tenants,
+        isAlreadyBilled: false,
+        totalExpected: portfolio.totalExpected,
+        entityContexts: portfolio.entityContexts,
+        errors: portfolio.errors,
+      };
 
       if (tenantId) tenants = tenants.filter((t: any) => t.tenantId === tenantId);
       setBillingTenants(tenants);
