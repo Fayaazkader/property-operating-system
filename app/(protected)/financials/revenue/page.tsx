@@ -15,6 +15,7 @@ import type { BillingSnapshot } from '@/lib/revenue/billing-assembly';
 import ImportUtilitiesModal from '@/app/components/financials/ImportUtilitiesModal';
 import InvoicePreviewModal from '@/app/components/financials/InvoicePreviewModal';
 import { useEntityContext } from '@/app/context/EntityContext';
+import { getPortfolioHistory } from '@/lib/revenue/portfolio-history';
 
 interface AttentionItem { type: string; count: number; label: string; action: string; }
 
@@ -95,7 +96,7 @@ export default function RevenueOperationsPage() {
       const { data: leases } = await supabase.from('leases').select('monthly_rental').eq('lease_status', 'Active').in('owner_entity_id', entityIds);
       setExpectedRevenue((leases || []).reduce((s: number, l: any) => s + (l.monthly_rental || 0), 0));
 
-      // If entity-scoped, load its periods for the header display
+                   // Load period context based on scope
       if (activeEntityId) {
         const { data: period } = await supabase.from('financial_periods').select('id, period_name, status, period_start').eq('entity_id', activeEntityId).eq('period_type', 'statement').eq('status', 'open').order('period_start').limit(1).single();
         if (period) { setCurrentPeriod(period.period_name); setPeriodStatus(period.status); setPeriodStartDate(period.period_start); setStmtPeriodId(period.id); }
@@ -103,9 +104,9 @@ export default function RevenueOperationsPage() {
         if (finPeriod) { setFinPeriodId(finPeriod.id); setFinPeriodStatus(finPeriod.status); }
         await refreshHistory(activeEntityId);
       } else {
-        // Portfolio mode — no single period. Period info comes from each entity context.
-        setCurrentPeriod('Portfolio');
-        await refreshHistory(entityIds[0]); // For history display, use first entity's history
+        const portfolioHistory = await getPortfolioHistory(entityIds);
+        setSnapshots(portfolioHistory as any);
+        if (portfolioHistory.length > 0) setLastBilling(new Date(portfolioHistory[0].generated_at).toLocaleString());
       }
 
       setLoading(false);
@@ -185,37 +186,70 @@ export default function RevenueOperationsPage() {
   }
 
      // ─── SEND INVOICES — Delivery only. No financial mutation. ───
-    async function handleSendInvoices() {
+      async function handleSendInvoices() {
     setSending(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) { setSending(false); alert("Session expired"); return; }
     const accessToken = session.access_token;
 
     let sent = 0, sendFailed = 0;
+    let totalCount = 0;
 
     if (activeEntityId) {
-      // ENTITY MODE — single entity, single period
+      // ENTITY MODE
       const isClosed = finPeriodStatus === 'closed';
       if (isClosed) {
-        // Send from frozen statements — existing logic
-        // ... (keep the closed-period code from earlier)
+        // Send from frozen statements
+        const { data: statements } = await supabase
+          .from('statements_generated')
+          .select('id, tenant_id, statement_data')
+          .eq('entity_id', activeEntityId)
+          .eq('status', 'issued')
+          .order('generated_at', { ascending: false });
+
+        const relevantStatements = (statements || []).filter((s: any) => {
+          const data = s.statement_data || {};
+          return data.period_name === currentPeriod || data.period_id === stmtPeriodId;
+        });
+
+        totalCount = relevantStatements.length;
+        setSendProgress({ current: 0, total: totalCount, stage: 'Sending...' });
+
+        for (let i = 0; i < relevantStatements.length; i++) {
+          const stmt = relevantStatements[i] as any;
+          try {
+            setSendProgress({ current: i + 1, total: totalCount, stage: 'Sending...' });
+            const invoiceId = stmt.statement_data?.invoice_id;
+            if (!invoiceId) { sendFailed++; continue; }
+            const { data: tenant } = await supabase.from('tenants').select('email, whatsapp_number').eq('id', stmt.tenant_id).single();
+            if (tenant) {
+              const response = await fetch('/api/communications/send-invoice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+                body: JSON.stringify({ invoice_id: invoiceId, send_email: !!tenant.email, send_whatsapp: !!tenant.whatsapp_number }),
+              });
+              if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
+              const result = await response.json();
+              if (!result.success) throw new Error(result.error || 'Delivery failed');
+            }
+            sent++;
+          } catch (err: any) { console.error('Send failed', stmt.id, err); sendFailed++; }
+        }
       } else {
-        // Open period — send from live worksheet via send-open-invoice
+        // Open period — send from live worksheet
         const ready = billingTenants.filter((t: any) => t.ready);
-        setSendProgress({ current: 0, total: ready.length, stage: 'Sending...' });
+        totalCount = ready.length;
+        setSendProgress({ current: 0, total: totalCount, stage: 'Sending...' });
         for (let i = 0; i < ready.length; i++) {
           const t = ready[i] as any;
           try {
-            setSendProgress({ current: i + 1, total: ready.length, stage: 'Sending...' });
+            setSendProgress({ current: i + 1, total: totalCount, stage: 'Sending...' });
             const response = await fetch('/api/communications/send-open-invoice', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
               body: JSON.stringify({
-                tenant_id: t.tenantId,
-                lease_id: t.leaseId,
-                entity_id: activeEntityId,
-                stmt_period_id: stmtPeriodId,
-                fin_period_id: finPeriodId,
+                tenant_id: t.tenantId, lease_id: t.leaseId, entity_id: activeEntityId,
+                stmt_period_id: stmtPeriodId, fin_period_id: finPeriodId,
               }),
             });
             if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
@@ -226,38 +260,65 @@ export default function RevenueOperationsPage() {
         }
       }
     } else if (worksheet?.entityContexts?.length) {
-      // PORTFOLIO MODE — iterate each entity context
-      const allTenants: any[] = [];
-      const total = worksheet.entityContexts.reduce((s: number, ec: any) => s + ec.worksheet.tenants.filter((t: any) => t.ready).length, 0);
-      setSendProgress({ current: 0, total, stage: 'Sending portfolio invoices...' });
+      // PORTFOLIO MODE — per-entity open/closed state
+      for (const ec of worksheet.entityContexts) {
+        const readyCount = ec.worksheet.tenants.filter((t: any) => t.ready).length;
+        totalCount += readyCount;
+      }
+
+      setSendProgress({ current: 0, total: totalCount, stage: 'Sending portfolio invoices...' });
 
       for (const ec of worksheet.entityContexts) {
+        const isEntityClosed = ec.financialStatus === 'closed';
         const ready = ec.worksheet.tenants.filter((t: any) => t.ready);
+
         for (let i = 0; i < ready.length; i++) {
           const t = ready[i] as any;
           try {
-            setSendProgress({ current: sent + sendFailed + 1, total, stage: `Sending ${ec.worksheet.tenants[0]?.property_name || 'entity'}...` });
-            const response = await fetch('/api/communications/send-open-invoice', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-              body: JSON.stringify({
-                tenant_id: t.tenantId,
-                lease_id: t.leaseId,
-                entity_id: ec.entityId,
-                stmt_period_id: ec.stmtPeriodId,
-                fin_period_id: ec.finPeriodId,
-              }),
-            });
-            if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
-            const result = await response.json();
-            if (!result.success) throw new Error(result.error || 'Delivery failed');
+            setSendProgress({ current: sent + sendFailed + 1, total: totalCount, stage: 'Sending...' });
+
+            if (isEntityClosed) {
+              // Closed — send from frozen statement
+              const { data: statements } = await supabase
+                .from('statements_generated')
+                .select('id, statement_data')
+                .eq('entity_id', ec.entityId)
+                .eq('tenant_id', t.tenantId)
+                .eq('status', 'issued')
+                .order('generated_at', { ascending: false })
+                .limit(1);
+              
+              if (statements?.length) {
+                const invoiceId = (statements[0] as any).statement_data?.invoice_id;
+                if (invoiceId) {
+                  const response = await fetch('/api/communications/send-invoice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+                    body: JSON.stringify({ invoice_id: invoiceId, send_email: true, send_whatsapp: true }),
+                  });
+                  if (!response.ok) throw new Error('Delivery failed');
+                }
+              }
+            } else {
+              // Open — send from live
+              const response = await fetch('/api/communications/send-open-invoice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+                body: JSON.stringify({
+                  tenant_id: t.tenantId, lease_id: t.leaseId, entity_id: ec.entityId,
+                  stmt_period_id: ec.stmtPeriodId, fin_period_id: ec.finPeriodId,
+                }),
+              });
+              if (!response.ok) throw new Error('Delivery failed');
+            }
+
             sent++;
           } catch (err: any) { console.error('Send failed', t.tenantName, err); sendFailed++; }
         }
       }
     }
 
-    setSendResult({ delivered: sent, failed: sendFailed, total: sent + sendFailed });
+    setSendResult({ delivered: sent, failed: sendFailed, total: totalCount });
     setSending(false);
   }
 

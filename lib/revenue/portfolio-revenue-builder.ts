@@ -5,64 +5,57 @@ import { supabase } from '@/lib/supabase';
 import { buildRevenueContext } from './revenue-context-builder';
 import type { RevenueContext, BillingTenant } from './types';
 
+export interface PortfolioEntityContext {
+  entityId: string;
+  stmtPeriodId: string;
+  finPeriodId: string;
+  statementStatus: string;
+  financialStatus: string;
+  worksheet: RevenueContext;
+}
+
 export interface PortfolioRevenueContext {
-  entityContexts: Array<{
-    entityId: string;
-    stmtPeriodId: string;
-    finPeriodId: string;
-    worksheet: RevenueContext;
-  }>;
+  entityContexts: PortfolioEntityContext[];
   allTenants: BillingTenant[];
   totalExpected: number;
   entityCount: number;
-  errors: Array<{
-    entityId: string;
-    reason: string;
-  }>;
+  errors: Array<{ entityId: string; reason: string }>;
 }
 
 export async function buildPortfolioRevenueContext(
   entityIds: string[]
 ): Promise<PortfolioRevenueContext> {
-  const entityContexts: Array<{
-    entityId: string;
-    stmtPeriodId: string;
-    finPeriodId: string;
-    worksheet: RevenueContext;
-  }> = [];
-
+  const entityContexts: PortfolioEntityContext[] = [];
   const errors: Array<{ entityId: string; reason: string }> = [];
 
   for (const entityId of entityIds) {
-    // Get this entity's open statement period
+    // Get statement period with status
     const { data: stmtPeriod } = await supabase
       .from('financial_periods')
-      .select('id')
+      .select('id, status')
       .eq('entity_id', entityId)
       .eq('period_type', 'statement')
-      .eq('status', 'open')
-      .order('period_start')
+      .order('period_start', { ascending: false })
       .limit(1)
       .single();
 
-    // Get this entity's open financial period
+    // Get financial period with status
     const { data: finPeriod } = await supabase
       .from('financial_periods')
-      .select('id')
+      .select('id, status')
       .eq('entity_id', entityId)
       .eq('period_type', 'financial')
-      .eq('status', 'open')
-      .order('period_start')
+      .order('period_start', { ascending: false })
       .limit(1)
       .single();
 
     if (!stmtPeriod?.id) {
-      errors.push({ entityId, reason: 'missing_open_statement_period' });
+      errors.push({ entityId, reason: 'missing_statement_period' });
       continue;
     }
 
     if (!finPeriod?.id) {
-      errors.push({ entityId, reason: 'missing_open_financial_period' });
+      errors.push({ entityId, reason: 'missing_financial_period' });
       continue;
     }
 
@@ -78,6 +71,8 @@ export async function buildPortfolioRevenueContext(
         entityId,
         stmtPeriodId: stmtPeriod.id,
         finPeriodId: finPeriod.id,
+        statementStatus: stmtPeriod.status,
+        financialStatus: finPeriod.status,
         worksheet,
       });
     } catch (err: any) {
@@ -88,11 +83,5 @@ export async function buildPortfolioRevenueContext(
   const allTenants = entityContexts.flatMap(ec => ec.worksheet.tenants);
   const totalExpected = allTenants.reduce((s, t) => s + t.total, 0);
 
-  return {
-    entityContexts,
-    allTenants,
-    totalExpected,
-    entityCount: entityContexts.length,
-    errors,
-  };
+  return { entityContexts, allTenants, totalExpected, entityCount: entityContexts.length, errors };
 }
