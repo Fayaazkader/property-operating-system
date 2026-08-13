@@ -1,100 +1,79 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
 import sgMail from "@sendgrid/mail";
 import twilio from "twilio";
-import { buildRevenueContext } from '@/lib/revenue/revenue-context-builder';
 import { generateInvoicePDF } from "@/lib/revenue/invoice-pdf-generator";
 import { uploadAndGetSignedUrl } from "@/lib/communications/signed-urls";
 import { logCommunication } from "@/lib/communications/communication-log";
+import { buildRevenueContext } from "@/lib/revenue/revenue-context-builder";
 
 export async function POST(request: NextRequest) {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
+  // Auth via Bearer token
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const accessToken = authHeader.slice(7);
+
+  const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll() { return cookieStore.getAll(); }, setAll(cookiesToSet: any) { cookiesToSet.forEach(({ name, value, options }: any) => cookieStore.set({ name, value, ...options })); } } }
+    { auth: { persistSession: false } }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser(accessToken);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { tenant_id, lease_id, entity_id, stmt_period_id, fin_period_id } = await request.json();
 
   if (!tenant_id || !entity_id || !stmt_period_id || !fin_period_id) {
-    return NextResponse.json({ error: "tenant_id, entity_id, stmt_period_id, and fin_period_id are required" }, { status: 400 });
+    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
   try {
-    // RBAC — verify user has access to this entity
+    // RBAC
     const { data: access } = await supabase
       .from('user_entity_access')
       .select('entity_id')
       .eq('user_id', user.id)
       .eq('entity_id', entity_id)
       .single();
-
     if (!access) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
-    // Get tenant contact info (not in worksheet)
-    const { data: tenant } = await supabase
-      .from('tenants')
-      .select('tenant_name, email, whatsapp_number')
-      .eq('id', tenant_id)
-      .single();
-    if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
-
-    // Get entity info (not in worksheet)
-    const { data: entity } = await supabase
-      .from('entities')
-      .select('entity_name, address, bank_details')
-      .eq('id', entity_id)
-      .single();
-    if (!entity?.entity_name) return NextResponse.json({ error: "Entity not found" }, { status: 404 });
-
-    // BUILD LIVE WORKSHEET — single source of billing truth
+    // Live worksheet — same source as Revenue page
     const worksheet = await buildRevenueContext(entity_id, null, stmt_period_id, fin_period_id);
     const tenantWorksheet = worksheet.tenants?.find((t: any) => t.tenantId === tenant_id);
+    if (!tenantWorksheet) return NextResponse.json({ error: "Tenant not found in current billing worksheet" }, { status: 422 });
+    if (!tenantWorksheet.charges?.length) return NextResponse.json({ error: "No billable charges found" }, { status: 422 });
 
-    if (!tenantWorksheet) {
-      return NextResponse.json({ error: "Tenant not found in current billing worksheet" }, { status: 422 });
-    }
+    // Contact info
+    const { data: tenant } = await supabase.from('tenants').select('tenant_name, email, whatsapp_number').eq('id', tenant_id).single();
+    if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 
-    if (!tenantWorksheet.charges || tenantWorksheet.charges.length === 0) {
-      return NextResponse.json({ error: "No billable charges found for this tenant and period" }, { status: 422 });
-    }
+    // Entity info
+    const { data: entity } = await supabase.from('entities').select('entity_name, address, bank_details').eq('id', entity_id).single();
+    if (!entity?.entity_name) return NextResponse.json({ error: "Entity not found" }, { status: 404 });
 
-    // All billing data from worksheet — single source of truth
-    const propertyName = tenantWorksheet.property_name;
-    if (!propertyName) {
-      return NextResponse.json({ error: "Property name not found in worksheet" }, { status: 422 });
-    }
-
-    const leaseRef = tenantWorksheet.leaseRef || '';
-
+    // Build invoice data — line items use amount (excl VAT)
     const lineItems = tenantWorksheet.charges.map((c: any) => ({
       description: c.description,
-      amount: c.total || c.amount || 0,
+      amount: c.amount || 0,
     }));
 
     const subTotal = tenantWorksheet.charges.reduce((s: number, c: any) => s + (c.amount || 0), 0);
     const vatTotal = tenantWorksheet.charges.reduce((s: number, c: any) => s + (c.vatAmount || 0), 0);
     const total = subTotal + vatTotal;
 
-    // Due date from worksheet period end — REPLACE with payment terms model when built
-    if (!worksheet.periodEnd) {
-      return NextResponse.json({ error: "Invoice due date is not available — period has no end date" }, { status: 422 });
-    }
     const dueDate = worksheet.periodEnd;
+    if (!dueDate) return NextResponse.json({ error: "Invoice due date not available" }, { status: 422 });
 
-    const invoiceNumber = `INV-${worksheet.periodName?.replace(/\s/g, '-') || 'period'}-${tenant_id.substring(0, 6).toUpperCase()}`;
+    const invoiceNumber = `INV-${worksheet.periodName.replace(/\s/g, '-')}-${tenant_id.substring(0, 6).toUpperCase()}`;
 
-    // Generate PDF
     const pdfBytes = await generateInvoicePDF({
       invoice_number: invoiceNumber,
       tenant_name: tenant.tenant_name,
-      property_name: propertyName,
-      period: worksheet.periodName || '',
+      property_name: tenantWorksheet.property_name,
+      period: worksheet.periodName,
       due_date: dueDate,
       line_items: lineItems,
       sub_total: subTotal,
@@ -103,7 +82,7 @@ export async function POST(request: NextRequest) {
       entity_name: entity.entity_name,
       entity_address: entity.address || '',
       bank_details: entity.bank_details || '',
-      reference: leaseRef || invoiceNumber,
+      reference: tenantWorksheet.leaseRef || invoiceNumber,
     });
 
     const signedUrl = await uploadAndGetSignedUrl('documents', `invoices/${invoiceNumber}.pdf`, pdfBytes, 'application/pdf', 86400);
@@ -118,7 +97,7 @@ export async function POST(request: NextRequest) {
         await sgMail.send({
           to: tenant.email,
           from: { email: "hello@assetflow.africa", name: "AssetFlow" },
-          subject: `Invoice ${invoiceNumber} - ${propertyName}`,
+          subject: `Invoice ${invoiceNumber} - ${tenantWorksheet.property_name}`,
           html: `<h2>AssetFlow</h2><p>Dear ${tenant.tenant_name},</p><p>Your invoice for <strong>${worksheet.periodName}</strong> is attached.</p><p style="font-size:18px">Total: <strong>R${total.toLocaleString()}</strong></p>`,
           attachments: [{ filename: `Invoice-${invoiceNumber}.pdf`, content: Buffer.from(pdfBytes).toString('base64'), type: 'application/pdf', disposition: 'attachment' }],
         });
@@ -128,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Send WhatsApp via Content Template
-    if (tenant.whatsapp_number && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_CONTENT_SID_INVOICE) {
+    if (tenant.whatsapp_number && process.env.TWILIO_CONTENT_SID_INVOICE) {
       try {
         const client = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
         const msg = await client.messages.create({
@@ -148,7 +127,12 @@ export async function POST(request: NextRequest) {
       } catch (err: any) { results.whatsapp = { success: false, error: err.message }; }
     }
 
+    // Zero-channel handling
     const attempted = [!!tenant.email, !!(tenant.whatsapp_number && process.env.TWILIO_CONTENT_SID_INVOICE)].filter(Boolean).length;
+    if (attempted === 0) {
+      return NextResponse.json({ success: false, status: 'no_channels', error: 'Tenant has no configured delivery channels', results }, { status: 422 });
+    }
+
     const successful = [results.email?.success, results.whatsapp?.success].filter(Boolean).length;
     const overallStatus = successful === attempted ? 'sent' : successful > 0 ? 'partial' : 'failed';
 
