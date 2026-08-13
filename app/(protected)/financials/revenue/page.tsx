@@ -274,7 +274,6 @@ export default function RevenueOperationsPage() {
 
             for (const t of readyTenants) {
               try {
-                console.error('DEBUG entity_id:', eid, 'tenant:', (t as any).tenantId, 'stmt:', ctx.stmtPeriodId, 'fin:', ctx.finPeriodId);
                 const response = await fetch('/api/communications/send-open-invoice', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
