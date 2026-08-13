@@ -13,11 +13,13 @@ import type { BillingTenant, RevenueContext } from '@/lib/revenue/types';
 import type { BillingSnapshot } from '@/lib/revenue/billing-assembly';
 import ImportUtilitiesModal from '@/app/components/financials/ImportUtilitiesModal';
 import InvoicePreviewModal from '@/app/components/financials/InvoicePreviewModal';
+import { useEntityContext } from '@/app/context/EntityContext';
 
 interface AttentionItem { type: string; count: number; label: string; action: string; }
 
 export default function RevenueOperationsPage() {
   const [entityId, setEntityId] = useState('');
+    const { activeEntityId, activeScope, availableEntities, loading: entityLoading } = useEntityContext();
   const [currentPeriod, setCurrentPeriod] = useState('');
   const [periodStartDate, setPeriodStartDate] = useState('');
   const [stmtPeriodId, setStmtPeriodId] = useState('');
@@ -70,37 +72,37 @@ export default function RevenueOperationsPage() {
   
 
   useEffect(() => {
-    async function init() {
+       async function init() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setLoading(false); return; }
-           const { data: { user } } = await supabase.auth.getUser();
 
-      const { data: accessRows } = await supabase
-        .from('user_entity_access')
-        .select('entity_id')
-        .eq('user_id', user?.id);
+      // Use platform Entity Context — no independent entity discovery
+      const eid = activeEntityId; // null = portfolio-wide
+      setEntityId(eid || '');
 
-      const entities = accessRows?.map((r: any) => r.entity_id) || [];
-      if (!entities?.length) { setLoading(false); return; }
-      const eid = entities[0];
-      setEntityId(eid);
-      const { data: period } = await supabase.from('financial_periods').select('id, period_name, status, period_start').eq('entity_id', eid).eq('period_type', 'statement').eq('status', 'open').order('period_start').limit(1).single();
+      // Get ALL entities for portfolio-wide mode, or single entity for scoped mode
+      const entityIds = eid ? [eid] : availableEntities.map(e => e.entity_id);
+      if (!entityIds.length) { setLoading(false); return; }
+
+      // Load periods for the active entity (or first entity in portfolio mode)
+      const periodEntityId = eid || entityIds[0];
+      const { data: period } = await supabase.from('financial_periods').select('id, period_name, status, period_start').eq('entity_id', periodEntityId).eq('period_type', 'statement').eq('status', 'open').order('period_start').limit(1).single();
       if (period) { setCurrentPeriod(period.period_name); setPeriodStatus(period.status); setPeriodStartDate(period.period_start); setStmtPeriodId(period.id); }
-      const { data: finPeriod } = await supabase.from('financial_periods').select('id, status').eq('entity_id', eid).eq('period_type', 'financial').eq('status', 'open').order('period_start').limit(1).single();
+      const { data: finPeriod } = await supabase.from('financial_periods').select('id, status').eq('entity_id', periodEntityId).eq('period_type', 'financial').eq('status', 'open').order('period_start').limit(1).single();
       if (finPeriod) { setFinPeriodId(finPeriod.id); setFinPeriodStatus(finPeriod.status); }
-      const { data: props } = await supabase.from('properties').select('id, property_name').eq('entity_id', eid).order('property_name');
+      const { data: props } = await supabase.from('properties').select('id, property_name').in('entity_id', entityIds).order('property_name');
       setProperties(props || []);
-      const { data: tenantList } = await supabase.from('tenants').select('id, tenant_name').in('entity_id', entities);
+      const { data: tenantList } = await supabase.from('tenants').select('id, tenant_name').in('entity_id', entityIds);
       setTenants(tenantList || []);
-      const { count } = await supabase.from('leases').select('*', { count: 'exact', head: true }).eq('lease_status', 'Active').eq('owner_entity_id', eid);
+      const { count } = await supabase.from('leases').select('*', { count: 'exact', head: true }).eq('lease_status', 'Active').in('owner_entity_id', entityIds);
       setActiveTenancies(count || 0);
-      const { data: leases } = await supabase.from('leases').select('monthly_rental').eq('lease_status', 'Active').eq('owner_entity_id', eid);
+      const { data: leases } = await supabase.from('leases').select('monthly_rental').eq('lease_status', 'Active').in('owner_entity_id', entityIds);
       setExpectedRevenue((leases || []).reduce((s: number, l: any) => s + (l.monthly_rental || 0), 0));
-      await refreshHistory(eid);
+      await refreshHistory(periodEntityId);
       setLoading(false);
     }
-    init();
-  }, []);
+    if (!entityLoading) init();
+  }, [activeEntityId, entityLoading, availableEntities]);
 
   async function refreshHistory(eid: string) {
     const snaps = await billingAssembly.getSnapshots(eid);
@@ -111,7 +113,7 @@ export default function RevenueOperationsPage() {
   async function loadPreview(propId?: string, tenantId?: string) {
     setPreviewLoading(true);
     try {
-      const worksheet = await buildRevenueContext(entityId, propId || null, stmtPeriodId, finPeriodId);
+      const worksheet = await buildRevenueContext(entityId || '', propId || null, stmtPeriodId, finPeriodId);
       let tenants = worksheet.tenants;
       if (tenantId) tenants = tenants.filter(t => t.tenantId === tenantId);
       setBillingTenants(tenants);
@@ -227,6 +229,7 @@ export default function RevenueOperationsPage() {
           setSendProgress({ current: i + 1, total: ready.length, stage: 'Sending...' });
 
           // Browser sends only IDs — server resolves the invoice
+          console.log("Sending for entity:", entityId, "tenant:", t.tenantId);
 
           const response = await fetch('/api/communications/send-open-invoice', {
             method: 'POST',

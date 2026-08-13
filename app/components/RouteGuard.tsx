@@ -2,16 +2,23 @@
 
 import { usePathname } from 'next/navigation';
 import AppLayout from './layout/AppLayout';
-import { ROUTES, PUBLIC_PREFIXES } from '@/lib/routes';
+import { EntityProvider } from '@/app/context/EntityContext';
 
-export default function RouteGuard({ children }: { children: React.ReactNode }) {
+export default function RouteGuard({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const isSigningRoute = pathname?.startsWith('/execution/sign/');
-  const isPublicRoute = PUBLIC_PREFIXES.some(p => pathname === p || pathname?.startsWith(p + '/'));
 
-  if (isSigningRoute || isPublicRoute) {
-    return <div className="min-h-screen bg-black">{children}</div>;
+  if (isSigningRoute) {
+    return <div className="min-h-screen bg-[var(--bg-primary)]">{children}</div>;
   }
 
-  return <AppLayout>{children}</AppLayout>;
+  return (
+    <EntityProvider>
+      <AppLayout>{children}</AppLayout>
+    </EntityProvider>
+  );
 }
