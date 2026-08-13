@@ -222,7 +222,6 @@ export default function RevenueOperationsPage() {
         for (const [eid, tenants] of entityGroups) {
           // Use the portfolio builder's context if available
           const ctx = contextMap.get(eid);
-                    console.log('SENDING:', { eid, tenantCount: tenants.length, stmtPeriodId: ctx.stmtPeriodId, finPeriodId: ctx.finPeriodId });
           if (!ctx) { console.error('No period context for entity:', eid); sendFailed += tenants.length; continue; }
 
           const isClosed = ctx.statementStatus === 'closed';
@@ -275,6 +274,7 @@ export default function RevenueOperationsPage() {
 
             for (const t of readyTenants) {
               try {
+                console.error('DEBUG entity_id:', eid, 'tenant:', (t as any).tenantId, 'stmt:', ctx.stmtPeriodId, 'fin:', ctx.finPeriodId);
                 const response = await fetch('/api/communications/send-open-invoice', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
