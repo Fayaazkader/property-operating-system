@@ -259,48 +259,58 @@ export default function RevenueOperationsPage() {
           } catch (err: any) { console.error('Send failed', t.tenantName, err); sendFailed++; }
         }
       }
-    } else if (worksheet?.entityContexts?.length) {
-      // PORTFOLIO MODE — per-entity open/closed state
-      for (const ec of worksheet.entityContexts) {
-        const readyCount = ec.worksheet.tenants.filter((t: any) => t.ready).length;
-        totalCount += readyCount;
-      }
-
-      setSendProgress({ current: 0, total: totalCount, stage: 'Sending portfolio invoices...' });
+        } else if (worksheet?.entityContexts?.length) {
+      // PORTFOLIO MODE — per-entity open/closed using statement period status
+      setSendProgress({ current: 0, total: 1, stage: 'Preparing portfolio invoices...' });
 
       for (const ec of worksheet.entityContexts) {
-        const isEntityClosed = ec.financialStatus === 'closed';
-        const ready = ec.worksheet.tenants.filter((t: any) => t.ready);
+        const isEntityClosed = ec.statementStatus === 'closed';
 
-        for (let i = 0; i < ready.length; i++) {
-          const t = ready[i] as any;
-          try {
-            setSendProgress({ current: sent + sendFailed + 1, total: totalCount, stage: 'Sending...' });
+        if (isEntityClosed) {
+          // CLOSED — send from frozen statements, NOT live worksheet
+          const { data: statements } = await supabase
+            .from('statements_generated')
+            .select('id, tenant_id, statement_data')
+            .eq('entity_id', ec.entityId)
+            .eq('status', 'issued')
+            .order('generated_at', { ascending: false });
 
-            if (isEntityClosed) {
-              // Closed — send from frozen statement
-              const { data: statements } = await supabase
-                .from('statements_generated')
-                .select('id, statement_data')
-                .eq('entity_id', ec.entityId)
-                .eq('tenant_id', t.tenantId)
-                .eq('status', 'issued')
-                .order('generated_at', { ascending: false })
-                .limit(1);
-              
-              if (statements?.length) {
-                const invoiceId = (statements[0] as any).statement_data?.invoice_id;
-                if (invoiceId) {
-                  const response = await fetch('/api/communications/send-invoice', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-                    body: JSON.stringify({ invoice_id: invoiceId, send_email: true, send_whatsapp: true }),
-                  });
-                  if (!response.ok) throw new Error('Delivery failed');
-                }
+          const relevantStatements = (statements || []).filter((s: any) => {
+            const data = s.statement_data || {};
+            return data.period_id === ec.stmtPeriodId;
+          });
+
+          totalCount += relevantStatements.length;
+
+          for (let i = 0; i < relevantStatements.length; i++) {
+            const stmt = relevantStatements[i] as any;
+            try {
+              setSendProgress({ current: sent + sendFailed + 1, total: totalCount, stage: 'Sending...' });
+              const invoiceId = stmt.statement_data?.invoice_id;
+              if (!invoiceId) { sendFailed++; continue; }
+              const { data: tenant } = await supabase.from('tenants').select('email, whatsapp_number').eq('id', stmt.tenant_id).single();
+              if (tenant) {
+                const response = await fetch('/api/communications/send-invoice', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+                  body: JSON.stringify({ invoice_id: invoiceId, send_email: !!tenant.email, send_whatsapp: !!tenant.whatsapp_number }),
+                });
+                if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error || 'Delivery failed');
               }
-            } else {
-              // Open — send from live
+              sent++;
+            } catch (err: any) { console.error('Send failed', stmt.id, err); sendFailed++; }
+          }
+        } else {
+          // OPEN — send from live worksheet
+          const ready = ec.worksheet.tenants.filter((t: any) => t.ready);
+          totalCount += ready.length;
+
+          for (let i = 0; i < ready.length; i++) {
+            const t = ready[i] as any;
+            try {
+              setSendProgress({ current: sent + sendFailed + 1, total: totalCount, stage: 'Sending...' });
               const response = await fetch('/api/communications/send-open-invoice', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
@@ -309,11 +319,12 @@ export default function RevenueOperationsPage() {
                   stmt_period_id: ec.stmtPeriodId, fin_period_id: ec.finPeriodId,
                 }),
               });
-              if (!response.ok) throw new Error('Delivery failed');
-            }
-
-            sent++;
-          } catch (err: any) { console.error('Send failed', t.tenantName, err); sendFailed++; }
+              if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
+              const result = await response.json();
+              if (!result.success) throw new Error(result.error || 'Delivery failed');
+              sent++;
+            } catch (err: any) { console.error('Send failed', t.tenantName, err); sendFailed++; }
+          }
         }
       }
     }
