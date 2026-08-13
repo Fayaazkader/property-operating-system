@@ -15,13 +15,16 @@ export async function POST(request: NextRequest) {
   const accessToken = authHeader.slice(7);
 
   const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false } }
-  );
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  { auth: { persistSession: false, autoRefreshToken: false } }
+);
 
-  const { data: { user } } = await supabase.auth.getUser(accessToken);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+const { data: { user } } = await supabase.auth.getUser(accessToken);
+if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+// IMPORTANT: Set the session for RLS on subsequent queries
+await supabase.auth.setSession({ access_token: accessToken, refresh_token: '' });
 
   const { tenant_id, lease_id, entity_id, stmt_period_id, fin_period_id } = await request.json();
   if (!tenant_id || !entity_id || !stmt_period_id || !fin_period_id) {
