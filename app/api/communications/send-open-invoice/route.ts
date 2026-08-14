@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       reference: tenantWorksheet.leaseRef || invoiceNumber,
     });
 
-    const signedUrl = await uploadAndGetSignedUrl('documents', `invoices/${invoiceNumber}.pdf`, pdfBytes, 'application/pdf', 86400);
+    const signedUrl = await uploadAndGetSignedUrl('documents', `invoices/${invoiceNumber}.pdf`, pdfBytes, 'application/pdf', 86400, serviceClient);
 
     const results: any = { email: null, whatsapp: null };
     const messagePreview = `Invoice ${invoiceNumber} - R${total.toLocaleString()}`;
