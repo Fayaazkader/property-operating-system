@@ -26,7 +26,7 @@ export async function buildRevenueContext(
   if (periodError) throw new Error(`Period lookup failed: ${periodError.message}`);
   if (!period) throw new Error('Period not found');
 
-  let leaseQuery = supabase.from('leases')
+  let leaseQuery = db.from('leases')
     .select('id, tenant_id, lease_id, property_id, monthly_rental, escalation_percent, commencement_date, lease_start_date, tenants!inner(tenant_name), properties!inner(property_name)')
     .eq('lease_status', 'Active').not('tenant_id', 'is', null).not('property_id', 'is', null);
   leaseQuery = leaseQuery.eq('owner_entity_id', entityId);
@@ -45,13 +45,13 @@ export async function buildRevenueContext(
   const propertyIds = [...new Set(leaseList.map(l => l.property_id))];
 
   const [rulesResult, manualsResult, interestResult, lateFeesResult, tenantDocsResult, propertyDocsResult, journalsResult] = await Promise.all([
-    supabase.from('billing_rules').select('*').in('lease_id', leaseIds).eq('status', 'active'),
-    supabase.from('manual_charges').select('*').in('tenant_id', tenantIds).eq('status', 'posted').eq('period', period.period_name),
-    supabase.from('interest_charges').select('*').in('tenant_id', tenantIds).eq('status', 'draft'),
-    supabase.from('late_fee_charges').select('*').in('tenant_id', tenantIds).eq('status', 'draft'),
+    db.from('billing_rules').select('*').in('lease_id', leaseIds).eq('status', 'active'),
+    db.from('manual_charges').select('*').in('tenant_id', tenantIds).eq('status', 'posted').eq('period', period.period_name),
+    db.from('interest_charges').select('*').in('tenant_id', tenantIds).eq('status', 'draft'),
+    db.from('late_fee_charges').select('*').in('tenant_id', tenantIds).eq('status', 'draft'),
     { data: [], error: null } as any, // documents — tenant_id column pending
     { data: [], error: null } as any, // documents — related_entity_id column pending
-    supabase.from('journals').select('id').eq('entity_id', entityId).eq('source_event', 'rental_invoice_raised').like('source_id', `%${period.period_name}%`).limit(1),
+    db.from('journals').select('id').eq('entity_id', entityId).eq('source_event', 'rental_invoice_raised').like('source_id', `%${period.period_name}%`).limit(1),
   ]);
 
   ensureSuccessfulQueries([rulesResult, manualsResult, interestResult, lateFeesResult, tenantDocsResult, propertyDocsResult]);
