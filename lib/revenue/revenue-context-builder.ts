@@ -2,6 +2,7 @@
 // Orchestrates revenue worksheet. Delegates to assemblers and engines.
 
 import { supabase } from '@/lib/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { ensureSuccessfulQueries } from './query-utils';
 import { assembleCharges } from './charge-assembler';
 import { evaluateWarnings } from './warning-engine';
@@ -12,7 +13,8 @@ import { RevenueCache } from './revenue-cache';
 
 export async function buildRevenueContext(
   entityId: string, propertyId: string | null,
-  statementPeriodId: string, financialPeriodId: string
+  statementPeriodId: string, financialPeriodId: string,
+  db: SupabaseClient = supabase
 ): Promise<RevenueContext> {
   const cached = RevenueCache.get(entityId, propertyId, statementPeriodId, financialPeriodId);
   if (cached) return cached;

@@ -14,18 +14,22 @@ export async function POST(request: NextRequest) {
   }
   const accessToken = authHeader.slice(7);
 
-  // Create client with the auth token in headers
-  const supabase = createClient(
+  // Auth client — validates the token
+  const authClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: { persistSession: false },
-      global: { headers: { Authorization: `Bearer ${accessToken}` } }
-    }
+    { auth: { persistSession: false } }
   );
 
-  const { data: { user } } = await supabase.auth.getUser(accessToken);
+  const { data: { user } } = await authClient.auth.getUser(accessToken);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Service client — trusted server-side data access
+  const serviceClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
 
   const { tenant_id, lease_id, entity_id, stmt_period_id, fin_period_id } = await request.json();
   if (!tenant_id || !entity_id || !stmt_period_id || !fin_period_id) {
@@ -33,27 +37,25 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { data: access, error: accessError } = await supabase
+    // RBAC check with service client
+    const { data: access } = await serviceClient
       .from('user_entity_access')
       .select('entity_id')
       .eq('user_id', user.id)
       .eq('entity_id', entity_id)
-      .maybeSingle();
+      .single();
+    if (!access) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
-    if (accessError || !access) {
-      console.error('RBAC error:', accessError?.message || 'No access');
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
-    }
-
-    const worksheet = await buildRevenueContext(entity_id, null, stmt_period_id, fin_period_id);
+    // Build revenue context with service client
+    const worksheet = await buildRevenueContext(entity_id, null, stmt_period_id, fin_period_id, serviceClient);
     const tenantWorksheet = worksheet.tenants?.find((t: any) => t.tenantId === tenant_id);
     if (!tenantWorksheet) return NextResponse.json({ error: "Tenant not found in worksheet" }, { status: 422 });
     if (!tenantWorksheet.charges?.length) return NextResponse.json({ error: "No billable charges" }, { status: 422 });
 
-    const { data: tenant } = await supabase.from('tenants').select('tenant_name, email, whatsapp_number').eq('id', tenant_id).single();
+    const { data: tenant } = await serviceClient.from('tenants').select('tenant_name, email, whatsapp_number').eq('id', tenant_id).single();
     if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 
-    const { data: entity } = await supabase.from('entities').select('entity_name, address, bank_details').eq('id', entity_id).single();
+    const { data: entity } = await serviceClient.from('entities').select('entity_name, address, bank_details').eq('id', entity_id).single();
     if (!entity?.entity_name) return NextResponse.json({ error: "Entity not found" }, { status: 404 });
 
     const lineItems = tenantWorksheet.charges.map((c: any) => ({ description: c.description, amount: c.amount || 0 }));
