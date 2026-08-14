@@ -28,9 +28,9 @@ export async function POST(request: NextRequest) {
   const serviceClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) console.error("NO SERVICE ROLE KEY");
     { auth: { persistSession: false } }
   );
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) console.error("NO SERVICE ROLE KEY");
 
   const { tenant_id, lease_id, entity_id, stmt_period_id, fin_period_id } = await request.json();
   if (!tenant_id || !entity_id || !stmt_period_id || !fin_period_id) {
