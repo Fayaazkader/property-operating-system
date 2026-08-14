@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     const { data: tenant } = await serviceClient.from('tenants').select('tenant_name, email, whatsapp_number').eq('id', tenant_id).single();
     if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 
-    const entityResult = await serviceClient.from(.entities.).select(.entity_name, address, bank_details.).eq(.id., entity_id).single();
+       const entityResult = await serviceClient.from('entities').select('entity_name, address, bank_details').eq('id', entity_id).single();
     console.error("Entity result:", entityResult);
     const { data: entity } = entityResult;
     if (!entity?.entity_name) return NextResponse.json({ error: "Entity not found" }, { status: 404 });
