@@ -11,7 +11,7 @@ export type TemplateStatus = 'pending' | 'approved' | 'rejected' | 'active';
 // Database row shape — one row per key+channel+version
 export interface CommunicationTemplateRow {
   id: string;
-  key: string;
+  template_key: string;
   name: string;
   category: TemplateCategory;
   description: string | null;
@@ -30,22 +30,22 @@ export interface CommunicationTemplateRow {
 
 // Canonical catalogue — the controlled vocabulary
 export const COMMUNICATION_TEMPLATES = [
-  { key: 'invoice_ready', category: 'revenue', name: 'Invoice Ready', description: 'Tenant invoice issued', variables: ['tenant_name', 'invoice_number', 'amount', 'due_date', 'document_url'] },
-  { key: 'statement_ready', category: 'revenue', name: 'Statement Ready', description: 'Tenant statement available', variables: ['tenant_name', 'period', 'document_url'] },
-  { key: 'payment_received', category: 'revenue', name: 'Payment Received', description: 'Tenant payment confirmed', variables: ['tenant_name', 'amount', 'reference'] },
-  { key: 'payment_reminder', category: 'revenue', name: 'Payment Reminder', description: 'Payment approaching', variables: ['tenant_name', 'amount', 'due_date'] },
-  { key: 'payment_overdue', category: 'revenue', name: 'Payment Overdue', description: 'Payment overdue', variables: ['tenant_name', 'amount', 'days_overdue', 'action_url'] },
-  { key: 'receipt_ready', category: 'revenue', name: 'Receipt Ready', description: 'Receipt available', variables: ['tenant_name', 'amount', 'document_url'] },
-  { key: 'lease_renewal', category: 'lease', name: 'Lease Renewal', description: 'Renewal approaching', variables: ['tenant_name', 'property_name', 'expiry_date', 'action_url'] },
-  { key: 'lease_expiry', category: 'lease', name: 'Lease Expiry', description: 'Lease approaching expiry', variables: ['tenant_name', 'property_name', 'expiry_date'] },
-  { key: 'signature_required', category: 'lease', name: 'Signature Required', description: 'Signature needed', variables: ['tenant_name', 'document_name', 'signing_url'] },
-  { key: 'document_ready', category: 'lease', name: 'Document Ready', description: 'Lease document available', variables: ['tenant_name', 'document_name', 'document_url'] },
-  { key: 'request_received', category: 'operations', name: 'Request Received', description: 'Request acknowledged', variables: ['tenant_name', 'request_type', 'reference'] },
-  { key: 'request_update', category: 'operations', name: 'Request Update', description: 'Request status changed', variables: ['tenant_name', 'request_type', 'status'] },
-  { key: 'maintenance_complete', category: 'operations', name: 'Maintenance Complete', description: 'Maintenance finished', variables: ['tenant_name', 'work_order', 'completion_date'] },
-  { key: 'document_available', category: 'documents', name: 'Document Available', description: 'Document available', variables: ['tenant_name', 'document_name', 'document_url'] },
-  { key: 'transaction_history', category: 'documents', name: 'Transaction History', description: 'Transaction history available', variables: ['tenant_name', 'period', 'document_url'] },
-  { key: 'report_ready', category: 'documents', name: 'Report Ready', description: 'Report available', variables: ['tenant_name', 'report_name', 'document_url'] },
+  { template_key: 'invoice_ready', category: 'revenue', name: 'Invoice Ready', description: 'Tenant invoice issued', variables: ['tenant_name', 'invoice_number', 'amount', 'due_date', 'document_url'] },
+  { template_key: 'statement_ready', category: 'revenue', name: 'Statement Ready', description: 'Tenant statement available', variables: ['tenant_name', 'period', 'document_url'] },
+  { template_key: 'payment_received', category: 'revenue', name: 'Payment Received', description: 'Tenant payment confirmed', variables: ['tenant_name', 'amount', 'reference'] },
+  { template_key: 'payment_reminder', category: 'revenue', name: 'Payment Reminder', description: 'Payment approaching', variables: ['tenant_name', 'amount', 'due_date'] },
+  { template_key: 'payment_overdue', category: 'revenue', name: 'Payment Overdue', description: 'Payment overdue', variables: ['tenant_name', 'amount', 'days_overdue', 'action_url'] },
+  { template_key: 'receipt_ready', category: 'revenue', name: 'Receipt Ready', description: 'Receipt available', variables: ['tenant_name', 'amount', 'document_url'] },
+  { template_key: 'lease_renewal', category: 'lease', name: 'Lease Renewal', description: 'Renewal approaching', variables: ['tenant_name', 'property_name', 'expiry_date', 'action_url'] },
+  { template_key: 'lease_expiry', category: 'lease', name: 'Lease Expiry', description: 'Lease approaching expiry', variables: ['tenant_name', 'property_name', 'expiry_date'] },
+  { template_key: 'signature_required', category: 'lease', name: 'Signature Required', description: 'Signature needed', variables: ['tenant_name', 'document_name', 'signing_url'] },
+  { template_key: 'document_ready', category: 'lease', name: 'Document Ready', description: 'Lease document available', variables: ['tenant_name', 'document_name', 'document_url'] },
+  { template_key: 'request_received', category: 'operations', name: 'Request Received', description: 'Request acknowledged', variables: ['tenant_name', 'request_type', 'reference'] },
+  { template_key: 'request_update', category: 'operations', name: 'Request Update', description: 'Request status changed', variables: ['tenant_name', 'request_type', 'status'] },
+  { template_key: 'maintenance_complete', category: 'operations', name: 'Maintenance Complete', description: 'Maintenance finished', variables: ['tenant_name', 'work_order', 'completion_date'] },
+  { template_key: 'document_available', category: 'documents', name: 'Document Available', description: 'Document available', variables: ['tenant_name', 'document_name', 'document_url'] },
+  { template_key: 'transaction_history', category: 'documents', name: 'Transaction History', description: 'Transaction history available', variables: ['tenant_name', 'period', 'document_url'] },
+  { template_key: 'report_ready', category: 'documents', name: 'Report Ready', description: 'Report available', variables: ['tenant_name', 'report_name', 'document_url'] },
 ] as const;
 
 export type CommunicationTemplateKey = typeof COMMUNICATION_TEMPLATES[number]['key'];
@@ -59,7 +59,7 @@ export async function getTemplateConfig(
   const { data } = await db
     .from('communication_templates')
     .select('*')
-    .eq('key', key)
+    .eq('template_key', key)
     .eq('channel', channel)
     .eq('is_active', true)
     .eq('status', 'approved')
