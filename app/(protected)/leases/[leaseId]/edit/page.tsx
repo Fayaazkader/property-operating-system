@@ -33,6 +33,7 @@ export default function EditLeasePage() {
   const [securityLevy, setSecurityLevy] = useState("");
   const [marketingLevy, setMarketingLevy] = useState("");
   const [renewalOption, setRenewalOption] = useState(false);
+  const [tenantId, setTenantId] = useState<string | null>(null);
 
   const LEASE_TYPES = ["Retail", "Office", "Industrial", "Storage", "Residential", "Advertising", "Telecommunications"];
 
@@ -40,6 +41,7 @@ export default function EditLeasePage() {
     async function load() {
       if (!leaseId) return;
       const { data } = await supabase.from("leases").select("*").eq("lease_id", leaseId).single();
+if (data) setTenantId(data.tenant_id);
       if (data) {
         setTenantName(data.tenant_name || "");
         setPropertyName(data.property_name || "");
@@ -104,7 +106,7 @@ export default function EditLeasePage() {
         await extractRulesFromLease(lease.id);
       }
       showToast("success", "Lease updated successfully");
-      setTimeout(() => router.push(`/leases/${leaseId}`), 800);
+      setTimeout(() => router.push(`/tenants/${tenantId}`), 800);
     }
     setLoading(false);
   }
