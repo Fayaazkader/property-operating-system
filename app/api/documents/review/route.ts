@@ -30,15 +30,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await serviceClient.from('document_reviews').update({
-      status,
-      reviewed_by: user.id,
-      review_reason: reason,
-      extracted_fields: extractedFields,
-      reviewed_at: new Date().toISOString(),
-    }).eq('document_id', documentId);
+    // Unique constraint ensures one review per document
+    const { data, error } = await serviceClient
+      .from('document_reviews')
+      .upsert({
+        document_id: documentId,
+        status,
+        reviewed_by: user.id,
+        review_reason: reason,
+        extracted_fields: extractedFields,
+        reviewed_at: new Date().toISOString(),
+      }, { onConflict: 'document_id' })
+      .select('*')
+      .single();
 
-    return NextResponse.json({ success: true });
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, review: data });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

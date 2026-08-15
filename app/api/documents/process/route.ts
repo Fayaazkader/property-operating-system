@@ -9,7 +9,6 @@ export async function POST(request: NextRequest) {
   }
   const accessToken = authHeader.slice(7);
 
-  // Auth client — validates the token
   const authClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -19,7 +18,6 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await authClient.auth.getUser(accessToken);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Service client — trusted server data access
   const serviceClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -32,18 +30,44 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "fileUrl, fileName, and mimeType are required" }, { status: 400 });
   }
 
+  // Authorization: if tenantId provided, verify user has access to that tenant's entity
+  if (tenantId) {
+    const { data: tenant } = await serviceClient
+      .from('tenants')
+      .select('entity_id')
+      .eq('id', tenantId)
+      .single();
+
+    if (!tenant) {
+      return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+    }
+
+    const { data: access } = await serviceClient
+      .from('user_entity_access')
+      .select('entity_id')
+      .eq('user_id', user.id)
+      .eq('entity_id', tenant.entity_id)
+      .single();
+
+    if (!access) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+  }
+
   try {
+    // Generate document ID BEFORE processing
+    const documentId = crypto.randomUUID();
+
     const result = await processDocument(
       fileUrl,
       fileName,
       mimeType,
       tenantId,
-      undefined,
+      { documentId },
       serviceClient
     );
 
     // Create document review record
-    const documentId = `DOC-${Date.now()}`;
     await serviceClient.from('document_reviews').insert({
       document_id: documentId,
       document_type: result.documentType,

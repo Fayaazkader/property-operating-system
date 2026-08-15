@@ -83,7 +83,7 @@ export async function processDocument(
     message_body: `Document: ${fileName} (${documentType})`,
     status: extractedFields.requiresHumanReview ? "review" : "processed",
     source_type: "document",
-    source_id: `DOC-${Date.now()}`,
+        source_id: metadata?.documentId || `DOC-${Date.now()}`,
   });
 
   // Workflow routing — same as before
