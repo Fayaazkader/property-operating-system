@@ -4,7 +4,7 @@
 import { supabase } from '@/lib/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export type TemplateCategory = 'revenue' | 'lease' | 'operations' | 'documents' | 'flow';
+export type TemplateCategory = 'revenue' | 'lease' | 'operations' | 'documents';
 export type TemplateChannel = 'whatsapp' | 'email' | 'sms';
 export type TemplateStatus = 'pending' | 'approved' | 'rejected' | 'active';
 
@@ -48,7 +48,7 @@ export const COMMUNICATION_TEMPLATES = [
   { template_key: 'report_ready', category: 'documents', name: 'Report Ready', description: 'Report available', variables: ['tenant_name', 'report_name', 'document_url'] },
 ] as const;
 
-export type CommunicationTemplateKey = typeof COMMUNICATION_TEMPLATES[number]['key'];
+export type CommunicationTemplateKey = typeof COMMUNICATION_TEMPLATES[number]['template_key'];
 
 // Server-side lookup
 export async function getTemplateConfig(
