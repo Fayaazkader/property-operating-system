@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "fileUrl, fileName, and mimeType are required" }, { status: 400 });
   }
 
-  // Authorization: if tenantId provided, verify user has access to that tenant's entity
+    // Authorization: verify user has entity access
   if (tenantId) {
     const { data: tenant } = await serviceClient
       .from('tenants')
@@ -50,6 +50,17 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!access) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+  } else {
+    // Portfolio-wide — user must have at least one accessible entity
+    const { data: accessRows } = await serviceClient
+      .from('user_entity_access')
+      .select('entity_id')
+      .eq('user_id', user.id)
+      .limit(1);
+
+    if (!accessRows?.length) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
   }
