@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import sgMail from "@sendgrid/mail";
 import twilio from "twilio";
+import { getTemplateConfig } from '@/lib/communications/template-registry';
 import { buildRevenueContext } from '@/lib/revenue/revenue-context-builder';
 import { generateInvoicePDF } from "@/lib/revenue/invoice-pdf-generator";
 import { uploadAndGetSignedUrl } from "@/lib/communications/signed-urls";
@@ -107,13 +108,14 @@ export async function POST(request: NextRequest) {
       } catch (err: any) { results.email = { success: false, error: err.message }; }
     }
 
-    if (tenant.whatsapp_number && process.env.TWILIO_CONTENT_SID_INVOICE) {
+        const whatsappTemplate = await getTemplateConfig('invoice_ready', 'whatsapp', serviceClient);
+    if (tenant.whatsapp_number && whatsappTemplate?.provider_template_id) {
       try {
         const client = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
         const msg = await client.messages.create({
           from: process.env.TWILIO_WHATSAPP_FROM,
           to: `whatsapp:${tenant.whatsapp_number.replace(/\D/g, "")}`,
-          contentSid: process.env.TWILIO_CONTENT_SID_INVOICE,
+          contentSid: whatsappTemplate.provider_template_id,
           contentVariables: JSON.stringify({
             '1': tenant.tenant_name,
             '2': invoiceNumber,
@@ -127,7 +129,7 @@ export async function POST(request: NextRequest) {
       } catch (err: any) { results.whatsapp = { success: false, error: err.message }; }
     }
 
-    const attempted = [!!tenant.email, !!(tenant.whatsapp_number && process.env.TWILIO_CONTENT_SID_INVOICE)].filter(Boolean).length;
+    const attempted = [!!tenant.email, !!(tenant.whatsapp_number && whatsappTemplate?.provider_template_id)].filter(Boolean).length;
     if (attempted === 0) return NextResponse.json({ success: false, status: 'no_channels', error: 'No delivery channels', results }, { status: 422 });
 
     const successful = [results.email?.success, results.whatsapp?.success].filter(Boolean).length;
