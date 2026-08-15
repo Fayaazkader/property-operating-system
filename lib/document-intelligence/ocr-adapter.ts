@@ -19,7 +19,7 @@ let pdfParse: any = null;
 async function getPdfParser() {
   if (!pdfParse) {
     const mod = await import('pdf-parse');
-    pdfParse = mod.default;
+    pdfParse = mod;
   }
   return pdfParse;
 }
