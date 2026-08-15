@@ -71,6 +71,7 @@ export default function Sidebar() {
     { label: "Periods", href: "/financials/periods", icon: Calendar, desc: "Billing Cycles · Governance" },
     { label: "Financials", href: "/financials", icon: BarChart3, desc: "GL · Statements · VAT" },
     { label: "Signatures", href: "/signatures", icon: PenLine, desc: "Document Signing" },
+        { label: "Documents", href: "/documents", icon: FileText, desc: "OCR · Extract · Intake" },
     { label: "Reports", href: "/reports", icon: BarChart3, desc: "Rent Roll · Arrears · Portfolio" },
   ];
 
