@@ -7,6 +7,7 @@ import { publish } from "@/lib/conversation/event-bus";
 import { extractTextFromFile } from "./ocr-adapter";
 import { classifyDocument, DocumentType } from "./classifier";
 import { extractInvoiceFields, extractLeaseFields, ExtractionResult } from "./field-extractor";
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type { DocumentType };
 
@@ -43,7 +44,8 @@ export async function processDocument(
   fileName: string,
   mimeType: string,
   tenantId?: string,
-  metadata?: any
+  metadata?: any,
+  db: SupabaseClient = supabase
 ): Promise<DocumentResult> {
   // Fetch the file
   const response = await fetch(fileUrl);

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { processDocument } from "@/lib/document-intelligence/engine";
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("Authorization");
@@ -9,7 +8,6 @@ export async function POST(request: NextRequest) {
   }
   const accessToken = authHeader.slice(7);
 
-  // Auth client — validates the token
   const authClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -19,39 +17,28 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await authClient.auth.getUser(accessToken);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Service client — trusted server data access
   const serviceClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } }
   );
 
-  const { fileUrl, fileName, mimeType, tenantId } = await request.json();
+  const { documentId, status, reason, extractedFields } = await request.json();
 
-  if (!fileUrl || !fileName || !mimeType) {
-    return NextResponse.json({ error: "fileUrl, fileName, and mimeType are required" }, { status: 400 });
+  if (!documentId || !status || !['approved', 'rejected'].includes(status)) {
+    return NextResponse.json({ error: "Invalid review" }, { status: 400 });
   }
 
   try {
-    const result = await processDocument(
-      fileUrl,
-      fileName,
-      mimeType,
-      tenantId,
-      undefined,
-      serviceClient
-    );
+    await serviceClient.from('document_reviews').update({
+      status,
+      reviewed_by: user.id,
+      review_reason: reason,
+      extracted_fields: extractedFields,
+      reviewed_at: new Date().toISOString(),
+    }).eq('document_id', documentId);
 
-    // Create document review record
-    const documentId = `DOC-${Date.now()}`;
-    await serviceClient.from('document_reviews').insert({
-      document_id: documentId,
-      document_type: result.documentType,
-      status: 'pending',
-      extracted_fields: result.extractedFields,
-    });
-
-    return NextResponse.json({ success: true, result, documentId });
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
