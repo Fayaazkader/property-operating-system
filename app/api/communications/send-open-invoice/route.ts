@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
         });
         results.email = { success: true };
         await logCommunication({ entity_id, tenant_id, channel: 'email', direction: 'outbound', template: 'invoice_ready', subject: `Invoice ${invoiceNumber}`, message_preview: messagePreview, document_url: signedUrl, status: 'sent', sent_by: user.email || user.id });
-      } catch (err: any) { results.email = { success: false, error: err.message }; }
+      } catch (err: any) { console.error('Email send error:', err.message); results.email = { success: false, error: err.message }; }
     }
 
         const whatsappTemplate = await getTemplateConfig('invoice_ready', 'whatsapp', serviceClient);
