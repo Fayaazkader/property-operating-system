@@ -105,7 +105,17 @@ export async function POST(request: NextRequest) {
         });
         results.email = { success: true };
         await logCommunication({ entity_id, tenant_id, channel: 'email', direction: 'outbound', template: 'invoice_ready', subject: `Invoice ${invoiceNumber}`, message_preview: messagePreview, document_url: signedUrl, status: 'sent', sent_by: user.email || user.id });
-      } catch (err: any) { console.error('Email send error:', err.message); results.email = { success: false, error: err.message }; }
+            } catch (err: any) {
+        console.error('Email send error:', err.message);
+        results.email = { success: false, error: err.message };
+        await logCommunication({
+          entity_id, tenant_id, channel: 'email', direction: 'outbound',
+          template: 'invoice_ready', subject: `Invoice ${invoiceNumber}`,
+          message_preview: messagePreview, document_url: signedUrl,
+          status: 'failed', error_message: err.message,
+          sent_by: user.email || user.id,
+        });
+      }
     }
 
         const whatsappTemplate = await getTemplateConfig('invoice_ready', 'whatsapp', serviceClient);
@@ -126,7 +136,16 @@ export async function POST(request: NextRequest) {
         });
         results.whatsapp = { success: true, messageId: msg.sid };
         await logCommunication({ entity_id, tenant_id, channel: 'whatsapp', direction: 'outbound', template: 'invoice_ready', message_preview: messagePreview, document_url: signedUrl, status: 'sent', provider_message_id: msg.sid, sent_by: user.email || user.id });
-      } catch (err: any) { results.whatsapp = { success: false, error: err.message }; }
+            } catch (err: any) {
+        console.error('WhatsApp send error:', err.message);
+        results.whatsapp = { success: false, error: err.message };
+        await logCommunication({
+          entity_id, tenant_id, channel: 'whatsapp', direction: 'outbound',
+          template: 'invoice_ready', message_preview: messagePreview,
+          document_url: signedUrl, status: 'failed', error_message: err.message,
+          sent_by: user.email || user.id,
+        });
+      }
     }
 
     const attempted = [!!tenant.email, !!(tenant.whatsapp_number && whatsappTemplate?.provider_template_id)].filter(Boolean).length;
