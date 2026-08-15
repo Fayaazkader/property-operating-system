@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Building2, Mail, Phone, FileText, Calendar, AlertTriangle, Download, Send, Plus, FilePlus, Eye, CheckCircle, Clock } from "lucide-react";
+import { ArrowLeft, Building2, Mail, Phone, FileText, Calendar, AlertTriangle, Download, Send, Plus, FilePlus, Eye, CheckCircle, Clock, Pencil } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import InvoiceView from "@/app/components/financials/InvoiceView";
@@ -120,6 +120,7 @@ setNotes(noteData?.notes || '');
       {/* Quick Actions */}
       <div className="flex gap-2 flex-wrap">
         <button className="flex items-center gap-1.5 rounded-full border border-[var(--border-default)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)] transition-colors"><Download className="w-3 h-3" /> Generate Statement</button>
+                <Link href={`/leasing/${lease?.id}`} className="flex items-center gap-1.5 rounded-full border border-[var(--border-default)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)] transition-colors"><Pencil className="w-3 h-3" /> Edit Lease</Link>
         <button className="flex items-center gap-1.5 rounded-full border border-[var(--border-default)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)] transition-colors"><Send className="w-3 h-3" /> Send Message</button>
         <button className="flex items-center gap-1.5 rounded-full border border-[var(--border-default)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)] transition-colors"><Plus className="w-3 h-3" /> Create Task</button>
         <button className="flex items-center gap-1.5 rounded-full border border-[var(--border-default)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)] transition-colors"><FilePlus className="w-3 h-3" /> Add Document</button>
