@@ -24,13 +24,16 @@ export async function POST(request: NextRequest) {
     { auth: { persistSession: false } }
   );
 
-  const { fileUrl, fileName, mimeType, tenantId } = await request.json();
+  const formData = await request.formData();
+  const file = formData.get('file') as File | null;
+  const tenantId = formData.get('tenantId') as string | null;
+  const fileName = formData.get('fileName') as string | null;
+  const mimeType = formData.get('mimeType') as string | null;
 
-  if (!fileUrl || !fileName || !mimeType) {
-    return NextResponse.json({ error: "fileUrl, fileName, and mimeType are required" }, { status: 400 });
+  if (!file || !fileName || !mimeType) {
+    return NextResponse.json({ error: "file, fileName, and mimeType are required" }, { status: 400 });
   }
 
-    // Authorization: verify user has entity access
   if (tenantId) {
     const { data: tenant } = await serviceClient
       .from('tenants')
@@ -38,9 +41,7 @@ export async function POST(request: NextRequest) {
       .eq('id', tenantId)
       .single();
 
-    if (!tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
-    }
+    if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 
     const { data: access } = await serviceClient
       .from('user_entity_access')
@@ -49,36 +50,42 @@ export async function POST(request: NextRequest) {
       .eq('entity_id', tenant.entity_id)
       .single();
 
-    if (!access) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
-    }
+    if (!access) return NextResponse.json({ error: "Access denied" }, { status: 403 });
   } else {
-    // Portfolio-wide — user must have at least one accessible entity
     const { data: accessRows } = await serviceClient
       .from('user_entity_access')
       .select('entity_id')
       .eq('user_id', user.id)
       .limit(1);
 
-    if (!accessRows?.length) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
-    }
+    if (!accessRows?.length) return NextResponse.json({ error: "Access denied" }, { status: 403 });
   }
 
   try {
-    // Generate document ID BEFORE processing
     const documentId = crypto.randomUUID();
+    const storagePath = `documents/intake/${documentId}-${fileName}`;
+    const fileBuffer = await file.arrayBuffer();
+
+    const { error: uploadError } = await serviceClient.storage
+      .from('documents')
+      .upload(storagePath, fileBuffer, {
+        contentType: mimeType,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      throw new Error(`Document storage upload failed: ${uploadError.message}`);
+    }
 
     const result = await processDocument(
-      fileUrl,
+      fileBuffer,
       fileName,
       mimeType,
-      tenantId,
+      tenantId || undefined,
       { documentId },
       serviceClient
     );
 
-    // Create document review record
     await serviceClient.from('document_reviews').insert({
       document_id: documentId,
       document_type: result.documentType,

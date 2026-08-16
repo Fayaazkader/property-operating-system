@@ -34,11 +34,10 @@ async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
   }
 }
 
-export async function extractTextFromFile(
-  file: File | Blob,
+export async function extractTextFromBuffer(
+  buffer: ArrayBuffer,
   fileType: string = 'image/png'
 ): Promise<OCRResult> {
-  const buffer = await file.arrayBuffer();
 
   // PDF handling
   if (fileType === 'application/pdf' || fileType.includes('pdf')) {
@@ -68,7 +67,7 @@ export async function extractTextFromFile(
 
   // Image OCR
   const worker = await createWorker('eng');
-  const { data } = await worker.recognize(file);
+  const { data } = await worker.recognize(Buffer.from(buffer));
   await worker.terminate();
 
   return {
@@ -79,7 +78,13 @@ export async function extractTextFromFile(
     processedAt: new Date().toISOString(),
   };
 }
-
+export async function extractTextFromFile(
+  file: File | Blob,
+  fileType: string = 'image/png'
+): Promise<OCRResult> {
+  const buffer = await file.arrayBuffer();
+  return extractTextFromBuffer(buffer, fileType);
+}
 export async function extractTextFromUrl(
   url: string,
   fileType: string = 'image/png'

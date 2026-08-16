@@ -4,7 +4,7 @@
 import { supabase } from "@/lib/supabase";
 import { orchestrator } from "@/lib/conversation/workflow-orchestrator";
 import { publish } from "@/lib/conversation/event-bus";
-import { extractTextFromFile } from "./ocr-adapter";
+import { extractTextFromBuffer } from "./ocr-adapter";
 import { classifyDocument, DocumentType } from "./classifier";
 import { extractInvoiceFields, extractLeaseFields, ExtractionResult } from "./field-extractor";
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -40,6 +40,7 @@ function toExtractedFields(result: ExtractionResult): ExtractedFields {
 }
 
 export async function processDocument(
+  fileBuffer: ArrayBuffer,
   fileUrl: string,
   fileName: string,
   mimeType: string,
@@ -48,11 +49,11 @@ export async function processDocument(
   db: SupabaseClient = supabase
 ): Promise<DocumentResult> {
   // Fetch the file
-  const response = await fetch(fileUrl);
+    const response = await fetch(fileUrl);
   const blob = await response.blob();
 
   // Run OCR
-  const ocrResult = await extractTextFromFile(blob, mimeType);
+    const ocrResult = await extractTextFromBuffer(fileBuffer, mimeType);
   const ocrText = ocrResult.text;
 
   // Classify
@@ -83,7 +84,7 @@ export async function processDocument(
     message_body: `Document: ${fileName} (${documentType})`,
     status: extractedFields.requiresHumanReview ? "review" : "processed",
     source_type: "document",
-        source_id: metadata?.documentId || `DOC-${Date.now()}`,
+    source_id: metadata?.documentId || `DOC-${Date.now()}`,
   });
 
   // Workflow routing — same as before
@@ -91,7 +92,7 @@ export async function processDocument(
   switch (documentType) {
     case "lease_application":
       workflowId = "lease_application_intake";
-      await orchestrator.execute("lease_application_intake", { fileUrl, fileName, tenantId, extractedFields });
+            await orchestrator.execute("lease_activation", { fileBuffer, fileName, tenantId, extractedFields });
       publish("document_processed", { event: "lease_application_received", tenantId, data: extractedFields });
       break;
     case "signed_lease":
@@ -129,7 +130,9 @@ export async function intakeFromWhatsApp(
   tenantName: string,
   caption?: string
 ): Promise<DocumentResult> {
-  return processDocument(mediaUrl, fileName, mimeType, tenantId, {
+    const response = await fetch(mediaUrl);
+  const buffer = await response.arrayBuffer();
+  return processDocument(buffer, fileName, mimeType, tenantId, {
     tenant_name: tenantName,
     channel: 'whatsapp',
     caption,
