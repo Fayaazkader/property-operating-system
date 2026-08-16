@@ -41,16 +41,12 @@ function toExtractedFields(result: ExtractionResult): ExtractedFields {
 
 export async function processDocument(
   fileBuffer: ArrayBuffer,
-  fileUrl: string,
   fileName: string,
   mimeType: string,
   tenantId?: string,
   metadata?: any,
   db: SupabaseClient = supabase
 ): Promise<DocumentResult> {
-  // Fetch the file
-    const response = await fetch(fileUrl);
-  const blob = await response.blob();
 
   // Run OCR
     const ocrResult = await extractTextFromBuffer(fileBuffer, mimeType);
@@ -92,12 +88,12 @@ export async function processDocument(
   switch (documentType) {
     case "lease_application":
       workflowId = "lease_application_intake";
-            await orchestrator.execute("lease_activation", { fileBuffer, fileName, tenantId, extractedFields });
+            await orchestrator.execute("lease_application_intake", { fileBuffer, fileName, tenantId, extractedFields });
       publish("document_processed", { event: "lease_application_received", tenantId, data: extractedFields });
       break;
     case "signed_lease":
       workflowId = "lease_activation";
-      await orchestrator.execute("lease_activation", { fileUrl, fileName, tenantId, extractedFields });
+            await orchestrator.execute("lease_activation", { fileBuffer, fileName, tenantId, extractedFields });
       publish("document_processed", { event: "lease_signed", tenantId, data: extractedFields });
       break;
     case "invoice":
