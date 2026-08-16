@@ -72,14 +72,70 @@ export default function DocumentIntelligencePage() {
     if (file) handleFile(file);
   }, [handleFile]);
 
-  const handleApprove = async () => {
-    setReviewStatus('approved');
-    // TODO: Record approval in database
+    const handleApprove = async () => {
+    const missing = result?.extractedFields?.missingFields || [];
+    const unfilled = missing.filter((field: string) => !editedFields[field]);
+    if (unfilled.length > 0) {
+      setError(`Please fill missing fields: ${unfilled.join(', ').replace(/_/g, ' ')}`);
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Session expired');
+
+      const response = await fetch('/api/documents/review', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          documentId: result.documentId,
+          status: 'approved',
+          extractedFields: displayFields,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Review failed');
+      }
+
+      setReviewStatus('approved');
+    } catch (err: any) {
+      setError(err.message || 'Failed to approve');
+    }
   };
 
   const handleReject = async () => {
-    setReviewStatus('rejected');
-    // TODO: Record rejection with reason
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Session expired');
+
+      const response = await fetch('/api/documents/review', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          documentId: result.documentId,
+          status: 'rejected',
+          reason: 'Rejected by user',
+          extractedFields: displayFields,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Review failed');
+      }
+
+      setReviewStatus('rejected');
+    } catch (err: any) {
+      setError(err.message || 'Failed to reject');
+    }
   };
 
   const handleFieldEdit = (key: string, value: any) => {
@@ -220,13 +276,17 @@ export default function DocumentIntelligencePage() {
             )}
 
             {/* Approve / Reject */}
-            {result.extractedFields.requiresHumanReview && reviewStatus === null && (
+                        {result.extractedFields.requiresHumanReview && reviewStatus === null && (
               <div className="mt-6 flex gap-3">
                 <button
                   onClick={handleApprove}
-                  className="flex-1 rounded-full bg-emerald-500 px-4 py-2.5 text-xs font-medium text-black hover:bg-emerald-400 transition-all"
+                  className={`flex-1 rounded-full px-4 py-2.5 text-xs font-medium transition-all ${
+                    result.extractedFields.missingFields?.some((f: string) => !editedFields[f])
+                      ? 'bg-white/10 text-zinc-500 cursor-not-allowed'
+                      : 'bg-emerald-500 text-black hover:bg-emerald-400'
+                  }`}
                 >
-                  Approve
+                  Approve{result.extractedFields.missingFields?.some((f: string) => !editedFields[f]) ? ' (Fill Missing Fields)' : ''}
                 </button>
                 <button
                   onClick={handleReject}
@@ -234,6 +294,18 @@ export default function DocumentIntelligencePage() {
                 >
                   Reject
                 </button>
+              </div>
+            )}
+
+            {reviewStatus === 'approved' && (
+              <div className="mt-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-center">
+                <p className="text-sm text-emerald-400">Document approved and recorded.</p>
+              </div>
+            )}
+
+            {reviewStatus === 'rejected' && (
+              <div className="mt-6 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-center">
+                <p className="text-sm text-red-400">Document rejected.</p>
               </div>
             )}
 
