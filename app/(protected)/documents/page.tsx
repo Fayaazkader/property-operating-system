@@ -57,7 +57,10 @@ export default function DocumentIntelligencePage() {
       const data = await response.json();
       if (!data.success) throw new Error(data.error || 'Processing failed');
 
-      setResult(data.result);
+            setResult({
+        ...data.result,
+        documentId: data.documentId,
+      });
       setProcessing(false);
     } catch (err: any) {
       setError(err.message || 'Failed to process document');
@@ -74,7 +77,10 @@ export default function DocumentIntelligencePage() {
 
     const handleApprove = async () => {
     const missing = result?.extractedFields?.missingFields || [];
-    const unfilled = missing.filter((field: string) => !editedFields[field]);
+        const unfilled = missing.filter((field: string) => {
+      const value = editedFields[field];
+      return value === undefined || value === null || String(value).trim() === '';
+    });
     if (unfilled.length > 0) {
       setError(`Please fill missing fields: ${unfilled.join(', ').replace(/_/g, ' ')}`);
       return;
