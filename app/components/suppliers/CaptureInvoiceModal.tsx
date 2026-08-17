@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Upload, Loader2, X } from 'lucide-react';
+import { Upload, Loader2, X, FileText } from 'lucide-react';
 import { findSupplierMatch } from '@/lib/suppliers/matching';
 
 interface Props {
@@ -21,7 +21,9 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
   const [error, setError] = useState('');
   const [editedFields, setEditedFields] = useState<Record<string, any>>({});
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
-    const [supplierMatch, setSupplierMatch] = useState<any>(null);
+  const [supplierMatch, setSupplierMatch] = useState<any>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     supabase.from('suppliers').select('id, supplier_name').eq('entity_id', entityId).then(({ data }) => {
@@ -29,7 +31,8 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
     });
   }, [entityId]);
 
-  const handleFile = async (file: File) => {
+  const handleFileSelect = async (file: File) => {
+    setSelectedFile(file);
     setState('uploading');
     setError('');
 
@@ -40,7 +43,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       const formData = new FormData();
       formData.append('file', file);
       formData.append('fileName', file.name);
-      formData.append('mimeType', file.type);
+      formData.append('mimeType', file.type || 'application/pdf');
       formData.append('entityId', entityId);
 
       setState('ocr');
@@ -60,8 +63,9 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       if (!data.success) throw new Error(data.error || 'OCR failed');
 
       setResult(data.result);
-            // Try supplier matching
-      const ocrSupplierName = data.result.extractedFields.supplier_name;
+      setDocumentId(data.documentId);
+
+      const ocrSupplierName = data.result.extractedFields?.supplier_name;
       if (ocrSupplierName) {
         const match = await findSupplierMatch(entityId, ocrSupplierName, supabase);
         if (match) {
@@ -69,20 +73,19 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
           setSupplierMatch(match);
         }
       }
-      setDocumentId(data.documentId);
+
       setState('review');
     } catch (err: any) {
       setError(err.message);
       setState('idle');
     }
   };
-  
 
   const handleSave = async () => {
     setState('saving');
     setError('');
 
-    const fields = { ...result.extractedFields, ...editedFields };
+    const fields = { ...(result?.extractedFields || {}), ...editedFields };
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -90,10 +93,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
 
       const response = await fetch('/api/suppliers/invoices/capture', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({
           entityId,
           supplierId: selectedSupplierId,
@@ -144,27 +144,36 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
           <button onClick={onClose} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
         </div>
 
-                   {state === 'idle' && (
-          <div className="relative rounded-xl border-2 border-dashed border-white/[0.08] p-10 text-center">
-            <Upload className="w-6 h-6 text-zinc-600 mx-auto mb-2" />
-            <p className="text-xs text-zinc-500">Drop invoice PDF or image here</p>
-            <p className="text-xs text-zinc-600 mt-1">Click to select a file</p>
+        {state === 'idle' && (
+          <div>
             <input
+              ref={fileInputRef}
               type="file"
               accept=".pdf,.png,.jpg,.jpeg"
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) handleFile(f);
+                if (f) handleFileSelect(f);
               }}
             />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full rounded-xl border-2 border-dashed border-white/[0.1] p-10 text-center hover:border-white/20 transition-all cursor-pointer"
+            >
+              <Upload className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
+              <p className="text-sm text-zinc-300">Click to select invoice PDF or image</p>
+              <p className="text-xs text-zinc-600 mt-1">PDF, PNG, JPG — max 10MB</p>
+            </button>
           </div>
         )}
 
         {(state === 'uploading' || state === 'ocr') && (
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-6 flex items-center gap-3">
-            <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
-            <p className="text-sm text-zinc-300">{state === 'uploading' ? 'Uploading...' : 'Running OCR & extracting...'}</p>
+            <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
+            <div>
+              <p className="text-sm text-zinc-300">{state === 'uploading' ? 'Uploading...' : 'Running OCR...'}</p>
+              {selectedFile && <p className="text-xs text-zinc-500 mt-0.5 flex items-center gap-1"><FileText className="w-3 h-3" /> {selectedFile.name}</p>}
+            </div>
           </div>
         )}
 
@@ -178,10 +187,10 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
           <div className="mt-4 space-y-4">
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4">
               <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-600 mb-3">
-                {result.documentType.replace(/_/g, ' ')} · Confidence {result.extractedFields.confidence}%
+                {result.documentType.replace(/_/g, ' ')} · Confidence {displayFields.confidence || 0}%
               </p>
 
-                            <div className="mb-3">
+              <div className="mb-3">
                 <p className="text-[10px] text-zinc-600 mb-1">Supplier</p>
                 {supplierMatch ? (
                   <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/10 px-3 py-2">
@@ -224,13 +233,6 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
             >
               Save Invoice
             </button>
-          </div>
-        )}
-
-        {state === 'saving' && (
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-6 flex items-center gap-3">
-            <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
-            <p className="text-sm text-zinc-300">Saving supplier invoice...</p>
           </div>
         )}
       </div>
