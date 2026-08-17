@@ -14,9 +14,14 @@ export interface OCRResult {
 
 async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
   try {
+    // Set worker source before importing pdf-parse
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
+    const workerUrl = require.resolve('pdfjs-dist/legacy/build/pdf.worker.js');
+    pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+
     const { PDFParse } = await import('pdf-parse');
-    const parser = new PDFParse({ data: Buffer.from(buffer), disableWorker: true } as any);
-const result = await parser.getText();
+    const parser = new PDFParse({ data: Buffer.from(buffer) } as any);
+    const result = await parser.getText();
     return result?.text?.trim() || '';
   } catch (err) {
     console.error('pdf-parse failed:', err);
