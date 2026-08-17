@@ -16,8 +16,7 @@ async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
   try {
     const { PDFParse } = await import('pdf-parse');
     const parser = new PDFParse({ data: Buffer.from(buffer) });
-    await parser.load();
-    const result = await parser.getText();
+const result = await parser.getText();
     return result?.text?.trim() || '';
   } catch (err) {
     console.error('pdf-parse failed:', err);
