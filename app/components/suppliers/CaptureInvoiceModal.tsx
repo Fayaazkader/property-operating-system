@@ -144,43 +144,35 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
           <button onClick={onClose} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
         </div>
 
-                   {state === 'idle' && (
+                  {state === 'idle' && (
           <div 
-            className="rounded-xl border-2 border-dashed border-white/[0.08] p-10 text-center"
+            className="rounded-xl border-2 border-dashed border-white/[0.08] p-10 text-center cursor-pointer"
             onDrop={(e) => {
               e.preventDefault();
               const f = e.dataTransfer.files?.[0];
               if (f) handleFile(f);
             }}
             onDragOver={(e) => e.preventDefault()}
+            onClick={() => {
+              const input = document.getElementById('invoice-file-input') as HTMLInputElement;
+              input?.click();
+            }}
           >
             <Upload className="w-6 h-6 text-zinc-600 mx-auto mb-2" />
             <p className="text-xs text-zinc-500">Drop invoice PDF or image here</p>
             <input
               type="file"
               accept=".pdf,.png,.jpg,.jpeg"
-              ref={(el) => {
-                if (el) {
-                  (el as any).__clickHandler = () => el.click();
-                }
-              }}
-              style={{ display: 'none' }}
+              id="invoice-file-input"
+              className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) handleFile(f);
               }}
             />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                const input = (e.currentTarget.parentElement?.querySelector('input[type="file"]')) as HTMLInputElement;
-                input?.click();
-              }}
-              className="inline-block mt-3 rounded-full bg-white px-5 py-2 text-xs font-medium text-black hover:bg-gray-100"
-            >
+            <span className="inline-block mt-3 rounded-full bg-white px-5 py-2 text-xs font-medium text-black hover:bg-gray-100">
               Browse Files
-            </button>
+            </span>
           </div>
         )}
 
