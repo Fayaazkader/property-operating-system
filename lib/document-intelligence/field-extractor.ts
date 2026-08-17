@@ -67,6 +67,21 @@ export function extractInvoiceFields(text: string): ExtractionResult {
     'vat_amount'
   );
   fields.vat_amount = vat;
+    // Invoice date
+  const invoiceDate = extractWithConfidence(
+    text,
+    /(?:invoice\s*date|date)[:\s]*([0-9]{4}[-/][0-9]{2}[-/][0-9]{2})/i,
+    'invoice_date'
+  );
+  fields.invoice_date = invoiceDate;
+
+  // Subtotal
+  const subtotal = extractWithConfidence(
+    text,
+    /(?:subtotal|sub\s*total)[:\s]*R?\s*([\d,]+\.?\d*)/i,
+    'subtotal'
+  );
+  fields.subtotal = subtotal;
 
   const confidences = Object.values(fields).map(f => f.confidence);
   const overallConfidence = confidences.length > 0

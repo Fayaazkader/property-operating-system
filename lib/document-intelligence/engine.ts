@@ -16,6 +16,10 @@ export interface ExtractedFields {
   confidence: number;
   requiresHumanReview: boolean;
   missingFields: string[];
+  invoice_date?: string;
+  due_date?: string;
+  subtotal?: number;
+  vat_amount?: number;
 }
 
 export interface DocumentResult {
