@@ -1,5 +1,6 @@
 // lib/document-intelligence/ocr-adapter.ts
 // OCR Adapter — Server-safe, supports PDF and images
+// PDF text extraction uses pdfjs-dist legacy build directly (no canvas needed)
 
 import { createWorker } from 'tesseract.js';
 
@@ -14,17 +15,23 @@ export interface OCRResult {
 
 async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
   try {
-    // Set worker source before importing pdf-parse
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
-    const workerUrl = require.resolve('pdfjs-dist/legacy/build/pdf.worker.js');
-    pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
-
-    const { PDFParse } = await import('pdf-parse');
-    const parser = new PDFParse({ data: Buffer.from(buffer) } as any);
-    const result = await parser.getText();
-    return result?.text?.trim() || '';
+    const pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
+    
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items
+        .map((item: any) => item.str || '')
+        .join(' ');
+      fullText += pageText + '\n';
+    }
+    
+    await pdf.destroy();
+    return fullText.trim();
   } catch (err) {
-    console.error('pdf-parse failed:', err);
+    console.error('pdfjs text extraction failed:', err);
     return '';
   }
 }
@@ -40,7 +47,7 @@ export async function extractTextFromBuffer(
       return {
         text: nativeText,
         confidence: 95,
-        provider: 'pdf-parse',
+        provider: 'pdfjs-dist',
         method: 'native_text',
         processedAt: new Date().toISOString(),
       };
