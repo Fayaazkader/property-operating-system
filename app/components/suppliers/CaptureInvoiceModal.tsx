@@ -144,7 +144,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
           <button onClick={onClose} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
         </div>
 
-                   {state === 'idle' && (
+                  {state === 'idle' && (
           <label 
             className="block rounded-xl border-2 border-dashed border-white/[0.08] p-10 text-center cursor-pointer"
             onDrop={(e) => {
@@ -159,7 +159,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
             <input
               type="file"
               accept=".pdf,.png,.jpg,.jpeg"
-              className="hidden"
+              className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) handleFile(f);
