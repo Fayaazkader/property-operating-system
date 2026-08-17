@@ -15,7 +15,7 @@ export interface OCRResult {
 async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
   try {
     const { PDFParse } = await import('pdf-parse');
-    const parser = new PDFParse({ data: Buffer.from(buffer) });
+    const parser = new PDFParse({ data: Buffer.from(buffer), disableWorker: true } as any);
 const result = await parser.getText();
     return result?.text?.trim() || '';
   } catch (err) {

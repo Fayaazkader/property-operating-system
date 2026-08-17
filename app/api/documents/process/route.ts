@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, result, documentId });
   } catch (error: any) {
+    console.error("Process document error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
