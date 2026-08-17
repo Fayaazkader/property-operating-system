@@ -144,9 +144,9 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
           <button onClick={onClose} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
         </div>
 
-                  {state === 'idle' && (
-          <label 
-            className="block rounded-xl border-2 border-dashed border-white/[0.08] p-10 text-center cursor-pointer"
+                   {state === 'idle' && (
+          <div 
+            className="rounded-xl border-2 border-dashed border-white/[0.08] p-10 text-center"
             onDrop={(e) => {
               e.preventDefault();
               const f = e.dataTransfer.files?.[0];
@@ -159,16 +159,29 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
             <input
               type="file"
               accept=".pdf,.png,.jpg,.jpeg"
-              className="sr-only"
+              ref={(el) => {
+                if (el) {
+                  (el as any).__clickHandler = () => el.click();
+                }
+              }}
+              style={{ display: 'none' }}
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) handleFile(f);
               }}
             />
-            <span className="inline-block mt-3 rounded-full bg-white px-5 py-2 text-xs font-medium text-black hover:bg-gray-100">
-              Browse
-            </span>
-          </label>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                const input = (e.currentTarget.parentElement?.querySelector('input[type="file"]')) as HTMLInputElement;
+                input?.click();
+              }}
+              className="inline-block mt-3 rounded-full bg-white px-5 py-2 text-xs font-medium text-black hover:bg-gray-100"
+            >
+              Browse Files
+            </button>
+          </div>
         )}
 
         {(state === 'uploading' || state === 'ocr') && (
