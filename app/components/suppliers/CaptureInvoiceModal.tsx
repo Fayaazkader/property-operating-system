@@ -144,10 +144,9 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
           <button onClick={onClose} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
         </div>
 
-                {state === 'idle' && (
-          <div 
-            className="rounded-xl border-2 border-dashed border-white/[0.08] p-10 text-center cursor-pointer"
-            onClick={() => document.getElementById('invoice-upload')?.click()}
+                   {state === 'idle' && (
+          <label 
+            className="block rounded-xl border-2 border-dashed border-white/[0.08] p-10 text-center cursor-pointer"
             onDrop={(e) => {
               e.preventDefault();
               const f = e.dataTransfer.files?.[0];
@@ -155,22 +154,21 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
             }}
             onDragOver={(e) => e.preventDefault()}
           >
-            <Upload className="w-6 h-6 text-zinc-600 mx-auto mb-2 pointer-events-none" />
-            <p className="text-xs text-zinc-500 pointer-events-none">Drop invoice PDF or image here</p>
+            <Upload className="w-6 h-6 text-zinc-600 mx-auto mb-2" />
+            <p className="text-xs text-zinc-500">Drop invoice PDF or image here</p>
             <input
               type="file"
               accept=".pdf,.png,.jpg,.jpeg"
-              className="sr-only"
-              id="invoice-upload"
+              className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) handleFile(f);
               }}
             />
-            <span className="inline-block mt-3 rounded-full bg-white px-5 py-2 text-xs font-medium text-black hover:bg-gray-100 cursor-pointer pointer-events-none">
+            <span className="inline-block mt-3 rounded-full bg-white px-5 py-2 text-xs font-medium text-black hover:bg-gray-100">
               Browse
             </span>
-          </div>
+          </label>
         )}
 
         {(state === 'uploading' || state === 'ocr') && (
