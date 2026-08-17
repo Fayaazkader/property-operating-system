@@ -1,5 +1,5 @@
 // lib/document-intelligence/ocr-adapter.ts
-// OCR Adapter — PDF text extraction via pdf-parse browser CJS build
+// OCR Adapter — PDF text extraction via pdf-parse
 // Images use Tesseract
 
 import { createWorker } from 'tesseract.js';
@@ -15,10 +15,9 @@ export interface OCRResult {
 
 async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
   try {
-    // Direct path to the browser CJS build — works in Node without canvas
-    const pdfParse = await import('pdf-parse/dist/pdf-parse/cjs/index.cjs');
-    const PDFParse = (pdfParse as any).PDFParse || (pdfParse as any).default?.PDFParse;
-    const parser = new PDFParse({ data: Buffer.from(buffer) } as any);
+    const pdfParseMod: any = await import('pdf-parse');
+    const PDFParse = pdfParseMod.PDFParse || pdfParseMod.default?.PDFParse || pdfParseMod;
+    const parser = new PDFParse({ data: Buffer.from(buffer) });
     const result = await parser.getText();
     return result?.text?.trim() || '';
   } catch (err) {
