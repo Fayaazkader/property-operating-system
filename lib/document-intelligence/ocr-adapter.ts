@@ -1,6 +1,5 @@
 // lib/document-intelligence/ocr-adapter.ts
-// OCR Adapter — Server-safe, supports PDF and images
-// PDF text extraction uses pdfjs-dist legacy build directly (no canvas needed)
+// OCR Adapter — Server-safe, PDF text extraction without canvas
 
 import { createWorker } from 'tesseract.js';
 
@@ -15,8 +14,9 @@ export interface OCRResult {
 
 async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
   try {
-    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
-    const pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
+    // Use browser build — no canvas requirement, only text extraction
+    const pdfjs = await import('pdfjs-dist');
+    const pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer), isEvalSupported: false }).promise;
     
     let fullText = '';
     for (let i = 1; i <= pdf.numPages; i++) {
