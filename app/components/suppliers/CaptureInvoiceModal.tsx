@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Upload, Loader2, X } from 'lucide-react';
+import { findSupplierMatch } from '@/lib/suppliers/matching';
 
 interface Props {
   entityId: string;
@@ -20,6 +21,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
   const [error, setError] = useState('');
   const [editedFields, setEditedFields] = useState<Record<string, any>>({});
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
+    const [supplierMatch, setSupplierMatch] = useState<any>(null);
 
   useEffect(() => {
     supabase.from('suppliers').select('id, supplier_name').eq('entity_id', entityId).then(({ data }) => {
@@ -39,6 +41,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       formData.append('file', file);
       formData.append('fileName', file.name);
       formData.append('mimeType', file.type);
+      formData.append('entityId', entityId);
 
       setState('ocr');
 
@@ -57,6 +60,15 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       if (!data.success) throw new Error(data.error || 'OCR failed');
 
       setResult(data.result);
+            // Try supplier matching
+      const ocrSupplierName = data.result.extractedFields.supplier_name;
+      if (ocrSupplierName) {
+        const match = await findSupplierMatch(entityId, ocrSupplierName, supabase);
+        if (match) {
+          setSelectedSupplierId(match.supplier_id);
+          setSupplierMatch(match);
+        }
+      }
       setDocumentId(data.documentId);
       setState('review');
     } catch (err: any) {
@@ -64,6 +76,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       setState('idle');
     }
   };
+  
 
   const handleSave = async () => {
     setState('saving');
@@ -171,18 +184,25 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
                 {result.documentType.replace(/_/g, ' ')} · Confidence {result.extractedFields.confidence}%
               </p>
 
-              <div className="mb-3">
+                            <div className="mb-3">
                 <p className="text-[10px] text-zinc-600 mb-1">Supplier</p>
-                <select
-                  value={selectedSupplierId}
-                  onChange={(e) => setSelectedSupplierId(e.target.value)}
-                  className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none"
-                >
-                  <option value="">Select supplier</option>
-                  {suppliers.map(s => (
-                    <option key={s.id} value={s.id}>{s.supplier_name}</option>
-                  ))}
-                </select>
+                {supplierMatch ? (
+                  <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/10 px-3 py-2">
+                    <p className="text-sm text-white">{supplierMatch.supplier_name}</p>
+                    <p className="text-[10px] text-emerald-400">{supplierMatch.confidence}% match</p>
+                  </div>
+                ) : (
+                  <select
+                    value={selectedSupplierId}
+                    onChange={(e) => setSelectedSupplierId(e.target.value)}
+                    className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none"
+                  >
+                    <option value="">Select supplier</option>
+                    {suppliers.map(s => (
+                      <option key={s.id} value={s.id}>{s.supplier_name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {Object.entries(displayFields)

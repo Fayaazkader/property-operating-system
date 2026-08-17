@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
 
   const { entityId, supplierId, invoiceNumber, invoiceDate, dueDate, totalAmount, vatAmount, subtotal, documentId, extractedFields } = await request.json();
 
-  if (!entityId || !invoiceNumber || !totalAmount) {
-    return NextResponse.json({ error: "entityId, invoiceNumber, and totalAmount are required" }, { status: 400 });
+    if (!entityId || !supplierId || !invoiceNumber || !totalAmount) {
+    return NextResponse.json({ error: "entityId, supplierId, invoiceNumber, and totalAmount are required" }, { status: 400 });
   }
 
   // RBAC
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       .from('supplier_invoices_new')
       .insert({
         entity_id: entityId,
-        supplier_id: supplierId || null,
+        supplier_id: supplierId,
         invoice_number: invoiceNumber,
         total_amount: totalAmount,
         vat_amount: vatAmount,
