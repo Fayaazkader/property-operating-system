@@ -14,10 +14,10 @@ export interface OCRResult {
 
 async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
   try {
-    const pdfParseMod = await import('pdf-parse');
-    // pdf-parse ESM: function is the default export or pdfParse property
-    const parser = (pdfParseMod as any).default || (pdfParseMod as any).pdf || pdfParseMod;
-    const result = await parser(Buffer.from(buffer));
+    const { PDFParse } = await import('pdf-parse');
+    const parser = new PDFParse({ data: Buffer.from(buffer) });
+    await parser.load();
+    const result = await parser.getText();
     return result?.text?.trim() || '';
   } catch (err) {
     console.error('pdf-parse failed:', err);
@@ -42,9 +42,6 @@ export async function extractTextFromBuffer(
       };
     }
 
-    // Fallback: try to convert PDF to image with pdfjs-dist, then Tesseract
-    // Server-safe: pdfjs can render to canvas in Node (needs canvas package)
-    // For now, mark empty for manual review
     return {
       text: '',
       confidence: 0,
