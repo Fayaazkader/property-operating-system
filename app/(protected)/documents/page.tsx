@@ -36,17 +36,18 @@ export default function DocumentIntelligencePage() {
 
       // Call server API
       setProcessing(true);
-      const response = await fetch('/api/documents/process', {
+            const response = await fetch('/api/documents/process', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          fileUrl: urlData.publicUrl,
-          fileName: file.name,
-          mimeType: file.type,
-        }),
+        body: (() => {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('fileName', file.name);
+          formData.append('mimeType', file.type);
+          return formData;
+        })(),
       });
 
       if (!response.ok) {
