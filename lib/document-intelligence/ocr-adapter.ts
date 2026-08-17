@@ -1,6 +1,5 @@
 // lib/document-intelligence/ocr-adapter.ts
-// OCR Adapter — PDF text extraction via pdf-parse
-// Images use Tesseract
+// OCR Adapter — PDF text extraction via pdf-parse with disableWorker
 
 import { createWorker } from 'tesseract.js';
 
@@ -17,7 +16,11 @@ async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
   try {
     const pdfParseMod: any = await import('pdf-parse');
     const PDFParse = pdfParseMod.PDFParse || pdfParseMod.default?.PDFParse || pdfParseMod;
-    const parser = new PDFParse({ data: Buffer.from(buffer) });
+    const parser = new PDFParse({
+      data: Buffer.from(buffer),
+      disableWorker: true,
+      verbosity: 0,
+    });
     const result = await parser.getText();
     return result?.text?.trim() || '';
   } catch (err) {
