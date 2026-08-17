@@ -2,15 +2,17 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { apApi } from '@/lib/accounts-payable/api';
+import { Plus } from 'lucide-react';
+import CaptureInvoiceModal from '@/app/components/suppliers/CaptureInvoiceModal';
 
 export default function InvoicesPage() {
   const [entityId, setEntityId] = useState('');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+    const [showCapture, setShowCapture] = useState(false);
 
-  useEffect(() => {
-    async function init() {
+   async function init() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setLoading(false); return; }
       const { data: entities } = await supabase.rpc('auth_entities');
@@ -20,6 +22,7 @@ export default function InvoicesPage() {
       setInvoices(data || []);
       setLoading(false);
     }
+    useEffect(() => {
     init();
   }, []);
 
@@ -29,7 +32,15 @@ export default function InvoicesPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-light tracking-[-0.02em] text-white">Invoices</h1>
+           <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-light tracking-[-0.02em] text-white">Invoices</h1>
+        <button
+          onClick={() => setShowCapture(true)}
+          className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100 transition-all"
+        >
+          <Plus className="w-3.5 h-3.5" /> Capture Invoice
+        </button>
+      </div>
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search invoices..." className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-white/10 focus:ring-0 focus:outline-none" />
       {!filtered.length ? <p className="text-sm text-zinc-500 py-8 text-center">No invoices found.</p> : (
         <div className="rounded-xl border border-white/[0.06] overflow-hidden">
@@ -38,6 +49,16 @@ export default function InvoicesPage() {
             <tbody>{filtered.map((inv: any) => (<tr key={inv.id} className="border-b border-white/[0.03]"><td className="py-2.5 px-4 text-white font-light text-xs">{inv.supplier?.supplier_name || '—'}</td><td className="py-2.5 px-4 text-zinc-400 text-xs">{inv.invoice_number}</td><td className="py-2.5 px-4 text-zinc-400 text-xs">{inv.invoice_date}</td><td className="py-2.5 px-4 text-right text-white tabular-nums text-xs">R{inv.total_amount?.toLocaleString()}</td><td className="py-2.5 px-4 text-center"><span className={`text-[10px] px-2 py-0.5 rounded-full ${inv.lifecycle_status === 'posted' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>{inv.lifecycle_status}</span></td></tr>))}</tbody>
           </table>
         </div>
+      )}
+            {showCapture && (
+        <CaptureInvoiceModal
+          entityId={entityId}
+          onClose={() => setShowCapture(false)}
+          onCaptured={() => {
+            setShowCapture(false);
+            init();
+          }}
+        />
       )}
     </div>
   );
