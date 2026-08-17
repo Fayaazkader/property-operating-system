@@ -1,6 +1,5 @@
 // lib/document-intelligence/ocr-adapter.ts
 // OCR Adapter — Server-safe, supports PDF and images
-// PDF: native text first, OCR fallback using server-compatible rendering
 
 import { createWorker } from 'tesseract.js';
 
@@ -13,23 +12,15 @@ export interface OCRResult {
   processedAt: string;
 }
 
-// For PDF native text extraction — use pdf-parse (pure JS, no canvas)
-let pdfParse: any = null;
-
-async function getPdfParser() {
-  if (!pdfParse) {
-    const mod = await import('pdf-parse');
-    pdfParse = mod;
-  }
-  return pdfParse;
-}
-
 async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
   try {
-    const parser = await getPdfParser();
+    const pdfParseMod = await import('pdf-parse');
+    // pdf-parse ESM: function is the default export or pdfParse property
+    const parser = (pdfParseMod as any).default || (pdfParseMod as any).pdf || pdfParseMod;
     const result = await parser(Buffer.from(buffer));
     return result?.text?.trim() || '';
-  } catch {
+  } catch (err) {
+    console.error('pdf-parse failed:', err);
     return '';
   }
 }
@@ -39,9 +30,7 @@ export async function extractTextFromBuffer(
   fileType: string = 'image/png'
 ): Promise<OCRResult> {
 
-  // PDF handling
   if (fileType === 'application/pdf' || fileType.includes('pdf')) {
-    // Try native text extraction first
     const nativeText = await extractPdfNativeText(buffer);
     if (nativeText.length > 20) {
       return {
@@ -53,8 +42,9 @@ export async function extractTextFromBuffer(
       };
     }
 
-    // Server-safe OCR fallback: use pdf-to-img via arraybuffer + Tesseract on the buffer
-    // For now: return empty if native fails, mark for human review
+    // Fallback: try to convert PDF to image with pdfjs-dist, then Tesseract
+    // Server-safe: pdfjs can render to canvas in Node (needs canvas package)
+    // For now, mark empty for manual review
     return {
       text: '',
       confidence: 0,
@@ -78,6 +68,7 @@ export async function extractTextFromBuffer(
     processedAt: new Date().toISOString(),
   };
 }
+
 export async function extractTextFromFile(
   file: File | Blob,
   fileType: string = 'image/png'
@@ -85,6 +76,7 @@ export async function extractTextFromFile(
   const buffer = await file.arrayBuffer();
   return extractTextFromBuffer(buffer, fileType);
 }
+
 export async function extractTextFromUrl(
   url: string,
   fileType: string = 'image/png'
