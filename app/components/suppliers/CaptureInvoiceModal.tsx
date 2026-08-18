@@ -88,23 +88,58 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
     setValidationChecks(checks);
   }, [selectedSupplierId, invoiceNumber, lineItems, result]);
 
-  const updateLineItem = (id: string, field: keyof LineItem, value: any) => {
-    setLineItems(prev => prev.map(item => {
-      if (item.id !== id) return item;
-      const updated = { ...item, [field]: value };
+    const updateLineItem = (id: string, field: keyof LineItem, value: any) => {
+    setLineItems(prev => {
+      const sourceItem = prev.find(item => item.id === id);
       
-      if (field === 'amount_excl') {
-        updated.vat_amount = Math.round((updated.amount_excl * updated.vat_rate / 100) * 100) / 100;
-        updated.amount_incl = Math.round((updated.amount_excl + updated.vat_amount) * 100) / 100;
-      } else if (field === 'vat_amount') {
-        updated.amount_incl = Math.round((updated.amount_excl + updated.vat_amount) * 100) / 100;
-      } else if (field === 'amount_incl') {
-        updated.amount_excl = Math.round((updated.amount_incl / (1 + updated.vat_rate / 100)) * 100) / 100;
-        updated.vat_amount = Math.round((updated.amount_incl - updated.amount_excl) * 100) / 100;
+      let updatedItems = prev.map(item => {
+        if (item.id !== id) return item;
+        const updated = { ...item, [field]: value };
+        
+        if (field === 'amount_excl') {
+          updated.vat_amount = Math.round((updated.amount_excl * updated.vat_rate / 100) * 100) / 100;
+          updated.amount_incl = Math.round((updated.amount_excl + updated.vat_amount) * 100) / 100;
+        } else if (field === 'vat_amount') {
+          updated.amount_incl = Math.round((updated.amount_excl + updated.vat_amount) * 100) / 100;
+        } else if (field === 'amount_incl') {
+          updated.amount_excl = Math.round((updated.amount_incl / (1 + updated.vat_rate / 100)) * 100) / 100;
+          updated.vat_amount = Math.round((updated.amount_incl - updated.amount_excl) * 100) / 100;
+        }
+        
+        return updated;
+      });
+      
+      // SMART AUTO-FILL: If GL code was set, apply to similar empty lines
+      if (field === 'gl_code' && value && sourceItem) {
+        const sourceDesc = sourceItem.description.toLowerCase().trim();
+        updatedItems = updatedItems.map(item => {
+          if (item.id !== id && !item.gl_code) {
+            // Check if description overlaps or is similar
+            const itemDesc = item.description.toLowerCase().trim();
+            const words1 = sourceDesc.split(/\s+/);
+            const words2 = itemDesc.split(/\s+/);
+            const overlap = words1.filter(w => words2.includes(w) && w.length > 3).length;
+            
+            if (overlap >= 2 || sourceDesc === itemDesc) {
+              return { ...item, gl_code: value };
+            }
+          }
+          return item;
+        });
       }
       
-      return updated;
-    }));
+      // SMART AUTO-FILL: If property set, apply to similar empty lines
+      if (field === 'property_id' && value && sourceItem) {
+        updatedItems = updatedItems.map(item => {
+          if (item.id !== id && !item.property_id) {
+            return { ...item, property_id: value };
+          }
+          return item;
+        });
+      }
+      
+      return updatedItems;
+    });
   };
 
   const removeLineItem = (id: string) => {
