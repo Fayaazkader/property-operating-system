@@ -1,6 +1,5 @@
 // lib/document-intelligence/ocr-adapter.ts
-// OCR Adapter — PDF text extraction via pdfjs-dist directly
-// Images use Tesseract
+// OCR Adapter — PDF text extraction via pdfjs-dist legacy (no worker, no canvas needed)
 
 import { createWorker } from 'tesseract.js';
 
@@ -15,12 +14,11 @@ export interface OCRResult {
 
 async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
   try {
-    // Use pdfjs-dist directly — no pdf-parse wrapper needed
-    const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf');
+    const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.js');
     
     const loadingTask = pdfjs.getDocument({
       data: new Uint8Array(buffer),
-      useWorker: false, // run on main thread
+      useWorker: false,
       isEvalSupported: false,
     });
     
