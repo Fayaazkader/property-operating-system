@@ -32,13 +32,18 @@ function parseAmount(val: string): string {
   return val.replace(/[^\d.]/g, '');
 }
 
+// Adaptive line item extraction
 function extractLineItems(text: string): InvoiceLineItem[] {
   const items: InvoiceLineItem[] = [];
-  const pattern = /([A-Za-z][A-Za-z\s&\/-]+?)\s+(\d+(?:\.\d+)?)\s+R\s*([\d,]+\.?\d*)\s+R\s*([\d,]+\.?\d*)/g;
+  
+  // Pattern: Description followed by Qty, Unit Price, Amount
+  // e.g. "Property management services - August 2026 1 R 18,500.00 R 18,500.00"
+  const pattern = /([A-Za-z][A-Za-z\s&\/\-\d]+?)\s+(\d+(?:\.\d+)?)\s+R\s*([\d,]+\.?\d*)\s+R\s*([\d,]+\.?\d*)/g;
   
   let match;
   while ((match = pattern.exec(text)) !== null) {
     const description = match[1].trim();
+    // Skip if it's clearly not a line item (too generic)
     if (description.length < 3) continue;
     if (/invoice|total|subtotal|vat|due|date|number|reference/i.test(description)) continue;
     
@@ -50,6 +55,7 @@ function extractLineItems(text: string): InvoiceLineItem[] {
     });
   }
   
+  // Deduplicate — skip if same description already found
   const seen = new Set<string>();
   return items.filter(item => {
     const key = item.description.toLowerCase();
@@ -63,40 +69,78 @@ export function extractInvoiceFields(text: string): ExtractionResult {
   const fields: Record<string, ExtractedField> = {};
   const missing: string[] = [];
 
-  const invoiceNumber = extractWithConfidence(text, /Invoice\s*(?:No|Number|#)?\.?\s*(INV-[A-Z0-9-]+)/i, 'invoice_number');
+  // Invoice number
+  const invoiceNumber = extractWithConfidence(
+    text,
+    /Invoice\s*(?:No|Number|#)?\.?\s*(INV-[A-Z0-9-]+)/i,
+    'invoice_number'
+  );
   fields.invoice_number = invoiceNumber;
   if (!invoiceNumber.value) missing.push('invoice_number');
 
-  const totalAmount = extractWithConfidence(text, /TOTAL\s*DUE\s*R?\s*([\d,\s]+\.\d{2})/i, 'invoice_amount');
+  // Total amount
+  const totalAmount = extractWithConfidence(
+    text,
+    /TOTAL\s*DUE\s*R?\s*([\d,\s]+\.\d{2})/i,
+    'invoice_amount'
+  );
   fields.invoice_amount = totalAmount.value ? { value: parseAmount(totalAmount.value as string), confidence: 90 } : { value: undefined, confidence: 0 };
 
-  const vatAmount = extractWithConfidence(text, /VAT\s*(?:\(\d+%\))?\s*R?\s*([\d,\s]+\.\d{2})/i, 'vat_amount');
+  // VAT
+  const vatAmount = extractWithConfidence(
+    text,
+    /VAT\s*(?:\(\d+%\))?\s*R?\s*([\d,\s]+\.\d{2})/i,
+    'vat_amount'
+  );
   fields.vat_amount = vatAmount.value ? { value: parseAmount(vatAmount.value as string), confidence: 80 } : { value: undefined, confidence: 0 };
 
-  const subtotal = extractWithConfidence(text, /Subtotal\s*R?\s*([\d,\s]+\.\d{2})/i, 'subtotal');
+  // Subtotal
+  const subtotal = extractWithConfidence(
+    text,
+    /Subtotal\s*R?\s*([\d,\s]+\.\d{2})/i,
+    'subtotal'
+  );
   fields.subtotal = subtotal.value ? { value: parseAmount(subtotal.value as string), confidence: 80 } : { value: undefined, confidence: 0 };
 
-  const dueDate = extractWithConfidence(text, /Due\s*Date\s*(\d{1,2}\s+\w+\s+\d{4})/i, 'due_date');
+  // Due date
+  const dueDate = extractWithConfidence(
+    text,
+    /Due\s*Date\s*(\d{1,2}\s+\w+\s+\d{4})/i,
+    'due_date'
+  );
   fields.due_date = dueDate.value ? { value: dueDate.value, confidence: 85 } : { value: undefined, confidence: 0 };
 
-  const invoiceDate = extractWithConfidence(text, /Invoice\s*Date\s*(\d{1,2}\s+\w+\s+\d{4})/i, 'invoice_date');
+  // Invoice date
+  const invoiceDate = extractWithConfidence(
+    text,
+    /Invoice\s*Date\s*(\d{1,2}\s+\w+\s+\d{4})/i,
+    'invoice_date'
+  );
   fields.invoice_date = invoiceDate.value ? { value: invoiceDate.value, confidence: 85 } : { value: undefined, confidence: 0 };
 
+  // Supplier name
   const supplierMatch = text.match(/([A-Z][A-Za-z\s]+(?:\s+\(Pty\)\s+Ltd|\s+CC|\s+Ltd))/i);
   if (supplierMatch) {
     fields.supplier_name = { value: supplierMatch[1].trim(), confidence: 90 };
   } else {
-    const supplier = extractWithConfidence(text, /(?:BILL\s+FROM|FROM)\s+(.+?)(?=\s+\d+\s+[A-Za-z]+\s+Road|\s+VAT|\s+BILL\s)/i, 'supplier_name');
+    const supplier = extractWithConfidence(
+      text,
+      /(?:BILL\s+FROM|FROM)\s+(.+?)(?=\s+\d+\s+[A-Za-z]+\s+Road|\s+VAT|\s+BILL\s)/i,
+      'supplier_name'
+    );
     fields.supplier_name = supplier;
     if (!supplier.value) missing.push('supplier_name');
   }
 
+  // Line items
   const lineItems = extractLineItems(text);
   fields.line_items = { value: lineItems, confidence: lineItems.length > 0 ? 85 : 0 };
   if (lineItems.length === 0) missing.push('line_items');
 
   const confidences = Object.values(fields).map(f => f.confidence);
-  const overallConfidence = confidences.length > 0 ? confidences.reduce((s, c) => s + c, 0) / confidences.length : 0;
+  const overallConfidence = confidences.length > 0
+    ? confidences.reduce((s, c) => s + c, 0) / confidences.length
+    : 0;
 
   return {
     fields,
@@ -110,12 +154,25 @@ export function extractLeaseFields(text: string): ExtractionResult {
   const fields: Record<string, ExtractedField> = {};
   const missing: string[] = [];
 
-  const tenantName = extractWithConfidence(text, /(?:TENANT|LESSEE|APPLICANT)[:\s]*([^\n]+?)(?=\s+(?:ID|REG|VAT|PHYSICAL|POSTAL|$))/i, 'tenant_name');
+  const tenantName = extractWithConfidence(
+    text,
+    /(?:TENANT|LESSEE|APPLICANT)[:\s]*([^\n]+?)(?=\s+(?:ID|REG|VAT|PHYSICAL|POSTAL|$))/i,
+    'tenant_name'
+  );
   fields.tenant_name = tenantName;
   if (!tenantName.value) missing.push('tenant_name');
 
+  const rentalAmount = extractWithConfidence(
+    text,
+    /(?:MONTHLY\s*RENTAL|RENTAL|RENT)[:\s]*R?\s*([\d,\s]+\.\d{2})/i,
+    'rental_amount'
+  );
+  fields.rental_amount = rentalAmount;
+
   const confidences = Object.values(fields).map(f => f.confidence);
-  const overallConfidence = confidences.length > 0 ? confidences.reduce((s, c) => s + c, 0) / confidences.length : 0;
+  const overallConfidence = confidences.length > 0
+    ? confidences.reduce((s, c) => s + c, 0) / confidences.length
+    : 0;
 
   return {
     fields,
