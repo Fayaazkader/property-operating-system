@@ -48,6 +48,9 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
   const [invoiceDescription, setInvoiceDescription] = useState('');
   const [poReference, setPoReference] = useState('');
   const [paymentTerms, setPaymentTerms] = useState(30);
+  const [supplierAccountId, setSupplierAccountId] = useState('');
+const [accountNumber, setAccountNumber] = useState('');
+const [accountPropertyId, setAccountPropertyId] = useState('');
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   
   // Validation
@@ -64,7 +67,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
   // Auto-validate on line item change
   useEffect(() => {
     const checks = [];
-    checks.push({ label: 'Supplier verified', passed: !!supplierMatch });
+    checks.push({ label: 'Supplier verified', passed: !!selectedSupplierId });
     checks.push({ label: 'Invoice number present', passed: !!invoiceNumber });
     checks.push({ label: 'At least one line item', passed: lineItems.length > 0 });
     
@@ -72,9 +75,17 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       const allAllocated = lineItems.every(item => item.property_id && item.gl_code);
       checks.push({ label: 'All lines allocated', passed: allAllocated });
       
-      const hasVat = lineItems.every(item => item.vat_amount >= 0);
-      checks.push({ label: 'VAT calculation verified', passed: hasVat });
+      const vatValid = lineItems.every(item => {
+  const expectedVat = Math.round((item.amount_excl * item.vat_rate / 100) * 100) / 100;
+  return Math.abs(expectedVat - item.vat_amount) <= 0.01;
+});
+checks.push({ label: 'VAT calculation verified', passed: vatValid });
     }
+    if (lineItems.length > 0 && result?.extractedFields?.invoice_amount) {
+  const ocrTotal = parseFloat(result.extractedFields.invoice_amount);
+  const diff = Math.abs(totalIncl - ocrTotal);
+  checks.push({ label: 'Invoice total reconciles', passed: diff <= 1 });
+}
     
     setValidationChecks(checks);
   }, [supplierMatch, invoiceNumber, lineItems]);
@@ -160,6 +171,19 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
           setSelectedSupplierId(match.supplier_id);
           setSupplierMatch(match);
           setState('capture_invoice');
+          const ocrFields = fields;
+setLineItems([{
+  id: crypto.randomUUID(),
+  property_id: '',
+  gl_code: '',
+  description: ocrFields.description || 'Invoice total',
+  amount_excl: parseFloat(ocrFields.subtotal) || 0,
+  vat_rate: 15,
+  vat_amount: parseFloat(ocrFields.vat_amount) || 0,
+  amount_incl: parseFloat(ocrFields.invoice_amount) || 0,
+  cost_centre: '',
+  tax_code: 'VAT 15%',
+}]);
         } else {
           setNewSupplier({ name: ocrSupplierName, vat_number: fields.supplier_vat || '', registration_number: fields.registration_number || '' });
           setState('create_supplier');
