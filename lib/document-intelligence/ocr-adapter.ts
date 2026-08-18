@@ -38,7 +38,7 @@ async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
             }
             fullText += '\n';
           }
-          resolve(fullText.trim());
+          resolve(fullText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim());
         } catch {
           resolve('');
         }
