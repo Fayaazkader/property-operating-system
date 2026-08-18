@@ -56,6 +56,8 @@ export async function processDocument(
     const ocrResult = await extractTextFromBuffer(fileBuffer, mimeType);
 
     console.log("OCR TEXT:", ocrResult.text.slice(0, 800));
+        console.log("RAW TEXT has newlines:", ocrResult.rawText.includes('\n'));
+    console.log("RAW TEXT length:", ocrResult.rawText.length);
     const ocrText = ocrResult.text;
   // Classify
   const documentType = classifyDocument(fileName, mimeType, ocrText);
