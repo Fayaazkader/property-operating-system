@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CheckCircle, Search } from 'lucide-react';
 
@@ -36,16 +36,16 @@ export default function CreateSupplierForm({ entityId, initialData, onCreated, o
     payment_terms_days: 30,
     service_types: [] as string[],
     linked_property_ids: [] as string[],
-  });
+  }, [entityId]);
   const [properties, setProperties] = useState<any[]>([]);
   const [propertySearch, setPropertySearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [created, setCreated] = useState(false);
 
-  useState(() => {
+  useEffect(() => {
     supabase.from('properties').select('id, property_name').eq('entity_id', entityId).then(({ data }) => setProperties(data || []));
-  });
+  }, [entityId]);
 
   const handleSubmit = async () => {
     setSaving(true);
@@ -63,7 +63,7 @@ export default function CreateSupplierForm({ entityId, initialData, onCreated, o
           categories: form.service_types,
           address: form.legal_address,
         }),
-      });
+      }, [entityId]);
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
