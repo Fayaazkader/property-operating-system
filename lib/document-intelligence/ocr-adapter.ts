@@ -1,5 +1,5 @@
 // lib/document-intelligence/ocr-adapter.ts
-// OCR Adapter — PDF text extraction via pdfjs-dist legacy (no worker, no canvas needed)
+// OCR Adapter — PDF text extraction via pdf2json (pure JS, no canvas, no workers)
 
 import { createWorker } from 'tesseract.js';
 
@@ -12,34 +12,46 @@ export interface OCRResult {
   processedAt: string;
 }
 
-async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
+function safeDecode(str: string): string {
   try {
-    const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.js');
-    
-    const loadingTask = pdfjs.getDocument({
-      data: new Uint8Array(buffer),
-      useWorker: false,
-      isEvalSupported: false,
-    });
-    
-    const pdf = await loadingTask.promise;
-    let fullText = '';
-    
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: any) => item.str || '')
-        .join(' ');
-      fullText += pageText + '\n';
-    }
-    
-    await pdf.destroy();
-    return fullText.trim();
-  } catch (err) {
-    console.error('pdfjs text extraction failed:', err);
-    return '';
+    return decodeURIComponent(str);
+  } catch {
+    return str;
   }
+}
+
+async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
+  return new Promise((resolve) => {
+    try {
+      const PDFParser = require('pdf2json');
+      const parser = new PDFParser();
+      
+      parser.on('pdfParser_dataReady', (pdfData: any) => {
+        try {
+          let fullText = '';
+          const pages = pdfData.Pages || [];
+          for (const page of pages) {
+            const texts = page.Texts || [];
+            for (const text of texts) {
+              const decoded = (text.R || []).map((r: any) => safeDecode(r.T || '')).join(' ');
+              fullText += decoded + ' ';
+            }
+            fullText += '\n';
+          }
+          resolve(fullText.trim());
+        } catch {
+          resolve('');
+        }
+      });
+      
+      parser.on('pdfParser_dataError', () => resolve(''));
+      
+      parser.parseBuffer(Buffer.from(buffer));
+    } catch (err) {
+      console.error('pdf2json failed:', err);
+      resolve('');
+    }
+  });
 }
 
 export async function extractTextFromBuffer(
@@ -53,7 +65,7 @@ export async function extractTextFromBuffer(
       return {
         text: nativeText,
         confidence: 95,
-        provider: 'pdfjs-dist',
+        provider: 'pdf2json',
         method: 'native_text',
         processedAt: new Date().toISOString(),
       };
