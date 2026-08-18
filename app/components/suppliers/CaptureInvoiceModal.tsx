@@ -157,7 +157,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
           setSupplierMatch(match);
           setState('capture_invoice');
         } else {
-          setNewSupplier(prev => ({ ...prev, name: ocrSupplierName, vat_number: fields.supplier_vat || '', registration_number: fields.registration_number || '' }));
+         setNewSupplier(prev => ({ ...prev, name: ocrSupplierName.replace(/BILL\s+(FROM|TO)\s+/gi, '').trim(), vat_number: fields.supplier_vat || '', registration_number: fields.registration_number || '' }));
           setState('create_supplier');
         }
       } else {
