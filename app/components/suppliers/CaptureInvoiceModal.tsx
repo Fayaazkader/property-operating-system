@@ -106,14 +106,24 @@ checks.push({ label: 'VAT calculation verified', passed: vatValid });
     }]);
   };
 
-  const updateLineItem = (id: string, field: keyof LineItem, value: any) => {
+    const updateLineItem = (id: string, field: keyof LineItem, value: any) => {
     setLineItems(prev => prev.map(item => {
       if (item.id !== id) return item;
       const updated = { ...item, [field]: value };
-      if (field === 'amount_excl' || field === 'vat_rate') {
+      
+      if (field === 'amount_excl') {
+        // Recalc VAT from ex VAT
         updated.vat_amount = Math.round((updated.amount_excl * updated.vat_rate / 100) * 100) / 100;
         updated.amount_incl = Math.round((updated.amount_excl + updated.vat_amount) * 100) / 100;
+      } else if (field === 'vat_amount') {
+        // Recalc inc VAT from ex + vat
+        updated.amount_incl = Math.round((updated.amount_excl + updated.vat_amount) * 100) / 100;
+      } else if (field === 'amount_incl') {
+        // Recalc ex and vat from inc
+        updated.amount_excl = Math.round((updated.amount_incl / (1 + updated.vat_rate / 100)) * 100) / 100;
+        updated.vat_amount = Math.round((updated.amount_incl - updated.amount_excl) * 100) / 100;
       }
+      
       return updated;
     }));
   };
@@ -171,19 +181,34 @@ checks.push({ label: 'VAT calculation verified', passed: vatValid });
           setSelectedSupplierId(match.supplier_id);
           setSupplierMatch(match);
           setState('capture_invoice');
-          const ocrFields = fields;
-setLineItems([{
-  id: crypto.randomUUID(),
-  property_id: '',
-  gl_code: '',
-  description: ocrFields.description || 'Invoice total',
-  amount_excl: parseFloat(ocrFields.subtotal) || 0,
-  vat_rate: 15,
-  vat_amount: parseFloat(ocrFields.vat_amount) || 0,
-  amount_incl: parseFloat(ocrFields.invoice_amount) || 0,
-  cost_centre: '',
-  tax_code: 'VAT 15%',
-}]);
+                    const ocrLineItems = (fields.line_items?.value as Array<any>) || [];
+          if (ocrLineItems.length > 0) {
+            setLineItems(ocrLineItems.map((li: any) => ({
+              id: crypto.randomUUID(),
+              property_id: '',
+              gl_code: '',
+              description: li.description || '',
+              amount_excl: li.amount || 0,
+              vat_rate: 15,
+              vat_amount: Math.round((li.amount * 15 / 100) * 100) / 100 || 0,
+              amount_incl: (li.amount || 0) + Math.round((li.amount * 15 / 100) * 100) / 100,
+              cost_centre: '',
+              tax_code: 'VAT 15%',
+            })));
+          } else {
+            setLineItems([{
+              id: crypto.randomUUID(),
+              property_id: '',
+              gl_code: '',
+              description: '',
+              amount_excl: parseFloat(fields.subtotal) || 0,
+              vat_rate: 15,
+              vat_amount: parseFloat(fields.vat_amount) || 0,
+              amount_incl: parseFloat(fields.invoice_amount) || 0,
+              cost_centre: '',
+              tax_code: 'VAT 15%',
+            }]);
+          }
         } else {
           setNewSupplier({ name: ocrSupplierName, vat_number: fields.supplier_vat || '', registration_number: fields.registration_number || '' });
           setState('create_supplier');
@@ -419,11 +444,11 @@ setLineItems([{
                             <input type="number" value={item.vat_amount || ''} onChange={(e) => updateLineItem(item.id, 'vat_amount', parseFloat(e.target.value) || 0)}
                               className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-2 py-1.5 text-xs text-white outline-none" />
                           </div>
-                          <div>
+                                                    <div>
                             <p className="text-[10px] text-zinc-600 mb-1">Inc VAT</p>
-                            <span className="block w-full rounded-lg border border-white/[0.06] bg-zinc-900/50 px-2 py-1.5 text-xs text-white tabular-nums">
-                              R{(item.amount_excl + item.vat_amount).toFixed(2)}
-                            </span>
+                            <input type="number" value={item.amount_incl || ''} 
+                              onChange={(e) => updateLineItem(item.id, 'amount_incl', parseFloat(e.target.value) || 0)}
+                              className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-2 py-1.5 text-xs text-white outline-none" />
                           </div>
                         </div>
                         <div className="flex justify-end">
