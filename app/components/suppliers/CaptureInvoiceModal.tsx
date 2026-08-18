@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Upload, Loader2, X, FileText, Plus, AlertTriangle, CheckCircle, Link as LinkIcon } from 'lucide-react';
+import { Upload, Loader2, X, FileText, Plus, AlertTriangle, Link as LinkIcon, Trash2 } from 'lucide-react';
 import { findSupplierMatch } from '@/lib/suppliers/matching';
 
 interface Props {
@@ -11,57 +11,108 @@ interface Props {
   onCaptured: () => void;
 }
 
-type ProcessingState = 'idle' | 'uploading' | 'ocr' | 'review' | 'saving';
+type ProcessingState = 'idle' | 'uploading' | 'ocr' | 'create_supplier' | 'capture_invoice' | 'saving';
+type LineItem = {
+  id: string;
+  property_id: string;
+  gl_code: string;
+  description: string;
+  amount_excl: number;
+  vat_rate: number;
+  vat_amount: number;
+  amount_incl: number;
+  cost_centre: string;
+};
 
 export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: Props) {
   const [state, setState] = useState<ProcessingState>('idle');
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
-  const [supplierAccounts, setSupplierAccounts] = useState<any[]>([]);
+  const [glAccounts, setGlAccounts] = useState<any[]>([]);
   const [result, setResult] = useState<any>(null);
   const [documentId, setDocumentId] = useState('');
   const [error, setError] = useState('');
-  const [editedFields, setEditedFields] = useState<Record<string, any>>({});
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [supplierMatch, setSupplierMatch] = useState<any>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [showCreateSupplier, setShowCreateSupplier] = useState(false);
-  const [newSupplierName, setNewSupplierName] = useState('');
-  const [creatingSupplier, setCreatingSupplier] = useState(false);
-  const [activeWarning, setActiveWarning] = useState<'duplicate' | 'calculation' | null>(null);
-  const [warningMessage, setWarningMessage] = useState('');
-  const [overrideDuplicate, setOverrideDuplicate] = useState(false);
-  const [overrideCalculation, setOverrideCalculation] = useState(false);
   
-  // Account state
+  // Supplier creation
+  const [newSupplier, setNewSupplier] = useState({
+    name: '', vat_number: '', registration_number: '', email: '', phone: '',
+  });
+  const [creatingSupplier, setCreatingSupplier] = useState(false);
+  
+  // Invoice fields
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceDate, setInvoiceDate] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [invoiceDescription, setInvoiceDescription] = useState('');
+  const [lineItems, setLineItems] = useState<LineItem[]>([]);
+  const [invoiceSubtotal, setInvoiceSubtotal] = useState(0);
+  const [invoiceVat, setInvoiceVat] = useState(0);
+  const [invoiceTotal, setInvoiceTotal] = useState(0);
+  
+  // Account
   const [selectedAccountId, setSelectedAccountId] = useState('');
-  const [showCreateAccount, setShowCreateAccount] = useState(false);
-  const [newAccountNumber, setNewAccountNumber] = useState('');
-  const [newAccountPropertyId, setNewAccountPropertyId] = useState('');
-  const [creatingAccount, setCreatingAccount] = useState(false);
-  const [accountMatch, setAccountMatch] = useState<any>(null);
+  const [accountNumber, setAccountNumber] = useState('');
+  const [accountPropertyId, setAccountPropertyId] = useState('');
+  const [showAccountLink, setShowAccountLink] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    supabase.from('suppliers').select('id, supplier_name').eq('entity_id', entityId).then(({ data }) => {
-      setSuppliers(data || []);
-    });
-    supabase.from('properties').select('id, property_name').eq('entity_id', entityId).then(({ data }) => {
-      setProperties(data || []);
-    });
+    supabase.from('suppliers').select('id, supplier_name').eq('entity_id', entityId).then(({ data }) => setSuppliers(data || []));
+    supabase.from('properties').select('id, property_name').eq('entity_id', entityId).then(({ data }) => setProperties(data || []));
+    supabase.from('chart_of_accounts').select('id, gl_code, account_name').eq('entity_id', entityId).eq('account_type', 'expense').eq('is_active', true).then(({ data }) => setGlAccounts(data || []));
   }, [entityId]);
+
+  const addLineItem = () => {
+    setLineItems(prev => [...prev, {
+      id: crypto.randomUUID(),
+      property_id: '',
+      gl_code: '',
+      description: '',
+      amount_excl: 0,
+      vat_rate: 15,
+      vat_amount: 0,
+      amount_incl: 0,
+      cost_centre: '',
+    }]);
+  };
+
+  const updateLineItem = (id: string, field: keyof LineItem, value: any) => {
+    setLineItems(prev => prev.map(item => {
+      if (item.id !== id) return item;
+      const updated = { ...item, [field]: value };
+      // Recalculate VAT and total
+      if (field === 'amount_excl' || field === 'vat_rate') {
+        updated.vat_amount = Math.round((updated.amount_excl * updated.vat_rate / 100) * 100) / 100;
+        updated.amount_incl = Math.round((updated.amount_excl + updated.vat_amount) * 100) / 100;
+      }
+      return updated;
+    }));
+  };
+
+  const removeLineItem = (id: string) => {
+    setLineItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  const recalculateTotals = () => {
+    const subtotal = lineItems.reduce((sum, item) => sum + item.amount_excl, 0);
+    const vat = lineItems.reduce((sum, item) => sum + item.vat_amount, 0);
+    setInvoiceSubtotal(subtotal);
+    setInvoiceVat(vat);
+    setInvoiceTotal(subtotal + vat);
+  };
+
+  useEffect(() => {
+    recalculateTotals();
+  }, [lineItems]);
 
   const handleFileSelect = async (file: File) => {
     setSelectedFile(file);
     setState('uploading');
     setError('');
-    setActiveWarning(null);
-    setOverrideDuplicate(false);
-    setOverrideCalculation(false);
-    setSelectedAccountId('');
-    setAccountMatch(null);
-    setShowCreateAccount(false);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -81,10 +132,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
         body: formData,
       });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Processing failed');
-      }
+      if (!response.ok) throw new Error('OCR failed');
 
       const data = await response.json();
       if (!data.success) throw new Error(data.error || 'OCR failed');
@@ -92,73 +140,28 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       setResult(data.result);
       setDocumentId(data.documentId);
 
+      // Pre-fill invoice fields from OCR
       const fields = data.result.extractedFields || {};
+      setInvoiceNumber(fields.invoice_number || '');
+      setInvoiceDate(fields.invoice_date || '');
+      setDueDate(fields.due_date || '');
+      setInvoiceDescription(fields.description || '');
 
-      // Duplicate pre-check
-      if (fields.invoice_number) {
-        const { data: existing } = await supabase
-          .from('supplier_invoices_new')
-          .select('id, invoice_number, total_amount')
-          .eq('entity_id', entityId)
-          .eq('invoice_number', fields.invoice_number)
-          .maybeSingle();
-        if (existing) {
-          setActiveWarning('duplicate');
-          setWarningMessage(`Invoice ${fields.invoice_number} already exists for R${existing.total_amount?.toLocaleString()}`);
-        }
-      }
-
-      // Calculation check
-      if (fields.subtotal && fields.vat_amount && fields.invoice_amount) {
-        const subtotal = parseFloat(fields.subtotal);
-        const vat = parseFloat(fields.vat_amount);
-        const total = parseFloat(fields.invoice_amount);
-        if (Math.abs((subtotal + vat) - total) > 1) {
-          setActiveWarning('calculation');
-          setWarningMessage(`Subtotal R${subtotal.toLocaleString()} + VAT R${vat.toLocaleString()} = R${(subtotal + vat).toLocaleString()}, but total is R${total.toLocaleString()}`);
-        }
-      }
-
-      // Supplier matching
+      // Check supplier
       const ocrSupplierName = fields.supplier_name;
       if (ocrSupplierName) {
         const match = await findSupplierMatch(entityId, ocrSupplierName, supabase);
         if (match) {
           setSelectedSupplierId(match.supplier_id);
           setSupplierMatch(match);
-
-          // Load supplier accounts
-          const { data: accounts } = await supabase
-            .from('supplier_accounts')
-            .select('id, account_number, property_id')
-            .eq('supplier_id', match.supplier_id)
-            .eq('is_active', true);
-          setSupplierAccounts(accounts || []);
-
-          // Check account number match
-          const ocrAccountNumber = fields.account_number;
-          if (ocrAccountNumber && accounts?.length) {
-            const matchedAccount = accounts.find(a => a.account_number === ocrAccountNumber);
-            if (matchedAccount) {
-              setSelectedAccountId(matchedAccount.id);
-              setAccountMatch(matchedAccount);
-            } else {
-              // Account number found but no match — prompt to create
-              setNewAccountNumber(ocrAccountNumber);
-              setShowCreateAccount(true);
-            }
-          } else if (ocrAccountNumber) {
-            // Supplier matched but no accounts exist
-            setNewAccountNumber(ocrAccountNumber);
-            setShowCreateAccount(true);
-          }
+          setState('capture_invoice');
         } else {
-          setNewSupplierName(ocrSupplierName);
-          setShowCreateSupplier(true);
+          setNewSupplier(prev => ({ ...prev, name: ocrSupplierName, vat_number: fields.supplier_vat || '', registration_number: fields.registration_number || '' }));
+          setState('create_supplier');
         }
+      } else {
+        setState('capture_invoice');
       }
-
-      setState('review');
     } catch (err: any) {
       setError(err.message);
       setState('idle');
@@ -174,7 +177,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       const response = await fetch('/api/property/suppliers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ name: newSupplierName }),
+        body: JSON.stringify(newSupplier),
       });
 
       if (!response.ok) throw new Error('Failed to create supplier');
@@ -184,14 +187,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
         setSuppliers(prev => [...prev, data.data]);
         setSelectedSupplierId(data.data.id);
         setSupplierMatch({ supplier_id: data.data.id, supplier_name: data.data.name, confidence: 100 });
-        setShowCreateSupplier(false);
-
-        // Check if account number needs creating too
-        const ocrAccountNumber = result?.extractedFields?.account_number;
-        if (ocrAccountNumber) {
-          setNewAccountNumber(ocrAccountNumber);
-          setShowCreateAccount(true);
-        }
+        setState('capture_invoice');
       }
     } catch (err: any) {
       setError(err.message);
@@ -199,41 +195,9 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
     setCreatingSupplier(false);
   };
 
-  const handleCreateAccount = async () => {
-    setCreatingAccount(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('Session expired');
-
-      const { data } = await supabase
-        .from('supplier_accounts')
-        .insert({
-          supplier_id: selectedSupplierId,
-          entity_id: entityId,
-          property_id: newAccountPropertyId || null,
-          account_number: newAccountNumber,
-          account_type: 'general',
-        })
-        .select('*')
-        .single();
-
-      if (data) {
-        setSupplierAccounts(prev => [...prev, data]);
-        setSelectedAccountId(data.id);
-        setAccountMatch(data);
-        setShowCreateAccount(false);
-      }
-    } catch (err: any) {
-      setError(err.message);
-    }
-    setCreatingAccount(false);
-  };
-
   const handleSave = async () => {
     setState('saving');
     setError('');
-
-    const fields = { ...(result?.extractedFields || {}), ...editedFields };
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -246,34 +210,18 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
           entityId,
           supplierId: selectedSupplierId,
           supplierAccountId: selectedAccountId || null,
-          invoiceNumber: fields.invoice_number,
-          invoiceDate: fields.invoice_date || null,
-          dueDate: fields.due_date || null,
-          totalAmount: parseFloat(fields.invoice_amount) || 0,
-          vatAmount: parseFloat(fields.vat_amount) || 0,
-          subtotal: parseFloat(fields.subtotal) || 0,
+          invoiceNumber,
+          invoiceDate: invoiceDate || null,
+          dueDate: dueDate || null,
+          description: invoiceDescription,
+          totalAmount: invoiceTotal,
+          vatAmount: invoiceVat,
+          subtotal: invoiceSubtotal,
           documentId,
-          extractedFields: fields,
-          overrideDuplicate,
-          overrideCalculation,
+          lineItems,
+          extractedFields: result?.extractedFields || {},
         }),
       });
-
-      if (response.status === 409) {
-        const errData = await response.json();
-        setActiveWarning('duplicate');
-        setWarningMessage(errData.message || 'Duplicate invoice detected');
-        setState('review');
-        return;
-      }
-
-      if (response.status === 422) {
-        const errData = await response.json();
-        setActiveWarning('calculation');
-        setWarningMessage(errData.message || 'Calculation mismatch');
-        setState('review');
-        return;
-      }
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -287,17 +235,14 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       onClose();
     } catch (err: any) {
       setError(err.message);
-      setState('review');
+      setState('capture_invoice');
     }
   };
-
-  const displayFields = result ? { ...result.extractedFields, ...editedFields } : null;
-  const canSave = selectedSupplierId && displayFields?.invoice_number && displayFields?.invoice_amount;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+      <div className="relative bg-zinc-950 border border-white/[0.08] rounded-2xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <div>
             <p className="text-sm font-medium text-white">Capture Invoice</p>
@@ -305,8 +250,9 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
               {state === 'idle' && 'Upload invoice — OCR extracts fields'}
               {state === 'uploading' && 'Uploading document...'}
               {state === 'ocr' && 'Reading document...'}
-              {state === 'review' && 'Review extracted fields'}
-              {state === 'saving' && 'Saving invoice...'}
+              {state === 'create_supplier' && 'Create supplier'}
+              {state === 'capture_invoice' && 'Capture invoice details'}
+              {state === 'saving' && 'Saving...'}
             </p>
           </div>
           <button onClick={onClose} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
@@ -330,128 +276,142 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
             <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
             <div>
               <p className="text-sm text-zinc-300">{state === 'uploading' ? 'Uploading...' : 'Running OCR...'}</p>
-              {selectedFile && <p className="text-xs text-zinc-500 mt-0.5 flex items-center gap-1"><FileText className="w-3 h-3" /> {selectedFile.name}</p>}
+              {selectedFile && <p className="text-xs text-zinc-500 mt-0.5">{selectedFile.name}</p>}
             </div>
           </div>
         )}
 
         {error && <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 mt-3"><p className="text-sm text-red-400">{error}</p></div>}
 
-        {activeWarning === 'duplicate' && (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 mt-3">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400" />
-              <p className="text-sm font-medium text-amber-400">Duplicate Invoice Detected</p>
+        {/* CREATE SUPPLIER */}
+        {state === 'create_supplier' && (
+          <div className="space-y-4">
+            <p className="text-xs text-amber-400">Supplier not found — create new supplier</p>
+            <div className="space-y-2">
+              <input type="text" value={newSupplier.name} onChange={(e) => setNewSupplier(prev => ({ ...prev, name: e.target.value }))}
+                className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="Supplier name *" />
+              <input type="text" value={newSupplier.vat_number} onChange={(e) => setNewSupplier(prev => ({ ...prev, vat_number: e.target.value }))}
+                className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="VAT number" />
+              <input type="text" value={newSupplier.registration_number} onChange={(e) => setNewSupplier(prev => ({ ...prev, registration_number: e.target.value }))}
+                className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="Registration number" />
+              <input type="email" value={newSupplier.email} onChange={(e) => setNewSupplier(prev => ({ ...prev, email: e.target.value }))}
+                className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="Email" />
+              <input type="text" value={newSupplier.phone} onChange={(e) => setNewSupplier(prev => ({ ...prev, phone: e.target.value }))}
+                className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="Phone" />
             </div>
-            <p className="text-sm text-amber-300">{warningMessage}</p>
-            <div className="mt-3 space-y-2">
-              <button onClick={() => { setOverrideDuplicate(true); setActiveWarning(null); }}
-                className="w-full rounded-lg bg-amber-500/20 border border-amber-500/30 py-2 text-xs text-amber-400 hover:bg-amber-500/30">
-                Continue Anyway — This is a different invoice
-              </button>
-              <button onClick={onClose} className="w-full rounded-lg border border-white/[0.08] py-2 text-xs text-white hover:border-white/20">Cancel</button>
-            </div>
+            <button onClick={handleCreateSupplier} disabled={creatingSupplier || !newSupplier.name}
+              className="w-full rounded-full bg-white py-2.5 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40">
+              {creatingSupplier ? 'Creating...' : 'Create Supplier & Continue'}
+            </button>
           </div>
         )}
 
-        {activeWarning === 'calculation' && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 mt-3">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="w-4 h-4 text-red-400" />
-              <p className="text-sm font-medium text-red-400">Calculation Mismatch</p>
+        {/* CAPTURE INVOICE */}
+        {state === 'capture_invoice' && (
+          <div className="space-y-6">
+            {/* Supplier */}
+            <div>
+              <p className="text-[10px] text-zinc-600 mb-1">Supplier</p>
+              {supplierMatch ? (
+                <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/10 px-3 py-2">
+                  <p className="text-sm text-white">{supplierMatch.supplier_name}</p>
+                </div>
+              ) : (
+                <select value={selectedSupplierId} onChange={(e) => setSelectedSupplierId(e.target.value)}
+                  className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none">
+                  <option value="">Select supplier</option>
+                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.supplier_name}</option>)}
+                </select>
+              )}
             </div>
-            <p className="text-sm text-red-300">{warningMessage}</p>
-            <div className="mt-3">
-              <button onClick={() => { setOverrideCalculation(true); setActiveWarning(null); }}
-                className="w-full rounded-lg bg-red-500/20 border border-red-500/30 py-2 text-xs text-red-400 hover:bg-red-500/30">
-                I&apos;ve Verified — Continue Anyway
-              </button>
+
+            {/* Account link */}
+            <div className="flex items-center gap-3">
+              <input type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)}
+                className="flex-1 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="Account number (optional)" />
+              <select value={accountPropertyId} onChange={(e) => setAccountPropertyId(e.target.value)}
+                className="flex-1 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none">
+                <option value="">Link to property</option>
+                {properties.map(p => <option key={p.id} value={p.id}>{p.property_name}</option>)}
+              </select>
             </div>
-          </div>
-        )}
 
-        {state === 'review' && displayFields && (
-          <div className="mt-4 space-y-4">
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4">
-              <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-600 mb-3">
-                {result.documentType.replace(/_/g, ' ')} · Confidence {displayFields.confidence || 0}%
-              </p>
+            {/* Invoice fields */}
+            <div className="grid grid-cols-3 gap-3">
+              <input type="text" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)}
+                className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="Invoice number *" />
+              <input type="text" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)}
+                className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="Invoice date" />
+              <input type="text" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+                className="rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="Due date" />
+            </div>
+            <input type="text" value={invoiceDescription} onChange={(e) => setInvoiceDescription(e.target.value)}
+              className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="Description" />
 
-              {/* Supplier */}
-              <div className="mb-3">
-                <p className="text-[10px] text-zinc-600 mb-1">Supplier</p>
-                {supplierMatch ? (
-                  <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/10 px-3 py-2">
-                    <p className="text-sm text-white">{supplierMatch.supplier_name}</p>
-                    <p className="text-[10px] text-emerald-400">{supplierMatch.confidence}% match</p>
-                  </div>
-                ) : showCreateSupplier ? (
-                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-                    <p className="text-xs text-amber-400 mb-2">Supplier not found — create new supplier</p>
-                    <input type="text" value={newSupplierName} onChange={(e) => setNewSupplierName(e.target.value)}
-                      className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none mb-2" placeholder="Supplier name" />
-                    <button onClick={handleCreateSupplier} disabled={creatingSupplier || !newSupplierName}
-                      className="w-full rounded-lg bg-amber-500/20 border border-amber-500/20 py-2 text-xs text-amber-400 hover:bg-amber-500/30 disabled:opacity-40 flex items-center justify-center gap-1">
-                      <Plus className="w-3 h-3" /> {creatingSupplier ? 'Creating...' : 'Create Supplier'}
-                    </button>
-                  </div>
-                ) : (
-                  <select value={selectedSupplierId} onChange={(e) => setSelectedSupplierId(e.target.value)}
-                    className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none">
-                    <option value="">Select supplier</option>
-                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.supplier_name}</option>)}
-                  </select>
-                )}
+            {/* Line items */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600">Line Items</p>
+                <button onClick={addLineItem} className="flex items-center gap-1 text-xs text-white hover:text-zinc-300">
+                  <Plus className="w-3 h-3" /> Add Line
+                </button>
               </div>
-
-              {/* Account */}
-              {supplierMatch && (displayFields.account_number || supplierAccounts.length > 0) && (
-                <div className="mb-3">
-                  <p className="text-[10px] text-zinc-600 mb-1">Account</p>
-                  {accountMatch ? (
-                    <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/10 px-3 py-2">
-                      <p className="text-sm text-white">{accountMatch.account_number}</p>
-                      <p className="text-[10px] text-emerald-400">Account matched</p>
+              
+              {lineItems.length === 0 ? (
+                <p className="text-xs text-zinc-500 py-4 text-center">No line items — add line items or save with total only</p>
+              ) : (
+                <div className="space-y-3">
+                  {lineItems.map(item => (
+                    <div key={item.id} className="rounded-lg border border-white/[0.06] bg-white/[0.01] p-3">
+                      <div className="grid grid-cols-4 gap-2 mb-2">
+                        <select value={item.gl_code} onChange={(e) => updateLineItem(item.id, 'gl_code', e.target.value)}
+                          className="rounded-lg border border-white/[0.08] bg-zinc-900 px-2 py-1.5 text-xs text-white outline-none">
+                          <option value="">GL Code</option>
+                          {glAccounts.map(acc => <option key={acc.id} value={acc.gl_code}>{acc.gl_code} — {acc.account_name}</option>)}
+                        </select>
+                        <select value={item.property_id} onChange={(e) => updateLineItem(item.id, 'property_id', e.target.value)}
+                          className="rounded-lg border border-white/[0.08] bg-zinc-900 px-2 py-1.5 text-xs text-white outline-none">
+                          <option value="">Property</option>
+                          {properties.map(p => <option key={p.id} value={p.id}>{p.property_name}</option>)}
+                        </select>
+                        <input type="number" value={item.amount_excl || ''} onChange={(e) => updateLineItem(item.id, 'amount_excl', parseFloat(e.target.value) || 0)}
+                          className="rounded-lg border border-white/[0.08] bg-zinc-900 px-2 py-1.5 text-xs text-white outline-none" placeholder="Ex VAT" />
+                        <input type="number" value={item.vat_rate || 15} onChange={(e) => updateLineItem(item.id, 'vat_rate', parseFloat(e.target.value) || 0)}
+                          className="rounded-lg border border-white/[0.08] bg-zinc-900 px-2 py-1.5 text-xs text-white outline-none" placeholder="VAT %" />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <input type="text" value={item.description} onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
+                          className="col-span-2 rounded-lg border border-white/[0.08] bg-zinc-900 px-2 py-1.5 text-xs text-white outline-none" placeholder="Description" />
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-zinc-500">Incl: R{item.amount_incl.toFixed(2)}</span>
+                          <button onClick={() => removeLineItem(item.id)} className="text-red-400 hover:text-red-300">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  ) : showCreateAccount ? (
-                    <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-                      <p className="text-xs text-amber-400 mb-2">Account not found — link to property</p>
-                      <input type="text" value={newAccountNumber} onChange={(e) => setNewAccountNumber(e.target.value)}
-                        className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none mb-2" placeholder="Account number" />
-                      <select value={newAccountPropertyId} onChange={(e) => setNewAccountPropertyId(e.target.value)}
-                        className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none mb-2">
-                        <option value="">Link to property (optional)</option>
-                        {properties.map(p => <option key={p.id} value={p.id}>{p.property_name}</option>)}
-                      </select>
-                      <button onClick={handleCreateAccount} disabled={creatingAccount || !newAccountNumber}
-                        className="w-full rounded-lg bg-amber-500/20 border border-amber-500/20 py-2 text-xs text-amber-400 hover:bg-amber-500/30 disabled:opacity-40 flex items-center justify-center gap-1">
-                        <LinkIcon className="w-3 h-3" /> {creatingAccount ? 'Linking...' : 'Link Account'}
-                      </button>
-                    </div>
-                  ) : (
-                    <select value={selectedAccountId} onChange={(e) => setSelectedAccountId(e.target.value)}
-                      className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none">
-                      <option value="">Select account</option>
-                      {supplierAccounts.map(a => <option key={a.id} value={a.id}>{a.account_number}</option>)}
-                    </select>
-                  )}
+                  ))}
                 </div>
               )}
-
-              {/* Editable fields */}
-              {Object.entries(displayFields)
-                .filter(([key]) => !['confidence', 'requiresHumanReview', 'missingFields', 'supplier_name', 'account_number'].includes(key))
-                .map(([key, value]) => (
-                  <div key={key} className="mb-2">
-                    <p className="text-[10px] text-zinc-600 mb-1">{key.replace(/_/g, ' ')}</p>
-                    <input type="text" value={String(value || '')}
-                      onChange={(e) => setEditedFields(prev => ({ ...prev, [key]: e.target.value }))}
-                      className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" />
-                  </div>
-                ))}
             </div>
 
-            <button onClick={handleSave} disabled={!canSave || (activeWarning !== null && !overrideDuplicate && !overrideCalculation)}
+            {/* Totals */}
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.01] p-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">Subtotal</span>
+                <span className="text-white">R{invoiceSubtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">VAT</span>
+                <span className="text-white">R{invoiceVat.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm font-medium border-t border-white/[0.06] pt-2">
+                <span className="text-white">Total</span>
+                <span className="text-white">R{invoiceTotal.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <button onClick={handleSave} disabled={!selectedSupplierId || !invoiceNumber || invoiceTotal <= 0}
               className="w-full rounded-full bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
               Save Invoice
             </button>

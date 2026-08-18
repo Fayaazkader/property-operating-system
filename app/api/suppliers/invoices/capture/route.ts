@@ -24,9 +24,10 @@ export async function POST(request: NextRequest) {
   );
 
   const {
-    entityId, supplierId, invoiceNumber, invoiceDate, dueDate,
+    entityId, supplierId, supplierAccountId, accountNumber, accountPropertyId,
+    invoiceNumber, invoiceDate, dueDate, description,
     totalAmount, vatAmount, subtotal, documentId, extractedFields,
-    overrideDuplicate = false, overrideCalculation = false,
+    lineItems = [], overrideDuplicate = false, overrideCalculation = false,
   } = await request.json();
 
   if (!entityId || !supplierId || !invoiceNumber || !totalAmount) {
@@ -44,10 +45,10 @@ export async function POST(request: NextRequest) {
   if (!access) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
   try {
-    // SERVER-SIDE DUPLICATE CHECK
+    // DUPLICATE CHECK
     const { data: existing } = await serviceClient
       .from('supplier_invoices_new')
-      .select('id, invoice_number, total_amount, invoice_date')
+      .select('id, invoice_number, total_amount')
       .eq('entity_id', entityId)
       .eq('invoice_number', invoiceNumber)
       .maybeSingle();
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
       }, { status: 409 });
     }
 
-    // SERVER-SIDE CALCULATION VALIDATION
+    // CALCULATION VALIDATION
     const numSubtotal = parseFloat(subtotal) || 0;
     const numVat = parseFloat(vatAmount) || 0;
     const numTotal = parseFloat(totalAmount) || 0;
@@ -74,18 +75,50 @@ export async function POST(request: NextRequest) {
       }, { status: 422 });
     }
 
-    const { data, error } = await serviceClient
+    // CREATE OR RESOLVE SUPPLIER ACCOUNT
+    let resolvedAccountId = supplierAccountId || null;
+    if (!resolvedAccountId && accountNumber) {
+      // Check if account exists
+      const { data: existingAccount } = await serviceClient
+        .from('supplier_accounts')
+        .select('id')
+        .eq('supplier_id', supplierId)
+        .eq('account_number', accountNumber)
+        .maybeSingle();
+
+      if (existingAccount) {
+        resolvedAccountId = existingAccount.id;
+      } else {
+        // Create account
+        const { data: newAccount } = await serviceClient
+          .from('supplier_accounts')
+          .insert({
+            supplier_id: supplierId,
+            entity_id: entityId,
+            property_id: accountPropertyId || null,
+            account_number: accountNumber,
+            account_type: 'general',
+          })
+          .select('id')
+          .single();
+        if (newAccount) resolvedAccountId = newAccount.id;
+      }
+    }
+
+    // INSERT INVOICE
+    const { data: invoice, error } = await serviceClient
       .from('supplier_invoices_new')
       .insert({
         entity_id: entityId,
         supplier_id: supplierId,
-        supplier_account_id: supplierAccountId || null,
+        supplier_account_id: resolvedAccountId,
         invoice_number: invoiceNumber,
         total_amount: numTotal,
         vat_amount: numVat,
         subtotal: numSubtotal,
         invoice_date: invoiceDate || null,
         due_date: dueDate || null,
+        description: description || null,
         lifecycle_status: 'pending',
         source: 'ocr',
         document_id: documentId || null,
@@ -98,7 +131,25 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    // Update document review to approved
+    // INSERT LINE ITEMS
+    if (lineItems.length > 0) {
+      const lineRows = lineItems.map((item: any) => ({
+        invoice_id: invoice.id,
+        property_id: item.property_id || null,
+        gl_code: item.gl_code || null,
+        description: item.description || '',
+        amount: item.amount_excl || 0,
+        vat_code: item.vat_rate ? `VAT${item.vat_rate}` : null,
+        vat_rate: item.vat_rate || 0,
+        vat_amount: item.vat_amount || 0,
+        total: item.amount_incl || 0,
+        cost_centre: item.cost_centre || null,
+      }));
+
+      await serviceClient.from('supplier_invoice_lines').insert(lineRows);
+    }
+
+    // UPDATE DOCUMENT REVIEW
     if (documentId) {
       await serviceClient
         .from('document_reviews')
@@ -106,7 +157,7 @@ export async function POST(request: NextRequest) {
         .eq('document_id', documentId);
     }
 
-    return NextResponse.json({ success: true, invoice: data });
+    return NextResponse.json({ success: true, invoice, lineItemCount: lineItems.length });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
