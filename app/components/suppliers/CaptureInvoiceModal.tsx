@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Upload, Loader2, X, FileText, Plus, AlertTriangle, Link as LinkIcon, Trash2 } from 'lucide-react';
+import CreateSupplierForm from './CreateSupplierForm';
 import { findSupplierMatch } from '@/lib/suppliers/matching';
 
 interface Props {

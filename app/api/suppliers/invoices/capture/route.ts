@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
             entity_id: entityId,
             property_id: accountPropertyId || null,
             account_number: accountNumber,
-            account_type: 'general',
+            account_name: accountNumber,
           })
           .select('id')
           .single();
