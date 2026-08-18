@@ -89,18 +89,18 @@ export function extractInvoiceFields(text: string): ExtractionResult {
   );
   fields.invoice_date = invoiceDate.value ? { value: invoiceDate.value, confidence: 85 } : { value: undefined, confidence: 0 };
 
-  // Supplier name — "BILL FROM Ubuntu Property Services (Pty) Ltd"
-  const supplier = extractWithConfidence(
-    text,
-        /BILL\s+FROM\s+([^\n]+?)(?=\s+\d+\s+[A-Za-z]+\s+Road|\s+VAT)/i,
-    'supplier_name'
-  );
-  if (!supplier.value) {
-    const fallback = extractWithConfidence(text, /FROM\s*([^\n]+?)(?=\s+VAT)/i, 'supplier_name');
-    fields.supplier_name = fallback;
-    if (!fallback.value) missing.push('supplier_name');
+    // Supplier name — extract company name ending in (Pty) Ltd
+  const supplierMatch = text.match(/([A-Z][A-Za-z\s]+\(Pty\)\s*Ltd)/);
+  if (supplierMatch) {
+    fields.supplier_name = { value: supplierMatch[1].trim(), confidence: 90 };
   } else {
+    const supplier = extractWithConfidence(
+      text,
+      /BILL\s+FROM\s+([^\n]+?)(?=\s+VAT|\s+BILL|\s+INVOICE|$)/i,
+      'supplier_name'
+    );
     fields.supplier_name = supplier;
+    if (!supplier.value) missing.push('supplier_name');
   }
 
   const confidences = Object.values(fields).map(f => f.confidence);
