@@ -35,10 +35,23 @@ export function extractInvoiceFields(text: string): ExtractionResult {
     /Invoice\s*(?:No|Number|#)?\.?\s*(INV-[A-Z0-9-]+)/i,
     'invoice_number'
   );
-  fields.invoice_number = invoiceNumber;
-  if (!invoiceNumber.value) missing.push('invoice_number');
+  if (!invoiceNumber.value) {
+    const fallback = extractWithConfidence(text, /(INV-[A-Z0-9-]+)/i, 'invoice_number');
+    fields.invoice_number = fallback;
+    if (!fallback.value) missing.push('invoice_number');
+  } else {
+    fields.invoice_number = invoiceNumber;
+  }
 
-  // Total amount — "TOTAL DUE R 30,705.00"
+  // Account number — "Account Number 62814590321" or "Acc No: 123456"
+const accountNumber = extractWithConfidence(
+  text,
+  /Account\s*(?:Number|No|#)?[:\s]*([A-Z0-9-]{6,20})/i,
+  'account_number'
+);
+fields.account_number = accountNumber;
+
+  // Total amount — "TOTAL DUE R 30,705.00" (after VAT line)
   const totalAmount = extractWithConfidence(
     text,
     /TOTAL\s*DUE\s*R?\s*([\d,\s]+\.\d{2})/i,
@@ -68,6 +81,14 @@ export function extractInvoiceFields(text: string): ExtractionResult {
   );
   fields.subtotal = subtotal.value ? { value: parseAmount(subtotal.value as string), confidence: 80 } : { value: undefined, confidence: 0 };
 
+  // Supplier VAT
+const supplierVat = extractWithConfidence(text, /Supplier\s*VAT\s*(\d+)/i, 'supplier_vat');
+fields.supplier_vat = supplierVat;
+
+// Registration number
+const regNumber = extractWithConfidence(text, /Registration\s*([\d/]+)/i, 'registration_number');
+fields.registration_number = regNumber;
+
   // Due date — "Due Date 14 September 2026"
   const dueDate = extractWithConfidence(
     text,
@@ -84,18 +105,42 @@ export function extractInvoiceFields(text: string): ExtractionResult {
   );
   fields.invoice_date = invoiceDate.value ? { value: invoiceDate.value, confidence: 85 } : { value: undefined, confidence: 0 };
 
-  // Supplier name — first company in document, typically at top
-  // Match patterns: "XYZ (Pty) Ltd", "XYZ CC", "XYZ Ltd", "XYZ (Pty) LTD"
-  const supplierMatch = text.match(
-    /([A-Z][A-Za-z\s]+(?:\s+\(Pty\)\s+Ltd|\s+CC|\s+Ltd|\s+\(Pty\)\s+LTD))/i
+      // Supplier name — after BILL FROM or FROM, until address or contact details
+  const supplier = extractWithConfidence(
+    text,
+    /(?:BILL\s+FROM|FROM)\s+(.+?)(?=\s+\d+\s+[A-Za-z]+(?:\s+(?:Road|Street|Ave|Avenue|Close|Drive|Lane|Crescent))|\s+VAT|\s+Reg\s|\s+accounts|\s+@|\s+PO\s|\s+BILL\s)/i,
+    'supplier_name'
   );
-  if (supplierMatch) {
-    fields.supplier_name = { value: supplierMatch[1].trim(), confidence: 90 };
+  if (!supplier.value) {
+    const fallback = extractWithConfidence(text, /FROM\s+(.+?)(?=\s+VAT|\s+BILL|\s+INVOICE)/i, 'supplier_name');
+    fields.supplier_name = fallback;
+    if (!fallback.value) missing.push('supplier_name');
   } else {
-    // Fallback: capture first line as supplier
-    const firstLine = extractWithConfidence(text, /^([^\n]+)/, 'supplier_name');
-    fields.supplier_name = firstLine;
-    if (!firstLine.value) missing.push('supplier_name');
+    fields.supplier_name = supplier;
+
+  // Account number — "Account Number 62814590321" or "Acc No: 123456"
+  const accountNumber = extractWithConfidence(
+    text,
+    /Account\s*(?:Number|No|#)?[:\s]*([A-Z0-9-]{6,20})/i,
+    'account_number'
+  );
+  fields.account_number = accountNumber;
+
+  // Supplier VAT — "Supplier VAT 4120345678"
+  const supplierVat = extractWithConfidence(
+    text,
+    /Supplier\s*VAT\s*([0-9]+)/i,
+    'supplier_vat'
+  );
+  fields.supplier_vat = supplierVat;
+
+  // Registration number — "Registration 2019/456789/07"
+  const regNumber = extractWithConfidence(
+    text,
+    /Registration\s*([0-9]{4}\/[0-9]{6}\/[0-9]{2})/i,
+    'registration_number'
+  );
+  fields.registration_number = regNumber;
   }
 
   const confidences = Object.values(fields).map(f => f.confidence);
