@@ -159,6 +159,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       if (!data.success) throw new Error(data.error || 'OCR failed');
 
       setResult(data.result);
+      console.log("EXTRACTED FIELDS:", JSON.stringify(data.result.extractedFields, null, 2));
       setDocumentId(data.documentId);
 
       const fields = data.result.extractedFields || {};
