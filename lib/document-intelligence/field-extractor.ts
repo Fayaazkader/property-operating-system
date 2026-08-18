@@ -35,15 +35,10 @@ export function extractInvoiceFields(text: string): ExtractionResult {
     /Invoice\s*(?:No|Number|#)?\.?\s*(INV-[A-Z0-9-]+)/i,
     'invoice_number'
   );
-  if (!invoiceNumber.value) {
-    const fallback = extractWithConfidence(text, /(INV-[A-Z0-9-]+)/i, 'invoice_number');
-    fields.invoice_number = fallback;
-    if (!fallback.value) missing.push('invoice_number');
-  } else {
-    fields.invoice_number = invoiceNumber;
-  }
+  fields.invoice_number = invoiceNumber;
+  if (!invoiceNumber.value) missing.push('invoice_number');
 
-  // Total amount — "TOTAL DUE R 30,705.00" (after VAT line)
+  // Total amount — "TOTAL DUE R 30,705.00"
   const totalAmount = extractWithConfidence(
     text,
     /TOTAL\s*DUE\s*R?\s*([\d,\s]+\.\d{2})/i,
@@ -89,18 +84,18 @@ export function extractInvoiceFields(text: string): ExtractionResult {
   );
   fields.invoice_date = invoiceDate.value ? { value: invoiceDate.value, confidence: 85 } : { value: undefined, confidence: 0 };
 
-    // Supplier name — after BILL FROM or FROM, until address or contact details
-  const supplier = extractWithConfidence(
-    text,
-    /(?:BILL\s+FROM|FROM)\s+(.+?)(?=\s+\d+\s+[A-Za-z]+(?:\s+(?:Road|Street|Ave|Avenue|Close|Drive|Lane|Crescent))|\s+VAT|\s+Reg\s|\s+accounts|\s+@|\s+PO\s|\s+BILL\s)/i,
-    'supplier_name'
+  // Supplier name — first company in document, typically at top
+  // Match patterns: "XYZ (Pty) Ltd", "XYZ CC", "XYZ Ltd", "XYZ (Pty) LTD"
+  const supplierMatch = text.match(
+    /([A-Z][A-Za-z\s]+(?:\s+\(Pty\)\s+Ltd|\s+CC|\s+Ltd|\s+\(Pty\)\s+LTD))/i
   );
-  if (!supplier.value) {
-    const fallback = extractWithConfidence(text, /FROM\s+(.+?)(?=\s+VAT|\s+BILL|\s+INVOICE)/i, 'supplier_name');
-    fields.supplier_name = fallback;
-    if (!fallback.value) missing.push('supplier_name');
+  if (supplierMatch) {
+    fields.supplier_name = { value: supplierMatch[1].trim(), confidence: 90 };
   } else {
-    fields.supplier_name = supplier;
+    // Fallback: capture first line as supplier
+    const firstLine = extractWithConfidence(text, /^([^\n]+)/, 'supplier_name');
+    fields.supplier_name = firstLine;
+    if (!firstLine.value) missing.push('supplier_name');
   }
 
   const confidences = Object.values(fields).map(f => f.confidence);
