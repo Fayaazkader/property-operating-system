@@ -35,7 +35,7 @@ const GL_KEYWORDS: Record<string, string> = {
   'refuse|waste|garbage': '5400',
   'security|guarding|alarm': '5400',
   'insurance': '5500',
-  'repair|maintenance|service|plumbing|electrical|hvac|lift|generator': '5000',
+  'repair|maintenance|service|plumbing|electrical|hvac|lift|generator|compliance|inspection|administrative|admin|reporting|management': '5000',
   'cleaning|hygiene': '5000',
   'legal|attorney': '5600',
   'commission|broker': '5600',
