@@ -92,7 +92,7 @@ export function extractInvoiceFields(text: string): ExtractionResult {
   // Supplier name — "BILL FROM Ubuntu Property Services (Pty) Ltd"
   const supplier = extractWithConfidence(
     text,
-    /BILL\s*FROM\s*([^\n]+?)(?=\s+(?:VAT|Reg|accounts|@|\+|PO|BILL|INVOICE|$))/i,
+        /BILL\s+FROM\s+([^\n]+?)(?=\s+\d+\s+[A-Za-z]+\s+Road|\s+VAT)/i,
     'supplier_name'
   );
   if (!supplier.value) {
