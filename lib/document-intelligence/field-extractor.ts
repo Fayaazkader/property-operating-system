@@ -43,14 +43,6 @@ export function extractInvoiceFields(text: string): ExtractionResult {
     fields.invoice_number = invoiceNumber;
   }
 
-  // Account number — "Account Number 62814590321" or "Acc No: 123456"
-const accountNumber = extractWithConfidence(
-  text,
-  /Account\s*(?:Number|No|#)?[:\s]*([A-Z0-9-]{6,20})/i,
-  'account_number'
-);
-fields.account_number = accountNumber;
-
   // Total amount — "TOTAL DUE R 30,705.00" (after VAT line)
   const totalAmount = extractWithConfidence(
     text,
@@ -80,14 +72,6 @@ fields.account_number = accountNumber;
     'subtotal'
   );
   fields.subtotal = subtotal.value ? { value: parseAmount(subtotal.value as string), confidence: 80 } : { value: undefined, confidence: 0 };
-
-  // Supplier VAT
-const supplierVat = extractWithConfidence(text, /Supplier\s*VAT\s*(\d+)/i, 'supplier_vat');
-fields.supplier_vat = supplierVat;
-
-// Registration number
-const regNumber = extractWithConfidence(text, /Registration\s*([\d/]+)/i, 'registration_number');
-fields.registration_number = regNumber;
 
   // Due date — "Due Date 14 September 2026"
   const dueDate = extractWithConfidence(
