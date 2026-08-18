@@ -22,36 +22,35 @@ function extractWithConfidence(text: string, pattern: RegExp, fieldName: string)
 }
 
 function parseAmount(val: string): string {
-  return val.replace(/[^\d,.]/g, '').replace(/,/g, '');
+  return val.replace(/[^\d.]/g, '');
 }
 
 export function extractInvoiceFields(text: string): ExtractionResult {
   const fields: Record<string, ExtractedField> = {};
   const missing: string[] = [];
 
-  // Invoice number — handle "Invoice No. INV-2026-00847"
+  // Invoice number — "Invoice No. INV-2026-00847"
   const invoiceNumber = extractWithConfidence(
     text,
-    /Invoice\s*(?:No|Number|#)?\.?\s*([A-Z]{2,5}-\d{4,8})/i,
+    /Invoice\s*(?:No|Number|#)?\.?\s*(INV-[A-Z0-9-]+)/i,
     'invoice_number'
   );
   if (!invoiceNumber.value) {
-    // Fallback: any INV- pattern
-    const fallback = extractWithConfidence(text, /(INV-\d{4,8})/i, 'invoice_number');
+    const fallback = extractWithConfidence(text, /(INV-[A-Z0-9-]+)/i, 'invoice_number');
     fields.invoice_number = fallback;
     if (!fallback.value) missing.push('invoice_number');
   } else {
     fields.invoice_number = invoiceNumber;
   }
 
-  // Total amount — "TOTAL DUE R 30,705.00"
+  // Total amount — "TOTAL DUE R 30,705.00" (after VAT line)
   const totalAmount = extractWithConfidence(
     text,
-    /TOTAL\s*(?:DUE|AMOUNT)?\s*R?\s*([\d,\s]+\.\d{2})/i,
+    /TOTAL\s*DUE\s*R?\s*([\d,\s]+\.\d{2})/i,
     'invoice_amount'
   );
   if (!totalAmount.value) {
-    const fallback = extractWithConfidence(text, /(?:Balance|Total|Amount\s*Due)\s*R?\s*([\d,\s]+\.\d{2})/i, 'invoice_amount');
+    const fallback = extractWithConfidence(text, /(?:Balance|Amount\s*Due|Total)\s*R?\s*([\d,\s]+\.\d{2})/i, 'invoice_amount');
     fields.invoice_amount = fallback.value ? { value: parseAmount(fallback.value as string), confidence: 70 } : { value: undefined, confidence: 0 };
     if (!fallback.value) missing.push('invoice_amount');
   } else {
@@ -118,7 +117,6 @@ export function extractInvoiceFields(text: string): ExtractionResult {
 }
 
 export function extractLeaseFields(text: string): ExtractionResult {
-  // Similar approach for leases — refined patterns
   const fields: Record<string, ExtractedField> = {};
   const missing: string[] = [];
 
