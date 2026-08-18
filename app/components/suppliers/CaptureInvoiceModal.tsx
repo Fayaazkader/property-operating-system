@@ -181,7 +181,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       }
 
       // AUTO-CREATE LINE ITEMS FROM OCR
-      const ocrLineItems = (fields.line_items?.value as Array<any>) || [];
+      const ocrLineItems = (fields.line_items as Array<any>) || [];
       if (ocrLineItems.length > 0) {
         setLineItems(ocrLineItems.map((li: any) => ({
           id: crypto.randomUUID(),
