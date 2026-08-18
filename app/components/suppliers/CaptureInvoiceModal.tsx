@@ -147,6 +147,9 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       setInvoiceDate(fields.invoice_date || '');
       setDueDate(fields.due_date || '');
       setInvoiceDescription(fields.description || '');
+            setInvoiceSubtotal(parseFloat(fields.subtotal) || 0);
+      setInvoiceVat(parseFloat(fields.vat_amount) || 0);
+      setInvoiceTotal(parseFloat(fields.invoice_amount) || 0);
 
       // Check supplier
       const ocrSupplierName = fields.supplier_name;
