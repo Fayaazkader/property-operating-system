@@ -26,6 +26,8 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState('');
   const [creatingSupplier, setCreatingSupplier] = useState(false);
+  const [validationWarning, setValidationWarning] = useState('');
+  const [duplicateWarning, setDuplicateWarning] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -38,6 +40,8 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
     setSelectedFile(file);
     setState('uploading');
     setError('');
+    setValidationWarning('');
+    setDuplicateWarning('');
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -68,14 +72,39 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       setResult(data.result);
       setDocumentId(data.documentId);
 
-      const ocrSupplierName = data.result.extractedFields?.supplier_name;
+      const fields = data.result.extractedFields || {};
+
+      // Calculation validation
+      if (fields.subtotal && fields.vat_amount && fields.invoice_amount) {
+        const subtotal = parseFloat(fields.subtotal);
+        const vat = parseFloat(fields.vat_amount);
+        const total = parseFloat(fields.invoice_amount);
+        const calculated = subtotal + vat;
+        if (Math.abs(calculated - total) > 1) {
+          setValidationWarning(`Calculation mismatch: Subtotal R${subtotal} + VAT R${vat} = R${calculated}, but invoice total is R${total}`);
+        }
+      }
+
+      // Duplicate check
+      if (fields.invoice_number) {
+        const { data: existing } = await supabase
+          .from('supplier_invoices_new')
+          .select('id, invoice_number, total_amount, created_at')
+          .eq('entity_id', entityId)
+          .eq('invoice_number', fields.invoice_number)
+          .maybeSingle();
+        if (existing) {
+          setDuplicateWarning(`Invoice ${fields.invoice_number} already exists for R${existing.total_amount?.toLocaleString()}. Review existing or continue anyway.`);
+        }
+      }
+
+      const ocrSupplierName = fields.supplier_name;
       if (ocrSupplierName) {
         const match = await findSupplierMatch(entityId, ocrSupplierName, supabase);
         if (match) {
           setSelectedSupplierId(match.supplier_id);
           setSupplierMatch(match);
         } else {
-          // Pre-fill new supplier form
           setNewSupplierName(ocrSupplierName);
           setShowCreateSupplier(true);
         }
@@ -91,23 +120,31 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
   const handleCreateSupplier = async () => {
     setCreatingSupplier(true);
     try {
-      const { data } = await supabase
-        .from('suppliers')
-        .insert({
-          entity_id: entityId,
-          supplier_name: newSupplierName,
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Session expired');
+
+      const response = await fetch('/api/property/suppliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          name: newSupplierName,
           vat_number: result?.extractedFields?.supplier_vat || null,
           registration_number: result?.extractedFields?.registration_number || null,
           email: result?.extractedFields?.supplier_email || null,
           phone: result?.extractedFields?.supplier_phone || null,
-        })
-        .select('*')
-        .single();
+        }),
+      });
 
-      if (data) {
-        setSuppliers(prev => [...prev, data]);
-        setSelectedSupplierId(data.id);
-        setSupplierMatch({ supplier_id: data.id, supplier_name: data.supplier_name, confidence: 100 });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to create supplier');
+      }
+
+      const data = await response.json();
+      if (data.data) {
+        setSuppliers(prev => [...prev, data.data]);
+        setSelectedSupplierId(data.data.id);
+        setSupplierMatch({ supplier_id: data.data.id, supplier_name: data.data.name, confidence: 100 });
         setShowCreateSupplier(false);
       }
     } catch (err: any) {
@@ -215,6 +252,18 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
         {error && (
           <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 mt-3">
             <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
+
+        {duplicateWarning && (
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 mt-3">
+            <p className="text-sm text-amber-400">⚠ {duplicateWarning}</p>
+          </div>
+        )}
+
+        {validationWarning && (
+          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 mt-3">
+            <p className="text-sm text-red-400">⚠ {validationWarning}</p>
           </div>
         )}
 
