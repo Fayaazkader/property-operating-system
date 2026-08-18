@@ -403,12 +403,12 @@ setLineItems([{
                             </select>
                           </div>
                         </div>
-                        <div className="grid grid-cols-4 gap-2">
-                          <div className="col-span-2">
-                            <p className="text-[10px] text-zinc-600 mb-1">Description</p>
-                            <input type="text" value={item.description} onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
-                              className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-2 py-1.5 text-xs text-white outline-none" />
-                          </div>
+                                                <div className="mb-2">
+                          <p className="text-[10px] text-zinc-600 mb-1">Description / Remarks</p>
+                          <input type="text" value={item.description} onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
+                            className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-2 py-1.5 text-xs text-white outline-none" placeholder="What is this expense for?" />
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 mb-2">
                           <div>
                             <p className="text-[10px] text-zinc-600 mb-1">Ex VAT</p>
                             <input type="number" value={item.amount_excl || ''} onChange={(e) => updateLineItem(item.id, 'amount_excl', parseFloat(e.target.value) || 0)}
@@ -419,11 +419,16 @@ setLineItems([{
                             <input type="number" value={item.vat_amount || ''} onChange={(e) => updateLineItem(item.id, 'vat_amount', parseFloat(e.target.value) || 0)}
                               className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-2 py-1.5 text-xs text-white outline-none" />
                           </div>
+                          <div>
+                            <p className="text-[10px] text-zinc-600 mb-1">Inc VAT</p>
+                            <span className="block w-full rounded-lg border border-white/[0.06] bg-zinc-900/50 px-2 py-1.5 text-xs text-white tabular-nums">
+                              R{(item.amount_excl + item.vat_amount).toFixed(2)}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex justify-between items-center mt-2">
-                          <span className="text-xs text-zinc-500">Incl: R{(item.amount_excl + item.vat_amount).toFixed(2)}</span>
-                          <button onClick={() => removeLineItem(item.id)} className="text-red-400 hover:text-red-300">
-                            <Trash2 className="w-3 h-3" />
+                        <div className="flex justify-end">
+                          <button onClick={() => removeLineItem(item.id)} className="text-red-400 hover:text-red-300 flex items-center gap-1">
+                            <Trash2 className="w-3 h-3" /> Remove
                           </button>
                         </div>
                       </div>
@@ -466,13 +471,14 @@ setLineItems([{
               </div>
 
               {/* ACTIONS */}
-              <div className="flex gap-3 pt-4 border-t border-white/[0.06]">
+                            <div className="flex gap-3 pt-4 border-t border-white/[0.06]">
+                <button onClick={() => { /* Save draft logic */ }} disabled={!selectedSupplierId || !invoiceNumber}
+                  className="rounded-full border border-white/[0.08] px-5 py-3 text-sm text-white hover:border-white/20 disabled:opacity-40">
+                  Save Draft
+                </button>
                 <button onClick={handleSave} disabled={!allChecksPassed || !selectedSupplierId}
                   className="flex-1 rounded-full bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
                   Submit Invoice
-                </button>
-                <button onClick={onClose} className="rounded-full border border-white/[0.08] px-5 py-3 text-sm text-white hover:border-white/20">
-                  Cancel
                 </button>
               </div>
             </div>
