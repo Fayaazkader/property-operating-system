@@ -12,7 +12,7 @@ interface Props {
   onCaptured: () => void;
 }
 
-type ProcessingState = 'idle' | 'uploading' | 'ocr' | 'create_supplier' | 'capture_invoice' | 'saving';
+type ProcessingState = 'idle' | 'uploading' | 'ocr' | 'prompt' | 'create_supplier' | 'capture_invoice' | 'saving';
 type LineItem = {
   id: string;
   property_id: string;
@@ -48,6 +48,8 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
   const [invoiceDescription, setInvoiceDescription] = useState('');
   const [poReference, setPoReference] = useState('');
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
+  const [showCapturePrompt, setShowCapturePrompt] = useState(false);
+const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
   
   const [validationChecks, setValidationChecks] = useState<{ label: string; passed: boolean }[]>([]);
   
@@ -123,7 +125,44 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       tax_code: 'VAT 15%',
     }]);
   };
-
+  const handleCaptureMode = (mode: 'single' | 'line_by_line') => {
+    if (mode === 'single') {
+      // Merge all into one line
+      const totalAmount = pendingLineItems.reduce((sum: number, li: any) => sum + li.amount, 0);
+      const totalVat = Math.round((totalAmount * 15 / 100) * 100) / 100;
+      setLineItems([{
+        id: crypto.randomUUID(),
+        property_id: '',
+        gl_code: '',
+        description: pendingLineItems[0]?.description || 'Invoice total',
+        amount_excl: totalAmount,
+        vat_rate: 15,
+        vat_amount: totalVat,
+        amount_incl: totalAmount + totalVat,
+        cost_centre: '',
+        tax_code: 'VAT 15%',
+      }]);
+      setInvoiceDescription(pendingLineItems[0]?.description || '');
+    } else {
+      // Line by line
+      setLineItems(pendingLineItems.map((li: any) => ({
+        id: crypto.randomUUID(),
+        property_id: '',
+        gl_code: '',
+        description: li.description || '',
+        amount_excl: li.amount || 0,
+        vat_rate: 15,
+        vat_amount: Math.round((li.amount * 15 / 100) * 100) / 100 || 0,
+        amount_incl: (li.amount || 0) + Math.round((li.amount * 15 / 100) * 100) / 100,
+        cost_centre: '',
+        tax_code: 'VAT 15%',
+      })));
+      setInvoiceDescription(pendingLineItems[0]?.description || '');
+    }
+    setShowCapturePrompt(false);
+    setPendingLineItems([]);
+    setState('capture_invoice');
+  };
   const totalExcl = lineItems.reduce((sum, item) => sum + item.amount_excl, 0);
   const totalVat = lineItems.reduce((sum, item) => sum + item.vat_amount, 0);
   const totalIncl = totalExcl + totalVat;
@@ -209,6 +248,12 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
           cost_centre: '',
           tax_code: 'VAT 15%',
         }]);
+      }
+            // PROMPT: Single or line by line?
+      if (ocrLineItems.length > 1) {
+        setPendingLineItems(ocrLineItems);
+        setShowCapturePrompt(true);
+        setState('prompt');
       }
 
       // SUPPLIER MATCH
@@ -324,7 +369,23 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
               <p className="text-[10px] text-zinc-500 mt-1">You can still save — override will be recorded</p>
             </div>
           )}
-
+          {/* CAPTURE MODE PROMPT */}
+          {state === 'prompt' && (
+            <div className="text-center py-8">
+              <p className="text-lg font-medium text-white mb-2">How do you want to capture this?</p>
+              <p className="text-sm text-zinc-500 mb-6">{pendingLineItems.length} line items detected from OCR</p>
+              <div className="space-y-3 max-w-sm mx-auto">
+                <button onClick={() => handleCaptureMode('single')}
+                  className="w-full rounded-xl bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 transition-all">
+                  Single Expense — one line with total
+                </button>
+                <button onClick={() => handleCaptureMode('line_by_line')}
+                  className="w-full rounded-xl border border-white/[0.08] py-3 text-sm text-white hover:border-white/20 transition-all">
+                  Line by Line — {pendingLineItems.length} separate allocations
+                </button>
+              </div>
+            </div>
+          )}
           {state === 'create_supplier' && (
             <CreateSupplierForm
               entityId={entityId}
