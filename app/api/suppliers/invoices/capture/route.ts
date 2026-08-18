@@ -146,7 +146,8 @@ export async function POST(request: NextRequest) {
         cost_centre: item.cost_centre || null,
       }));
 
-      await serviceClient.from('supplier_invoice_lines').insert(lineRows);
+      const { error: lineError } = await serviceClient.from('supplier_invoice_lines').insert(lineRows);
+      if (lineError) throw lineError;
     }
 
     // UPDATE DOCUMENT REVIEW
