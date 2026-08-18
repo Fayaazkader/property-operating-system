@@ -66,8 +66,11 @@ export default function CreateSupplierForm({ entityId, initialData, onCreated, o
             });
 
       if (!response.ok) {
+             if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to create supplier');
+        const errMsg = typeof errData.error === 'string' ? errData.error : errData.message || JSON.stringify(errData);
+        throw new Error(errMsg || 'Failed to create supplier');
+      }
       }
 
       const data = await response.json();
