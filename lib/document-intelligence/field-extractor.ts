@@ -1,5 +1,5 @@
 // lib/document-intelligence/field-extractor.ts
-// Adaptive field extraction — learns from invoice structure
+// Adaptive field extraction
 
 export interface ExtractedField {
   value: string | number | Array<any> | undefined;
@@ -32,42 +32,50 @@ function parseAmount(val: string): string {
   return val.replace(/[^\d.]/g, '');
 }
 
-// Adaptive line item extraction
-function extractLineItems(text: string): InvoiceLineItem[] {
+// Extract line items from raw OCR text (with newlines preserved)
+function extractLineItems(rawText: string): InvoiceLineItem[] {
   const items: InvoiceLineItem[] = [];
+  const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
   
-  // Pattern: Description followed by Qty, Unit Price, Amount
-  // e.g. "Property management services - August 2026 1 R 18,500.00 R 18,500.00"
-  const pattern = /([A-Za-z][A-Za-z\s&\/\-\d]+?)\s+(\d+(?:\.\d+)?)\s+R\s*([\d,]+\.?\d*)\s+R\s*([\d,]+\.?\d*)/g;
-  
-  let match;
-  while ((match = pattern.exec(text)) !== null) {
-    const description = match[1].trim();
-    // Skip if it's clearly not a line item (too generic)
-    if (description.length < 3) continue;
-    if (/invoice|total|subtotal|vat|due|date|number|reference/i.test(description)) continue;
+  // Find the table structure: Description, Qty, Unit Price, Amount
+  // Then each line item is 4 consecutive lines matching that pattern
+  for (let i = 0; i < lines.length - 3; i++) {
+    const desc = lines[i];
+    const qty = lines[i + 1];
+    const unitPrice = lines[i + 2];
+    const amount = lines[i + 3];
+    
+    // Skip if this is a header or known non-item
+    if (/description|qty|unit|price|amount|subtotal|vat|total|due|invoice|date|number|reference|payment|bank|account|branch|name/i.test(desc)) continue;
+    
+    // Check if qty is a number
+    if (!/^\d+(\.\d+)?$/.test(qty)) continue;
+    
+    // Check if unit price and amount are R values
+    const unitMatch = unitPrice.match(/R\s*([\d,]+\.?\d*)/i);
+    const amountMatch = amount.match(/R\s*([\d,]+\.?\d*)/i);
+    if (!unitMatch || !amountMatch) continue;
     
     items.push({
-      description,
-      qty: parseFloat(match[2]),
-      unit_price: parseFloat(match[3].replace(/,/g, '')),
-      amount: parseFloat(match[4].replace(/,/g, '')),
+      description: desc,
+      qty: parseFloat(qty),
+      unit_price: parseFloat(unitMatch[1].replace(/,/g, '')),
+      amount: parseFloat(amountMatch[1].replace(/,/g, '')),
     });
+    
+    // Skip past this item to avoid double-matching
+    i += 3;
   }
   
-  // Deduplicate — skip if same description already found
-  const seen = new Set<string>();
-  return items.filter(item => {
-    const key = item.description.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return items;
 }
 
-export function extractInvoiceFields(text: string): ExtractionResult {
+export function extractInvoiceFields(text: string, rawText?: string): ExtractionResult {
   const fields: Record<string, ExtractedField> = {};
   const missing: string[] = [];
+
+  // Use raw text for line items if provided
+  const textForLines = rawText || text;
 
   // Invoice number
   const invoiceNumber = extractWithConfidence(
@@ -132,8 +140,8 @@ export function extractInvoiceFields(text: string): ExtractionResult {
     if (!supplier.value) missing.push('supplier_name');
   }
 
-  // Line items
-  const lineItems = extractLineItems(text);
+  // Line items from raw text (newlines preserved)
+  const lineItems = extractLineItems(textForLines);
   fields.line_items = { value: lineItems, confidence: lineItems.length > 0 ? 85 : 0 };
   if (lineItems.length === 0) missing.push('line_items');
 
