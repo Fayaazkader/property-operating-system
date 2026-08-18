@@ -28,6 +28,32 @@ type LineItem = {
 
 const TAX_CODES = ['VAT 15%', 'VAT Exempt', 'Zero Rated', 'No VAT'];
 
+const GL_KEYWORDS: Record<string, string> = {
+  'electricity|power|energy|kwh': '5200',
+  'water|sewer|sanitation': '5300',
+  'rates|taxes|municipal rates': '5100',
+  'refuse|waste|garbage': '5400',
+  'security|guarding|alarm': '5400',
+  'insurance': '5500',
+  'repair|maintenance|service|plumbing|electrical|hvac|lift|generator': '5000',
+  'cleaning|hygiene': '5000',
+  'legal|attorney': '5600',
+  'commission|broker': '5600',
+  'bank charge|bank fee': '5700',
+  'interest': '4500',
+  'audit|accounting': '5600',
+};
+
+function predictGlCode(description: string): string {
+  const desc = description.toLowerCase();
+  for (const [pattern, code] of Object.entries(GL_KEYWORDS)) {
+    if (new RegExp(pattern, 'i').test(desc)) {
+      return code;
+    }
+  }
+  return '';
+}
+
 export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: Props) {
   const [state, setState] = useState<ProcessingState>('idle');
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -257,10 +283,10 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
       // AUTO-CREATE LINE ITEMS FROM OCR
       const ocrLineItems = (fields.line_items as Array<any>) || [];
       if (ocrLineItems.length > 0) {
-        setLineItems(ocrLineItems.map((li: any) => ({
+                setLineItems(ocrLineItems.map((li: any) => ({
           id: crypto.randomUUID(),
           property_id: '',
-          gl_code: '',
+          gl_code: predictGlCode(li.description || ''),
           description: li.description || '',
           amount_excl: li.amount || 0,
           vat_rate: 15,
@@ -271,11 +297,11 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
         })));
         setInvoiceDescription(ocrLineItems[0]?.description || '');
       } else {
-        setLineItems([{
+                setLineItems([{
           id: crypto.randomUUID(),
           property_id: '',
-          gl_code: '',
-          description: '',
+          gl_code: predictGlCode(invoiceDescription || ''),
+          description: invoiceDescription || '',
           amount_excl: parseFloat(fields.subtotal) || 0,
           vat_rate: 15,
           vat_amount: parseFloat(fields.vat_amount) || 0,
