@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Upload, Loader2, X, FileText } from 'lucide-react';
+import { Upload, Loader2, X, FileText, Plus } from 'lucide-react';
 import { findSupplierMatch } from '@/lib/suppliers/matching';
 
 interface Props {
@@ -23,6 +23,9 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [supplierMatch, setSupplierMatch] = useState<any>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showCreateSupplier, setShowCreateSupplier] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState('');
+  const [creatingSupplier, setCreatingSupplier] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -71,6 +74,10 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
         if (match) {
           setSelectedSupplierId(match.supplier_id);
           setSupplierMatch(match);
+        } else {
+          // Pre-fill new supplier form
+          setNewSupplierName(ocrSupplierName);
+          setShowCreateSupplier(true);
         }
       }
 
@@ -79,6 +86,34 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       setError(err.message);
       setState('idle');
     }
+  };
+
+  const handleCreateSupplier = async () => {
+    setCreatingSupplier(true);
+    try {
+      const { data } = await supabase
+        .from('suppliers')
+        .insert({
+          entity_id: entityId,
+          supplier_name: newSupplierName,
+          vat_number: result?.extractedFields?.supplier_vat || null,
+          registration_number: result?.extractedFields?.registration_number || null,
+          email: result?.extractedFields?.supplier_email || null,
+          phone: result?.extractedFields?.supplier_phone || null,
+        })
+        .select('*')
+        .single();
+
+      if (data) {
+        setSuppliers(prev => [...prev, data]);
+        setSelectedSupplierId(data.id);
+        setSupplierMatch({ supplier_id: data.id, supplier_name: data.supplier_name, confidence: 100 });
+        setShowCreateSupplier(false);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    }
+    setCreatingSupplier(false);
   };
 
   const handleSave = async () => {
@@ -196,6 +231,24 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
                   <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/10 px-3 py-2">
                     <p className="text-sm text-white">{supplierMatch.supplier_name}</p>
                     <p className="text-[10px] text-emerald-400">{supplierMatch.confidence}% match</p>
+                  </div>
+                ) : showCreateSupplier ? (
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                    <p className="text-xs text-amber-400 mb-2">Supplier not found — create new supplier</p>
+                    <input
+                      type="text"
+                      value={newSupplierName}
+                      onChange={(e) => setNewSupplierName(e.target.value)}
+                      className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none mb-2"
+                      placeholder="Supplier name"
+                    />
+                    <button
+                      onClick={handleCreateSupplier}
+                      disabled={creatingSupplier || !newSupplierName}
+                      className="w-full rounded-lg bg-amber-500/20 border border-amber-500/20 py-2 text-xs text-amber-400 hover:bg-amber-500/30 disabled:opacity-40 flex items-center justify-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> {creatingSupplier ? 'Creating...' : 'Create Supplier'}
+                    </button>
                   </div>
                 ) : (
                   <select
