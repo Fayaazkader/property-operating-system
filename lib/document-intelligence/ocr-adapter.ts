@@ -1,10 +1,11 @@
 // lib/document-intelligence/ocr-adapter.ts
-// OCR Adapter — PDF text extraction via pdf2json (pure JS, no canvas, no workers)
+// OCR Adapter — PDF text extraction via pdf2json
 
 import { createWorker } from 'tesseract.js';
 
 export interface OCRResult {
   text: string;
+  rawText: string;
   confidence: number;
   provider: string;
   method: 'native_text' | 'ocr_image' | 'ocr_pdf_page';
@@ -20,36 +21,39 @@ function safeDecode(str: string): string {
   }
 }
 
-async function extractPdfNativeText(buffer: ArrayBuffer): Promise<string> {
+async function extractPdfNativeText(buffer: ArrayBuffer): Promise<{ text: string; rawText: string }> {
   return new Promise((resolve) => {
     try {
-      const PDFParser = require('pdf2json');
+      const PDFParserMod = require('pdf2json');
+      const PDFParser = PDFParserMod.default || PDFParserMod;
       const parser = new PDFParser();
       
       parser.on('pdfParser_dataReady', (pdfData: any) => {
         try {
-          let fullText = '';
+          let rawText = '';
           const pages = pdfData.Pages || [];
           for (const page of pages) {
             const texts = page.Texts || [];
             for (const text of texts) {
               const decoded = (text.R || []).map((r: any) => safeDecode(r.T || '')).join(' ');
-              fullText += decoded + ' ';
+              rawText += decoded + '\n';
             }
-            fullText += '\n';
+            rawText += '\n';
           }
-          resolve(fullText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim());
+          
+          const normalized = rawText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+          resolve({ text: normalized, rawText: rawText.trim() });
         } catch {
-          resolve('');
+          resolve({ text: '', rawText: '' });
         }
       });
       
-      parser.on('pdfParser_dataError', () => resolve(''));
+      parser.on('pdfParser_dataError', () => resolve({ text: '', rawText: '' }));
       
       parser.parseBuffer(Buffer.from(buffer));
     } catch (err) {
       console.error('pdf2json failed:', err);
-      resolve('');
+      resolve({ text: '', rawText: '' });
     }
   });
 }
@@ -60,10 +64,11 @@ export async function extractTextFromBuffer(
 ): Promise<OCRResult> {
 
   if (fileType === 'application/pdf' || fileType.includes('pdf')) {
-    const nativeText = await extractPdfNativeText(buffer);
-    if (nativeText.length > 20) {
+    const { text, rawText } = await extractPdfNativeText(buffer);
+    if (text.length > 20) {
       return {
-        text: nativeText,
+        text,
+        rawText,
         confidence: 95,
         provider: 'pdf2json',
         method: 'native_text',
@@ -73,6 +78,7 @@ export async function extractTextFromBuffer(
 
     return {
       text: '',
+      rawText: '',
       confidence: 0,
       provider: 'tesseract',
       method: 'ocr_pdf_page',
@@ -88,6 +94,7 @@ export async function extractTextFromBuffer(
 
   return {
     text: data.text || '',
+    rawText: data.text || '',
     confidence: data.confidence || 0,
     provider: 'tesseract',
     method: 'ocr_image',
