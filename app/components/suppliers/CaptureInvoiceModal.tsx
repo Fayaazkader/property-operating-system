@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Upload, Loader2, X, FileText, Plus, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Upload, Loader2, X, FileText, Plus, AlertTriangle, CheckCircle, Link as LinkIcon } from 'lucide-react';
 import { findSupplierMatch } from '@/lib/suppliers/matching';
 
 interface Props {
@@ -12,11 +12,12 @@ interface Props {
 }
 
 type ProcessingState = 'idle' | 'uploading' | 'ocr' | 'review' | 'saving';
-type WarningType = 'duplicate' | 'calculation' | null;
 
 export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: Props) {
   const [state, setState] = useState<ProcessingState>('idle');
   const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [properties, setProperties] = useState<any[]>([]);
+  const [supplierAccounts, setSupplierAccounts] = useState<any[]>([]);
   const [result, setResult] = useState<any>(null);
   const [documentId, setDocumentId] = useState('');
   const [error, setError] = useState('');
@@ -27,16 +28,27 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState('');
   const [creatingSupplier, setCreatingSupplier] = useState(false);
-  const [activeWarning, setActiveWarning] = useState<WarningType>(null);
+  const [activeWarning, setActiveWarning] = useState<'duplicate' | 'calculation' | null>(null);
   const [warningMessage, setWarningMessage] = useState('');
-  const [existingInvoice, setExistingInvoice] = useState<any>(null);
   const [overrideDuplicate, setOverrideDuplicate] = useState(false);
   const [overrideCalculation, setOverrideCalculation] = useState(false);
+  
+  // Account state
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [newAccountNumber, setNewAccountNumber] = useState('');
+  const [newAccountPropertyId, setNewAccountPropertyId] = useState('');
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [accountMatch, setAccountMatch] = useState<any>(null);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     supabase.from('suppliers').select('id, supplier_name').eq('entity_id', entityId).then(({ data }) => {
       setSuppliers(data || []);
+    });
+    supabase.from('properties').select('id, property_name').eq('entity_id', entityId).then(({ data }) => {
+      setProperties(data || []);
     });
   }, [entityId]);
 
@@ -45,9 +57,11 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
     setState('uploading');
     setError('');
     setActiveWarning(null);
-    setWarningMessage('');
     setOverrideDuplicate(false);
     setOverrideCalculation(false);
+    setSelectedAccountId('');
+    setAccountMatch(null);
+    setShowCreateAccount(false);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -80,39 +94,64 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
 
       const fields = data.result.extractedFields || {};
 
-      // Client-side duplicate pre-check
+      // Duplicate pre-check
       if (fields.invoice_number) {
         const { data: existing } = await supabase
           .from('supplier_invoices_new')
-          .select('id, invoice_number, total_amount, invoice_date')
+          .select('id, invoice_number, total_amount')
           .eq('entity_id', entityId)
           .eq('invoice_number', fields.invoice_number)
           .maybeSingle();
         if (existing) {
           setActiveWarning('duplicate');
           setWarningMessage(`Invoice ${fields.invoice_number} already exists for R${existing.total_amount?.toLocaleString()}`);
-          setExistingInvoice(existing);
         }
       }
 
-      // Client-side calculation check
+      // Calculation check
       if (fields.subtotal && fields.vat_amount && fields.invoice_amount) {
         const subtotal = parseFloat(fields.subtotal);
         const vat = parseFloat(fields.vat_amount);
         const total = parseFloat(fields.invoice_amount);
-        const calculated = subtotal + vat;
-        if (Math.abs(calculated - total) > 1) {
+        if (Math.abs((subtotal + vat) - total) > 1) {
           setActiveWarning('calculation');
-          setWarningMessage(`Subtotal R${subtotal.toLocaleString()} + VAT R${vat.toLocaleString()} = R${calculated.toLocaleString()}, but invoice total is R${total.toLocaleString()}`);
+          setWarningMessage(`Subtotal R${subtotal.toLocaleString()} + VAT R${vat.toLocaleString()} = R${(subtotal + vat).toLocaleString()}, but total is R${total.toLocaleString()}`);
         }
       }
 
+      // Supplier matching
       const ocrSupplierName = fields.supplier_name;
       if (ocrSupplierName) {
         const match = await findSupplierMatch(entityId, ocrSupplierName, supabase);
         if (match) {
           setSelectedSupplierId(match.supplier_id);
           setSupplierMatch(match);
+
+          // Load supplier accounts
+          const { data: accounts } = await supabase
+            .from('supplier_accounts')
+            .select('id, account_number, property_id')
+            .eq('supplier_id', match.supplier_id)
+            .eq('is_active', true);
+          setSupplierAccounts(accounts || []);
+
+          // Check account number match
+          const ocrAccountNumber = fields.account_number;
+          if (ocrAccountNumber && accounts?.length) {
+            const matchedAccount = accounts.find(a => a.account_number === ocrAccountNumber);
+            if (matchedAccount) {
+              setSelectedAccountId(matchedAccount.id);
+              setAccountMatch(matchedAccount);
+            } else {
+              // Account number found but no match — prompt to create
+              setNewAccountNumber(ocrAccountNumber);
+              setShowCreateAccount(true);
+            }
+          } else if (ocrAccountNumber) {
+            // Supplier matched but no accounts exist
+            setNewAccountNumber(ocrAccountNumber);
+            setShowCreateAccount(true);
+          }
         } else {
           setNewSupplierName(ocrSupplierName);
           setShowCreateSupplier(true);
@@ -135,15 +174,10 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
       const response = await fetch('/api/property/suppliers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({
-          name: newSupplierName,
-        }),
+        body: JSON.stringify({ name: newSupplierName }),
       });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to create supplier');
-      }
+      if (!response.ok) throw new Error('Failed to create supplier');
 
       const data = await response.json();
       if (data.data) {
@@ -151,11 +185,48 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
         setSelectedSupplierId(data.data.id);
         setSupplierMatch({ supplier_id: data.data.id, supplier_name: data.data.name, confidence: 100 });
         setShowCreateSupplier(false);
+
+        // Check if account number needs creating too
+        const ocrAccountNumber = result?.extractedFields?.account_number;
+        if (ocrAccountNumber) {
+          setNewAccountNumber(ocrAccountNumber);
+          setShowCreateAccount(true);
+        }
       }
     } catch (err: any) {
       setError(err.message);
     }
     setCreatingSupplier(false);
+  };
+
+  const handleCreateAccount = async () => {
+    setCreatingAccount(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Session expired');
+
+      const { data } = await supabase
+        .from('supplier_accounts')
+        .insert({
+          supplier_id: selectedSupplierId,
+          entity_id: entityId,
+          property_id: newAccountPropertyId || null,
+          account_number: newAccountNumber,
+          account_type: 'general',
+        })
+        .select('*')
+        .single();
+
+      if (data) {
+        setSupplierAccounts(prev => [...prev, data]);
+        setSelectedAccountId(data.id);
+        setAccountMatch(data);
+        setShowCreateAccount(false);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    }
+    setCreatingAccount(false);
   };
 
   const handleSave = async () => {
@@ -174,6 +245,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
         body: JSON.stringify({
           entityId,
           supplierId: selectedSupplierId,
+          supplierAccountId: selectedAccountId || null,
           invoiceNumber: fields.invoice_number,
           invoiceDate: fields.invoice_date || null,
           dueDate: fields.due_date || null,
@@ -191,7 +263,6 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
         const errData = await response.json();
         setActiveWarning('duplicate');
         setWarningMessage(errData.message || 'Duplicate invoice detected');
-        setExistingInvoice(errData.existingInvoice);
         setState('review');
         return;
       }
@@ -221,7 +292,6 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
   };
 
   const displayFields = result ? { ...result.extractedFields, ...editedFields } : null;
-
   const canSave = selectedSupplierId && displayFields?.invoice_number && displayFields?.invoice_amount;
 
   return (
@@ -244,20 +314,10 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
 
         {state === 'idle' && (
           <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFileSelect(f);
-              }}
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full rounded-xl border-2 border-dashed border-white/[0.1] p-10 text-center hover:border-white/20 transition-all cursor-pointer"
-            >
+            <input ref={fileInputRef} type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
+            <button onClick={() => fileInputRef.current?.click()}
+              className="w-full rounded-xl border-2 border-dashed border-white/[0.1] p-10 text-center hover:border-white/20 transition-all cursor-pointer">
               <Upload className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
               <p className="text-sm text-zinc-300">Click to select invoice PDF or image</p>
               <p className="text-xs text-zinc-600 mt-1">PDF, PNG, JPG — max 10MB</p>
@@ -275,11 +335,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
           </div>
         )}
 
-        {error && (
-          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 mt-3">
-            <p className="text-sm text-red-400">{error}</p>
-          </div>
-        )}
+        {error && <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 mt-3"><p className="text-sm text-red-400">{error}</p></div>}
 
         {activeWarning === 'duplicate' && (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 mt-3">
@@ -293,9 +349,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
                 className="w-full rounded-lg bg-amber-500/20 border border-amber-500/30 py-2 text-xs text-amber-400 hover:bg-amber-500/30">
                 Continue Anyway — This is a different invoice
               </button>
-              <button onClick={onClose} className="w-full rounded-lg border border-white/[0.08] py-2 text-xs text-white hover:border-white/20">
-                Cancel
-              </button>
+              <button onClick={onClose} className="w-full rounded-lg border border-white/[0.08] py-2 text-xs text-white hover:border-white/20">Cancel</button>
             </div>
           </div>
         )}
@@ -307,12 +361,11 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
               <p className="text-sm font-medium text-red-400">Calculation Mismatch</p>
             </div>
             <p className="text-sm text-red-300">{warningMessage}</p>
-            <div className="mt-3 space-y-2">
+            <div className="mt-3">
               <button onClick={() => { setOverrideCalculation(true); setActiveWarning(null); }}
                 className="w-full rounded-lg bg-red-500/20 border border-red-500/30 py-2 text-xs text-red-400 hover:bg-red-500/30">
                 I&apos;ve Verified — Continue Anyway
               </button>
-              <p className="text-[10px] text-zinc-500 text-center">Override will be recorded in the audit trail</p>
             </div>
           </div>
         )}
@@ -324,6 +377,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
                 {result.documentType.replace(/_/g, ' ')} · Confidence {displayFields.confidence || 0}%
               </p>
 
+              {/* Supplier */}
               <div className="mb-3">
                 <p className="text-[10px] text-zinc-600 mb-1">Supplier</p>
                 {supplierMatch ? (
@@ -334,55 +388,71 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
                 ) : showCreateSupplier ? (
                   <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
                     <p className="text-xs text-amber-400 mb-2">Supplier not found — create new supplier</p>
-                    <input
-                      type="text"
-                      value={newSupplierName}
-                      onChange={(e) => setNewSupplierName(e.target.value)}
-                      className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none mb-2"
-                      placeholder="Supplier name"
-                    />
-                    <button
-                      onClick={handleCreateSupplier}
-                      disabled={creatingSupplier || !newSupplierName}
-                      className="w-full rounded-lg bg-amber-500/20 border border-amber-500/20 py-2 text-xs text-amber-400 hover:bg-amber-500/30 disabled:opacity-40 flex items-center justify-center gap-1"
-                    >
+                    <input type="text" value={newSupplierName} onChange={(e) => setNewSupplierName(e.target.value)}
+                      className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none mb-2" placeholder="Supplier name" />
+                    <button onClick={handleCreateSupplier} disabled={creatingSupplier || !newSupplierName}
+                      className="w-full rounded-lg bg-amber-500/20 border border-amber-500/20 py-2 text-xs text-amber-400 hover:bg-amber-500/30 disabled:opacity-40 flex items-center justify-center gap-1">
                       <Plus className="w-3 h-3" /> {creatingSupplier ? 'Creating...' : 'Create Supplier'}
                     </button>
                   </div>
                 ) : (
-                  <select
-                    value={selectedSupplierId}
-                    onChange={(e) => setSelectedSupplierId(e.target.value)}
-                    className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none"
-                  >
+                  <select value={selectedSupplierId} onChange={(e) => setSelectedSupplierId(e.target.value)}
+                    className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none">
                     <option value="">Select supplier</option>
-                    {suppliers.map(s => (
-                      <option key={s.id} value={s.id}>{s.supplier_name}</option>
-                    ))}
+                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.supplier_name}</option>)}
                   </select>
                 )}
               </div>
 
+              {/* Account */}
+              {supplierMatch && (displayFields.account_number || supplierAccounts.length > 0) && (
+                <div className="mb-3">
+                  <p className="text-[10px] text-zinc-600 mb-1">Account</p>
+                  {accountMatch ? (
+                    <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/10 px-3 py-2">
+                      <p className="text-sm text-white">{accountMatch.account_number}</p>
+                      <p className="text-[10px] text-emerald-400">Account matched</p>
+                    </div>
+                  ) : showCreateAccount ? (
+                    <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                      <p className="text-xs text-amber-400 mb-2">Account not found — link to property</p>
+                      <input type="text" value={newAccountNumber} onChange={(e) => setNewAccountNumber(e.target.value)}
+                        className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none mb-2" placeholder="Account number" />
+                      <select value={newAccountPropertyId} onChange={(e) => setNewAccountPropertyId(e.target.value)}
+                        className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none mb-2">
+                        <option value="">Link to property (optional)</option>
+                        {properties.map(p => <option key={p.id} value={p.id}>{p.property_name}</option>)}
+                      </select>
+                      <button onClick={handleCreateAccount} disabled={creatingAccount || !newAccountNumber}
+                        className="w-full rounded-lg bg-amber-500/20 border border-amber-500/20 py-2 text-xs text-amber-400 hover:bg-amber-500/30 disabled:opacity-40 flex items-center justify-center gap-1">
+                        <LinkIcon className="w-3 h-3" /> {creatingAccount ? 'Linking...' : 'Link Account'}
+                      </button>
+                    </div>
+                  ) : (
+                    <select value={selectedAccountId} onChange={(e) => setSelectedAccountId(e.target.value)}
+                      className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none">
+                      <option value="">Select account</option>
+                      {supplierAccounts.map(a => <option key={a.id} value={a.id}>{a.account_number}</option>)}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {/* Editable fields */}
               {Object.entries(displayFields)
-                .filter(([key]) => !['confidence', 'requiresHumanReview', 'missingFields'].includes(key))
+                .filter(([key]) => !['confidence', 'requiresHumanReview', 'missingFields', 'supplier_name', 'account_number'].includes(key))
                 .map(([key, value]) => (
                   <div key={key} className="mb-2">
                     <p className="text-[10px] text-zinc-600 mb-1">{key.replace(/_/g, ' ')}</p>
-                    <input
-                      type="text"
-                      value={String(value || '')}
+                    <input type="text" value={String(value || '')}
                       onChange={(e) => setEditedFields(prev => ({ ...prev, [key]: e.target.value }))}
-                      className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none"
-                    />
+                      className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" />
                   </div>
                 ))}
             </div>
 
-            <button
-              onClick={handleSave}
-              disabled={!canSave || (activeWarning !== null && !overrideDuplicate && !overrideCalculation)}
-              className="w-full rounded-full bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >
+            <button onClick={handleSave} disabled={!canSave || (activeWarning !== null && !overrideDuplicate && !overrideCalculation)}
+              className="w-full rounded-full bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
               Save Invoice
             </button>
           </div>

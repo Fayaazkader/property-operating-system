@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
       .insert({
         entity_id: entityId,
         supplier_id: supplierId,
+        supplier_account_id: supplierAccountId || null,
         invoice_number: invoiceNumber,
         total_amount: numTotal,
         vat_amount: numVat,
