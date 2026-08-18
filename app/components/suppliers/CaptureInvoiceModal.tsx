@@ -31,6 +31,8 @@ const TAX_CODES = ['VAT 15%', 'VAT Exempt', 'Zero Rated', 'No VAT'];
 export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: Props) {
   const [state, setState] = useState<ProcessingState>('idle');
   const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [duplicateWarning, setDuplicateWarning] = useState('');
+const [existingInvoice, setExistingInvoice] = useState<any>(null);
   const [properties, setProperties] = useState<any[]>([]);
   const [glAccounts, setGlAccounts] = useState<any[]>([]);
   const [result, setResult] = useState<any>(null);
@@ -166,12 +168,41 @@ checks.push({ label: 'VAT calculation verified', passed: vatValid });
 
       setResult(data.result);
       setDocumentId(data.documentId);
-
       const fields = data.result.extractedFields || {};
       setInvoiceNumber(fields.invoice_number || '');
       setInvoiceDate(fields.invoice_date || '');
       setDueDate(fields.due_date || '');
-      setInvoiceDescription(fields.description || '');
+
+      // AUTO-CREATE LINE ITEMS — before supplier check
+      const ocrLineItems = (fields.line_items?.value as Array<any>) || [];
+      if (ocrLineItems.length > 0) {
+        setLineItems(ocrLineItems.map((li: any) => ({
+          id: crypto.randomUUID(),
+          property_id: '',
+          gl_code: '',
+          description: li.description || '',
+          amount_excl: li.amount || 0,
+          vat_rate: 15,
+          vat_amount: Math.round((li.amount * 15 / 100) * 100) / 100 || 0,
+          amount_incl: (li.amount || 0) + Math.round((li.amount * 15 / 100) * 100) / 100,
+          cost_centre: '',
+          tax_code: 'VAT 15%',
+        })));
+        setInvoiceDescription(ocrLineItems[0]?.description || '');
+      } else {
+        setLineItems([{
+          id: crypto.randomUUID(),
+          property_id: '',
+          gl_code: '',
+          description: '',
+          amount_excl: parseFloat(fields.subtotal) || 0,
+          vat_rate: 15,
+          vat_amount: parseFloat(fields.vat_amount) || 0,
+          amount_incl: parseFloat(fields.invoice_amount) || 0,
+          cost_centre: '',
+          tax_code: 'VAT 15%',
+        }]);
+      }
 
       // Check supplier
       const ocrSupplierName = fields.supplier_name?.replace(/BILL\s+(FROM|TO)\s+/gi, '').trim();
