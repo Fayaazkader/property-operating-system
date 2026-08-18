@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Upload, Loader2, X, FileText, Plus } from 'lucide-react';
+import { Upload, Loader2, X, FileText, Plus, AlertTriangle, CheckCircle } from 'lucide-react';
 import { findSupplierMatch } from '@/lib/suppliers/matching';
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
 }
 
 type ProcessingState = 'idle' | 'uploading' | 'ocr' | 'review' | 'saving';
+type WarningType = 'duplicate' | 'calculation' | null;
 
 export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: Props) {
   const [state, setState] = useState<ProcessingState>('idle');
@@ -26,8 +27,11 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState('');
   const [creatingSupplier, setCreatingSupplier] = useState(false);
-  const [validationWarning, setValidationWarning] = useState('');
-  const [duplicateWarning, setDuplicateWarning] = useState('');
+  const [activeWarning, setActiveWarning] = useState<WarningType>(null);
+  const [warningMessage, setWarningMessage] = useState('');
+  const [existingInvoice, setExistingInvoice] = useState<any>(null);
+  const [overrideDuplicate, setOverrideDuplicate] = useState(false);
+  const [overrideCalculation, setOverrideCalculation] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -40,8 +44,10 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
     setSelectedFile(file);
     setState('uploading');
     setError('');
-    setValidationWarning('');
-    setDuplicateWarning('');
+    setActiveWarning(null);
+    setWarningMessage('');
+    setOverrideDuplicate(false);
+    setOverrideCalculation(false);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -74,27 +80,30 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
 
       const fields = data.result.extractedFields || {};
 
-      // Calculation validation
+      // Client-side duplicate pre-check
+      if (fields.invoice_number) {
+        const { data: existing } = await supabase
+          .from('supplier_invoices_new')
+          .select('id, invoice_number, total_amount, invoice_date')
+          .eq('entity_id', entityId)
+          .eq('invoice_number', fields.invoice_number)
+          .maybeSingle();
+        if (existing) {
+          setActiveWarning('duplicate');
+          setWarningMessage(`Invoice ${fields.invoice_number} already exists for R${existing.total_amount?.toLocaleString()}`);
+          setExistingInvoice(existing);
+        }
+      }
+
+      // Client-side calculation check
       if (fields.subtotal && fields.vat_amount && fields.invoice_amount) {
         const subtotal = parseFloat(fields.subtotal);
         const vat = parseFloat(fields.vat_amount);
         const total = parseFloat(fields.invoice_amount);
         const calculated = subtotal + vat;
         if (Math.abs(calculated - total) > 1) {
-          setValidationWarning(`Calculation mismatch: Subtotal R${subtotal} + VAT R${vat} = R${calculated}, but invoice total is R${total}`);
-        }
-      }
-
-      // Duplicate check
-      if (fields.invoice_number) {
-        const { data: existing } = await supabase
-          .from('supplier_invoices_new')
-          .select('id, invoice_number, total_amount, created_at')
-          .eq('entity_id', entityId)
-          .eq('invoice_number', fields.invoice_number)
-          .maybeSingle();
-        if (existing) {
-          setDuplicateWarning(`Invoice ${fields.invoice_number} already exists for R${existing.total_amount?.toLocaleString()}. Review existing or continue anyway.`);
+          setActiveWarning('calculation');
+          setWarningMessage(`Subtotal R${subtotal.toLocaleString()} + VAT R${vat.toLocaleString()} = R${calculated.toLocaleString()}, but invoice total is R${total.toLocaleString()}`);
         }
       }
 
@@ -128,10 +137,6 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({
           name: newSupplierName,
-          vat_number: result?.extractedFields?.supplier_vat || null,
-          registration_number: result?.extractedFields?.registration_number || null,
-          email: result?.extractedFields?.supplier_email || null,
-          phone: result?.extractedFields?.supplier_phone || null,
         }),
       });
 
@@ -177,8 +182,27 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
           subtotal: parseFloat(fields.subtotal) || 0,
           documentId,
           extractedFields: fields,
+          overrideDuplicate,
+          overrideCalculation,
         }),
       });
+
+      if (response.status === 409) {
+        const errData = await response.json();
+        setActiveWarning('duplicate');
+        setWarningMessage(errData.message || 'Duplicate invoice detected');
+        setExistingInvoice(errData.existingInvoice);
+        setState('review');
+        return;
+      }
+
+      if (response.status === 422) {
+        const errData = await response.json();
+        setActiveWarning('calculation');
+        setWarningMessage(errData.message || 'Calculation mismatch');
+        setState('review');
+        return;
+      }
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -197,6 +221,8 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
   };
 
   const displayFields = result ? { ...result.extractedFields, ...editedFields } : null;
+
+  const canSave = selectedSupplierId && displayFields?.invoice_number && displayFields?.invoice_amount;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -255,15 +281,39 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
           </div>
         )}
 
-        {duplicateWarning && (
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 mt-3">
-            <p className="text-sm text-amber-400">⚠ {duplicateWarning}</p>
+        {activeWarning === 'duplicate' && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 mt-3">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400" />
+              <p className="text-sm font-medium text-amber-400">Duplicate Invoice Detected</p>
+            </div>
+            <p className="text-sm text-amber-300">{warningMessage}</p>
+            <div className="mt-3 space-y-2">
+              <button onClick={() => { setOverrideDuplicate(true); setActiveWarning(null); }}
+                className="w-full rounded-lg bg-amber-500/20 border border-amber-500/30 py-2 text-xs text-amber-400 hover:bg-amber-500/30">
+                Continue Anyway — This is a different invoice
+              </button>
+              <button onClick={onClose} className="w-full rounded-lg border border-white/[0.08] py-2 text-xs text-white hover:border-white/20">
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 
-        {validationWarning && (
-          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 mt-3">
-            <p className="text-sm text-red-400">⚠ {validationWarning}</p>
+        {activeWarning === 'calculation' && (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 mt-3">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-4 h-4 text-red-400" />
+              <p className="text-sm font-medium text-red-400">Calculation Mismatch</p>
+            </div>
+            <p className="text-sm text-red-300">{warningMessage}</p>
+            <div className="mt-3 space-y-2">
+              <button onClick={() => { setOverrideCalculation(true); setActiveWarning(null); }}
+                className="w-full rounded-lg bg-red-500/20 border border-red-500/30 py-2 text-xs text-red-400 hover:bg-red-500/30">
+                I&apos;ve Verified — Continue Anyway
+              </button>
+              <p className="text-[10px] text-zinc-500 text-center">Override will be recorded in the audit trail</p>
+            </div>
           </div>
         )}
 
@@ -330,7 +380,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
 
             <button
               onClick={handleSave}
-              disabled={!selectedSupplierId || !displayFields.invoice_number || !displayFields.invoice_amount}
+              disabled={!canSave || (activeWarning !== null && !overrideDuplicate && !overrideCalculation)}
               className="w-full rounded-full bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
               Save Invoice

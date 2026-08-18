@@ -23,9 +23,13 @@ export async function POST(request: NextRequest) {
     { auth: { persistSession: false } }
   );
 
-  const { entityId, supplierId, invoiceNumber, invoiceDate, dueDate, totalAmount, vatAmount, subtotal, documentId, extractedFields } = await request.json();
+  const {
+    entityId, supplierId, invoiceNumber, invoiceDate, dueDate,
+    totalAmount, vatAmount, subtotal, documentId, extractedFields,
+    overrideDuplicate = false, overrideCalculation = false,
+  } = await request.json();
 
-    if (!entityId || !supplierId || !invoiceNumber || !totalAmount) {
+  if (!entityId || !supplierId || !invoiceNumber || !totalAmount) {
     return NextResponse.json({ error: "entityId, supplierId, invoiceNumber, and totalAmount are required" }, { status: 400 });
   }
 
@@ -40,17 +44,34 @@ export async function POST(request: NextRequest) {
   if (!access) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
   try {
-    // Duplicate check — entity + supplier + invoice number
+    // SERVER-SIDE DUPLICATE CHECK
     const { data: existing } = await serviceClient
       .from('supplier_invoices_new')
-      .select('id')
+      .select('id, invoice_number, total_amount, invoice_date')
       .eq('entity_id', entityId)
-      .eq('supplier_id', supplierId)
       .eq('invoice_number', invoiceNumber)
       .maybeSingle();
 
-    if (existing) {
-      return NextResponse.json({ error: `Invoice ${invoiceNumber} already exists for this supplier` }, { status: 409 });
+    if (existing && !overrideDuplicate) {
+      return NextResponse.json({
+        error: 'DUPLICATE_INVOICE',
+        message: `Invoice ${invoiceNumber} already exists`,
+        existingInvoice: existing,
+      }, { status: 409 });
+    }
+
+    // SERVER-SIDE CALCULATION VALIDATION
+    const numSubtotal = parseFloat(subtotal) || 0;
+    const numVat = parseFloat(vatAmount) || 0;
+    const numTotal = parseFloat(totalAmount) || 0;
+    const calculatedTotal = numSubtotal + numVat;
+
+    if (numSubtotal > 0 && numVat > 0 && Math.abs(calculatedTotal - numTotal) > 1 && !overrideCalculation) {
+      return NextResponse.json({
+        error: 'CALCULATION_MISMATCH',
+        message: `Subtotal ${numSubtotal} + VAT ${numVat} = ${calculatedTotal}, but invoice total is ${numTotal}`,
+        calculatedTotal,
+      }, { status: 422 });
     }
 
     const { data, error } = await serviceClient
@@ -59,15 +80,17 @@ export async function POST(request: NextRequest) {
         entity_id: entityId,
         supplier_id: supplierId,
         invoice_number: invoiceNumber,
-        total_amount: totalAmount,
-        vat_amount: vatAmount,
-        subtotal: subtotal,
+        total_amount: numTotal,
+        vat_amount: numVat,
+        subtotal: numSubtotal,
         invoice_date: invoiceDate || null,
         due_date: dueDate || null,
         lifecycle_status: 'pending',
         source: 'ocr',
         document_id: documentId || null,
         extracted_fields: extractedFields || {},
+        override_duplicate: overrideDuplicate,
+        override_calculation: overrideCalculation,
       })
       .select('*')
       .single();
