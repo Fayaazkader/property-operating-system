@@ -284,27 +284,23 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
 
         {error && <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 mt-3"><p className="text-sm text-red-400">{error}</p></div>}
 
-        {/* CREATE SUPPLIER */}
+                {/* CREATE SUPPLIER */}
         {state === 'create_supplier' && (
-          <div className="space-y-4">
-            <p className="text-xs text-amber-400">Supplier not found — create new supplier</p>
-            <div className="space-y-2">
-              <input type="text" value={newSupplier.name} onChange={(e) => setNewSupplier(prev => ({ ...prev, name: e.target.value }))}
-                className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="Supplier name *" />
-              <input type="text" value={newSupplier.vat_number} onChange={(e) => setNewSupplier(prev => ({ ...prev, vat_number: e.target.value }))}
-                className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="VAT number" />
-              <input type="text" value={newSupplier.registration_number} onChange={(e) => setNewSupplier(prev => ({ ...prev, registration_number: e.target.value }))}
-                className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="Registration number" />
-              <input type="email" value={newSupplier.email} onChange={(e) => setNewSupplier(prev => ({ ...prev, email: e.target.value }))}
-                className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="Email" />
-              <input type="text" value={newSupplier.phone} onChange={(e) => setNewSupplier(prev => ({ ...prev, phone: e.target.value }))}
-                className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-white outline-none" placeholder="Phone" />
-            </div>
-            <button onClick={handleCreateSupplier} disabled={creatingSupplier || !newSupplier.name}
-              className="w-full rounded-full bg-white py-2.5 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40">
-              {creatingSupplier ? 'Creating...' : 'Create Supplier & Continue'}
-            </button>
-          </div>
+          <CreateSupplierForm
+            entityId={entityId}
+            initialData={{
+              name: newSupplier.name,
+              vat_number: newSupplier.vat_number,
+              registration_number: newSupplier.registration_number,
+            }}
+            onCreated={(supplier) => {
+              setSuppliers(prev => [...prev, supplier]);
+              setSelectedSupplierId(supplier.id);
+              setSupplierMatch({ supplier_id: supplier.id, supplier_name: supplier.name, confidence: 100 });
+              setState('capture_invoice');
+            }}
+            onCancel={() => setState('idle')}
+          />
         )}
 
         {/* CAPTURE INVOICE */}
