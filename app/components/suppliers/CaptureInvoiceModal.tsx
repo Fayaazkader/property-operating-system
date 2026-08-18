@@ -99,12 +99,16 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
   };
 
   const recalculateTotals = () => {
-    const subtotal = lineItems.reduce((sum, item) => sum + item.amount_excl, 0);
-    const vat = lineItems.reduce((sum, item) => sum + item.vat_amount, 0);
-    setInvoiceSubtotal(subtotal);
-    setInvoiceVat(vat);
-    setInvoiceTotal(subtotal + vat);
-  };
+  if (lineItems.length === 0) {
+    // Keep OCR totals if no line items
+    return;
+  }
+  const subtotal = lineItems.reduce((sum, item) => sum + item.amount_excl, 0);
+  const vat = lineItems.reduce((sum, item) => sum + item.vat_amount, 0);
+  setInvoiceSubtotal(subtotal);
+  setInvoiceVat(vat);
+  setInvoiceTotal(subtotal + vat);
+};
 
   useEffect(() => {
     recalculateTotals();
