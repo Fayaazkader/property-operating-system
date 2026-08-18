@@ -36,7 +36,7 @@ export default function CreateSupplierForm({ entityId, initialData, onCreated, o
     payment_terms_days: 30,
     service_types: [] as string[],
     linked_property_ids: [] as string[],
-  }, [entityId]);
+    });
   const [properties, setProperties] = useState<any[]>([]);
   const [propertySearch, setPropertySearch] = useState('');
   const [saving, setSaving] = useState(false);
@@ -63,7 +63,7 @@ export default function CreateSupplierForm({ entityId, initialData, onCreated, o
           categories: form.service_types,
           address: form.legal_address,
         }),
-      }, [entityId]);
+            });
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
