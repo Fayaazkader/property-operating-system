@@ -154,6 +154,18 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
             setInvoiceSubtotal(parseFloat(fields.subtotal) || 0);
       setInvoiceVat(parseFloat(fields.vat_amount) || 0);
       setInvoiceTotal(parseFloat(fields.invoice_amount) || 0);
+            // Auto-create one line item from OCR totals
+      setLineItems([{
+        id: crypto.randomUUID(),
+        property_id: '',
+        gl_code: '',
+        description: fields.description || 'Invoice total',
+        amount_excl: parseFloat(fields.subtotal) || 0,
+        vat_rate: 15,
+        vat_amount: parseFloat(fields.vat_amount) || 0,
+        amount_incl: parseFloat(fields.invoice_amount) || 0,
+        cost_centre: '',
+      }]);
 
       // Check supplier
       const ocrSupplierName = fields.supplier_name;
