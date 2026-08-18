@@ -109,13 +109,13 @@ export async function POST(request: NextRequest) {
         contact_person: body.contact_person,
         email: body.email,
         phone: body.phone,
-        whatsapp_number: body.whatsapp_number,
-        address: body.address,
+        accounts_contact: body.whatsapp_number,
+        
         bank_name: body.bank_name,
         bank_account: body.bank_account,
         bank_branch: body.bank_branch,
         payment_method: body.payment_method,
-        payment_terms: body.payment_terms_days,
+        default_payment_terms: body.payment_terms_days,
         status: 'active',
       })
       .select('*')
