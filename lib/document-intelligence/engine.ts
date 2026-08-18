@@ -54,6 +54,7 @@ export async function processDocument(
 
   // Run OCR
     const ocrResult = await extractTextFromBuffer(fileBuffer, mimeType);
+    console.log('OCR TEXT:, ocrText.slice(0, 800));
   const ocrText = ocrResult.text;
 
   // Classify
