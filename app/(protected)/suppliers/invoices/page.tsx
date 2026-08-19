@@ -14,15 +14,28 @@ export default function InvoicesPage() {
     const [showCapture, setShowCapture] = useState(false);
 
    async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setLoading(false); return; }
-      const { data: entities } = await supabase.rpc('auth_entities');
-      if (!entities?.length) { setLoading(false); return; }
-      setEntityId(entities[0]);
-      const { data } = await supabase.from('supplier_invoices_new').select('*, supplier:supplier_id(supplier_name)').eq('entity_id', entities[0]).order('created_at', { ascending: false }).limit(50);
-      setInvoices(data || []);
-      setLoading(false);
-    }
+  setLoading(true);
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { setLoading(false); return; }
+
+  const { data: accessRows } = await supabase
+    .from('user_entity_access')
+    .select('entity_id')
+    .eq('user_id', session.user.id);
+
+  const entityIdList = accessRows?.map(r => r.entity_id) || [];
+  if (!entityIdList.length) { setLoading(false); return; }
+
+  setEntityId(entityIdList[0]);
+  const { data } = await supabase
+    .from('supplier_invoices_new')
+    .select('*, supplier:supplier_id(supplier_name)')
+    .in('entity_id', entityIdList)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  setInvoices(data || []);
+  setLoading(false);
+}
     useEffect(() => {
     init();
   }, []);
