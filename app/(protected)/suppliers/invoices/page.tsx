@@ -16,23 +16,27 @@ export default function InvoicesPage() {
    async function init() {
   setLoading(true);
   const { data: { session } } = await supabase.auth.getSession();
+  console.log("SESSION:", !!session);
   if (!session) { setLoading(false); return; }
 
   const { data: accessRows } = await supabase
     .from('user_entity_access')
     .select('entity_id')
     .eq('user_id', session.user.id);
+  console.log("ACCESS ROWS:", accessRows?.length);
 
   const entityIdList = accessRows?.map(r => r.entity_id) || [];
+  console.log("ENTITY IDS:", entityIdList);
   if (!entityIdList.length) { setLoading(false); return; }
 
   setEntityId(entityIdList[0]);
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('supplier_invoices_new')
     .select('*, supplier:supplier_id(supplier_name)')
     .in('entity_id', entityIdList)
     .order('created_at', { ascending: false })
     .limit(50);
+  console.log("INVOICES:", data?.length, "ERROR:", error?.message);
   setInvoices(data || []);
   setLoading(false);
 }
