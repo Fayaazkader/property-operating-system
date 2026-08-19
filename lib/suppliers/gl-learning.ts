@@ -60,13 +60,21 @@ export async function suggestGlCode(
   if (!normalizedDesc) return { gl_code: '', confidence: 0, times_used: 0, source: 'none' };
 
   // 1. Exact learned match
-  const { data: exactMatch } = await db
+    // 1. Exact learned match
+  let exactQuery = db
     .from('gl_allocation_learning')
     .select('*')
     .eq('entity_id', entityId)
     .eq('supplier_id', supplierId)
-    .eq('description_pattern', normalizedDesc)
-    .maybeSingle();
+    .eq('description_pattern', normalizedDesc);
+
+  if (propertyId) {
+    exactQuery = exactQuery.eq('property_id', propertyId);
+  } else {
+    exactQuery = exactQuery.is('property_id', null);
+  }
+
+  const { data: exactMatch } = await exactQuery.maybeSingle();
 
   if (exactMatch) {
     const validation = await validateGlCode(entityId, exactMatch.gl_code, db);
@@ -180,13 +188,20 @@ export async function recordGlAllocation(
   const normalizedDesc = normalizeDescription(description);
   if (!normalizedDesc || !glCode) return;
 
-  const { data: existing } = await db
+    let query = db
     .from('gl_allocation_learning')
     .select('*')
     .eq('entity_id', entityId)
     .eq('supplier_id', supplierId)
-    .eq('description_pattern', normalizedDesc)
-    .maybeSingle();
+    .eq('description_pattern', normalizedDesc);
+
+  if (propertyId) {
+    query = query.eq('property_id', propertyId);
+  } else {
+    query = query.is('property_id', null);
+  }
+
+  const { data: existing } = await query.maybeSingle();
 
   if (existing) {
     if (existing.gl_code === glCode) {
