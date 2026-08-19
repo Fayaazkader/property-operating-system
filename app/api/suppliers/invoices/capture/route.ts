@@ -120,6 +120,7 @@ export async function POST(request: NextRequest) {
         due_date: dueDate || null,
         description: description || null,
         lifecycle_status: 'pending',
+        status: 'pending',
         source: 'ocr',
         document_id: documentId || null,
         extracted_fields: extractedFields || {},
