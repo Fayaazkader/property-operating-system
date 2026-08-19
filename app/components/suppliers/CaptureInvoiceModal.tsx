@@ -627,6 +627,9 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
                             <select value={item.gl_code} onChange={(e) => updateLineItem(item.id, 'gl_code', e.target.value)}
                               className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-2 py-1.5 text-xs text-white outline-none">
                               <option value="">Select</option>
+                              {!glAccounts.some(acc => acc.gl_code === item.gl_code) && item.gl_code && (
+  <option value={item.gl_code}>{item.gl_code}</option>
+)}
                               {glAccounts.map(acc => <option key={acc.id} value={acc.gl_code}>{acc.gl_code} — {acc.account_name}</option>)}
                             </select>
                           </div>
