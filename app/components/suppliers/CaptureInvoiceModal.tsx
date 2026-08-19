@@ -366,6 +366,7 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
           return '';
         });
         const glSuggestions = await Promise.all(suggestionPromises);
+        console.log("GL SUGGESTIONS:", glSuggestions);
         
         setLineItems(prev => prev.map((item, index) => {
           if (!item.gl_code && glSuggestions[index]) {
