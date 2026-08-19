@@ -150,6 +150,26 @@ export async function POST(request: NextRequest) {
       if (lineError) throw lineError;
     }
 
+    
+    // RECORD GL ALLOCATIONS FOR LEARNING
+    if (lineItems.length > 0) {
+      const { recordGlAllocation } = await import('@/lib/suppliers/gl-learning');
+      for (const item of lineItems) {
+        if (item.gl_code && item.description) {
+          await recordGlAllocation(
+            entityId,
+            supplierId,
+            item.description,
+            item.gl_code,
+            item.tax_code || 'VAT 15%',
+            serviceClient,
+            item.property_id || undefined,
+            resolvedAccountId || undefined
+          );
+        }
+      }
+    }
+
     // UPDATE DOCUMENT REVIEW
     if (documentId) {
       await serviceClient
