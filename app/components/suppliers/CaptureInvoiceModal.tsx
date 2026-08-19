@@ -115,6 +115,11 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
     
     setValidationChecks(checks);
   }, [selectedSupplierId, invoiceNumber, lineItems, result]);
+    useEffect(() => {
+    if (duplicateWarning && invoiceNumber !== result?.extractedFields?.invoice_number) {
+      setDuplicateWarning('');
+    }
+  }, [invoiceNumber, duplicateWarning, result]);
 
     const updateLineItem = (id: string, field: keyof LineItem, value: any) => {
     setLineItems(prev => {
