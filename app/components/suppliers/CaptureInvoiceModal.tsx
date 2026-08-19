@@ -93,6 +93,7 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
     checks.push({ label: 'Supplier verified', passed: !!selectedSupplierId });
     checks.push({ label: 'Invoice number present', passed: !!invoiceNumber });
     checks.push({ label: 'At least one line item', passed: lineItems.length > 0 });
+    checks.push({ label: 'No duplicate invoice', passed: !duplicateWarning });
     
     if (lineItems.length > 0) {
       const allAllocated = lineItems.every(item => item.property_id && item.gl_code);
