@@ -312,7 +312,7 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
                 setLineItems(ocrLineItems.map((li: any) => ({
           id: crypto.randomUUID(),
           property_id: '',
-          gl_code: predictGlCode(li.description || ''),
+          gl_code: '',
           description: li.description || '',
           amount_excl: li.amount || 0,
           vat_rate: 15,
@@ -326,7 +326,7 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
                 setLineItems([{
           id: crypto.randomUUID(),
           property_id: '',
-          gl_code: predictGlCode(invoiceDescription || ''),
+          gl_code: '',
           description: invoiceDescription || '',
           amount_excl: parseFloat(fields.subtotal) || 0,
           vat_rate: 15,
@@ -366,7 +366,7 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
           return '';
         });
         const glSuggestions = await Promise.all(suggestionPromises);
-        console.log("GL SUGGESTIONS:", glSuggestions);
+       console.log("GL SUGGESTIONS:", JSON.stringify(glSuggestions));
         
         setLineItems(prev => prev.map((item, index) => {
           if (!item.gl_code && glSuggestions[index]) {
