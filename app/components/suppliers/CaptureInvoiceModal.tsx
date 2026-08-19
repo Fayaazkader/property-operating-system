@@ -277,8 +277,9 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
 
       // SUPPLIER MATCH
       const ocrSupplierName = fields.supplier_name?.replace(/BILL\s+(FROM|TO)\s+/gi, '').trim();
+            let match: any = null;
       if (ocrSupplierName) {
-        const match = await findSupplierMatch(entityId, ocrSupplierName, supabase);
+        match = await findSupplierMatch(entityId, ocrSupplierName, supabase);
         if (match) {
           setSelectedSupplierId(match.supplier_id);
           setSupplierMatch(match);
@@ -343,7 +344,7 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
       }
 
             // FETCH GL SUGGESTIONS FOR EACH LINE
-      const supplierIdForSuggestion = selectedSupplierId || '';
+      const supplierIdForSuggestion = match?.supplier_id || selectedSupplierId || '';
       if (ocrLineItems.length > 0 && supplierIdForSuggestion) {
         const { data: { session: suggestSession } } = await supabase.auth.getSession();
         const suggestionPromises = ocrLineItems.map(async (li: any) => {
