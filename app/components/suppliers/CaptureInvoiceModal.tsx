@@ -403,6 +403,20 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
         }),
       });
 
+            if (response.status === 409) {
+        const errData = await response.json().catch(() => ({}));
+        setDuplicateWarning(errData.message || 'Duplicate invoice detected');
+        setState('capture_invoice');
+        return;
+      }
+
+      if (response.status === 422) {
+        const errData = await response.json().catch(() => ({}));
+        setError(errData.message || 'Calculation mismatch');
+        setState('capture_invoice');
+        return;
+      }
+
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(typeof errData.error === 'string' ? errData.error : errData.message || 'Save failed');
