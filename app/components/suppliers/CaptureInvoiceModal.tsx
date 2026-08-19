@@ -74,6 +74,7 @@ export default function CaptureInvoiceModal({ entityId, onClose, onCaptured }: P
   const [invoiceDescription, setInvoiceDescription] = useState('');
   const [poReference, setPoReference] = useState('');
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
+    const [pendingOcrLineItems, setPendingOcrLineItems] = useState<any[]>([]);
   const [showCapturePrompt, setShowCapturePrompt] = useState(false);
 const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
   
@@ -263,9 +264,27 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
       setDocumentId(data.documentId);
 
       const fields = data.result.extractedFields || {};
+      setPendingOcrLineItems((fields.line_items as Array<any>) || []);
       setInvoiceNumber(fields.invoice_number || '');
       setInvoiceDate(fields.invoice_date || '');
       setDueDate(fields.due_date || '');
+
+      // SUPPLIER MATCH
+      const ocrSupplierName = fields.supplier_name?.replace(/BILL\s+(FROM|TO)\s+/gi, '').trim();
+      if (ocrSupplierName) {
+        const match = await findSupplierMatch(entityId, ocrSupplierName, supabase);
+        if (match) {
+          setSelectedSupplierId(match.supplier_id);
+          setSupplierMatch(match);
+          setState('capture_invoice');
+        } else {
+          setNewSupplier({ name: ocrSupplierName, vat_number: fields.supplier_vat || '', registration_number: fields.registration_number || '' });
+          setState('create_supplier');
+           return;
+        }
+      } else {
+        setState('capture_invoice');
+      }
 
       // DUPLICATE CHECK
       if (fields.invoice_number) {
@@ -317,21 +336,39 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
         setState('prompt');
       }
 
-      // SUPPLIER MATCH
-      const ocrSupplierName = fields.supplier_name?.replace(/BILL\s+(FROM|TO)\s+/gi, '').trim();
-      if (ocrSupplierName) {
-        const match = await findSupplierMatch(entityId, ocrSupplierName, supabase);
-        if (match) {
-          setSelectedSupplierId(match.supplier_id);
-          setSupplierMatch(match);
-          setState('capture_invoice');
-        } else {
-          setNewSupplier({ name: ocrSupplierName, vat_number: fields.supplier_vat || '', registration_number: fields.registration_number || '' });
-          setState('create_supplier');
-        }
-      } else {
-        setState('capture_invoice');
+            // FETCH GL SUGGESTIONS FOR EACH LINE
+      const supplierIdForSuggestion = selectedSupplierId || '';
+      if (ocrLineItems.length > 0 && supplierIdForSuggestion) {
+        const { data: { session: suggestSession } } = await supabase.auth.getSession();
+        const suggestionPromises = ocrLineItems.map(async (li: any) => {
+          try {
+            const response = await fetch('/api/suppliers/invoices/suggest-gl', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${suggestSession?.access_token}` },
+              body: JSON.stringify({
+                entityId,
+                supplierId: supplierIdForSuggestion,
+                description: li.description,
+              }),
+            });
+            if (response.ok) {
+              const data = await response.json();
+              return data.suggestion?.gl_code || '';
+            }
+          } catch {}
+          return '';
+        });
+        const glSuggestions = await Promise.all(suggestionPromises);
+        
+        setLineItems(prev => prev.map((item, index) => {
+          if (!item.gl_code && glSuggestions[index]) {
+            return { ...item, gl_code: glSuggestions[index] };
+          }
+          return item;
+        }));
       }
+
+      
     } catch (err: any) {
       setError(err.message);
       setState('idle');
@@ -451,10 +488,28 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
             <CreateSupplierForm
               entityId={entityId}
               initialData={newSupplier}
-              onCreated={(supplier) => {
+                            onCreated={(supplier) => {
                 setSuppliers(prev => [...prev, supplier]);
                 setSelectedSupplierId(supplier.id);
                 setSupplierMatch({ supplier_id: supplier.id, supplier_name: supplier.name, confidence: 100 });
+
+                // Create line items from pending OCR data
+                if (pendingOcrLineItems.length > 0) {
+                  setLineItems(pendingOcrLineItems.map((li: any) => ({
+                    id: crypto.randomUUID(),
+                    property_id: '',
+                    gl_code: predictGlCode(li.description || ''),
+                    description: li.description || '',
+                    amount_excl: li.amount || 0,
+                    vat_rate: 15,
+                    vat_amount: Math.round((li.amount * 15 / 100) * 100) / 100 || 0,
+                    amount_incl: (li.amount || 0) + Math.round((li.amount * 15 / 100) * 100) / 100,
+                    cost_centre: '',
+                    tax_code: 'VAT 15%',
+                  })));
+                  setInvoiceDescription(pendingOcrLineItems[0]?.description || '');
+                }
+
                 setState('capture_invoice');
               }}
               onCancel={() => setState('idle')}
