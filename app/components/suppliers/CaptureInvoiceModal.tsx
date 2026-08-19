@@ -369,13 +369,17 @@ const [pendingLineItems, setPendingLineItems] = useState<any[]>([]);
        console.log("GL SUGGESTIONS:", JSON.stringify(glSuggestions));
         
                 setTimeout(() => {
-          setLineItems(prev => prev.map((item, index) => {
-            if (!item.gl_code && glSuggestions[index]) {
-              return { ...item, gl_code: glSuggestions[index] };
-            }
-            return item;
-          }));
-        }, 200);
+  setLineItems(prev => {
+    const updated = prev.map((item, index) => {
+      if (!item.gl_code && glSuggestions[index]) {
+        return { ...item, gl_code: glSuggestions[index] };
+      }
+      return item;
+    });
+    console.log("UPDATED LINE ITEMS:", JSON.stringify(updated.map(item => ({ gl_code: item.gl_code, desc: item.description }))));
+    return updated;
+  });
+}, 200);
       }
 
       
