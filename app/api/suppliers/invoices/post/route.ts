@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { logFinancialAction } from '@/lib/audit/financial-audit';
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("Authorization");
@@ -97,6 +98,25 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
+        // AUDIT — POST
+    await logFinancialAction({
+      user_id: user.id,
+      user_email: user.email,
+      action: 'post',
+      resource_type: 'supplier_invoice',
+      resource_id: invoiceId,
+      resource_label: invoice.invoice_number,
+      old_values: {
+        lifecycle_status: invoice.lifecycle_status,
+        status: invoice.status,
+      },
+      new_values: {
+        lifecycle_status: 'posted',
+        status: 'posted',
+        posted_by: user.id,
+        posted_at: posted.posted_at,
+      },
+    }, serviceClient);
 
     return NextResponse.json({ success: true, invoice: posted });
   } catch (error: any) {

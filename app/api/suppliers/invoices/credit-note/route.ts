@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { logFinancialAction } from '@/lib/audit/financial-audit';
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("Authorization");
@@ -113,6 +114,22 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', invoiceId);
+
+          // AUDIT — CREDIT NOTE CREATED
+    await logFinancialAction({
+      user_id: user.id,
+      user_email: user.email,
+      action: 'credit_note',
+      resource_type: 'supplier_invoice',
+      resource_id: original.id,
+      resource_label: original.invoice_number,
+      new_values: {
+        credit_note_id: creditNote.id,
+        original_invoice_id: original.id,
+        amount: creditNote.total_amount,
+        reason: reason || null,
+      },
+    }, serviceClient);
 
     return NextResponse.json({ success: true, creditNote });
   } catch (error: any) {

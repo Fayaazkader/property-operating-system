@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { logFinancialAction } from '@/lib/audit/financial-audit';
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("Authorization");
@@ -131,6 +132,23 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+        // AUDIT TRAIL
+    await logFinancialAction({
+      user_id: user.id,
+      user_email: user.email,
+      action: 'create',
+      resource_type: 'supplier_invoice',
+      resource_id: invoice.id,
+      resource_label: invoiceNumber,
+      new_values: {
+        supplier_id: supplierId,
+        invoice_number: invoiceNumber,
+        total_amount: numTotal,
+        vat_amount: numVat,
+        lifecycle_status: 'pending',
+      },
+    }, serviceClient);
 
     // INSERT LINE ITEMS
     if (lineItems.length > 0) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { logFinancialAction } from '@/lib/audit/financial-audit';
 
 export async function GET(request: NextRequest) {
   try {
@@ -122,6 +123,20 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
+    // AUDIT — SUPPLIER CREATED
+    await logFinancialAction({
+      user_id: user.id,
+      user_email: user.email,
+      action: 'create_supplier',
+      resource_type: 'supplier',
+      resource_id: data.id,
+      resource_label: data.supplier_name,
+      new_values: {
+        supplier_name: data.supplier_name,
+        supplier_code: data.supplier_code,
+        entity_id: data.entity_id,
+      },
+    }, serviceClient);
 
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
