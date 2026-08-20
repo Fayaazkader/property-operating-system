@@ -43,8 +43,9 @@ export default function InvoicesPage() {
     init();
   }, []);
 
-  const filtered = invoices.filter(i => {
-    if (filter !== 'all' && i.lifecycle_status !== filter) return false;
+    const filtered = invoices.filter(i => {
+    if (filter === 'credit_note' && i.status !== 'credit_note') return false;
+    if (filter !== 'all' && filter !== 'credit_note' && i.lifecycle_status !== filter) return false;
     if (search && !i.invoice_number?.toLowerCase().includes(search.toLowerCase()) && !i.supplier?.supplier_name?.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -86,9 +87,11 @@ export default function InvoicesPage() {
     if (response.ok) {
       setSelectedInvoice(null);
       init();
-    } else {
-      alert('Failed to create credit note');
-    }
+      } else {
+    const errData = await response.json().catch(() => ({}));
+    console.error("CREDIT NOTE ERROR:", errData);
+    alert(`Failed: ${errData.error || errData.message || 'Unknown error'}`);
+  }
   };
 
   const handlePrint = () => {
@@ -149,8 +152,8 @@ export default function InvoicesPage() {
                   <td className="py-2.5 px-4 text-right text-white tabular-nums text-xs">R{inv.total_amount?.toLocaleString()}</td>
                   <td className="py-2.5 px-4 text-center">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full ${inv.lifecycle_status === 'posted' ? 'bg-emerald-500/10 text-emerald-400' : inv.lifecycle_status === 'pending' ? 'bg-amber-500/10 text-amber-400' : inv.lifecycle_status === 'credit_note' ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-800 text-zinc-500'}`}>
-                      {inv.lifecycle_status}
-                    </span>
+  {inv.status === 'credit_note' ? 'credit_note' : inv.lifecycle_status}
+</span>
                   </td>
                   <td className="py-2.5 px-4 text-right">
                     <button onClick={() => openInvoice(inv)} className="text-xs text-zinc-400 hover:text-white transition-colors">
