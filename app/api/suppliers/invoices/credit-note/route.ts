@@ -51,7 +51,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Only posted invoices can be credited" }, { status: 409 });
     }
 
-    // Create credit note
+    // Check if already fully credited
+    if (original.credit_status === 'fully_credited') {
+      return NextResponse.json({ error: "Invoice already fully credited" }, { status: 409 });
+    }
+
+    // Create credit note record
     const { data: creditNote, error } = await serviceClient
       .from('supplier_invoices_new')
       .insert({
@@ -65,7 +70,7 @@ export async function POST(request: NextRequest) {
         invoice_date: new Date().toISOString().split('T')[0],
         due_date: null,
         description: `Credit note for ${original.invoice_number}${reason ? ` — ${reason}` : ''}`,
-        lifecycle_status: 'credit_note',
+        lifecycle_status: 'posted',
         status: 'credit_note',
         source: 'credit_note',
         duplicate_of: original.id,
@@ -76,12 +81,35 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    // Update original
+    // Copy line items as negative reversals
+    const { data: originalLines } = await serviceClient
+      .from('supplier_invoice_lines')
+      .select('*')
+      .eq('invoice_id', invoiceId);
+
+    if (originalLines?.length) {
+      const creditLines = originalLines.map((line: any) => ({
+        invoice_id: creditNote.id,
+        property_id: line.property_id,
+        gl_code: line.gl_code,
+        description: line.description || `Credit for ${original.invoice_number}`,
+        amount: -(line.amount || 0),
+        vat_code: line.vat_code,
+        vat_rate: line.vat_rate,
+        vat_amount: -(line.vat_amount || 0),
+        total: -(line.total || 0),
+        cost_centre: line.cost_centre,
+      }));
+
+      await serviceClient.from('supplier_invoice_lines').insert(creditLines);
+    }
+
+    // Update original invoice — keep posted, mark as credited
     await serviceClient
       .from('supplier_invoices_new')
       .update({
-        lifecycle_status: 'credit_note',
-        status: 'credit_note',
+        credit_status: 'fully_credited',
+        credit_note_id: creditNote.id,
         updated_at: new Date().toISOString(),
       })
       .eq('id', invoiceId);
