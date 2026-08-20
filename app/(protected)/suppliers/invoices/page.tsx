@@ -43,9 +43,11 @@ export default function InvoicesPage() {
     init();
   }, []);
 
-    const filtered = invoices.filter(i => {
-    if (filter === 'credit_note' && i.status !== 'credit_note') return false;
-    if (filter !== 'all' && filter !== 'credit_note' && i.lifecycle_status !== filter) return false;
+     const filtered = invoices.filter(i => {
+    if (filter === 'credit_note') return i.status === 'credit_note';
+    if (filter === 'posted') return i.lifecycle_status === 'posted' && i.status === 'posted';
+    if (filter === 'pending') return i.lifecycle_status === 'pending';
+    if (filter === 'all') return true;
     if (search && !i.invoice_number?.toLowerCase().includes(search.toLowerCase()) && !i.supplier?.supplier_name?.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
