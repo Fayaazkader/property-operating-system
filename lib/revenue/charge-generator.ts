@@ -61,13 +61,14 @@ export async function generateChargesFromRules(
     if (rule.effective_to && new Date(rule.effective_to) < new Date(periodStart)) continue;
 
     // Check if charge already exists for this rule + period
-    const chargeDesc = `${rule.description} — ${periodName}`;
+        const chargeDesc = `${rule.description} — ${periodName}`;
     const { data: existing } = await supabase
       .from("charges")
       .select("id")
+      .eq("billing_rule_id", rule.id)
       .eq("lease_id", leaseId)
-      .eq("charge_type", rule.rule_type)
-      .eq("description", chargeDesc);
+      .eq("billing_period", periodName)
+      .limit(1);
 
     if (existing && existing.length > 0) continue;
 
@@ -95,6 +96,9 @@ export async function generateChargesFromRules(
 
     await supabase.from("charges").insert({
       lease_id: leaseId,
+      billing_rule_id: rule.id,
+      source_type: 'billing_rule',
+      source_id: rule.id,
       tenant_id: lease?.tenant_id,
       property_id: lease?.property_id,
       entity_id: entityId,
