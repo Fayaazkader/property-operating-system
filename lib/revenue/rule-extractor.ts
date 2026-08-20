@@ -1,4 +1,5 @@
 import { supabase } from "../supabase";
+import { resolveConfiguredAccount } from '@/lib/financial/accounting-resolver';
 
 export async function extractRulesFromLease(leaseId: string): Promise<number> {
   const { data: lease } = await supabase
@@ -8,7 +9,25 @@ export async function extractRulesFromLease(leaseId: string): Promise<number> {
     .single();
 
   if (!lease) return 0;
-  console.log("LEASE DATA:", lease.id, lease.monthly_rental, lease.tenant_name);
+
+  const { data: property } = await supabase
+    .from("properties")
+    .select("entity_id")
+    .eq("id", lease.property_id)
+    .single();
+
+  const entityId = property?.entity_id || '';
+  if (!entityId) throw new Error('Lease is not linked to an entity');
+
+  // Resolve configured accounts
+  const rentAccount = await resolveConfiguredAccount({ entityId, businessRole: 'rental_income_commercial', taxCode: 'VAT_STANDARD' });
+  const parkingAccount = await resolveConfiguredAccount({ entityId, businessRole: 'recovery_utilities', taxCode: 'VAT_STANDARD' });
+  const depositAccount = await resolveConfiguredAccount({ entityId, businessRole: 'deposit_liability', taxCode: 'NO_VAT' });
+  const recoveryAccount = await resolveConfiguredAccount({ entityId, businessRole: 'recovery_operating', taxCode: 'VAT_STANDARD' });
+
+  if (!rentAccount || !parkingAccount || !depositAccount || !recoveryAccount) {
+    throw new Error('Entity accounting configuration incomplete — required roles not mapped');
+  }
 
   const startDate = lease.lease_start_date || new Date().toISOString().split("T")[0];
   const endDate = lease.lease_end_date || null;
@@ -21,6 +40,7 @@ export async function extractRulesFromLease(leaseId: string): Promise<number> {
     base_amount: number;
     vat_rate: number;
     gl_code: string;
+    account_id: string;
     recovery_method?: string;
     escalation_percent?: number;
     escalation_month?: number;
@@ -35,8 +55,9 @@ export async function extractRulesFromLease(leaseId: string): Promise<number> {
       rule_type: "rent",
       description: "Monthly Rental",
       base_amount: lease.monthly_rental,
-      vat_rate: 15,
-      gl_code: "4100-001",
+      vat_rate: rentAccount.taxRate,
+      gl_code: rentAccount.glCode,
+      account_id: rentAccount.accountId,
       recovery_method: "fixed",
       escalation_percent: lease.escalation_percent || undefined,
       escalation_month: lease.escalation_percent ? escalationMonth : undefined,
@@ -54,8 +75,9 @@ export async function extractRulesFromLease(leaseId: string): Promise<number> {
       rule_type: "parking",
       description: `Parking (${parkingBays} bays × R${parkingRate})`,
       base_amount: parkingBays * parkingRate,
-      vat_rate: 15,
-      gl_code: "4200-001",
+      vat_rate: parkingAccount.taxRate,
+      gl_code: parkingAccount.glCode,
+      account_id: parkingAccount.accountId,
       recovery_method: "fixed",
       frequency: "monthly",
       effective_from: startDate,
@@ -69,8 +91,9 @@ export async function extractRulesFromLease(leaseId: string): Promise<number> {
       rule_type: "security_levy",
       description: "Security Levy",
       base_amount: lease.security_levy,
-      vat_rate: 15,
-      gl_code: "4400-002",
+      vat_rate: recoveryAccount.taxRate,
+      gl_code: recoveryAccount.glCode,
+      account_id: recoveryAccount.accountId,
       recovery_method: "fixed",
       frequency: "monthly",
       effective_from: startDate,
@@ -84,8 +107,9 @@ export async function extractRulesFromLease(leaseId: string): Promise<number> {
       rule_type: "marketing_levy",
       description: "Marketing Levy",
       base_amount: lease.marketing_levy,
-      vat_rate: 15,
-      gl_code: "4400-003",
+      vat_rate: recoveryAccount.taxRate,
+      gl_code: recoveryAccount.glCode,
+      account_id: recoveryAccount.accountId,
       recovery_method: "fixed",
       frequency: "monthly",
       effective_from: startDate,
@@ -93,30 +117,29 @@ export async function extractRulesFromLease(leaseId: string): Promise<number> {
     });
   }
 
-  // 5. Storage Rule
-  
-
-  // 6. Deposit Rule (one-time)
+  // 5. Deposit Rule (one-time)
   if (lease.deposit_amount && lease.deposit_amount > 0) {
     rules.push({
       rule_type: "deposit",
       description: "Tenant Deposit",
       base_amount: lease.deposit_amount,
-      vat_rate: 0,
-      gl_code: "8100-001",
+      vat_rate: depositAccount.taxRate,
+      gl_code: depositAccount.glCode,
+      account_id: depositAccount.accountId,
       recovery_method: "fixed",
       frequency: "once",
       effective_from: startDate,
     });
   }
 
-  // 7. Utility Recovery Rule
+  // 6. Utility Recovery Rule
   rules.push({
     rule_type: "utility_recovery",
     description: "Utility Recovery",
     base_amount: 0,
-    vat_rate: 15,
-    gl_code: "4300-001",
+    vat_rate: recoveryAccount.taxRate,
+    gl_code: recoveryAccount.glCode,
+    account_id: recoveryAccount.accountId,
     recovery_method: "metered",
     frequency: "monthly",
     effective_from: startDate,
@@ -141,6 +164,7 @@ export async function extractRulesFromLease(leaseId: string): Promise<number> {
       base_amount: rule.base_amount,
       vat_rate: rule.vat_rate,
       gl_code: rule.gl_code,
+      account_id: rule.account_id,
       recovery_method: rule.recovery_method || "fixed",
       frequency: rule.frequency || "monthly",
       escalation_percent: rule.escalation_percent || null,
