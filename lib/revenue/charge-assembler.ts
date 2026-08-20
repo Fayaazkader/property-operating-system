@@ -67,7 +67,10 @@ export function assembleCharges(
     lease.commencement_date, lease.lease_start_date, periodStart
   );
   if (esc.applies) {
-    const vat = Math.round(esc.increase * 0.15 * 100) / 100;
+        // Use the rent rule's VAT rate for escalation
+    const rentRule = rules.find((r: any) => r.rule_type === 'rent');
+    const escalationVatRate = rentRule?.vat_rate ?? 0;
+    const vat = Math.round(esc.increase * (escalationVatRate / 100) * 100) / 100;
     charges.push({
       type: 'escalation', description: `Annual Escalation (${lease.escalation_percent}%)`,
       amount: esc.increase, vatAmount: vat, total: esc.increase + vat,

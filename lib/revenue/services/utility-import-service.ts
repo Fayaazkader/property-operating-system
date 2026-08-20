@@ -130,7 +130,7 @@ export const utilityImportService = {
         vat_rate: vatRate,
         vat_amount: vatAmount,
         amount_incl: amount + vatAmount,
-        gl_code: row.gl_code || '4200',
+                gl_code: row.gl_code,
         period_id: params.periodId || null,
         status: 'pending',
         created_at: new Date().toISOString(),

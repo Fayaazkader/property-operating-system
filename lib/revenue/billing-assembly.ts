@@ -84,6 +84,14 @@ function isRuleDueForPeriod(rule: any, periodStart: string, periodEnd: string): 
 
 export const billingAssembly = {
   async assembleWorksheet(entityId: string, propertyId: string | null, periodId: string): Promise<BillingWorksheet> {
+        // Resolve VAT rate from entity tax configuration
+    const { data: taxConfig } = await supabase
+      .from('tax_config')
+      .select('tax_rate')
+      .eq('entity_id', entityId)
+      .eq('tax_code', 'VAT_STANDARD')
+      .single();
+    const vatRate = taxConfig?.tax_rate ?? 0;
     // Validate period is open
     const { data: period } = await supabase.from('financial_periods')
       .select('id, period_name, status, period_start, period_end')
@@ -198,7 +206,7 @@ export const billingAssembly = {
   const previousEscalationFactor = Math.pow(1 + lease.escalation_percent / 100, yearsOfEscalation - 1);
   const previousRent = Math.round(lease.monthly_rental * previousEscalationFactor * 100) / 100;
   const increase = escalatedRent - previousRent;
-          const vat = Math.round(increase * 0.15 * 100) / 100;
+                   const vat = Math.round(increase * (vatRate / 100) * 100) / 100;
           charges.push({
             type: 'escalation', description: `Annual Escalation (${lease.escalation_percent}%)`,
             amount: increase, vatAmount: vat, total: increase + vat, source: 'escalation',

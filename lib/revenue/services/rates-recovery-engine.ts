@@ -157,6 +157,16 @@ export const ratesRecoveryEngine = {
     if (!allocations?.length) throw new Error('No allocations to approve');
 
     const entityId = run.entity_id;
+        // Resolve recovery account and VAT from entity config
+    const { resolveConfiguredAccount } = await import('@/lib/financial/accounting-resolver');
+    const recoveryAccount = await resolveConfiguredAccount({
+      entityId,
+      businessRole: 'recovery_operating',
+      taxCode: 'VAT_STANDARD',
+    });
+    if (!recoveryAccount) {
+      throw new Error('Recovery operating account not configured for this entity');
+    }
     const effectiveDate = run.effective_date;
     const billingRuleUpserts: any[] = [];
     const manualCharges: any[] = [];
@@ -169,8 +179,9 @@ export const ratesRecoveryEngine = {
         charge_code: 'RATES_RECOVERY',
         description: 'Rates & Taxes Recovery',
         base_amount: alloc.new_monthly_charge,
-        vat_rate: 0,
-        gl_code: '4200',
+                vat_rate: 0, // Rates are non-VAT
+        gl_code: recoveryAccount.glCode,
+        account_id: recoveryAccount.accountId,
         is_recoverable: true,
         frequency: 'monthly',
         status: 'active',
@@ -184,10 +195,11 @@ export const ratesRecoveryEngine = {
           tenant_id: alloc.tenant_id,
           description: `Rates Increase Back Charge — ${new Date(effectiveDate).toLocaleString('default', { month: 'long', year: 'numeric' })}`,
           amount_excl: alloc.back_charge_amount,
-          vat_rate: 0,
+                    vat_rate: 0,
           vat_amount: 0,
           amount_incl: alloc.back_charge_amount,
-          gl_code: '4200',
+          gl_code: recoveryAccount.glCode,
+          account_id: recoveryAccount.accountId,
           status: 'pending',
           created_at: new Date().toISOString(),
         });
