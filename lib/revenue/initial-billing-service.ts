@@ -1,11 +1,12 @@
 // lib/revenue/initial-billing-service.ts
 // Calculates initial charges. Does NOT post. Posting is handled by the workflow engine.
+// Resolves accounts via entity accounting config — no hardcoded GL/VAT
 
 import { supabase } from '@/lib/supabase';
 import { billingPolicyEngine, type BillingPolicy } from './billing-policy-engine';
-import { financialRulesEngine } from '@/lib/financial/rules-engine';
 import { publish } from '@/lib/platform/events/event-bus';
 import { operationalJournal } from '@/lib/workflow/services/operational-journal';
+import { resolveConfiguredAccount } from '@/lib/financial/accounting-resolver';
 
 export interface InitialCharge {
   id: string;
@@ -13,7 +14,9 @@ export interface InitialCharge {
   description: string;
   source: string;
   source_detail: string;
+  account_id: string;
   gl_code: string;
+  tax_code: string;
   vat_rate: number;
   vat_treatment: string;
   amount_excl_vat: number;
@@ -39,7 +42,7 @@ export class InitialBillingService {
   async calculate(leaseId: string, entityId: string): Promise<InitialBillingResult> {
     const { data: lease } = await supabase
       .from('leases')
-      .select('id, lease_id, tenant_id, property_id, monthly_rental, parking_bays, parking_rate, deposit_amount')
+      .select('id, lease_id, tenant_id, property_id, monthly_rental, parking_bays, parking_rate, deposit_amount, lease_type')
       .eq('id', leaseId)
       .single();
 
@@ -51,14 +54,47 @@ export class InitialBillingService {
     const policy = await billingPolicyEngine.resolve(leaseId);
     const charges: InitialCharge[] = [];
 
-    // Resolve GL codes from the financial rules engine (not hardcoded)
-    const rentGlCode = await financialRulesEngine.resolveAccountId(entityId, '4100');
-    const parkingGlCode = await financialRulesEngine.resolveAccountId(entityId, '4200');
-    const depositGlCode = await financialRulesEngine.resolveAccountId(entityId, '8100');
-    const feeGlCode = await financialRulesEngine.resolveAccountId(entityId, '4450');
+    // Resolve configured accounts
+    const depositAccount = await resolveConfiguredAccount({
+      entityId,
+      businessRole: 'deposit_liability',
+      taxCode: 'NO_VAT',
+    });
 
-    // Resolve VAT from chart_of_accounts (not hardcoded)
-    const vatRate = await this.getVatRate(entityId, rentGlCode || '');
+    const rentalRole = lease.lease_type === 'residential'
+      ? 'rental_income_residential'
+      : 'rental_income_commercial';
+
+    const rentAccount = await resolveConfiguredAccount({
+      entityId,
+      businessRole: rentalRole,
+      taxCode: 'VAT_STANDARD',
+    });
+
+    const parkingAccount = await resolveConfiguredAccount({
+      entityId,
+      businessRole: 'recovery_utilities',
+      taxCode: 'VAT_STANDARD',
+    });
+
+    const feeAccount = await resolveConfiguredAccount({
+      entityId,
+      businessRole: 'fee_income',
+      taxCode: 'NO_VAT',
+    });
+
+    if (!depositAccount) {
+      throw new Error('Deposit liability account not configured for this entity');
+    }
+    if (!rentAccount) {
+      throw new Error(`Rental income account not configured for this entity (role: ${rentalRole})`);
+    }
+    if (!parkingAccount) {
+      throw new Error('Recovery utilities account not configured for this entity');
+    }
+    if (!feeAccount) {
+      throw new Error('Fee income account not configured for this entity');
+    }
 
     // 1. Deposit
     if (lease.deposit_amount && lease.deposit_amount > 0) {
@@ -66,7 +102,8 @@ export class InitialBillingService {
         id: crypto.randomUUID(), charge_type: 'deposit',
         description: 'Tenant Deposit',
         source: 'Lease Agreement', source_detail: 'Lease Clause — Deposit',
-        gl_code: depositGlCode || '8100-001', vat_rate: 15, vat_treatment: 'standard',
+        account_id: depositAccount.accountId, gl_code: depositAccount.glCode,
+        tax_code: depositAccount.taxCode, vat_rate: depositAccount.taxRate, vat_treatment: 'no_vat',
         amount_excl_vat: lease.deposit_amount, vat_amount: 0,
         amount_incl_vat: lease.deposit_amount, selected: true,
       });
@@ -74,12 +111,13 @@ export class InitialBillingService {
 
     // 2. First Month Rental
     if (lease.monthly_rental && lease.monthly_rental > 0) {
-      const vat = Math.round(lease.monthly_rental * (vatRate / 100) * 100) / 100;
+      const vat = Math.round(lease.monthly_rental * (rentAccount.taxRate / 100) * 100) / 100;
       charges.push({
         id: crypto.randomUUID(), charge_type: 'rent',
         description: 'First Month Rental',
         source: 'Lease Agreement', source_detail: 'Lease Clause — Rental',
-        gl_code: rentGlCode || '4100-001', vat_rate: vatRate, vat_treatment: 'standard',
+        account_id: rentAccount.accountId, gl_code: rentAccount.glCode,
+        tax_code: rentAccount.taxCode, vat_rate: rentAccount.taxRate, vat_treatment: 'standard',
         amount_excl_vat: lease.monthly_rental, vat_amount: vat,
         amount_incl_vat: lease.monthly_rental + vat, selected: true,
       });
@@ -88,12 +126,13 @@ export class InitialBillingService {
     // 3. First Month Parking
     const parkingAmount = (lease.parking_bays || 0) * (lease.parking_rate || 0);
     if (parkingAmount > 0) {
-      const vat = Math.round(parkingAmount * (vatRate / 100) * 100) / 100;
+      const vat = Math.round(parkingAmount * (parkingAccount.taxRate / 100) * 100) / 100;
       charges.push({
         id: crypto.randomUUID(), charge_type: 'parking',
         description: `First Month Parking (${lease.parking_bays} bays)`,
         source: 'Lease Agreement', source_detail: 'Lease Clause — Parking',
-        gl_code: parkingGlCode || '4200-001', vat_rate: vatRate, vat_treatment: 'standard',
+        account_id: parkingAccount.accountId, gl_code: parkingAccount.glCode,
+        tax_code: parkingAccount.taxCode, vat_rate: parkingAccount.taxRate, vat_treatment: 'standard',
         amount_excl_vat: parkingAmount, vat_amount: vat,
         amount_incl_vat: parkingAmount + vat, selected: true,
       });
@@ -105,7 +144,8 @@ export class InitialBillingService {
         id: crypto.randomUUID(), charge_type: 'lease_fee',
         description: policy.lease_fee_description,
         source: policy.source, source_detail: `Policy: ${policy.source} — v1`,
-        gl_code: feeGlCode || '4400-001', vat_rate: 15, vat_treatment: 'standard',
+        account_id: feeAccount.accountId, gl_code: feeAccount.glCode,
+        tax_code: feeAccount.taxCode, vat_rate: feeAccount.taxRate, vat_treatment: 'no_vat',
         amount_excl_vat: policy.lease_fee_amount, vat_amount: 0,
         amount_incl_vat: policy.lease_fee_amount, selected: true,
       });
@@ -161,10 +201,6 @@ export class InitialBillingService {
     return billing;
   }
 
-  private async getVatRate(entityId: string, accountId: string): Promise<number> {
-    const { data } = await supabase.from('chart_of_accounts').select('vat_rate').eq('id', accountId).single();
-    return data?.vat_rate || 15;
-  }
   async postCharges(leaseId: string, charges: InitialCharge[]): Promise<number> {
     const { data: lease } = await supabase
       .from('leases')
@@ -172,20 +208,36 @@ export class InitialBillingService {
       .eq('id', leaseId)
       .single();
 
-    if (!lease) return 0;
+    if (!lease) throw new Error('Lease not found');
 
     const { data: property } = await supabase.from('properties').select('entity_id, owner_entity_id').eq('id', lease.property_id).single();
     const entityId = property?.entity_id || '';
+    if (!entityId) throw new Error('Lease is not linked to an entity');
+
     const periodName = new Date(lease.lease_start_date).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+
+    // IDEMPOTENCY: check existing commencement charges
+    const { data: existingCharges } = await supabase
+      .from('charges')
+      .select('charge_type')
+      .eq('lease_id', leaseId)
+      .eq('source_type', 'lease_commencement')
+      .eq('source_id', leaseId)
+      .eq('billing_period', periodName);
+
+    const existingTypes = new Set((existingCharges || []).map((c: any) => c.charge_type));
 
     let posted = 0;
     for (const charge of charges.filter(c => c.selected)) {
+      if (existingTypes.has(charge.charge_type)) continue;
+
       const { error } = await supabase.from('charges').insert({
         lease_id: leaseId,
         tenant_id: lease.tenant_id,
         property_id: lease.property_id,
         entity_id: entityId,
         owner_entity_id: property?.owner_entity_id || entityId,
+        account_id: charge.account_id,
         charge_type: charge.charge_type,
         description: charge.description + ' — ' + periodName,
         amount_excl_vat: charge.amount_excl_vat,
@@ -199,8 +251,14 @@ export class InitialBillingService {
         status: 'posted',
         billing_period: periodName,
         financial_period: periodName,
+        source_type: 'lease_commencement',
+        source_id: leaseId,
       });
-      if (!error) { posted++; } else { console.error("postCharges insert error:", error.message, charge); }
+
+      if (error) {
+        throw new Error(`Failed to post ${charge.charge_type} charge: ${error.message}`);
+      }
+      posted++;
     }
 
     if (posted > 0) {
@@ -214,7 +272,6 @@ export class InitialBillingService {
 
     return posted;
   }
-
 }
 
 export const initialBillingService = new InitialBillingService();
