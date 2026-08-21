@@ -23,7 +23,7 @@ export const ledgerData = {
     return (data || []).map(line => ({
       account_id: line.account_id,
       account_name: (line.chart_of_accounts as any)?.account_name || 'Unknown',
-      gl_code: (line.chart_of_accounts as any)?.gl_code || '0000',
+      gl_code: (line.chart_of_accounts as any)?.gl_code ?? '',
       account_type: (line.chart_of_accounts as any)?.account_type || 'expense',
       debit_amount: line.debit_amount || 0,
       credit_amount: line.credit_amount || 0,

@@ -154,7 +154,7 @@ export const billingAssembly = {
         .eq('period', period.period_name);
 
       for (const m of (manuals || [])) {
-        const vat = Math.round(m.amount * ((m.vat_rate || 15) / 100) * 100) / 100;
+        const vat = Math.round(m.amount * ((m.vat_rate ?? 0) / 100) * 100) / 100;
         charges.push({
           type: 'manual', description: m.description, amount: m.amount,
           vatAmount: vat, total: m.amount + vat, source: 'manual',
