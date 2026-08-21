@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { cashbookService } from '@/lib/cashbook/cashbook-service';
+import { permissionService } from '@/lib/rbac/permission-service';
 
 type Destination = 'tenant' | 'supplier' | 'property' | 'entity' | null;
 
@@ -127,6 +128,29 @@ export default function ManualAllocationWorkspace() {
   const isPartial = currentAllocated > 0 && currentAllocated < totalAmount;
 
   async function handleSave() {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    console.error('Allocation denied: user not authenticated');
+    return;
+  }
+
+  if (!entityId) {
+    console.error('Allocation denied: no entity');
+    return;
+  }
+
+  const permission = await permissionService.can(
+    user.id,
+    entityId,
+    'financial.allocate'
+  );
+
+  if (!permission.allowed) {
+    console.error('Allocation denied:', permission.reason);
+    return;
+  }
+
   setSaving(true);
 
   try {

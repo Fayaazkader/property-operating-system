@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { apApi } from '@/lib/accounts-payable/api';
+import { permissionService } from '@/lib/rbac/permission-service';
 
 export default function ApprovalQueuePage() {
   const [queue, setQueue] = useState<any[]>([]);
@@ -26,7 +27,30 @@ export default function ApprovalQueuePage() {
     setQueue(data || []);
   }
 
-  async function handleApprove(id: string) { await apApi.approveInvoice(id, 'user'); await loadQueue(entityId); }
+  async function handleApprove(id: string) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.user?.id || !entityId) {
+    alert('Unable to verify your access.');
+    return;
+  }
+
+  const permission = await permissionService.can(
+    session.user.id,
+    entityId,
+    'financial.approve'
+  );
+
+  if (!permission.allowed) {
+    alert('You do not have permission to approve financial transactions.');
+    return;
+  }
+
+  await apApi.approveInvoice(id, session.user.id);
+  await loadQueue(entityId);
+}
   async function handleReject(id: string) { await apApi.rejectInvoice(id, 'Rejected'); await loadQueue(entityId); }
 
   if (loading) return <div className="text-zinc-500">Loading...</div>;

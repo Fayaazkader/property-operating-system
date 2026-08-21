@@ -7,6 +7,7 @@ import { cashbookPostingService } from "@/lib/cashbook/posting-service";
 import { logAudit } from "@/lib/audit/audit-log";
 import { PageHeader } from "@/app/components/layout/PageHeader";
 import { exportToCSV } from "@/lib/utils";
+import { permissionService } from '@/lib/rbac/permission-service';
 
 type Transaction = {
   id: string; transaction_date: string; transaction_description: string;
@@ -48,20 +49,86 @@ export default function AccountWorkspacePage() {
   }
 
   async function handlePostTransaction(tx: Transaction) {
-    setLoading(true);
+  setLoading(true);
+
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user?.id || !account?.entity_id) {
+      alert('Unable to verify your access.');
+      return;
+    }
+
+    const permission = await permissionService.can(
+      session.user.id,
+      account.entity_id,
+      'financial.post'
+    );
+
+    if (!permission.allowed) {
+      alert('You do not have permission to post financial transactions.');
+      return;
+    }
+
     const result = await cashbookPostingService.postTransaction(tx.id);
-    setLoading(false);
-    if (result.success) await logAudit({ action: "update", resource_type: "transaction", resource_id: tx.id, resource_label: `Posted ${tx.transaction_description}`, old_values: { status: tx.allocation_status }, new_values: { status: "posted", journalId: result.journalId } });
+
+    if (result.success) {
+      await logAudit({
+        action: 'update',
+        resource_type: 'transaction',
+        resource_id: tx.id,
+        resource_label: `Posted ${tx.transaction_description}`,
+        old_values: { status: tx.allocation_status },
+        new_values: {
+          status: 'posted',
+          journalId: result.journalId,
+        },
+      });
+    }
+
     await loadData();
+  } finally {
+    setLoading(false);
   }
+}
 
   async function handlePostAllReady() {
-    setLoading(true);
-    const result = await cashbookPostingService.postReadyTransactions(account?.entity_id, accountId);
+  setLoading(true);
+
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user?.id || !account?.entity_id) {
+      alert('Unable to verify your access.');
+      return;
+    }
+
+    const permission = await permissionService.can(
+      session.user.id,
+      account.entity_id,
+      'financial.post'
+    );
+
+    if (!permission.allowed) {
+      alert('You do not have permission to post financial transactions.');
+      return;
+    }
+
+    const result = await cashbookPostingService.postReadyTransactions(
+      account.entity_id,
+      accountId
+    );
+
     setPostingResult(result);
     await loadData();
+  } finally {
     setLoading(false);
   }
+}
 
   function manualAllocateUrl(tx: Transaction) {
     return `/financials/cash-book/${accountId}/allocate/${tx.id}`;

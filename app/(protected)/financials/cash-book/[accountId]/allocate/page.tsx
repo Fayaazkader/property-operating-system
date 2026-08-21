@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { cashbookService } from "@/lib/cashbook/cashbook-service";
+import { permissionService } from '@/lib/rbac/permission-service';
 
 export default function AllocationWorkspace() {
   const searchParams = useSearchParams();
@@ -85,6 +86,32 @@ export default function AllocationWorkspace() {
 
   async function handleConfirmAllocation() {
   if (!selectedMatch) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    console.error('Allocation denied: user not authenticated');
+    return;
+  }
+
+  const { data: entityIds } = await supabase.rpc('auth_entities');
+  const entityId = entityIds?.[0];
+
+  if (!entityId) {
+    console.error('Allocation denied: no entity');
+    return;
+  }
+
+  const permission = await permissionService.can(
+    user.id,
+    entityId,
+    'financial.allocate'
+  );
+
+  if (!permission.allowed) {
+    console.error('Allocation denied:', permission.reason);
+    return;
+  }
 
   setLoading(true);
 

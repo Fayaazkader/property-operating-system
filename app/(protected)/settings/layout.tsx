@@ -90,23 +90,44 @@ const groups = [
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+
   return (
-    <div className="flex h-full">
-      <div className="w-56 border-r border-white/[0.06] p-4 space-y-6 flex-shrink-0 overflow-y-auto">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600 px-3">Settings</p>
-        {groups.map(group => (
-          <div key={group.label} className="space-y-1">
-            <p className="text-[9px] uppercase tracking-[0.2em] text-zinc-700 px-3">{group.label}</p>
-            {group.items.map(item => (
-              <Link key={item.key} href={`/settings${item.key}`}
-                className={`block w-full text-left px-3 py-1.5 rounded-lg text-sm font-light transition-colors ${pathname === `/settings${item.key}` ? 'bg-white/[0.06] text-white' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}>
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className="flex-1 p-8 overflow-y-auto">{children}</div>
+    <div className="flex h-full min-h-0 overflow-hidden">
+      {/* Settings navigation — independent scroll */}
+      <aside className="w-56 min-h-0 flex-shrink-0 overflow-y-auto border-r border-white/[0.06] p-4">
+        <div className="space-y-6">
+          <p className="px-3 text-[10px] uppercase tracking-[0.2em] text-zinc-600">
+            Settings
+          </p>
+
+          {groups.map(group => (
+            <div key={group.label} className="space-y-1">
+              <p className="px-3 text-[9px] uppercase tracking-[0.2em] text-zinc-700">
+                {group.label}
+              </p>
+
+              {group.items.map(item => (
+                <Link
+                  key={item.key}
+                  href={`/settings${item.key}`}
+                                  className={`block w-full rounded-lg px-3 py-1.5 text-left text-sm font-light transition-colors ${
+                    pathname === `/settings${item.key}`
+                      ? 'bg-white/[0.06] text-white'
+                      : 'text-zinc-500 hover:bg-white/[0.02] hover:text-zinc-300'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          ))}
+        </div>
+      </aside>
+
+      {/* Settings content — independent scroll */}
+      <main className="min-h-0 flex-1 overflow-y-auto p-8">
+        {children}
+      </main>
     </div>
   );
 }
