@@ -127,18 +127,60 @@ export default function ManualAllocationWorkspace() {
   const isPartial = currentAllocated > 0 && currentAllocated < totalAmount;
 
   async function handleSave() {
-    setSaving(true);
-    const tenantId = destination === 'tenant' ? selectedItem?.id : undefined;
-    const supplierId = destination === 'supplier' ? selectedItem?.id : undefined;
-    const invoiceId: string | null = selectedInvoices.length === 1 ? selectedInvoices[0] : null;
-    if (destination === 'tenant' || destination === 'supplier') {
-      await cashbookService.confirmAllocation(transactionId, invoiceId, tenantId, supplierId);
-    } else {
-      await supabase.from('bank_transactions').update({ allocation_status: 'ready_to_post', queue: 'ready' }).eq('id', transactionId);
+  setSaving(true);
+
+  try {
+    const tenantId =
+      destination === 'tenant'
+        ? selectedItem?.id
+        : null;
+
+    const supplierId =
+      destination === 'supplier'
+        ? selectedItem?.id
+        : null;
+
+    const invoiceId =
+      selectedInvoices.length === 1
+        ? selectedInvoices[0]
+        : null;
+
+    const allocationAmount = currentAllocated;
+
+    if (allocationAmount <= 0) {
+      setSaving(false);
+      return;
     }
+
+    const result = await cashbookService.confirmAllocation(
+      transactionId,
+      {
+        matchedInvoiceId: invoiceId,
+        matchedTenantId: tenantId,
+        matchedSupplierId: supplierId,
+        allocations: [
+          {
+            category: destination || 'unclassified',
+            amount: allocationAmount,
+            invoiceId,
+            tenantId,
+            supplierId,
+          },
+        ],
+      }
+    );
+
+    if (!result.success) {
+      console.error('Allocation failed:', result.message);
+      setSaving(false);
+      return;
+    }
+
     router.push(`/financials/cash-book/${accountId}`);
+  } finally {
     setSaving(false);
   }
+}
 
   if (loading) return <div className="p-8 text-zinc-500">Loading...</div>;
   const destLabel = destination === 'tenant' ? 'Tenant' : destination === 'supplier' ? 'Supplier' : destination === 'property' ? 'Property' : destination === 'entity' ? 'Entity' : '';

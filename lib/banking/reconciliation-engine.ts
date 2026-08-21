@@ -220,7 +220,7 @@ export async function runReconciliationEngine(
           matched_tenant_id: matchedTenantId,
           matched_invoice_id: matchedInvoiceId,
           property_id: propertyId,
-          allocation_status: "fully_allocated",
+          allocation_status: "unallocated",
           queue: "ready",
           reconciliation_notes: matchReason,
           updated_at: new Date().toISOString(),
@@ -250,7 +250,7 @@ export async function runReconciliationEngine(
         matched_tenant_name: matchedTenantName,
         matched_invoice_id: matchedInvoiceId,
         confidence: confidence,
-        allocation_status: "fully_allocated",
+        allocation_status: "unallocated",
         queue: "ready"
       }).eq("id", tx.id);
     }

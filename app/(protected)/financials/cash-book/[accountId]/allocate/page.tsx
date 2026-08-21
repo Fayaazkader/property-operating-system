@@ -84,14 +84,59 @@ export default function AllocationWorkspace() {
   }, [txId]);
 
   async function handleConfirmAllocation() {
-    if (!selectedMatch) return;
-    setLoading(true);
-    const tenantId = selectedMatch.match_type === 'tenant' ? selectedMatch.tenant_id : undefined;
-    const supplierId = selectedMatch.match_type === 'supplier' ? selectedMatch.supplier_id : undefined;
-    await cashbookService.confirmAllocation(txId, selectedMatch.id, tenantId, supplierId);
+  if (!selectedMatch) return;
+
+  setLoading(true);
+
+  try {
+    const tenantId =
+      selectedMatch.match_type === 'tenant'
+        ? selectedMatch.tenant_id
+        : null;
+
+    const supplierId =
+      selectedMatch.match_type === 'supplier'
+        ? selectedMatch.supplier_id
+        : null;
+
+    const transactionAmount = Math.abs(txAmount);
+    const allocationAmount = Number(selectedMatch.total_amount || 0);
+
+    if (allocationAmount <= 0) {
+      console.error('Allocation failed: invoice amount is zero');
+      setLoading(false);
+      return;
+    }
+
+    const result = await cashbookService.confirmAllocation(
+      txId,
+      {
+        matchedInvoiceId: selectedMatch.id,
+        matchedTenantId: tenantId,
+        matchedSupplierId: supplierId,
+        allocations: [
+          {
+            category: selectedMatch.match_type,
+            amount: allocationAmount,
+            invoiceId: selectedMatch.id,
+            tenantId,
+            supplierId,
+          },
+        ],
+      }
+    );
+
+    if (!result.success) {
+      console.error('Allocation failed:', result.message);
+      setLoading(false);
+      return;
+    }
+
     setAllocated(true);
+  } finally {
     setLoading(false);
   }
+}
 
   const filteredMatches = matches.filter(m => {
     if (searchQuery) {
