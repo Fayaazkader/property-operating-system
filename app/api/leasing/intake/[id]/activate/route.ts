@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { activationService } from "@/lib/services/activation.service";
 import { supabase } from "@/lib/supabase";
+import { permissionService } from "@/lib/rbac/permission-service";
 
 export async function POST(
   req: NextRequest,
@@ -26,6 +27,33 @@ export async function POST(
       return NextResponse.json(
         { error: "Authentication required", details: userError?.message },
         { status: 401 }
+      );
+    }
+        // Lease activation is the approval boundary.
+    // The user must have leases.approve for this entity.
+    const { data: intake, error: intakeError } = await supabase
+      .from("lease_intake")
+      .select("entity_id")
+      .eq("id", id)
+      .single();
+
+    if (intakeError || !intake?.entity_id) {
+      return NextResponse.json(
+        { error: "Lease intake or entity could not be determined." },
+        { status: 404 }
+      );
+    }
+
+    const permission = await permissionService.can(
+      user.id,
+      intake.entity_id,
+      "leases.approve"
+    );
+
+    if (!permission.allowed) {
+      return NextResponse.json(
+        { error: "You do not have permission to approve and activate leases." },
+        { status: 403 }
       );
     }
 
