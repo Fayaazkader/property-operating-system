@@ -24,8 +24,8 @@ export class FormulaEngine {
       case '{{interest}}': return interest;
       case '{{commission}}': return commission;
       case '{{budget}}': return budget;
-      case '{{percentage(amount,15)}}': return Math.round(amount * 0.15 * 100) / 100;
-      case '{{vat_fraction(amount,15)}}': return Math.round(amount * (vatRate / (100 + vatRate)) * 100) / 100;
+           case '{{percentage(amount)}}': return Math.round(amount * (context.vat_rate / 100) * 100) / 100;
+      case '{{vat_fraction(amount)}}': return Math.round(amount * (context.vat_rate / (100 + context.vat_rate)) * 100) / 100;
       default: return 0;
     }
   }
@@ -43,7 +43,7 @@ export class FormulaEngine {
       '{{amount}}', '{{vat}}', '{{amount_plus_vat}}', '{{amount_minus_vat}}',
       '{{monthly_rental}}', '{{deposit}}', '{{recoveries}}', '{{interest}}',
       '{{commission}}', '{{budget}}',
-      '{{percentage(amount,15)}}', '{{vat_fraction(amount,15)}}',
+            '{{percentage(amount)}}', '{{vat_fraction(amount)}}',
     ];
     return validFormulas.includes(formula);
   }
