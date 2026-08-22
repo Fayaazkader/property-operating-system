@@ -53,57 +53,43 @@ const FIELD_DEFINITIONS: FieldDefinition[] = [
   },
 
   {
-    key: 'tenant_registration_number',
-    label: 'Tenant Registration Number',
-    type: 'text',
-    required: false,
-    patterns: [
-      /Lessee[\s\S]{0,250}?Registration Number\s*:\s*([0-9/]+)/i,
-      /Tenant[\s\S]{0,250}?Registration Number\s*:\s*([0-9/]+)/i,
-    ],
-  },
+  key: 'tenant_registration_number',
+  label: 'Tenant Registration Number',
+  type: 'text',
+  required: false,
+  patterns: [],
+},
 
-  {
-    key: 'landlord_registration_number',
-    label: 'Landlord Registration Number',
-    type: 'text',
-    required: false,
-    patterns: [
-      /Lessor[\s\S]{0,250}?Registration Number\s*:\s*([0-9/]+)/i,
-      /Landlord[\s\S]{0,250}?Registration Number\s*:\s*([0-9/]+)/i,
-    ],
-  },
+{
+  key: 'landlord_registration_number',
+  label: 'Landlord Registration Number',
+  type: 'text',
+  required: false,
+  patterns: [],
+},
 
-  {
-    key: 'tenant_vat_number',
-    label: 'Tenant VAT Number',
-    type: 'text',
-    required: false,
-    patterns: [
-      /Lessee[\s\S]{0,250}?VAT Number\s*:\s*([0-9]+)/i,
-      /Tenant[\s\S]{0,250}?VAT Number\s*:\s*([0-9]+)/i,
-    ],
-  },
+{
+  key: 'tenant_vat_number',
+  label: 'Tenant VAT Number',
+  type: 'text',
+  required: false,
+  patterns: [],
+},
 
-  {
-    key: 'landlord_vat_number',
-    label: 'Landlord VAT Number',
-    type: 'text',
-    required: false,
-    patterns: [
-      /Lessor[\s\S]{0,250}?VAT Number\s*:\s*([0-9]+)/i,
-      /Landlord[\s\S]{0,250}?VAT Number\s*:\s*([0-9]+)/i,
-    ],
-  },
+{
+  key: 'landlord_vat_number',
+  label: 'Landlord VAT Number',
+  type: 'text',
+  required: false,
+  patterns: [],
+},
 
   {
     key: 'tenant_email',
     label: 'Tenant Email',
     type: 'email',
     required: false,
-    patterns: [
-      /Email\s*:\s*([^\s]+)/i,
-    ],
+    patterns: [],
   },
 
   {
@@ -115,6 +101,7 @@ const FIELD_DEFINITIONS: FieldDefinition[] = [
       /(?:Telephone|Phone|Cell)\s*:\s*([+\d][\d\s()-]{6,})/i,
     ],
   },
+  
 
   {
     key: 'property_name',
@@ -278,6 +265,62 @@ function inferFieldType(key: string): LeaseTemplateField['type'] {
   return 'text';
 }
 
+function extractPartyField(
+  text: string,
+  party: 'tenant' | 'landlord',
+  label: string
+): { value?: string; confidence: number } {
+  const partyPattern =
+    party === 'tenant'
+      ? /(?:Lessee|Tenant|Applicant)\s*:\s*([\s\S]{0,500}?)(?=\n?\s*(?:Lessor|Landlord)\s*:|$)/i
+      : /(?:Lessor|Landlord)\s*:\s*([\s\S]{0,500}?)(?=\n?\s*(?:Lessee|Tenant|Applicant)\s*:|$)/i;
+
+  const partyMatch = text.match(partyPattern);
+
+  if (!partyMatch?.[1]) {
+    return { confidence: 0 };
+  }
+
+  const block = partyMatch[1];
+
+  const pattern = new RegExp(
+    `${label}\\s*:\\s*([^\\n]+)`,
+    'i'
+  );
+
+  const match = block.match(pattern);
+
+  if (!match?.[1]) {
+    return { confidence: 0 };
+  }
+
+  return {
+    value: cleanValue(match[1]),
+    confidence: 96,
+  };
+}
+
+function extractPhone(text: string): {
+  value?: string;
+  confidence: number;
+} {
+  const result = extractPartyField(text, 'tenant', '(?:Telephone|Phone|Cell)');
+
+  if (!result.value) {
+    return { confidence: 0 };
+  }
+
+  const cleaned = result.value
+    .replace(/[^\d+()\-\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return {
+    value: cleaned,
+    confidence: result.confidence,
+  };
+}
+
 export function analyseLeaseTemplate(
   text: string
 ): LeaseTemplateAnalysis {
@@ -333,7 +376,50 @@ export function analyseLeaseTemplate(
   const fields: LeaseTemplateField[] = [];
 
   for (const definition of FIELD_DEFINITIONS) {
-    const extracted = extractValue(text, definition.patterns);
+  let extracted = extractValue(text, definition.patterns);
+
+  if (definition.key === 'tenant_registration_number') {
+    extracted = extractPartyField(
+      text,
+      'tenant',
+      'Registration Number'
+    );
+  }
+
+  if (definition.key === 'landlord_registration_number') {
+    extracted = extractPartyField(
+      text,
+      'landlord',
+      'Registration Number'
+    );
+  }
+
+  if (definition.key === 'tenant_vat_number') {
+    extracted = extractPartyField(
+      text,
+      'tenant',
+      'VAT Number'
+    );
+  }
+
+  if (definition.key === 'landlord_vat_number') {
+    extracted = extractPartyField(
+      text,
+      'landlord',
+      'VAT Number'
+    );
+  }
+
+  if (definition.key === 'tenant_phone') {
+    extracted = extractPhone(text);
+  }
+    if (definition.key === 'tenant_email') {
+    extracted = extractPartyField(
+      text,
+      'tenant',
+      'Email'
+    );
+  }
 
     if (extracted.value) {
       fields.push({
