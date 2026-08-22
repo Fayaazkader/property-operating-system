@@ -31,6 +31,14 @@ export interface LeaseTemplateField {
     | 'phone'
     | 'boolean';
   required: boolean;
+
+  /*
+   * Values extracted from an existing/completed lease.
+   * These remain provisional until an authorised reviewer approves them.
+   */
+  value?: unknown;
+  confidence?: number;
+
   placeholder?: string;
   source?: 'system' | 'user' | 'ai';
 }

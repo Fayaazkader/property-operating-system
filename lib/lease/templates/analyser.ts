@@ -2,6 +2,7 @@ import type { LeaseTemplateField } from './types';
 
 export interface LeaseTemplateAnalysis {
   fields: LeaseTemplateField[];
+
   placeholders: Array<{
     token: string;
     suggestedKey: string;
@@ -9,98 +10,199 @@ export interface LeaseTemplateAnalysis {
     confidence: number;
     source: 'explicit_placeholder' | 'pattern';
   }>;
+
   suggestions: Array<{
     type: 'field' | 'clause' | 'inconsistency' | 'warning';
     title: string;
     description: string;
     severity: 'info' | 'warning' | 'critical';
   }>;
+
   overallConfidence: number;
 }
 
-const FIELD_PATTERNS: Array<{
+interface FieldDefinition {
   key: string;
   label: string;
   type: LeaseTemplateField['type'];
+  required: boolean;
   patterns: RegExp[];
-}> = [
+}
+
+const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'tenant_name',
     label: 'Tenant / Lessee Name',
     type: 'text',
-    patterns: [/\btenant\b/i, /\blessee\b/i],
+    required: true,
+    patterns: [
+      /(?:Lessee|Tenant|Applicant)\s*:\s*([^\n]+)/i,
+      /(?:Lessee|Tenant|Applicant)\s+([A-Z][^\n]+?)(?=\s+(?:Registration|VAT|Identity|ID|Email|Telephone|Phone)\b)/i,
+    ],
   },
+
   {
     key: 'landlord_name',
     label: 'Landlord / Lessor Name',
     type: 'text',
-    patterns: [/\blandlord\b/i, /\blessor\b/i],
+    required: true,
+    patterns: [
+      /(?:Lessor|Landlord)\s*:\s*([^\n]+)/i,
+      /(?:Lessor|Landlord)\s+([A-Z][^\n]+?)(?=\s+(?:Registration|VAT|Email|Telephone|Phone)\b)/i,
+    ],
   },
-  {
-    key: 'property_name',
-    label: 'Property Name',
-    type: 'text',
-    patterns: [/\bproperty\b/i, /\bcentre\b/i, /\bcenter\b/i],
-  },
-  {
-    key: 'unit_number',
-    label: 'Unit / Shop Number',
-    type: 'text',
-    patterns: [/\bunit\b/i, /\bshop\b/i, /\bsuite\b/i],
-  },
+
   {
     key: 'tenant_registration_number',
     label: 'Tenant Registration Number',
     type: 'text',
-    patterns: [/\bregistration number\b/i, /\bcompany registration\b/i],
+    required: false,
+    patterns: [
+      /Lessee[\s\S]{0,250}?Registration Number\s*:\s*([0-9/]+)/i,
+      /Tenant[\s\S]{0,250}?Registration Number\s*:\s*([0-9/]+)/i,
+    ],
   },
+
+  {
+    key: 'landlord_registration_number',
+    label: 'Landlord Registration Number',
+    type: 'text',
+    required: false,
+    patterns: [
+      /Lessor[\s\S]{0,250}?Registration Number\s*:\s*([0-9/]+)/i,
+      /Landlord[\s\S]{0,250}?Registration Number\s*:\s*([0-9/]+)/i,
+    ],
+  },
+
+  {
+    key: 'tenant_vat_number',
+    label: 'Tenant VAT Number',
+    type: 'text',
+    required: false,
+    patterns: [
+      /Lessee[\s\S]{0,250}?VAT Number\s*:\s*([0-9]+)/i,
+      /Tenant[\s\S]{0,250}?VAT Number\s*:\s*([0-9]+)/i,
+    ],
+  },
+
+  {
+    key: 'landlord_vat_number',
+    label: 'Landlord VAT Number',
+    type: 'text',
+    required: false,
+    patterns: [
+      /Lessor[\s\S]{0,250}?VAT Number\s*:\s*([0-9]+)/i,
+      /Landlord[\s\S]{0,250}?VAT Number\s*:\s*([0-9]+)/i,
+    ],
+  },
+
   {
     key: 'tenant_email',
     label: 'Tenant Email',
     type: 'email',
-    patterns: [/\bemail\b/i, /\be-mail\b/i],
+    required: false,
+    patterns: [
+      /Email\s*:\s*([^\s]+)/i,
+    ],
   },
+
   {
     key: 'tenant_phone',
     label: 'Tenant Telephone',
     type: 'phone',
-    patterns: [/\btelephone\b/i, /\bphone\b/i, /\bcell\b/i],
+    required: false,
+    patterns: [
+      /(?:Telephone|Phone|Cell)\s*:\s*([+\d][\d\s()-]{6,})/i,
+    ],
   },
+
+  {
+    key: 'property_name',
+    label: 'Property Name',
+    type: 'text',
+    required: true,
+    patterns: [
+      /premises\s+are\s+situated\s+at\s+([^,\n]+),/i,
+      /property\s*:\s*([^\n]+)/i,
+    ],
+  },
+
+  {
+    key: 'unit_number',
+    label: 'Unit / Shop Number',
+    type: 'text',
+    required: true,
+    patterns: [
+      /\b(?:Unit|Shop|Suite)\s+([A-Z0-9-]+)/i,
+    ],
+  },
+
   {
     key: 'lease_commencement_date',
     label: 'Lease Commencement Date',
     type: 'date',
-    patterns: [/\bcommencement\b/i, /\bcommencing\b/i, /\bstart date\b/i],
+    required: true,
+    patterns: [
+      /commence(?:ment)?\s+on\s+(\d{1,2}\s+[A-Za-z]+\s+\d{4})/i,
+      /commencement\s+date\s*[:\-]\s*(\d{1,2}\s+[A-Za-z]+\s+\d{4})/i,
+      /start\s+date\s*[:\-]\s*(\d{1,2}\s+[A-Za-z]+\s+\d{4})/i,
+    ],
   },
+
   {
     key: 'lease_expiry_date',
     label: 'Lease Expiry Date',
     type: 'date',
-    patterns: [/\bexpiry\b/i, /\btermination date\b/i, /\bend date\b/i],
+    required: true,
+    patterns: [
+      /terminate(?:s|d)?\s+on\s+(\d{1,2}\s+[A-Za-z]+\s+\d{4})/i,
+      /expiry\s+date\s*[:\-]\s*(\d{1,2}\s+[A-Za-z]+\s+\d{4})/i,
+      /termination\s+date\s*[:\-]\s*(\d{1,2}\s+[A-Za-z]+\s+\d{4})/i,
+    ],
   },
+
   {
     key: 'monthly_rental',
     label: 'Monthly Rental',
     type: 'currency',
-    patterns: [/\bmonthly rental\b/i, /\bmonthly rent\b/i],
+    required: true,
+    patterns: [
+      /monthly\s+rental\s+(?:is\s+)?R\s*([\d,\s]+\.\d{2})/i,
+      /monthly\s+rent\s+(?:is\s+)?R\s*([\d,\s]+\.\d{2})/i,
+      /rental\s+(?:is\s+)?R\s*([\d,\s]+\.\d{2})/i,
+    ],
   },
+
   {
     key: 'rental_escalation',
     label: 'Rental Escalation',
     type: 'percentage',
-    patterns: [/\bescalation\b/i, /\bannual increase\b/i],
+    required: false,
+    patterns: [
+      /escalat(?:e|ion|es|ed)[\s\S]{0,80}?(\d+(?:\.\d+)?)\s*%/i,
+      /(\d+(?:\.\d+)?)\s*%\s*(?:annual|yearly|per annum)/i,
+    ],
   },
+
   {
     key: 'deposit_amount',
     label: 'Deposit Amount',
     type: 'currency',
-    patterns: [/\bdeposit\b/i],
+    required: false,
+    patterns: [
+      /security\s+deposit\s+(?:of\s+)?R\s*([\d,\s]+\.\d{2})/i,
+      /deposit\s+(?:of\s+)?R\s*([\d,\s]+\.\d{2})/i,
+    ],
   },
+
   {
     key: 'lease_fee',
     label: 'Lease / Administration Fee',
     type: 'currency',
-    patterns: [/\blease fee\b/i, /\badministration fee\b/i],
+    required: false,
+    patterns: [
+      /(?:lease|administration)\s+fee\s+(?:of\s+)?R\s*([\d,\s]+\.\d{2})/i,
+    ],
   },
 ];
 
@@ -118,19 +220,82 @@ function labelFromToken(token: string): string {
     .replace(/\b\w/g, char => char.toUpperCase());
 }
 
-export function analyseLeaseTemplate(text: string): LeaseTemplateAnalysis {
+function cleanValue(value: string): string {
+  return value
+    .replace(/\s+/g, ' ')
+    .replace(/\s+\./g, '.')
+    .trim();
+}
+
+function extractValue(
+  text: string,
+  patterns: RegExp[]
+): { value?: string; confidence: number } {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+
+    if (match?.[1]) {
+      return {
+        value: cleanValue(match[1]),
+        confidence: 92,
+      };
+    }
+  }
+
+  return {
+    confidence: 0,
+  };
+}
+
+function inferFieldType(key: string): LeaseTemplateField['type'] {
+  if (key.includes('email')) return 'email';
+
+  if (
+    key.includes('phone') ||
+    key.includes('telephone')
+  ) {
+    return 'phone';
+  }
+
+  if (key.includes('date')) return 'date';
+
+  if (
+    key.includes('rental') ||
+    key.includes('deposit') ||
+    key.includes('fee') ||
+    key.includes('amount')
+  ) {
+    return 'currency';
+  }
+
+  if (
+    key.includes('percentage') ||
+    key.includes('escalation')
+  ) {
+    return 'percentage';
+  }
+
+  return 'text';
+}
+
+export function analyseLeaseTemplate(
+  text: string
+): LeaseTemplateAnalysis {
   const placeholders: LeaseTemplateAnalysis['placeholders'] = [];
   const suggestions: LeaseTemplateAnalysis['suggestions'] = [];
 
   /*
-   * Explicit placeholder convention:
+   * ------------------------------------------------------------
+   * 1. EXPLICIT TEMPLATE PLACEHOLDERS
+   * ------------------------------------------------------------
+   *
+   * Supports:
    *
    * __________
    * {{tenant_name}}
    * [[tenant_name]]
    *
-   * AssetFlow does not rewrite the legal document.
-   * These are only interpreted as insertion locations.
+   * This remains important for blank lease templates.
    */
   const explicitPatterns = [
     /_{5,}/g,
@@ -150,43 +315,97 @@ export function analyseLeaseTemplate(text: string): LeaseTemplateAnalysis {
         suggestedKey: key,
         label: labelFromToken(key),
         confidence: match[1] ? 100 : 85,
-        source: match[1]
-          ? 'explicit_placeholder'
-          : 'explicit_placeholder',
+        source: 'explicit_placeholder',
       });
     }
   }
 
   /*
-   * Detect important lease concepts that may need
-   * an insertion point even where the client's document
-   * has not explicitly marked one.
+   * ------------------------------------------------------------
+   * 2. ACTUAL DOCUMENT EXTRACTION
+   * ------------------------------------------------------------
+   *
+   * This is the important distinction:
+   *
+   * A completed/signed lease does not contain placeholders.
+   * We therefore extract actual values from the legal document.
    */
-  const detectedKeys = new Set(
-    placeholders.map(item => item.suggestedKey)
-  );
+  const fields: LeaseTemplateField[] = [];
 
-  for (const field of FIELD_PATTERNS) {
-    const detected = field.patterns.some(pattern => pattern.test(text));
+  for (const definition of FIELD_DEFINITIONS) {
+    const extracted = extractValue(text, definition.patterns);
 
-    if (!detected) continue;
+    if (extracted.value) {
+      fields.push({
+        key: definition.key,
+        label: definition.label,
+        type: definition.type,
+        required: definition.required,
+        value: extracted.value,
+        confidence: extracted.confidence,
+        source: 'ai',
+      });
 
-    if (!detectedKeys.has(field.key)) {
+      continue;
+    }
+
+    /*
+     * If no value was found, still surface the concept as a
+     * review suggestion rather than pretending it was extracted.
+     */
+    const conceptDetected = definition.patterns.some(pattern =>
+      pattern.test(text)
+    );
+
+    if (conceptDetected) {
       suggestions.push({
         type: 'field',
-        title: `Possible field: ${field.label}`,
+        title: `Review field: ${definition.label}`,
         description:
-          `AssetFlow detected this concept in the lease but could not identify a clear insertion placeholder. Review whether this section should contain a populated field.`,
-        severity: 'info',
+          'AssetFlow detected this lease concept but could not confidently extract a value. Review the source document.',
+        severity: 'warning',
       });
     }
   }
 
   /*
-   * Basic document-quality checks.
-   * These are suggestions only — AssetFlow does not
-   * alter the client's legal wording.
+   * ------------------------------------------------------------
+   * 3. PLACEHOLDER-ONLY FIELDS
+   * ------------------------------------------------------------
+   *
+   * If a blank template contains explicit placeholders, make sure
+   * those fields also appear even when no actual value exists.
    */
+  const existingKeys = new Set(fields.map(field => field.key));
+
+  for (const placeholder of placeholders) {
+    if (existingKeys.has(placeholder.suggestedKey)) {
+      continue;
+    }
+
+    fields.push({
+      key: placeholder.suggestedKey,
+      label: placeholder.label,
+      type: inferFieldType(placeholder.suggestedKey),
+      required: [
+        'tenant_name',
+        'landlord_name',
+        'property_name',
+        'unit_number',
+        'lease_commencement_date',
+        'monthly_rental',
+      ].includes(placeholder.suggestedKey),
+      confidence: 100,
+      source: 'user',
+    });
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * 4. DOCUMENT QUALITY / GOVERNANCE CHECKS
+   * ------------------------------------------------------------
+   */
+
   if (!/\btenant\b|\blessee\b/i.test(text)) {
     suggestions.push({
       type: 'warning',
@@ -217,58 +436,49 @@ export function analyseLeaseTemplate(text: string): LeaseTemplateAnalysis {
     });
   }
 
-  const fields: LeaseTemplateField[] = placeholders.map(item => ({
-    key: item.suggestedKey,
-    label: item.label,
-    type: inferFieldType(item.suggestedKey),
-    required: isLikelyRequired(item.suggestedKey),
-    source: 'user',
-  }));
+  /*
+   * Required-field governance.
+   */
+  const fieldKeys = new Set(fields.map(field => field.key));
 
-  const confidence =
-    placeholders.length > 0
+  for (const definition of FIELD_DEFINITIONS) {
+    if (!definition.required) continue;
+
+    if (!fieldKeys.has(definition.key)) {
+      suggestions.push({
+        type: 'field',
+        title: `Missing field: ${definition.label}`,
+        description:
+          'This is a key lease field that AssetFlow could not extract automatically. Human review is required.',
+        severity: 'warning',
+      });
+    }
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * 5. OVERALL CONFIDENCE
+   * ------------------------------------------------------------
+   */
+
+  const confidenceValues = fields
+    .map(field => field.confidence ?? 0)
+    .filter(value => value > 0);
+
+  const overallConfidence =
+    confidenceValues.length > 0
       ? Math.round(
-          placeholders.reduce(
-            (total, item) => total + item.confidence,
+          confidenceValues.reduce(
+            (total, value) => total + value,
             0
-          ) / placeholders.length
+          ) / confidenceValues.length
         )
-      : 40;
+      : 0;
 
   return {
     fields,
     placeholders,
     suggestions,
-    overallConfidence: confidence,
+    overallConfidence,
   };
-}
-
-function inferFieldType(key: string): LeaseTemplateField['type'] {
-  if (key.includes('email')) return 'email';
-  if (key.includes('phone') || key.includes('telephone')) return 'phone';
-  if (key.includes('date')) return 'date';
-  if (
-    key.includes('rental') ||
-    key.includes('deposit') ||
-    key.includes('fee') ||
-    key.includes('amount')
-  ) {
-    return 'currency';
-  }
-  if (key.includes('percentage') || key.includes('escalation')) {
-    return 'percentage';
-  }
-
-  return 'text';
-}
-
-function isLikelyRequired(key: string): boolean {
-  return [
-    'tenant_name',
-    'landlord_name',
-    'property_name',
-    'unit_number',
-    'lease_commencement_date',
-    'monthly_rental',
-  ].includes(key);
 }

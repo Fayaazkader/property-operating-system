@@ -212,31 +212,32 @@ export async function extractTextFromBuffer(
   };
 }
 
-  if (
-  normalizedFileType.includes('wordprocessingml.document') ||
-  normalizedFileType.includes('docx')
-) {
+   if (
+    normalizedFileType.includes('wordprocessingml.document') ||
+    normalizedFileType.includes('docx')
+  ) {
     const { text, rawText } = await extractDocxText(buffer);
 
     if (!text) {
       throw new Error('Unable to extract text from Word document');
     }
 
-    const scanned = await extractScannedPdfText(buffer);
-
-return {
-  text: scanned.text,
-  rawText: scanned.rawText,
-  confidence: scanned.confidence,
-  provider: 'tesseract',
-  method: 'ocr_pdf_page',
-  pageCount: scanned.pageCount,
-  processedAt: new Date().toISOString(),
-};
+    return {
+      text,
+      rawText,
+      confidence: 100,
+      provider: 'mammoth',
+      method: 'native_docx',
+      processedAt: new Date().toISOString(),
+    };
   }
 
-  if (fileType === 'application/pdf' || fileType.includes('pdf')) {
+    if (
+    normalizedFileType === 'application/pdf' ||
+    normalizedFileType.includes('pdf')
+  ) {
     const { text, rawText } = await extractPdfNativeText(buffer);
+
     if (text.length > 20) {
       return {
         text,
@@ -248,13 +249,15 @@ return {
       };
     }
 
+    const scanned = await extractScannedPdfText(buffer);
+
     return {
-      text: '',
-      rawText: '',
-      confidence: 0,
+      text: scanned.text,
+      rawText: scanned.rawText,
+      confidence: scanned.confidence,
       provider: 'tesseract',
       method: 'ocr_pdf_page',
-      pageCount: 0,
+      pageCount: scanned.pageCount,
       processedAt: new Date().toISOString(),
     };
   }

@@ -70,7 +70,7 @@ export async function processDocument(
   if (documentType === 'invoice' || documentType === 'purchase_order') {
     extraction = extractInvoiceFields(ocrText, ocrResult.rawText);
   } else if (documentType === 'lease_application' || documentType === 'signed_lease') {
-    extraction = extractLeaseFields(ocrText);
+    extraction = extractLeaseFields(ocrText, ocrResult.rawText);
   } else {
     extraction = {
       fields: {},

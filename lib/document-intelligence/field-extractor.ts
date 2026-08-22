@@ -157,35 +157,302 @@ export function extractInvoiceFields(text: string, rawText?: string): Extraction
     requiresHumanReview: missing.length > 0 || overallConfidence < 60,
   };
 }
-
-export function extractLeaseFields(text: string): ExtractionResult {
+export function extractLeaseFields(
+  text: string,
+  rawText?: string
+): ExtractionResult {
   const fields: Record<string, ExtractedField> = {};
   const missing: string[] = [];
 
-  const tenantName = extractWithConfidence(
-    text,
-    /(?:TENANT|LESSEE|APPLICANT)[:\s]*([^\n]+?)(?=\s+(?:ID|REG|VAT|PHYSICAL|POSTAL|$))/i,
-    'tenant_name'
+  const source = rawText || text;
+
+  function addField(
+    key: string,
+    value: string | number | undefined,
+    confidence: number
+  ) {
+    fields[key] = {
+      value,
+      confidence: value !== undefined && value !== '' ? confidence : 0,
+    };
+
+    if (value === undefined || value === '') {
+      missing.push(key);
+    }
+  }
+
+  /*
+   * Tenant / Lessee
+   *
+   * Handles structures such as:
+   * Tenant: RIAZ NAO
+   * Tenant: RIAZ NAO Identity Number:
+   * Lessee: ABC (Pty) Ltd
+   */
+  const tenantMatch = source.match(
+    /(?:Tenant|Lessee|Applicant)\s*:\s*([^\n]+?)(?=\s+(?:Identity\s+Number|ID\s+Number|VAT\s+Number|Registration\s+Number|VAT|$))/i
   );
-  fields.tenant_name = tenantName;
-  if (!tenantName.value) missing.push('tenant_name');
 
-  const rentalAmount = extractWithConfidence(
-    text,
-    /(?:MONTHLY\s*RENTAL|RENTAL|RENT)[:\s]*R?\s*([\d,\s]+\.\d{2})/i,
-    'rental_amount'
+  addField(
+    'tenant_name',
+    tenantMatch?.[1]?.trim(),
+    tenantMatch ? 95 : 0
   );
-  fields.rental_amount = rentalAmount;
 
-  const confidences = Object.values(fields).map(f => f.confidence);
-  const overallConfidence = confidences.length > 0
-    ? confidences.reduce((s, c) => s + c, 0) / confidences.length
-    : 0;
+  /*
+   * Landlord / Lessor
+   */
+  const landlordMatch = source.match(
+    /(?:Landlord|Lessor)\s*:\s*([^\n]+?)(?=\s+(?:Registration\s+Number|Identity\s+Number|VAT\s+Number|VAT|$))/i
+  );
 
+  addField(
+    'landlord_name',
+    landlordMatch?.[1]?.trim(),
+    landlordMatch ? 95 : 0
+  );
+
+  /*
+   * Property / premises name.
+   *
+   * Prefer the PREMISES section because "property" can occur
+   * many times elsewhere in a lease.
+   */
+  const premisesMatch = source.match(
+    /(?:PREMISES|PROPERTY)\s+(.{1,300}?)(?=\s+\d+\s+(?:BENEFICAL|BENEFICIAL|COMMENCEMENT|DURATION|TERM)|$)/i
+  );
+
+  let propertyName: string | undefined;
+
+  if (premisesMatch?.[1]) {
+    propertyName = premisesMatch[1]
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  addField(
+    'property_name',
+    propertyName,
+    propertyName ? 85 : 0
+  );
+
+  /*
+   * Unit / shop / suite.
+   */
+  const unitMatch = source.match(
+    /\b(?:Unit|Shop|Suite)\s+([A-Za-z0-9-]+)/i
+  );
+
+  addField(
+    'unit_number',
+    unitMatch?.[1]?.trim(),
+    unitMatch ? 95 : 0
+  );
+
+  /*
+   * Premises area.
+   *
+   * Example:
+   * Unit A4 measuring approximately 352.00 m²
+   */
+  const areaMatch = source.match(
+    /(?:measuring\s+approximately|measuring|area\s+of)\s*([\d,\s]+(?:\.\d+)?)\s*(?:m²|m2|sqm|square\s+met(?:re|er)s?)/i
+  );
+
+  addField(
+    'premises_area',
+    areaMatch?.[1]
+      ? `${areaMatch[1].replace(/\s/g, '')} m²`
+      : undefined,
+    areaMatch ? 90 : 0
+  );
+
+  /*
+   * Commencement date.
+   *
+   * Example:
+   * commence on 1 September 2024
+   */
+  const commencementMatch = source.match(
+    /(?:commence|commencing|commencement\s+date)\s*(?:on|:)?\s*(\d{1,2}\s+[A-Za-z]+\s+\d{4})/i
+  );
+
+  addField(
+    'lease_commencement_date',
+    commencementMatch?.[1]?.trim(),
+    commencementMatch ? 95 : 0
+  );
+
+  /*
+   * Expiry / termination date.
+   *
+   * Example:
+   * terminates on 31 August 2025
+   */
+  const expiryMatch = source.match(
+    /(?:terminates?|termination|expires?|expiry)\s*(?:on|date|:)?\s*(\d{1,2}\s+[A-Za-z]+\s+\d{4})/i
+  );
+
+  addField(
+    'lease_expiry_date',
+    expiryMatch?.[1]?.trim(),
+    expiryMatch ? 95 : 0
+  );
+
+  /*
+   * Rental.
+   *
+   * Deliberately supports several common South African lease
+   * formulations without assuming a specific legal wording.
+   */
+  const rentalMatch = source.match(
+    /(?:monthly\s+rental|monthly\s+rent|basic\s+rental|rental\s+per\s+month|rent)\s*(?:is|of|:)?\s*R?\s*([\d,\s]+(?:\.\d{2})?)/i
+  );
+
+  const rentalValue = rentalMatch?.[1]
+    ? rentalMatch[1].replace(/[,\s]/g, '')
+    : undefined;
+
+  addField(
+    'rental_amount',
+    rentalValue ? Number(rentalValue) : undefined,
+    rentalValue ? 85 : 0
+  );
+
+  /*
+   * Rental escalation.
+   *
+   * Examples:
+   * 8% escalation
+   * escalation of 8%
+   * annual increase of 8%
+   */
+  const escalationMatch = source.match(
+    /(?:escalation|annual\s+increase|annual\s+escalation)[^%]{0,80}?(\d+(?:\.\d+)?)\s*%/i
+  );
+
+  addField(
+    'rental_escalation',
+    escalationMatch?.[1]
+      ? Number(escalationMatch[1])
+      : undefined,
+    escalationMatch ? 80 : 0
+  );
+
+  /*
+   * Deposit.
+   */
+  const depositMatch = source.match(
+    /(?:deposit|security\s+deposit)\s*(?:is|of|:)?\s*R?\s*([\d,\s]+(?:\.\d{2})?)/i
+  );
+
+  const depositValue = depositMatch?.[1]
+    ? depositMatch[1].replace(/[,\s]/g, '')
+    : undefined;
+
+  addField(
+    'deposit_amount',
+    depositValue ? Number(depositValue) : undefined,
+    depositValue ? 85 : 0
+  );
+
+  /*
+   * Tenant registration number.
+   */
+  const registrationMatch = source.match(
+    /(?:registration\s+number|company\s+registration)\s*:?\s*([A-Z0-9\/-]+)/i
+  );
+
+  addField(
+    'tenant_registration_number',
+    registrationMatch?.[1]?.trim(),
+    registrationMatch ? 90 : 0
+  );
+
+  /*
+   * Tenant VAT number.
+   */
+  const vatMatch = source.match(
+    /VAT\s+Number\s*:?\s*([A-Z0-9\/-]+)/i
+  );
+
+  addField(
+    'tenant_vat_number',
+    vatMatch?.[1]?.trim(),
+    vatMatch ? 90 : 0
+  );
+
+  /*
+   * Tenant email.
+   */
+  const emailMatch = source.match(
+    /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i
+  );
+
+  addField(
+    'tenant_email',
+    emailMatch?.[0]?.trim(),
+    emailMatch ? 95 : 0
+  );
+
+  /*
+   * Tenant telephone.
+   */
+  const phoneMatch = source.match(
+    /(?:telephone|tel|phone|cell|mobile)\s*(?:number)?\s*:?\s*(\+?\d[\d\s()-]{7,}\d)/i
+  );
+
+  addField(
+    'tenant_phone',
+    phoneMatch?.[1]?.trim(),
+    phoneMatch ? 90 : 0
+  );
+
+  /*
+   * Identity number.
+   */
+  const identityMatch = source.match(
+    /(?:Identity\s+Number|ID\s+Number)\s*:?\s*([0-9]{6,20})/i
+  );
+
+  addField(
+    'tenant_identity_number',
+    identityMatch?.[1]?.trim(),
+    identityMatch ? 90 : 0
+  );
+
+  /*
+   * Calculate confidence from fields that actually exist.
+   *
+   * We don't punish a lease because it doesn't contain an email,
+   * telephone number, etc. Confidence reflects the quality of the
+   * information AssetFlow actually managed to identify.
+   */
+  const detectedFields = Object.values(fields).filter(
+    field =>
+      field.value !== undefined &&
+      field.value !== ''
+  );
+
+  const overallConfidence =
+    detectedFields.length > 0
+      ? Math.round(
+          detectedFields.reduce(
+            (sum, field) => sum + field.confidence,
+            0
+          ) / detectedFields.length
+        )
+      : 0;
+
+  /*
+   * A lease still requires human review even when extraction
+   * confidence is high. Extraction is advisory and never constitutes
+   * legal approval.
+   */
   return {
     fields,
     missingFields: missing,
-    overallConfidence: Math.round(overallConfidence),
-    requiresHumanReview: missing.length > 0 || overallConfidence < 60,
+    overallConfidence,
+    requiresHumanReview: true,
   };
 }

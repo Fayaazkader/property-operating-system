@@ -4,7 +4,25 @@ import { createHash } from 'crypto';
 import { processDocument } from '@/lib/document-intelligence/engine';
 import { analyseLeaseTemplate } from '@/lib/lease/templates/analyser';
 
+function getFieldConfidence(
+  fieldKey: string,
+  result: Awaited<ReturnType<typeof processDocument>>
+): number {
+  const value = result.extractedFields?.[fieldKey];
 
+  if (value === undefined || value === null || value === '') {
+    return 0;
+  }
+
+  /*
+   * The current Document Intelligence result exposes overall
+   * extraction confidence rather than per-field confidence.
+   *
+   * Until per-field confidence is surfaced through the engine,
+   * use the overall extraction confidence as the review confidence.
+   */
+  return result.extractedFields?.confidence ?? 0;
+}
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
@@ -183,14 +201,27 @@ export async function POST(request: NextRequest) {
      */
     const extractedFields = result.extractedFields || {};
 
-const fieldMapping = templateAnalysis.fields.map(field => ({
-  key: field.key,
-  label: field.label,
-  type: field.type,
-  required: field.required,
-  source: field.source || 'ai',
-  approved: false,
-}));
+const fieldMapping = templateAnalysis.fields.map(field => {
+  const extracted = field.value;
+
+  return {
+    key: field.key,
+    label: field.label,
+    type: field.type,
+    required: field.required,
+
+    // Value extracted from the uploaded lease.
+    value: extracted ?? null,
+
+    // Confidence belongs to this individual field.
+    confidence: field.confidence ?? 0,
+
+    source: field.source || 'ai',
+
+    // Nothing is approved automatically.
+    approved: false,
+  };
+});
 
 const aiSuggestions = templateAnalysis.suggestions;
 

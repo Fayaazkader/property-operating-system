@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type {
   LeaseTemplate,
@@ -175,16 +176,15 @@ const familyId = family.id;
   },
   async getForReview(
   templateId: string,
-  entityId: string
+  entityId: string,
+  client: SupabaseClient = supabase
 ): Promise<LeaseTemplate | null> {
-  const { data, error } = await supabase
-    .from('lease_templates')
-    .select('*')
-    .eq('id', templateId)
-    .eq('entity_id', entityId)
-    .eq('status', 'draft')
-    .eq('review_status', 'in_review')
-    .maybeSingle();
+  const { data, error } = await client
+  .from('lease_templates')
+  .select('*')
+  .eq('id', templateId)
+  .eq('entity_id', entityId)
+  .maybeSingle();
 
   if (error) throw error;
 

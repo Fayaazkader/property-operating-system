@@ -7,6 +7,7 @@ import type {
   LeaseTemplate,
   LeaseTemplateCategory,
 } from '@/lib/lease/templates/types';
+import Link from 'next/link';
 
 const CATEGORIES: {
   value: LeaseTemplateCategory;
@@ -270,9 +271,14 @@ console.log('LEASE FILE NAME:', file.name);
                   key={template.id}
                   className="border-b border-white/[0.03]"
                 >
-                  <td className="py-3 px-4 text-white text-xs">
-                    {template.template_name}
-                  </td>
+                  <td className="py-3 px-4 text-xs">
+  <Link
+    href={`/settings/lease-templates/${template.id}/review`}
+    className="text-white transition hover:text-zinc-300"
+  >
+    {template.template_name}
+  </Link>
+</td>
 
                   <td className="py-3 px-4 text-zinc-400 text-xs capitalize">
                     {template.category}
@@ -287,19 +293,24 @@ console.log('LEASE FILE NAME:', file.name);
                   </td>
 
                   <td className="py-3 px-4 text-xs">
-  <span
-    className={
-      template.status === 'active'
-        ? 'text-emerald-400'
-        : template.review_status === 'in_review'
-          ? 'text-amber-400'
+  {template.review_status === 'in_review' ? (
+    <Link
+      href={`/settings/lease-templates/${template.id}/review`}
+      className="text-amber-400 transition hover:text-amber-300"
+    >
+      In Review
+    </Link>
+  ) : (
+    <span
+      className={
+        template.status === 'active'
+          ? 'text-emerald-400'
           : 'text-zinc-500'
-    }
-  >
-    {template.status === 'draft'
-      ? 'In Review'
-      : template.status}
-  </span>
+      }
+    >
+      {template.status}
+    </span>
+  )}
 </td>
                 </tr>
               ))}
