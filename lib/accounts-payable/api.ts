@@ -3,9 +3,17 @@ import type { SupplierInvoiceInput } from './engine';
 
 export const apApi = {
   captureInvoice: (input: SupplierInvoiceInput) => apEngine.captureInvoice(input),
-  postInvoice: (invoiceId: string, postedBy: string) => apEngine.postInvoice(invoiceId, postedBy),
+  postInvoice: (
+  invoiceId: string,
+  postedBy: string,
+  entityId: string
+) => apEngine.postInvoice(invoiceId, postedBy, entityId),
   rejectInvoice: (invoiceId: string, reason: string) => apEngine.rejectInvoice(invoiceId, reason),
-  approveInvoice: (invoiceId: string, approvedBy: string) => apEngine.approveInvoice(invoiceId, approvedBy),
+  approveInvoice: (
+  invoiceId: string,
+  approvedBy: string,
+  entityId: string
+) => apEngine.approveInvoice(invoiceId, approvedBy, entityId),
   createRecurringExpense: (input: { entityId: string; description: string; glCode: string; amount: number; frequency?: string }) => apEngine.createRecurringExpense(input),
   getApprovalQueue: (entityId: string) => apEngine.getApprovalQueue(entityId),
   getSupplierLedger: (supplierId: string) => apEngine.getSupplierLedger(supplierId),

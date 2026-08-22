@@ -142,11 +142,67 @@ async function saveUserPermissions() {
 }
 
   async function assignRole(userId: string) {
-    if (!selectedRole || !entityId) return;
-    await supabase.from('user_entity_access').upsert({ user_id: userId, entity_id: entityId, role: selectedRole, assigned_at: new Date().toISOString() }, { onConflict: 'user_id,entity_id' });
-    setUsers(users.map(u => u.id === userId ? { ...u, role: selectedRole } : u));
-    setEditingUser(null);
+  if (!selectedRole || !entityId) return;
+
+  const { data: role, error: roleError } = await supabase
+    .from('roles')
+    .select('role_permissions')
+    .eq('entity_id', entityId)
+    .eq('name', selectedRole)
+    .single();
+
+  if (roleError || !role) {
+    console.error('Failed to load role permissions:', roleError);
+    return;
   }
+
+  const permissions = (role.role_permissions || []) as string[];
+
+  const permissionUpdates = permissions.map(permissionKey => ({
+    user_id: userId,
+    entity_id: entityId,
+    permission_key: permissionKey,
+    enabled: true,
+    assigned_by: null,
+    updated_at: new Date().toISOString(),
+  }));
+
+  if (permissionUpdates.length) {
+    const { error: permissionError } = await supabase
+      .from('user_entity_permissions')
+      .upsert(permissionUpdates, {
+        onConflict: 'user_id,entity_id,permission_key',
+      });
+
+    if (permissionError) {
+      console.error('Failed to apply role permissions:', permissionError);
+      return;
+    }
+  }
+
+  const { error: accessError } = await supabase
+    .from('user_entity_access')
+    .upsert(
+      {
+        user_id: userId,
+        entity_id: entityId,
+        role: selectedRole,
+        assigned_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,entity_id' }
+    );
+
+  if (accessError) {
+    console.error('Failed to assign role:', accessError);
+    return;
+  }
+
+  setUsers(users.map(u =>
+    u.id === userId ? { ...u, role: selectedRole } : u
+  ));
+
+  setEditingUser(null);
+}
 
   async function handleInvite() {
     if (!inviteEmail || !inviteRole || !entityId) return;

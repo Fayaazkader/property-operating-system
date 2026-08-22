@@ -44,13 +44,41 @@ export const apEngine = {
     return invoice;
   },
 
-  async approveInvoice(invoiceId: string, approvedBy: string): Promise<void> {
+  async approveInvoice(
+  invoiceId: string,
+  approvedBy: string,
+  entityId: string
+): Promise<void> {
+  const { permissionService } = await import('@/lib/rbac/permission-service');
+
+await permissionService.require(
+  approvedBy,
+  entityId,
+  'invoices.approve'
+);
     await supabase.from('supplier_invoices_new').update({ lifecycle_status: 'approved', approved_by: approvedBy, updated_at: new Date().toISOString() }).eq('id', invoiceId);
   },
 
-  async postInvoice(invoiceId: string, postedBy: string): Promise<void> {
+ async postInvoice(
+  invoiceId: string,
+  postedBy: string,
+  entityId: string
+): Promise<void> {
+  const { permissionService } = await import('@/lib/rbac/permission-service');
+
+await permissionService.require(
+  postedBy,
+  entityId,
+  'invoices.post'
+);
     const { data: invoice } = await supabase.from('supplier_invoices_new').select('*, lines:supplier_invoice_lines(*)').eq('id', invoiceId).single();
     if (!invoice || invoice.lifecycle_status === 'posted') return;
+
+if (invoice.lifecycle_status !== 'approved') {
+  throw new Error(
+    `Invoice cannot be posted until approved. Current status: ${invoice.lifecycle_status}`
+  );
+}
     for (const line of (invoice as any).lines || []) {
       await postingEngine.post({ source_engine: 'ap', business_event: 'supplier_invoice_captured', entity_id: invoice.entity_id, amount: line.amount, occurred_at: invoice.invoice_date, effective_date: invoice.invoice_date, dimensions: { supplier_id: invoice.supplier_id, property_id: line.property_id, cost_centre: line.cost_centre }, metadata: { source_id: invoice.id, invoice_number: invoice.invoice_number, gl_code: line.glCode, description: line.description, created_by: postedBy } });
     }

@@ -21,7 +21,31 @@ export default function InvoiceDetailPage() {
     load();
   }, [id]);
 
-  async function handlePost() { await apApi.postInvoice(id as string, 'user'); const { data } = await supabase.from('supplier_invoices_new').select('*, lines:supplier_invoice_lines(*), supplier:supplier_id(supplier_name)').eq('id', id).single(); setInvoice(data); }
+  async function handlePost() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user?.id || !invoice?.entity_id) {
+    alert('Unable to verify your access.');
+    return;
+  }
+
+  try {
+    await apApi.postInvoice(
+      id as string,
+      session.user.id,
+      invoice.entity_id
+    );
+
+    const { data } = await supabase
+      .from('supplier_invoices_new')
+      .select('*, lines:supplier_invoice_lines(*), supplier:supplier_id(supplier_name)')
+      .eq('id', id)
+      .single();
+
+    setInvoice(data);
+  } catch (error) {
+    alert(error instanceof Error ? error.message : 'Unable to post invoice.');
+  }
+}
   async function handleCreditNote() { await apApi.captureInvoice({ entityId: invoice.entity_id, supplierId: invoice.supplier_id, invoiceNumber: `CN-${invoice.invoice_number}`, invoiceDate: new Date().toISOString().split('T')[0], dueDate: new Date().toISOString().split('T')[0], description: cnReason, lines: [{ glCode: invoice.lines?.[0]?.gl_code || '', description: cnReason, amount: parseFloat(cnAmount) || 0, vatCode: 'standard' }], source: 'manual', createdBy: 'user' }); setShowCN(false); }
 
   if (loading) return <div className="text-zinc-500 p-8">Loading...</div>;

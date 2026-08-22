@@ -38,20 +38,43 @@ export default function ApprovalQueuePage() {
   }
 
   const permission = await permissionService.can(
-    session.user.id,
-    entityId,
-    'financial.approve'
-  );
+  session.user.id,
+  entityId,
+  'invoices.approve'
+);
 
-  if (!permission.allowed) {
-    alert('You do not have permission to approve financial transactions.');
+if (!permission.allowed) {
+  alert('You do not have permission to approve supplier invoices.');
+  return;
+}
+
+ await apApi.approveInvoice(id, session.user.id, entityId);
+  await loadQueue(entityId);
+}
+  async function handleReject(id: string) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.user?.id || !entityId) {
+    alert('Unable to verify your access.');
     return;
   }
 
-  await apApi.approveInvoice(id, session.user.id);
+  const permission = await permissionService.can(
+    session.user.id,
+    entityId,
+    'invoices.approve'
+  );
+
+  if (!permission.allowed) {
+    alert('You do not have permission to approve or reject supplier invoices.');
+    return;
+  }
+
+  await apApi.rejectInvoice(id, 'Rejected');
   await loadQueue(entityId);
 }
-  async function handleReject(id: string) { await apApi.rejectInvoice(id, 'Rejected'); await loadQueue(entityId); }
 
   if (loading) return <div className="text-zinc-500">Loading...</div>;
 

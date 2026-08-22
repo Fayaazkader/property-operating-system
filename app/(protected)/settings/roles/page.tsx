@@ -10,6 +10,8 @@ const ALL_PERMISSIONS = [
   { key: 'payments.approve', label: 'Approve Payments', category: 'financial' },
   { key: 'payments.create', label: 'Create Payments', category: 'financial' },
   { key: 'payments.view', label: 'View Payments', category: 'financial' },
+  { key: 'invoices.approve', label: 'Approve Supplier Invoices', category: 'financial' },
+  { key: 'invoices.post', label: 'Post Supplier Invoices', category: 'financial' },
   { key: 'suppliers.create', label: 'Create Suppliers', category: 'procurement' },
   { key: 'suppliers.edit', label: 'Edit Suppliers', category: 'procurement' },
   { key: 'tenants.create', label: 'Create Tenants', category: 'leasing' },
