@@ -27,6 +27,9 @@ export interface DocumentResult {
   extractedFields: ExtractedFields;
   workflowId?: string;
   message: string;
+  ocrText?: string;
+rawOcrText?: string;
+ocrConfidence?: number;
 }
 
 function toExtractedFields(result: ExtractionResult): ExtractedFields {
@@ -116,13 +119,16 @@ export async function processDocument(
   }
 
   return {
-    documentType,
-    extractedFields,
-    workflowId,
-    message: extractedFields.requiresHumanReview
-      ? `${documentType.replace(/_/g, ' ')} received. Some fields need review.`
-      : `${documentType.replace(/_/g, ' ')} processed successfully.${workflowId ? ' Workflow started.' : ''}`,
-  };
+  documentType,
+  extractedFields,
+  workflowId,
+  message: extractedFields.requiresHumanReview
+    ? `${documentType.replace(/_/g, ' ')} received. Some fields need review.`
+    : `${documentType.replace(/_/g, ' ')} processed successfully.${workflowId ? ' Workflow started.' : ''}`,
+  ocrText: ocrResult.text,
+  rawOcrText: ocrResult.rawText,
+  ocrConfidence: ocrResult.confidence,
+};
 }
 
 export async function intakeFromWhatsApp(
