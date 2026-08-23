@@ -1,9 +1,12 @@
 // lib/document-intelligence/field-extractor.ts
 // Adaptive field extraction
 
+import type { DocumentEvidence } from './ocr-adapter';
+
 export interface ExtractedField {
   value: string | number | Array<any> | undefined;
   confidence: number;
+  evidence?: DocumentEvidence[];
 }
 
 export interface InvoiceLineItem {

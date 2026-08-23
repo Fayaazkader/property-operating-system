@@ -4,10 +4,15 @@
 import { supabase } from "@/lib/supabase";
 import { orchestrator } from "@/lib/conversation/workflow-orchestrator";
 import { publish } from "@/lib/conversation/event-bus";
-import { extractTextFromBuffer } from "./ocr-adapter";
+import {
+  extractTextFromBuffer,
+  type DocumentEvidence,
+} from "./ocr-adapter";
 import { classifyDocument, DocumentType } from "./classifier";
 import { extractInvoiceFields, extractLeaseFields, ExtractionResult } from "./field-extractor";
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { matchEvidence } from "./evidence-matcher";
+import type { LeaseTemplateFieldEvidence } from '@/lib/lease/templates/types';
 
 export type { DocumentType };
 
@@ -25,11 +30,12 @@ export interface ExtractedFields {
 export interface DocumentResult {
   documentType: DocumentType;
   extractedFields: ExtractedFields;
+  fieldEvidence?: Record<string, import('./ocr-adapter').DocumentEvidence[]>;
   workflowId?: string;
   message: string;
   ocrText?: string;
-rawOcrText?: string;
-ocrConfidence?: number;
+  rawOcrText?: string;
+  ocrConfidence?: number;
 }
 
 function toExtractedFields(result: ExtractionResult): ExtractedFields {
@@ -44,6 +50,65 @@ function toExtractedFields(result: ExtractionResult): ExtractedFields {
   }
 
   return fields;
+}
+
+function buildFieldEvidence(
+  extraction: ExtractionResult,
+  evidence: DocumentEvidence[]
+): Record<string, DocumentEvidence[]> {
+  const fieldEvidence: Record<string, DocumentEvidence[]> = {};
+
+  if (!evidence.length) {
+    return fieldEvidence;
+  }
+
+  for (const [key, field] of Object.entries(extraction.fields)) {
+    if (
+      field.value === undefined ||
+      field.value === null ||
+      field.value === ''
+    ) {
+      continue;
+    }
+
+    if (Array.isArray(field.value)) {
+      continue;
+    }
+
+    const matches = matchEvidence(
+      field.value,
+      evidence
+    );
+
+    if (matches.length > 0) {
+      fieldEvidence[key] = matches;
+    }
+  }
+
+  return fieldEvidence;
+}
+
+function toLeaseFieldEvidence(
+  evidence: DocumentEvidence[]
+): LeaseTemplateFieldEvidence[] {
+  return evidence.map(item => ({
+    text: item.text,
+    page: item.location?.page,
+    startOffset: item.location?.startOffset,
+    endOffset: item.location?.endOffset,
+    boundingBox:
+      item.location?.x !== undefined &&
+      item.location?.y !== undefined &&
+      item.location?.width !== undefined &&
+      item.location?.height !== undefined
+        ? {
+            x: item.location.x,
+            y: item.location.y,
+            width: item.location.width,
+            height: item.location.height,
+          }
+        : undefined,
+  }));
 }
 
 export async function processDocument(
@@ -81,6 +146,11 @@ export async function processDocument(
   }
 
   const extractedFields = toExtractedFields(extraction);
+
+const fieldEvidence = buildFieldEvidence(
+  extraction,
+  ocrResult.evidence || []
+);
 
   // Log the document
   await supabase.from("communications").insert({
@@ -121,6 +191,7 @@ export async function processDocument(
   return {
   documentType,
   extractedFields,
+  fieldEvidence,
   workflowId,
   message: extractedFields.requiresHumanReview
     ? `${documentType.replace(/_/g, ' ')} received. Some fields need review.`

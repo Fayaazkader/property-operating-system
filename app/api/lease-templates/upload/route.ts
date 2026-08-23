@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
 import { processDocument } from '@/lib/document-intelligence/engine';
 import { analyseLeaseTemplate } from '@/lib/lease/templates/analyser';
+import type { DocumentEvidence } from '@/lib/document-intelligence/ocr-adapter';
 
 function getFieldConfidence(
   fieldKey: string,
@@ -205,27 +206,47 @@ documentId = crypto.randomUUID();
      */
     const extractedFields = result.extractedFields || {};
 
-const fieldMapping = templateAnalysis.fields.map(field => {
-  const extracted = field.value;
+    function toLeaseFieldEvidence(
+  evidence: DocumentEvidence[]
+) {
+  return evidence.map(item => ({
+    text: item.text,
+    page: item.location?.page,
+    startOffset: item.location?.startOffset,
+    endOffset: item.location?.endOffset,
+    boundingBox:
+      item.location?.x !== undefined &&
+      item.location?.y !== undefined &&
+      item.location?.width !== undefined &&
+      item.location?.height !== undefined
+        ? {
+            x: item.location.x,
+            y: item.location.y,
+            width: item.location.width,
+            height: item.location.height,
+          }
+        : undefined,
+  }));
+}
 
-  return {
-    key: field.key,
-    label: field.label,
-    type: field.type,
-    required: field.required,
+const fieldMapping = templateAnalysis.fields.map(field => ({
+  key: field.key,
+  label: field.label,
+  type: field.type,
+  required: field.required,
 
-    // Value extracted from the uploaded lease.
-    value: extracted ?? null,
+  value: field.value ?? null,
 
-    // Confidence belongs to this individual field.
-    confidence: field.confidence ?? 0,
+  confidence: field.confidence ?? 0,
 
-    source: field.source || 'ai',
+  source: field.source || 'ai',
 
-    // Nothing is approved automatically.
-    approved: false,
-  };
-});
+  evidence: toLeaseFieldEvidence(
+  result.fieldEvidence?.[field.key] || []
+),
+
+  approved: false,
+}));
 
 const aiSuggestions = templateAnalysis.suggestions;
 

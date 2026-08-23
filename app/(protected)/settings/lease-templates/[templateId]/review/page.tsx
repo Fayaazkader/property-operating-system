@@ -2,11 +2,25 @@ import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { leaseTemplateService } from '@/lib/lease/templates/service';
+import LeaseTemplateReviewWorkspace from '@/app/components/lease-templates/LeaseTemplateReviewWorkspace';
 
 interface PageProps {
   params: Promise<{
     templateId: string;
   }>;
+}
+
+interface FieldEvidence {
+  text: string;
+  page?: number;
+  startOffset?: number;
+  endOffset?: number;
+  boundingBox?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 interface FieldMapping {
@@ -17,6 +31,7 @@ interface FieldMapping {
   value?: unknown;
   confidence?: number;
   source?: string;
+  evidence?: FieldEvidence[];
   approved?: boolean;
 }
 
@@ -96,6 +111,31 @@ if (!template) {
   if (!template) {
     notFound();
   }
+    let sourceDocumentUrl: string | null = null;
+
+  if (template.source_document_url) {
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(template.source_document_url, 3600);
+
+    if (error) {
+      console.error(
+        '[LEASE REVIEW] Failed to create source document URL:',
+        error
+      );
+    } else {
+      sourceDocumentUrl = data?.signedUrl || null;
+      console.log(
+  '[LEASE REVIEW] source document URL:',
+  sourceDocumentUrl
+);
+    }
+  }
+
+  console.log(
+    '[LEASE REVIEW] source document available:',
+    Boolean(sourceDocumentUrl)
+  );
 
   const fields = Array.isArray(template.field_mapping)
     ? (template.field_mapping as FieldMapping[])
@@ -210,98 +250,12 @@ if (!template) {
         </div>
       </section>
 
-      {/* Extracted fields */}
-      <section className="rounded-xl border border-white/[0.06] bg-white/[0.01]">
-        <div className="border-b border-white/[0.06] px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-medium text-white">
-                Extracted Fields
-              </h2>
-
-              <p className="mt-1 text-xs text-zinc-500">
-                Review the values AssetFlow identified from the lease.
-              </p>
-            </div>
-
-            <span className="text-xs text-zinc-500">
-              {detectedFields.length} detected
-            </span>
-          </div>
-        </div>
-
-        {fields.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <p className="text-sm text-zinc-400">
-              No structured fields were detected.
-            </p>
-
-            <p className="mt-1 text-xs text-zinc-600">
-              The document can still be reviewed manually.
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-white/[0.05]">
-            {fields.map(field => {
-              const hasValue =
-                field.value !== undefined &&
-                field.value !== null &&
-                field.value !== '';
-
-              return (
-                <div
-                  key={field.key}
-                  className="grid grid-cols-[1.2fr_2fr_auto] gap-6 px-6 py-5"
-                >
-                  <div>
-                    <p className="text-sm text-white">
-                      {field.label}
-                    </p>
-
-                    <p className="mt-1 text-[11px] text-zinc-600">
-                      {field.key}
-                    </p>
-                  </div>
-
-                  <div>
-                    {hasValue ? (
-                      <p className="text-sm text-zinc-300">
-                        {formatFieldValue(field.value)}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-zinc-600">
-                        No value detected
-                      </p>
-                    )}
-
-                    {field.confidence !== undefined && (
-                      <p className="mt-1 text-[11px] text-zinc-600">
-                        Extraction confidence: {field.confidence}%
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-start">
-                    {hasValue ? (
-                      <span className="rounded-md border border-white/[0.08] px-2.5 py-1 text-[11px] text-zinc-400">
-                        Review
-                      </span>
-                    ) : field.required ? (
-                      <span className="rounded-md border border-red-400/20 bg-red-400/5 px-2.5 py-1 text-[11px] text-red-400">
-                        Required
-                      </span>
-                    ) : (
-                      <span className="rounded-md border border-white/[0.06] px-2.5 py-1 text-[11px] text-zinc-600">
-                        Optional
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+      <LeaseTemplateReviewWorkspace
+  sourceDocumentUrl={sourceDocumentUrl}
+  sourceMimeType={template.source_mime_type}
+  fields={fields}
+  suggestions={suggestions}
+/>
 
       {/* Missing required fields */}
       {missingRequired.length > 0 && (

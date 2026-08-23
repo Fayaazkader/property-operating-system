@@ -18,7 +18,21 @@ export type LeaseTemplateCategory =
   | 'informal'
   | 'other';
 
+  export interface LeaseTemplateFieldEvidence {
+  text: string;
+  page?: number;
+  startOffset?: number;
+  endOffset?: number;
+  boundingBox?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}
+
 export interface LeaseTemplateField {
+  
   key: string;
   label: string;
   type:
@@ -38,6 +52,18 @@ export interface LeaseTemplateField {
    */
   value?: unknown;
   confidence?: number;
+    /*
+   * Evidence showing where the extracted value came from.
+   * Positional data is optional because not every OCR provider
+   * exposes document coordinates.
+   */
+  evidence?: LeaseTemplateFieldEvidence[];
+
+  /*
+   * Explicit human-review state.
+   * Extraction never constitutes approval.
+   */
+  approved?: boolean;
 
   placeholder?: string;
   source?: 'system' | 'user' | 'ai';

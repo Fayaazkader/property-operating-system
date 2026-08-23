@@ -422,18 +422,33 @@ export function analyseLeaseTemplate(
   }
 
     if (extracted.value) {
-      fields.push({
-        key: definition.key,
-        label: definition.label,
-        type: definition.type,
-        required: definition.required,
-        value: extracted.value,
-        confidence: extracted.confidence,
-        source: 'ai',
-      });
+  const extractedText = String(extracted.value);
+  const startOffset = text.indexOf(extractedText);
 
-      continue;
-    }
+  fields.push({
+    key: definition.key,
+    label: definition.label,
+    type: definition.type,
+    required: definition.required,
+    value: extracted.value,
+    confidence: extracted.confidence,
+    source: 'ai',
+    approved: false,
+    evidence: [
+      {
+        text: extractedText,
+        ...(startOffset >= 0
+          ? {
+              startOffset,
+              endOffset: startOffset + extractedText.length,
+            }
+          : {}),
+      },
+    ],
+  });
+
+  continue;
+}
 
     /*
      * If no value was found, still surface the concept as a
