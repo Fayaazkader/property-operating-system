@@ -92,10 +92,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+    let documentId = '';
+  let storageKey = '';
+
   try {
-    const documentId = crypto.randomUUID();
     const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const checksum = createHash('sha256').update(fileBuffer).digest('hex');
+const checksum = createHash('sha256').update(fileBuffer).digest('hex');
+
+documentId = crypto.randomUUID();
 
     /*
      * Prevent the exact same source document from being attached twice
@@ -120,9 +124,9 @@ export async function POST(request: NextRequest) {
 
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
 
-    const storageKey =
-      `lease-templates/${entityId}/${template.family_id || templateId}` +
-      `/${documentId}-${safeName}`;
+    storageKey =
+  `lease-templates/${entityId}/${template.family_id || templateId}` +
+  `/${documentId}-${safeName}`;
 
     const { error: uploadError } = await serviceClient.storage
       .from('documents')
@@ -268,17 +272,69 @@ const aiSuggestions = templateAnalysis.suggestions;
   message: result.message,
 },
     });
-  } catch (error: any) {
+    } catch (error: any) {
     console.error('Lease template upload error:', error);
+
+    /*
+     * Failed upload attempts are transactional.
+     *
+     * The source document is only considered successfully uploaded
+     * once document processing and lease-template analysis complete.
+     *
+     * If processing fails:
+     * - remove the storage object
+     * - remove the documents row
+     * - leave the lease template as draft
+     *
+     * This allows the same source file to be uploaded again.
+     */
+
+    try {
+      if (typeof storageKey === 'string' && storageKey.length > 0) {
+        const { error: storageCleanupError } =
+          await serviceClient.storage
+            .from('documents')
+            .remove([storageKey]);
+
+        if (storageCleanupError) {
+          console.error(
+            'Lease template storage cleanup failed:',
+            storageCleanupError
+          );
+        }
+      }
+
+      if (typeof documentId === 'string' && documentId.length > 0) {
+        const { error: documentCleanupError } =
+          await serviceClient
+            .from('documents')
+            .delete()
+            .eq('id', documentId)
+            .eq('entity_id', entityId);
+
+        if (documentCleanupError) {
+          console.error(
+            'Lease template document cleanup failed:',
+            documentCleanupError
+          );
+        }
+      }
+    } catch (cleanupError) {
+      console.error(
+        'Lease template upload cleanup failed:',
+        cleanupError
+      );
+    }
 
     return NextResponse.json(
       {
         success: false,
         error:
           error?.message ||
-          'Failed to process lease template',
+          'Failed to process lease template. Please review the document and try again.',
+        retryable: true,
       },
-      { status: 500 }
+      { status: 422 }
     );
   }
 }
