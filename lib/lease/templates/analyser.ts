@@ -1,5 +1,19 @@
 import type { LeaseTemplateField } from './types';
 
+export interface LeaseTemplateValidation {
+  valid: boolean;
+  errors: Array<{
+    code: string;
+    field?: string;
+    message: string;
+  }>;
+  warnings: Array<{
+    code: string;
+    field?: string;
+    message: string;
+  }>;
+}
+
 export interface LeaseTemplateAnalysis {
   fields: LeaseTemplateField[];
 
@@ -19,6 +33,8 @@ export interface LeaseTemplateAnalysis {
   }>;
 
   overallConfidence: number;
+
+  validation: LeaseTemplateValidation;
 }
 
 interface FieldDefinition {
@@ -265,46 +281,79 @@ function inferFieldType(key: string): LeaseTemplateField['type'] {
   return 'text';
 }
 
-function extractPartyField(
+type Party = 'tenant' | 'landlord';
+
+interface PartyContext {
+  party: Party;
+  block: string;
+  confidence: number;
+}
+
+function getPartyContext(
   text: string,
-  party: 'tenant' | 'landlord',
-  label: string
-): { value?: string; confidence: number } {
-  const partyPattern =
-    party === 'tenant'
-      ? /(?:Lessee|Tenant|Applicant)\s*:\s*([\s\S]{0,500}?)(?=\n?\s*(?:Lessor|Landlord)\s*:|$)/i
-      : /(?:Lessor|Landlord)\s*:\s*([\s\S]{0,500}?)(?=\n?\s*(?:Lessee|Tenant|Applicant)\s*:|$)/i;
+  party: Party
+): PartyContext | null {
+  const tenantPattern =
+    /(?:Tenant|Lessee|Applicant)\s*:?\s*([\s\S]{0,1200}?)(?=\n?\s*(?:Landlord|Lessor)\s*:?\s*|$)/i;
 
-  const partyMatch = text.match(partyPattern);
+  const landlordPattern =
+    /(?:Landlord|Lessor)\s*:?\s*([\s\S]{0,1200}?)(?=\n?\s*(?:Tenant|Lessee|Applicant)\s*:?\s*|$)/i;
 
-  if (!partyMatch?.[1]) {
-    return { confidence: 0 };
-  }
-
-  const block = partyMatch[1];
-
-  const pattern = new RegExp(
-    `${label}\\s*:\\s*([^\\n]+)`,
-    'i'
+  const match = text.match(
+    party === 'tenant' ? tenantPattern : landlordPattern
   );
 
-  const match = block.match(pattern);
-
   if (!match?.[1]) {
-    return { confidence: 0 };
+    return null;
   }
 
   return {
-    value: cleanValue(match[1]),
-    confidence: 96,
+    party,
+    block: match[1],
+    confidence: 94,
   };
 }
 
-function extractPhone(text: string): {
-  value?: string;
-  confidence: number;
-} {
-  const result = extractPartyField(text, 'tenant', '(?:Telephone|Phone|Cell)');
+function extractPartyField(
+  text: string,
+  party: Party,
+  labels: string[]
+): { value?: string; confidence: number } {
+  const context = getPartyContext(text, party);
+
+  if (!context) {
+    return { confidence: 0 };
+  }
+
+  for (const label of labels) {
+    const pattern = new RegExp(
+      `${label}\\s*[:\\-]?\\s*([^\\n]+)`,
+      'i'
+    );
+
+    const match = context.block.match(pattern);
+
+    if (match?.[1]) {
+      return {
+        value: cleanValue(match[1]),
+        confidence: context.confidence,
+      };
+    }
+  }
+
+  return { confidence: 0 };
+}
+
+function extractPartyPhone(
+  text: string,
+  party: Party
+): { value?: string; confidence: number } {
+  const result = extractPartyField(text, party, [
+    'Telephone',
+    'Phone',
+    'Cell',
+    'Mobile',
+  ]);
 
   if (!result.value) {
     return { confidence: 0 };
@@ -318,6 +367,63 @@ function extractPhone(text: string): {
   return {
     value: cleaned,
     confidence: result.confidence,
+  };
+}
+
+function validateLeaseTemplate(
+  text: string,
+  fields: LeaseTemplateField[]
+): LeaseTemplateValidation {
+  const errors: LeaseTemplateValidation['errors'] = [];
+  const warnings: LeaseTemplateValidation['warnings'] = [];
+
+  const hasTenant =
+    /\btenant\b|\blessee\b|\bapplicant\b/i.test(text);
+
+  const hasLandlord =
+    /\blandlord\b|\blessor\b/i.test(text);
+
+  if (!hasTenant) {
+    errors.push({
+      code: 'TENANT_CONTEXT_MISSING',
+      message:
+        'The document does not contain a recognisable tenant or lessee context.',
+    });
+  }
+
+  if (!hasLandlord) {
+    errors.push({
+      code: 'LANDLORD_CONTEXT_MISSING',
+      message:
+        'The document does not contain a recognisable landlord or lessor context.',
+    });
+  }
+
+  const requiredKeys = [
+    'tenant_name',
+    'landlord_name',
+    'property_name',
+    'unit_number',
+    'lease_commencement_date',
+    'monthly_rental',
+  ];
+
+  for (const key of requiredKeys) {
+    const field = fields.find(item => item.key === key);
+
+    if (!field?.value) {
+      errors.push({
+        code: 'REQUIRED_FIELD_MISSING',
+        field: key,
+        message: `Required lease field "${field?.label || key}" could not be resolved.`,
+      });
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
   };
 }
 
@@ -379,47 +485,61 @@ export function analyseLeaseTemplate(
   let extracted = extractValue(text, definition.patterns);
 
   if (definition.key === 'tenant_registration_number') {
-    extracted = extractPartyField(
-      text,
-      'tenant',
-      'Registration Number'
-    );
-  }
+  extracted = extractPartyField(text, 'tenant', [
+    'Registration Number',
+    'Company Registration',
+    'Registration No',
+    'Reg No',
+  ]);
+}
 
-  if (definition.key === 'landlord_registration_number') {
-    extracted = extractPartyField(
-      text,
-      'landlord',
-      'Registration Number'
-    );
-  }
+if (definition.key === 'landlord_registration_number') {
+  extracted = extractPartyField(text, 'landlord', [
+    'Registration Number',
+    'Company Registration',
+    'Registration No',
+    'Reg No',
+  ]);
+}
 
-  if (definition.key === 'tenant_vat_number') {
-    extracted = extractPartyField(
-      text,
-      'tenant',
-      'VAT Number'
-    );
-  }
+if (definition.key === 'tenant_vat_number') {
+  extracted = extractPartyField(text, 'tenant', [
+    'VAT Number',
+    'VAT No',
+    'VAT Registration Number',
+  ]);
+}
 
-  if (definition.key === 'landlord_vat_number') {
-    extracted = extractPartyField(
-      text,
-      'landlord',
-      'VAT Number'
-    );
-  }
+if (definition.key === 'landlord_vat_number') {
+  extracted = extractPartyField(text, 'landlord', [
+    'VAT Number',
+    'VAT No',
+    'VAT Registration Number',
+  ]);
+}
 
-  if (definition.key === 'tenant_phone') {
-    extracted = extractPhone(text);
-  }
-    if (definition.key === 'tenant_email') {
-    extracted = extractPartyField(
-      text,
-      'tenant',
-      'Email'
-    );
-  }
+if (definition.key === 'tenant_email') {
+  extracted = extractPartyField(text, 'tenant', [
+    'Email',
+    'Email Address',
+  ]);
+}
+
+if (definition.key === 'landlord_email') {
+  extracted = extractPartyField(text, 'landlord', [
+    'Email',
+    'Email Address',
+  ]);
+}
+
+if (definition.key === 'tenant_phone') {
+  extracted = extractPartyPhone(text, 'tenant');
+}
+
+if (definition.key === 'landlord_phone') {
+  extracted = extractPartyPhone(text, 'landlord');
+}
+
 
     if (extracted.value) {
   const extractedText = String(extracted.value);
@@ -449,6 +569,7 @@ export function analyseLeaseTemplate(
 
   continue;
 }
+
 
     /*
      * If no value was found, still surface the concept as a
@@ -575,11 +696,13 @@ export function analyseLeaseTemplate(
           ) / confidenceValues.length
         )
       : 0;
+const validation = validateLeaseTemplate(text, fields);
 
-  return {
-    fields,
-    placeholders,
-    suggestions,
-    overallConfidence,
-  };
+return {
+  fields,
+  placeholders,
+  suggestions,
+  overallConfidence,
+  validation,
+};
 }

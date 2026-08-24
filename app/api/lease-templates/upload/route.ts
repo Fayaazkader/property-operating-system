@@ -200,6 +200,16 @@ documentId = crypto.randomUUID();
   result.rawOcrText || result.ocrText || ''
 );
 
+if (!templateAnalysis.validation.valid) {
+  const reasons = templateAnalysis.validation.errors
+    .map(error => error.message)
+    .join('; ');
+
+  throw new Error(
+    `Lease template validation failed: ${reasons}`
+  );
+}
+
     /*
      * Extract field candidates from the analysis. These remain
      * suggestions until the user reviews and approves them.
