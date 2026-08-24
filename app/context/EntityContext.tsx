@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 interface EntityContextType {
   availableEntities: Array<{ entity_id: string; entity_name: string }>;
@@ -14,7 +14,9 @@ interface EntityContextType {
 
 const EntityContext = createContext<EntityContextType | null>(null);
 
+
 export function EntityProvider({ children }: { children: ReactNode }) {
+  const supabase = createClient();
   const [availableEntities, setAvailableEntities] = useState<Array<{ entity_id: string; entity_name: string }>>([]);
   const [activeEntityId, setActiveEntityId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

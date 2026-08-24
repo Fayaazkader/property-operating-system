@@ -1,10 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
 import type {
   LeaseTemplate,
   LeaseTemplateCategory,
   LeaseTemplateField,
 } from './types';
+import { Client } from 'twilio/lib/base/BaseTwilio';
 
 export interface CreateLeaseTemplateInput {
   entityId: string;
@@ -27,8 +27,8 @@ export interface UpdateLeaseTemplateInput {
 }
 
 export const leaseTemplateService = {
-  async createDraft(input: CreateLeaseTemplateInput): Promise<LeaseTemplate> {
-    const { data: family, error: familyError } = await supabase
+  async createDraft(input: CreateLeaseTemplateInput,  client: SupabaseClient): Promise<LeaseTemplate> {
+    const { data: family, error: familyError } = await client
   .from('lease_template_families')
   .insert({
     entity_id: input.entityId,
@@ -44,7 +44,7 @@ if (familyError) throw familyError;
 
 const familyId = family.id;
 
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('lease_templates')
       .insert({
         entity_id: input.entityId,
@@ -76,11 +76,12 @@ const familyId = family.id;
   },
 
   async update(
-    templateId: string,
-    entityId: string,
-    input: UpdateLeaseTemplateInput
-  ): Promise<LeaseTemplate> {
-    const { data, error } = await supabase
+  templateId: string,
+  entityId: string,
+  input: UpdateLeaseTemplateInput,
+  client: SupabaseClient
+): Promise<LeaseTemplate> {
+  const { data, error } = await client
       .from('lease_templates')
       .update({
         ...input,
@@ -104,9 +105,10 @@ const familyId = family.id;
     documentUrl: string,
     fileName: string,
     mimeType: string,
+    client: SupabaseClient,
     checksum?: string
   ): Promise<LeaseTemplate> {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('lease_templates')
       .update({
         source_document_id: documentId,
@@ -131,9 +133,10 @@ const familyId = family.id;
   async approve(
     templateId: string,
     entityId: string,
-    reviewedBy: string
+    reviewedBy: string,
+client: SupabaseClient
   ): Promise<LeaseTemplate> {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('lease_templates')
       .update({
         status: 'active',
@@ -158,9 +161,10 @@ const familyId = family.id;
   async archive(
     templateId: string,
     entityId: string,
-    archivedBy: string
+    archivedBy: string,
+    client: SupabaseClient,
   ): Promise<void> {
-    const { error } = await supabase
+    const { error } = await client
       .from('lease_templates')
       .update({
         status: 'archived',
@@ -177,7 +181,7 @@ const familyId = family.id;
   async getForReview(
   templateId: string,
   entityId: string,
-  client: SupabaseClient = supabase
+  client: SupabaseClient
 ): Promise<LeaseTemplate | null> {
   const { data, error } = await client
   .from('lease_templates')
@@ -194,9 +198,10 @@ const familyId = family.id;
   async getForProperty(
     entityId: string,
     propertyId: string,
-    propertyType: string
+    propertyType: string,
+    client: SupabaseClient,
   ): Promise<LeaseTemplate[]> {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('lease_templates')
       .select('*')
       .eq('entity_id', entityId)
@@ -217,9 +222,10 @@ const familyId = family.id;
 
   async getLatest(
     entityId: string,
-    category: LeaseTemplateCategory
+    category: LeaseTemplateCategory,
+    client: SupabaseClient,
   ): Promise<LeaseTemplate | null> {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('lease_templates')
       .select('*')
       .eq('entity_id', entityId)

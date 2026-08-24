@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
 import { leaseTemplateService } from '@/lib/lease/templates/service';
 import LeaseTemplateReviewWorkspace from '@/app/components/lease-templates/LeaseTemplateReviewWorkspace';
 
@@ -50,26 +50,7 @@ export default async function LeaseTemplateReviewPage({
   console.log('[LEASE REVIEW] templateId:', templateId);
   const cookieStore = await cookies();
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set({
-              name,
-              value,
-              ...options,
-            })
-          );
-        },
-      },
-    }
-  );
+  const supabase = await createClient();
 
   const {
     data: { user },

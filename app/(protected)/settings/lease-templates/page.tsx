@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useEffect, useRef, useState, } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { leaseTemplateService } from '@/lib/lease/templates/service';
 import type {
   LeaseTemplate,
@@ -46,6 +46,7 @@ export default function LeaseTemplatesPage() {
   const [error, setError] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const supabase = createClient();
 
   useEffect(() => {
     load();
@@ -57,6 +58,10 @@ export default function LeaseTemplatesPage() {
     const {
       data: { session },
     } = await supabase.auth.getSession();
+    console.log('[LEASE TEMPLATES] USER:', {
+  id: session?.user?.id,
+  email: session?.user?.email,
+});
 
     if (!session) {
       setLoading(false);
@@ -65,6 +70,8 @@ export default function LeaseTemplatesPage() {
 
     const { data: entities } = await supabase.rpc('auth_entities');
     const eid = entities?.[0];
+    console.log('[LEASE TEMPLATES] ENTITIES:', entities);
+console.log('[LEASE TEMPLATES] ACTIVE ENTITY:', eid);
 
     if (!eid) {
       setLoading(false);
@@ -73,12 +80,15 @@ export default function LeaseTemplatesPage() {
 
     setEntityId(eid);
 
-    const { data } = await supabase
-      .from('lease_templates')
-      .select('*')
-      .eq('entity_id', eid)
-      .order('category')
-      .order('version', { ascending: false });
+    const { data, error } = await supabase
+  .from('lease_templates')
+  .select('*')
+  .eq('entity_id', eid)
+  .order('category')
+  .order('version', { ascending: false });
+
+console.log('[LEASE TEMPLATES] TEMPLATES:', data);
+console.log('[LEASE TEMPLATES] TEMPLATE QUERY ERROR:', error);
 
     setTemplates(data || []);
     setLoading(false);
@@ -117,13 +127,16 @@ export default function LeaseTemplatesPage() {
     setError('');
 
     try {
-      const draft = await leaseTemplateService.createDraft({
-        entityId,
-        templateName: name.trim(),
-        category,
-        propertyIds: [],
-        appliesToPropertyTypes: propertyTypes,
-      });
+      const draft = await leaseTemplateService.createDraft(
+  {
+    entityId,
+    templateName: name.trim(),
+    category,
+    propertyIds: [],
+    appliesToPropertyTypes: propertyTypes,
+  },
+  supabase
+);
 
       setTemplateId(draft.id);
       setStep('upload');

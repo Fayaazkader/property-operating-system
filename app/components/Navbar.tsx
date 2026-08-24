@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { supabase } from "../../lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import { CommandPalette } from "./layout/CommandPalette";
 import { useCommandPalette } from "@/lib/platform/CommandPaletteContext";
 import { Bell, MessageSquare } from "lucide-react";
@@ -10,6 +10,7 @@ import { trackEvent, AnalyticsEvents } from "@/lib/analytics/tracker";
 
 export default function Navbar() {
   const router = useRouter();
+  const supabase = createClient();
   const pathname = usePathname();
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");

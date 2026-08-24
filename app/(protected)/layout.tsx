@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import { trackEvent, AnalyticsEvents } from "@/lib/analytics/tracker";
@@ -10,6 +10,7 @@ import "@/lib/events";
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const supabase = createClient();
   const [ready, setReady] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
   const pathname = usePathname();
