@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 
 pdfjs.GlobalWorkerOptions.workerSrc =
@@ -53,6 +53,9 @@ export default function LeaseTemplateReviewWorkspace({
   const [selectedFieldKey, setSelectedFieldKey] = useState<string | null>(
     fields[0]?.key || null
   );
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+const [previewLoading, setPreviewLoading] = useState(false);
+const [previewError, setPreviewError] = useState<string | null>(null);
 
   const selectedField = useMemo(
     () =>
@@ -61,6 +64,94 @@ export default function LeaseTemplateReviewWorkspace({
   );
 
   const selectedEvidence = selectedField?.evidence || [];
+  useEffect(() => {
+  if (
+    !sourceDocumentUrl ||
+    sourceMimeType?.includes('pdf')
+  ) {
+    return;
+  }
+
+  let cancelled = false;
+
+  async function loadPreview() {
+    try {
+      setPreviewLoading(true);
+      setPreviewError(null);
+
+      if (!sourceDocumentUrl) {
+  return;
+}
+
+      const response = await fetch(sourceDocumentUrl);
+
+      if (!response.ok) {
+        throw new Error('Unable to load the source document.');
+      }
+
+      const blob = await response.blob();
+
+      const formData = new FormData();
+
+      formData.append(
+        'file',
+        new File(
+          [blob],
+          'lease-template.docx',
+          {
+            type:
+              sourceMimeType ||
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          }
+        )
+      );
+
+      const previewResponse = await fetch(
+        '/api/lease-templates/preview',
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      const result = await previewResponse.json();
+
+      if (!previewResponse.ok) {
+        throw new Error(
+          result?.error ||
+            'Unable to render the Word document preview.'
+        );
+      }
+
+      if (!cancelled) {
+        setPreviewHtml(result.html || '');
+      }
+    } catch (error) {
+      console.error(
+        'Lease template preview failed:',
+        error
+      );
+
+      if (!cancelled) {
+        setPreviewError(
+          error instanceof Error
+            ? error.message
+            : 'Unable to render the source document.'
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setPreviewLoading(false);
+      }
+    }
+  }
+
+  loadPreview();
+
+  return () => {
+    cancelled = true;
+  };
+}, [sourceDocumentUrl, sourceMimeType]);
 
   return (
     <section className="overflow-hidden rounded-xl border border-white/[0.06] bg-black">
@@ -134,12 +225,35 @@ export default function LeaseTemplateReviewWorkspace({
       </div>
     </Document>
   ) : (
-    <iframe
-      src={sourceDocumentUrl}
-      title="Source document"
-      className="h-full w-full rounded-lg border border-white/[0.06] bg-white"
-    />
-  )
+  <div className="h-full w-full overflow-y-auto rounded-lg border border-white/[0.06] bg-white">
+    {previewLoading ? (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-sm text-zinc-500">
+          Rendering source document…
+        </p>
+      </div>
+    ) : previewError ? (
+      <div className="flex h-full items-center justify-center p-6">
+        <p className="max-w-md text-center text-sm text-red-400">
+          {previewError}
+        </p>
+      </div>
+    ) : previewHtml ? (
+      <article
+        className="prose prose-sm max-w-none p-10 text-black"
+        dangerouslySetInnerHTML={{
+          __html: previewHtml,
+        }}
+      />
+    ) : (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-sm text-zinc-500">
+          Source document preview unavailable.
+        </p>
+      </div>
+    )}
+  </div>
+)
 ) : (
   <div className="text-center">
     <p className="text-sm text-zinc-500">

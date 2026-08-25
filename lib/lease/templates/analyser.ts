@@ -51,10 +51,7 @@ const FIELD_DEFINITIONS: FieldDefinition[] = [
     label: 'Tenant / Lessee Name',
     type: 'text',
     required: true,
-    patterns: [
-      /(?:Lessee|Tenant|Applicant)\s*:\s*([^\n]+)/i,
-      /(?:Lessee|Tenant|Applicant)\s+([A-Z][^\n]+?)(?=\s+(?:Registration|VAT|Identity|ID|Email|Telephone|Phone)\b)/i,
-    ],
+    patterns: [],
   },
 
   {
@@ -62,43 +59,40 @@ const FIELD_DEFINITIONS: FieldDefinition[] = [
     label: 'Landlord / Lessor Name',
     type: 'text',
     required: true,
-    patterns: [
-      /(?:Lessor|Landlord)\s*:\s*([^\n]+)/i,
-      /(?:Lessor|Landlord)\s+([A-Z][^\n]+?)(?=\s+(?:Registration|VAT|Email|Telephone|Phone)\b)/i,
-    ],
+    patterns: [],
   },
 
   {
-  key: 'tenant_registration_number',
-  label: 'Tenant Registration Number',
-  type: 'text',
-  required: false,
-  patterns: [],
-},
+    key: 'tenant_registration_number',
+    label: 'Tenant Registration Number',
+    type: 'text',
+    required: false,
+    patterns: [],
+  },
 
-{
-  key: 'landlord_registration_number',
-  label: 'Landlord Registration Number',
-  type: 'text',
-  required: false,
-  patterns: [],
-},
+  {
+    key: 'landlord_registration_number',
+    label: 'Landlord Registration Number',
+    type: 'text',
+    required: false,
+    patterns: [],
+  },
 
-{
-  key: 'tenant_vat_number',
-  label: 'Tenant VAT Number',
-  type: 'text',
-  required: false,
-  patterns: [],
-},
+  {
+    key: 'tenant_vat_number',
+    label: 'Tenant VAT Number',
+    type: 'text',
+    required: false,
+    patterns: [],
+  },
 
-{
-  key: 'landlord_vat_number',
-  label: 'Landlord VAT Number',
-  type: 'text',
-  required: false,
-  patterns: [],
-},
+  {
+    key: 'landlord_vat_number',
+    label: 'Landlord VAT Number',
+    type: 'text',
+    required: false,
+    patterns: [],
+  },
 
   {
     key: 'tenant_email',
@@ -109,15 +103,28 @@ const FIELD_DEFINITIONS: FieldDefinition[] = [
   },
 
   {
+    key: 'landlord_email',
+    label: 'Landlord Email',
+    type: 'email',
+    required: false,
+    patterns: [],
+  },
+
+  {
     key: 'tenant_phone',
     label: 'Tenant Telephone',
     type: 'phone',
     required: false,
-    patterns: [
-      /(?:Telephone|Phone|Cell)\s*:\s*([+\d][\d\s()-]{6,})/i,
-    ],
+    patterns: [],
   },
-  
+
+  {
+    key: 'landlord_phone',
+    label: 'Landlord Telephone',
+    type: 'phone',
+    required: false,
+    patterns: [],
+  },
 
   {
     key: 'property_name',
@@ -136,8 +143,9 @@ const FIELD_DEFINITIONS: FieldDefinition[] = [
     type: 'text',
     required: true,
     patterns: [
-      /\b(?:Unit|Shop|Suite)\s+([A-Z0-9-]+)/i,
-    ],
+  /(?:Unit\s*\/?\s*Shop\s*Number|Unit\s*Number|Shop\s*Number)\s*:\s*([^\n.]+)/i,
+  /(?:Unit|Shop)\s*(?:No\.?|Number)\s*[:\-]?\s*([A-Za-z0-9 -]+)/i,
+],
   },
 
   {
@@ -293,15 +301,22 @@ function getPartyContext(
   text: string,
   party: Party
 ): PartyContext | null {
-  const tenantPattern =
-    /(?:Tenant|Lessee|Applicant)\s*:?\s*([\s\S]{0,1200}?)(?=\n?\s*(?:Landlord|Lessor)\s*:?\s*|$)/i;
+  const partyPattern =
+    party === 'tenant'
+      ? '(?:LESSEE\\s*/\\s*TENANT|TENANT\\s*/\\s*LESSEE|LESSEE|TENANT|APPLICANT)'
+      : '(?:LESSOR\\s*/\\s*LANDLORD|LANDLORD\\s*/\\s*LESSOR|LESSOR|LANDLORD)';
 
-  const landlordPattern =
-    /(?:Landlord|Lessor)\s*:?\s*([\s\S]{0,1200}?)(?=\n?\s*(?:Tenant|Lessee|Applicant)\s*:?\s*|$)/i;
+  const otherPartyPattern =
+    party === 'tenant'
+      ? '(?:LESSOR\\s*/\\s*LANDLORD|LANDLORD\\s*/\\s*LESSOR|LESSOR|LANDLORD)'
+      : '(?:LESSEE\\s*/\\s*TENANT|TENANT\\s*/\\s*LESSEE|LESSEE|TENANT|APPLICANT)';
 
-  const match = text.match(
-    party === 'tenant' ? tenantPattern : landlordPattern
+  const pattern = new RegExp(
+    `${partyPattern}\\s*:?\\s*([\\s\\S]*?)(?=${otherPartyPattern}\\s*:?\\s*|$)`,
+    'i'
   );
+
+  const match = text.match(pattern);
 
   if (!match?.[1]) {
     return null;
@@ -321,52 +336,152 @@ function extractPartyField(
 ): { value?: string; confidence: number } {
   const context = getPartyContext(text, party);
 
-  if (!context) {
-    return { confidence: 0 };
-  }
+  /*
+   * PARTY NAME
+   *
+   * Handles:
+   *
+   * LESSOR: Summit Commercial Estates (Pty) Ltd
+   *
+   * LESSEE / TENANT: Prime Retail Concepts (Pty) Ltd
+   */
+  if (labels.length === 0) {
+    const partyPattern =
+      party === 'tenant'
+        ? '(?:LESSEE\\s*/\\s*TENANT|TENANT\\s*/\\s*LESSEE|LESSEE|TENANT|APPLICANT)'
+        : '(?:LESSOR\\s*/\\s*LANDLORD|LANDLORD\\s*/\\s*LESSOR|LESSOR|LANDLORD)';
 
-  for (const label of labels) {
-    const pattern = new RegExp(
-      `${label}\\s*[:\\-]?\\s*([^\\n]+)`,
+    const namePattern = new RegExp(
+      `${partyPattern}\\s*:?\\s*(.+?)(?=\\s+Registration\\s+Number|\\s+VAT\\s+Number|\\s+Telephone|\\s+Phone|\\s+Cell|\\s+Mobile|\\s+Email|$)`,
       'i'
     );
 
-    const match = context.block.match(pattern);
+    const match = text.match(namePattern);
 
     if (match?.[1]) {
-      return {
-        value: cleanValue(match[1]),
-        confidence: context.confidence,
-      };
+      const value = cleanValue(match[1]);
+
+      if (value) {
+        return {
+          value,
+          confidence: 94,
+        };
+      }
+    }
+
+    /*
+     * If the direct extraction fails, try the party context.
+     */
+    if (context) {
+      const contextMatch = context.block.match(
+        /^\s*(.+?)(?=\s+Registration\s+Number|\s+VAT\s+Number|\s+Telephone|\s+Phone|\s+Cell|\s+Mobile|\s+Email|$)/i
+      );
+
+      if (contextMatch?.[1]) {
+        const value = cleanValue(contextMatch[1]);
+
+        if (value) {
+          return {
+            value,
+            confidence: context.confidence,
+          };
+        }
+      }
+    }
+
+    return {
+      confidence: 0,
+    };
+  }
+
+  /*
+   * STRUCTURED PARTY FIELDS
+   */
+  if (context) {
+    for (const label of labels) {
+      const escapedLabel = label.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&'
+      );
+
+      const pattern = new RegExp(
+        `${escapedLabel}\\s*[:\\-]?\\s*(.+?)(?=\\s+(?:Registration Number|VAT Number|Telephone|Phone|Cell|Mobile|Email)\\b|$)`,
+        'i'
+      );
+
+      const match = context.block.match(pattern);
+
+      if (match?.[1]) {
+        const value = cleanValue(match[1]);
+
+        if (value) {
+          return {
+            value,
+            confidence: context.confidence,
+          };
+        }
+      }
     }
   }
 
-  return { confidence: 0 };
+  /*
+   * COLLAPSED OCR / DOCX FALLBACK
+   */
+  for (const label of labels) {
+    const escapedLabel = label.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      '\\$&'
+    );
+
+    const pattern = new RegExp(
+      `${escapedLabel}\\s*[:\\-]?\\s*(.+?)(?=Registration\\s+Number|VAT\\s+Number|Telephone|Phone|Cell|Mobile|Email|$)`,
+      'i'
+    );
+
+    const match = text.match(pattern);
+
+    if (match?.[1]) {
+      const value = cleanValue(match[1]);
+
+      if (value) {
+        return {
+          value,
+          confidence: 88,
+        };
+      }
+    }
+  }
+
+  return {
+    confidence: 0,
+  };
 }
 
 function extractPartyPhone(
   text: string,
   party: Party
 ): { value?: string; confidence: number } {
-  const result = extractPartyField(text, party, [
-    'Telephone',
-    'Phone',
-    'Cell',
-    'Mobile',
-  ]);
+  const context = getPartyContext(text, party);
 
-  if (!result.value) {
+  if (!context) {
     return { confidence: 0 };
   }
 
-  const cleaned = result.value
-    .replace(/[^\d+()\-\s]/g, '')
+  const match = context.block.match(
+    /(?:Telephone|Phone|Cell|Mobile)\s*[:\-]?\s*([+()\d\s-]{7,})/i
+  );
+
+  if (!match?.[1]) {
+    return { confidence: 0 };
+  }
+
+  const cleaned = match[1]
     .replace(/\s+/g, ' ')
     .trim();
 
   return {
     value: cleaned,
-    confidence: result.confidence,
+    confidence: context.confidence,
   };
 }
 
@@ -483,6 +598,14 @@ export function analyseLeaseTemplate(
 
   for (const definition of FIELD_DEFINITIONS) {
   let extracted = extractValue(text, definition.patterns);
+
+  if (definition.key === 'tenant_name') {
+  extracted = extractPartyField(text, 'tenant', []);
+}
+
+if (definition.key === 'landlord_name') {
+  extracted = extractPartyField(text, 'landlord', []);
+}
 
   if (definition.key === 'tenant_registration_number') {
   extracted = extractPartyField(text, 'tenant', [

@@ -107,21 +107,129 @@ documentId = crypto.randomUUID();
      * to this template family.
      */
     const { data: duplicate } = await serviceClient
-      .from('documents')
-      .select('id')
-      .eq('entity_id', entityId)
-      .eq('checksum', checksum)
-      .maybeSingle();
+  .from('documents')
+  .select(`
+    id,
+    document_type,
+    status,
+    file_name
+  `)
+  .eq('entity_id', entityId)
+  .eq('checksum', checksum)
+  .maybeSingle();
 
-    if (duplicate) {
+if (duplicate) {
+  /*
+   * A checksum match is only a genuine duplicate if the existing
+   * document belongs to a completed/usable document workflow.
+   *
+   * Failed lease-template uploads may have left an orphaned document
+   * record. Those records must not permanently block a retry.
+   */
+  const { data: existingTemplate } = await serviceClient
+    .from('lease_templates')
+    .select(`
+      id,
+      family_id,
+      status,
+      review_status,
+      source_document_id
+    `)
+    .eq('entity_id', entityId)
+    .eq('source_document_id', duplicate.id)
+    .maybeSingle();
+
+  const isIncompleteLeaseTemplate =
+    duplicate.document_type === 'lease_template_source' &&
+    (
+      !existingTemplate ||
+      (
+        existingTemplate.status === 'draft' &&
+        existingTemplate.review_status !== 'approved'
+      )
+    );
+
+  if (!isIncompleteLeaseTemplate) {
+    return NextResponse.json(
+      {
+        error:
+          'This document has already been uploaded to AssetFlow.',
+        documentId: duplicate.id,
+      },
+      { status: 409 }
+    );
+  }
+
+  /*
+   * Existing record belongs to an incomplete lease-template attempt.
+   * Remove it so the current upload can proceed normally.
+   */
+
+  if (existingTemplate?.id) {
+    const { error: templateCleanupError } =
+      await serviceClient
+        .from('lease_templates')
+        .delete()
+        .eq('id', existingTemplate.id)
+        .eq('entity_id', entityId)
+        .eq('status', 'draft');
+
+    if (templateCleanupError) {
+      console.error(
+        'Failed to remove incomplete lease template:',
+        templateCleanupError
+      );
+
       return NextResponse.json(
         {
-          error: 'This document has already been uploaded to AssetFlow.',
-          documentId: duplicate.id,
+          error:
+            'The previous failed upload could not be cleaned up. Please try again.',
+          retryable: true,
         },
-        { status: 409 }
+        { status: 422 }
       );
     }
+
+    if (existingTemplate.family_id) {
+      const { error: familyCleanupError } =
+        await serviceClient
+          .from('lease_template_families')
+          .delete()
+          .eq('id', existingTemplate.family_id)
+          .eq('entity_id', entityId);
+
+      if (familyCleanupError) {
+        console.error(
+          'Failed to remove incomplete lease template family:',
+          familyCleanupError
+        );
+      }
+    }
+  }
+
+  const { error: documentCleanupError } =
+    await serviceClient
+      .from('documents')
+      .delete()
+      .eq('id', duplicate.id)
+      .eq('entity_id', entityId);
+
+  if (documentCleanupError) {
+    console.error(
+      'Failed to remove orphaned lease-template document:',
+      documentCleanupError
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          'The previous failed upload could not be cleaned up. Please try again.',
+        retryable: true,
+      },
+      { status: 422 }
+    );
+  }
+}
 
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
 
@@ -251,9 +359,12 @@ const fieldMapping = templateAnalysis.fields.map(field => ({
 
   source: field.source || 'ai',
 
-  evidence: toLeaseFieldEvidence(
-  result.fieldEvidence?.[field.key] || []
-),
+  evidence:
+  result.fieldEvidence?.[field.key]?.length
+    ? toLeaseFieldEvidence(
+        result.fieldEvidence[field.key]
+      )
+    : field.evidence || [],
 
   approved: false,
 }));
@@ -304,68 +415,122 @@ const aiSuggestions = templateAnalysis.suggestions;
 },
     });
     } catch (error: any) {
-    console.error('Lease template upload error:', error);
+  console.error('Lease template upload error:', error);
 
-    /*
-     * Failed upload attempts are transactional.
-     *
-     * The source document is only considered successfully uploaded
-     * once document processing and lease-template analysis complete.
-     *
-     * If processing fails:
-     * - remove the storage object
-     * - remove the documents row
-     * - leave the lease template as draft
-     *
-     * This allows the same source file to be uploaded again.
-     */
+  /*
+   * Failed uploads are transactional.
+   *
+   * A lease template only becomes visible as a usable draft/in-review
+   * template after document processing and validation succeed.
+   *
+   * If processing fails:
+   * - remove the uploaded storage object
+   * - remove the documents row
+   * - remove the incomplete lease template
+   * - remove its draft family
+   *
+   * This prevents dead drafts from remaining in the UI and allows
+   * the same source document to be uploaded again.
+   */
 
-    try {
-      if (typeof storageKey === 'string' && storageKey.length > 0) {
-        const { error: storageCleanupError } =
-          await serviceClient.storage
-            .from('documents')
-            .remove([storageKey]);
+  try {
+    // 1. Remove uploaded source document from storage.
+    if (storageKey) {
+      const { error: storageCleanupError } =
+        await serviceClient.storage
+          .from('documents')
+          .remove([storageKey]);
 
-        if (storageCleanupError) {
-          console.error(
-            'Lease template storage cleanup failed:',
-            storageCleanupError
-          );
-        }
+      if (storageCleanupError) {
+        console.error(
+          'Lease template storage cleanup failed:',
+          storageCleanupError
+        );
       }
-
-      if (typeof documentId === 'string' && documentId.length > 0) {
-        const { error: documentCleanupError } =
-          await serviceClient
-            .from('documents')
-            .delete()
-            .eq('id', documentId)
-            .eq('entity_id', entityId);
-
-        if (documentCleanupError) {
-          console.error(
-            'Lease template document cleanup failed:',
-            documentCleanupError
-          );
-        }
-      }
-    } catch (cleanupError) {
-      console.error(
-        'Lease template upload cleanup failed:',
-        cleanupError
-      );
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error?.message ||
-          'Failed to process lease template. Please review the document and try again.',
-        retryable: true,
-      },
-      { status: 422 }
+    // 2. Remove canonical document record.
+    if (documentId) {
+      const { error: documentCleanupError } =
+        await serviceClient
+          .from('documents')
+          .delete()
+          .eq('id', documentId)
+          .eq('entity_id', entityId);
+
+      if (documentCleanupError) {
+        console.error(
+          'Lease template document cleanup failed:',
+          documentCleanupError
+        );
+      }
+    }
+
+    // 3. Find the incomplete draft template.
+    const { data: failedTemplate, error: templateLookupError } =
+      await serviceClient
+        .from('lease_templates')
+        .select('id, family_id')
+        .eq('id', templateId)
+        .eq('entity_id', entityId)
+        .eq('status', 'draft')
+        .maybeSingle();
+
+    if (templateLookupError) {
+      console.error(
+        'Lease template draft lookup failed:',
+        templateLookupError
+      );
+    } else if (failedTemplate) {
+      // 4. Remove the incomplete draft template.
+      const { error: templateCleanupError } =
+        await serviceClient
+          .from('lease_templates')
+          .delete()
+          .eq('id', failedTemplate.id)
+          .eq('entity_id', entityId)
+          .eq('status', 'draft');
+
+      if (templateCleanupError) {
+        console.error(
+          'Lease template draft cleanup failed:',
+          templateCleanupError
+        );
+      }
+
+      // 5. Remove the associated draft family.
+      if (failedTemplate.family_id) {
+        const { error: familyCleanupError } =
+          await serviceClient
+            .from('lease_template_families')
+            .delete()
+            .eq('id', failedTemplate.family_id)
+            .eq('entity_id', entityId);
+
+        if (familyCleanupError) {
+          console.error(
+            'Lease template family cleanup failed:',
+            familyCleanupError
+          );
+        }
+      }
+    }
+  } catch (cleanupError) {
+    console.error(
+      'Lease template upload cleanup failed:',
+      cleanupError
     );
   }
+
+  return NextResponse.json(
+    {
+      success: false,
+      error:
+        error?.message ||
+        'Failed to process lease template. Please review the document and try again.',
+      retryable: true,
+    },
+    { status: 422 }
+  );
+}
 }
