@@ -120,64 +120,78 @@ documentId = crypto.randomUUID();
 
 if (duplicate) {
   /*
-   * A checksum match is only a genuine duplicate if the existing
-   * document belongs to a completed/usable document workflow.
+   * A checksum match means the exact same source document has already
+   * been uploaded for this entity.
    *
-   * Failed lease-template uploads may have left an orphaned document
-   * record. Those records must not permanently block a retry.
+   * A document attached to an existing lease template is NOT an
+   * incomplete upload merely because the template is still in review.
+   * "draft / in_review" is a legitimate production workflow state.
    */
-  const { data: existingTemplate } = await serviceClient
-    .from('lease_templates')
-    .select(`
-      id,
-      family_id,
-      status,
-      review_status,
-      source_document_id
-    `)
-    .eq('entity_id', entityId)
-    .eq('source_document_id', duplicate.id)
-    .maybeSingle();
 
-  const isIncompleteLeaseTemplate =
-    duplicate.document_type === 'lease_template_source' &&
-    (
-      !existingTemplate ||
-      (
-        existingTemplate.status === 'draft' &&
-        existingTemplate.review_status !== 'approved'
-      )
+  const { data: existingTemplate, error: existingTemplateError } =
+    await serviceClient
+      .from('lease_templates')
+      .select(`
+        id,
+        family_id,
+        status,
+        review_status,
+        source_document_id
+      `)
+      .eq('entity_id', entityId)
+      .eq('source_document_id', duplicate.id)
+      .maybeSingle();
+
+  if (existingTemplateError) {
+    console.error(
+      'Failed to check existing lease template:',
+      existingTemplateError
     );
 
-  if (!isIncompleteLeaseTemplate) {
+    return NextResponse.json(
+      {
+        error: 'Unable to verify whether this document was already uploaded.',
+        retryable: true,
+      },
+      { status: 422 }
+    );
+  }
+
+  /*
+   * If the document is already attached to a lease template,
+   * it is a genuine duplicate regardless of whether that template
+   * is draft, in_review, approved, or archived.
+   */
+  if (existingTemplate) {
     return NextResponse.json(
       {
         error:
-          'This document has already been uploaded to AssetFlow.',
+          'This lease document has already been uploaded to this lease template.',
         documentId: duplicate.id,
+        templateId: existingTemplate.id,
+        duplicate: true,
       },
       { status: 409 }
     );
   }
 
   /*
-   * Existing record belongs to an incomplete lease-template attempt.
-   * Remove it so the current upload can proceed normally.
+   * No lease template references the document.
+   *
+   * This is an orphaned document from a previous failed attempt.
+   * Remove it so the user can retry the upload safely.
    */
+  if (duplicate.document_type === 'lease_template_source') {
+    const { error: documentCleanupError } = await serviceClient
+      .from('documents')
+      .delete()
+      .eq('id', duplicate.id)
+      .eq('entity_id', entityId);
 
-  if (existingTemplate?.id) {
-    const { error: templateCleanupError } =
-      await serviceClient
-        .from('lease_templates')
-        .delete()
-        .eq('id', existingTemplate.id)
-        .eq('entity_id', entityId)
-        .eq('status', 'draft');
-
-    if (templateCleanupError) {
+    if (documentCleanupError) {
       console.error(
-        'Failed to remove incomplete lease template:',
-        templateCleanupError
+        'Failed to remove orphaned lease-template document:',
+        documentCleanupError
       );
 
       return NextResponse.json(
@@ -189,44 +203,18 @@ if (duplicate) {
         { status: 422 }
       );
     }
-
-    if (existingTemplate.family_id) {
-      const { error: familyCleanupError } =
-        await serviceClient
-          .from('lease_template_families')
-          .delete()
-          .eq('id', existingTemplate.family_id)
-          .eq('entity_id', entityId);
-
-      if (familyCleanupError) {
-        console.error(
-          'Failed to remove incomplete lease template family:',
-          familyCleanupError
-        );
-      }
-    }
-  }
-
-  const { error: documentCleanupError } =
-    await serviceClient
-      .from('documents')
-      .delete()
-      .eq('id', duplicate.id)
-      .eq('entity_id', entityId);
-
-  if (documentCleanupError) {
-    console.error(
-      'Failed to remove orphaned lease-template document:',
-      documentCleanupError
-    );
-
+  } else {
+    /*
+     * Same checksum belongs to another document type.
+     * Do not delete or reuse it.
+     */
     return NextResponse.json(
       {
         error:
-          'The previous failed upload could not be cleaned up. Please try again.',
-        retryable: true,
+          'This document has already been uploaded to AssetFlow.',
+        documentId: duplicate.id,
       },
-      { status: 422 }
+      { status: 409 }
     );
   }
 }
