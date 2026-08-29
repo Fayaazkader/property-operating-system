@@ -119,7 +119,7 @@ export default function OperationsHub() {
 
           supabase
   .from("recoveries")
-  .select("recovered_amount, actual_amount"),
+  .select("recovered_amount, actual_amount, under_recovery_amount, over_recovery_amount, property_id"),
 
           supabase
             .from("inspections")
@@ -184,11 +184,6 @@ export default function OperationsHub() {
             new Date(l.lease_end_date).getTime() - Date.now() <
               90 * 86400000
         ).length;
-
-        const totalRecovered = (recoveries || []).reduce(
-          (s: number, r: any) => s + (r.recovered_amount || 0),
-          0
-        );
 
         const totalRecovered = (recoveries || []).reduce(
   (s: number, r: any) => s + Number(r.recovered_amount || 0),
