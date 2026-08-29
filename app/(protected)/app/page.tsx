@@ -178,12 +178,15 @@ export default function OperationsHub() {
           0
         );
 
-        const expiringSoon = (leases || []).filter(
-          (l: any) =>
-            l.lease_end_date &&
-            new Date(l.lease_end_date).getTime() - Date.now() <
-              90 * 86400000
-        ).length;
+        const expiringSoon = (leases || []).filter((l: any) => {
+  if (!l.lease_end_date) return false;
+
+  const daysUntilExpiry =
+    (new Date(l.lease_end_date).getTime() - Date.now()) /
+    86400000;
+
+  return daysUntilExpiry >= 0 && daysUntilExpiry <= 90;
+}).length;
 
         const totalRecovered = (recoveries || []).reduce(
   (s: number, r: any) => s + Number(r.recovered_amount || 0),
