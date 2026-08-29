@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { 
   TrendingUp, Wrench, Zap, ClipboardCheck, FileText, Users, 
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 export default function OperationsHub() {
+    const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState('');
   const [visible, setVisible] = useState(false);
@@ -20,65 +21,256 @@ export default function OperationsHub() {
   const [healthScores, setHealthScores] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', session.user.id).single();
-      if (profile?.display_name) setDisplayName(profile.display_name);
+  async function init() {
+    console.log("[OperationsHub] INIT START");
 
-      try {
-        const { data: entities } = await supabase.rpc('auth_entities');
-        if (entities?.length) {
-          const entityId = entities[0];
-          const [
-            { count: activeLeases }, { data: leases },
-            { count: openIssues }, { count: emergencyIssues },
-            { data: recoveries },
-            { count: overdueInsp }, { count: todayInsp },
-            { count: pendingProc },
-            { data: activity },
-          ] = await Promise.all([
-            supabase.from('leases').select('*', { count: 'exact', head: true }).eq('owner_entity_id', entityId).eq('lease_status', 'Active'),
-            supabase.from('leases').select('monthly_rental, lease_end_date').eq('owner_entity_id', entityId).eq('lease_status', 'Active'),
-            supabase.from('maintenance_issues').select('*', { count: 'exact', head: true }).eq('entity_id', entityId).in('status', ['reported', 'classified', 'in_progress']),
-            supabase.from('maintenance_issues').select('*', { count: 'exact', head: true }).eq('entity_id', entityId).eq('priority', 'emergency').in('status', ['reported', 'classified']),
-            supabase.from('recoveries').select('recovered_amount, actual_expense, recovery_rate').eq('entity_id', entityId),
-            supabase.from('inspections').select('*', { count: 'exact', head: true }).eq('entity_id', entityId).eq('status', 'scheduled').lt('scheduled_date', new Date().toISOString().split('T')[0]),
-            supabase.from('inspections').select('*', { count: 'exact', head: true }).eq('entity_id', entityId).eq('status', 'scheduled').gte('scheduled_date', new Date().toISOString().split('T')[0]),
-            supabase.from('procurement_spend_requests').select('*', { count: 'exact', head: true }).eq('entity_id', entityId).eq('status', 'submitted'),
-            supabase.from('activity_feed').select('*').eq('entity_id', entityId).order('occurred_at', { ascending: false }).limit(10),
-          ]);
+    try {
+      console.log("[OperationsHub] Getting session...");
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-          const totalRevenue = (leases || []).reduce((s: number, l: any) => s + (l.monthly_rental || 0), 0);
-          const expiringSoon = (leases || []).filter((l: any) => l.lease_end_date && new Date(l.lease_end_date).getTime() - Date.now() < 90 * 86400000).length;
-          const totalRecovered = (recoveries || []).reduce((s: number, r: any) => s + (r.recovered_amount || 0), 0);
-          const avgRecoveryRate = (recoveries || []).length > 0 
-            ? Math.round((recoveries || []).reduce((s: number, r: any) => s + (r.recovery_rate || 0), 0) / (recoveries || []).length) : 0;
+      console.log("[OperationsHub] Session:", !!session);
+      console.log("[OperationsHub] Session error:", sessionError);
 
-          setLiveData({
-            revenue: { leases: activeLeases || 0, total: totalRevenue, expiring: expiringSoon },
-            maintenance: { open: openIssues || 0, emergency: emergencyIssues || 0 },
-            utilities: { recovered: totalRecovered, rate: avgRecoveryRate },
-            inspections: { overdue: overdueInsp || 0, upcoming: todayInsp || 0 },
-            procurement: { pending: pendingProc || 0 },
-          });
+      if (!session) {
+        console.log("[OperationsHub] NO SESSION");
+        setLoading(false);
+        return;
+      }
 
-          setHealthScores({
-            'Revenue': activeLeases ? 95 : 0,
-            'Maintenance': emergencyIssues ? Math.max(30, 100 - (emergencyIssues * 20)) : (openIssues ? 80 : 100),
-            'Compliance': overdueInsp ? Math.max(40, 100 - (overdueInsp * 15)) : 95,
-            'Utilities': avgRecoveryRate || 0,
-            'Procurement': pendingProc ? Math.max(40, 100 - (pendingProc * 25)) : 90,
-          });
+      console.log("[OperationsHub] Loading profile...");
 
-          setActivityFeed(activity || []);
-        }
-      } catch {}
+      const {
+        data: profile,
+        error: profileError,
+      } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", session.user.id)
+        .single();
+
+      console.log("[OperationsHub] Profile:", profile);
+      console.log("[OperationsHub] Profile error:", profileError);
+
+      if (profile?.display_name) {
+        setDisplayName(profile.display_name);
+      }
+
+      console.log("[OperationsHub] Loading entities...");
+
+      const {
+        data: entities,
+        error: entityError,
+      } = await supabase.rpc("auth_entities");
+
+      console.log("[OperationsHub] Entities:", entities);
+      console.log("[OperationsHub] Entity error:", entityError);
+
+      if (entityError) {
+        console.error(
+          "[OperationsHub] ENTITY RPC FAILED:",
+          entityError
+        );
+      }
+
+      if (entities?.length) {
+        const entityId = entities[0];
+
+        console.log("[OperationsHub] Entity ID:", entityId);
+        console.log("[OperationsHub] Loading dashboard data...");
+
+        const [
+          { count: activeLeases, error: activeLeasesError },
+          { data: leases, error: leasesError },
+          { count: openIssues, error: openIssuesError },
+          { count: emergencyIssues, error: emergencyIssuesError },
+          { data: recoveries, error: recoveriesError },
+          { count: overdueInsp, error: overdueInspError },
+          { count: todayInsp, error: todayInspError },
+          { count: pendingProc, error: pendingProcError },
+          { data: activity, error: activityError },
+        ] = await Promise.all([
+          supabase
+            .from("leases")
+            .select("*", { count: "exact", head: true })
+            .eq("owner_entity_id", entityId)
+            .eq("lease_status", "Active"),
+
+          supabase
+            .from("leases")
+            .select("monthly_rental, lease_end_date")
+            .eq("owner_entity_id", entityId)
+            .eq("lease_status", "Active"),
+
+          supabase
+            .from("maintenance_issues")
+            .select("*", { count: "exact", head: true })
+            .eq("entity_id", entityId)
+            .in("status", ["reported", "classified", "in_progress"]),
+
+          supabase
+            .from("maintenance_issues")
+            .select("*", { count: "exact", head: true })
+            .eq("entity_id", entityId)
+            .eq("priority", "emergency")
+            .in("status", ["reported", "classified"]),
+
+          supabase
+  .from("recoveries")
+  .select("recovered_amount, actual_amount"),
+
+          supabase
+            .from("inspections")
+            .select("*", { count: "exact", head: true })
+            .eq("entity_id", entityId)
+            .eq("status", "scheduled")
+            .lt(
+              "scheduled_date",
+              new Date().toISOString().split("T")[0]
+            ),
+
+          supabase
+            .from("inspections")
+            .select("*", { count: "exact", head: true })
+            .eq("entity_id", entityId)
+            .eq("status", "scheduled")
+            .gte(
+              "scheduled_date",
+              new Date().toISOString().split("T")[0]
+            ),
+
+          supabase
+            .from("procurement_spend_requests")
+            .select("*", { count: "exact", head: true })
+            .eq("entity_id", entityId)
+            .eq("status", "submitted"),
+
+          supabase
+            .from("activity_feed")
+            .select("*")
+            .eq("entity_id", entityId)
+            .order("occurred_at", { ascending: false })
+            .limit(10),
+        ]);
+
+        console.log("[OperationsHub] Dashboard query results:", {
+          activeLeases,
+          activeLeasesError,
+          leasesError,
+          openIssues,
+          openIssuesError,
+          emergencyIssues,
+          emergencyIssuesError,
+          recoveriesError,
+          overdueInsp,
+          overdueInspError,
+          todayInsp,
+          todayInspError,
+          pendingProc,
+          pendingProcError,
+          activityError,
+        });
+
+        const totalRevenue = (leases || []).reduce(
+          (s: number, l: any) => s + (l.monthly_rental || 0),
+          0
+        );
+
+        const expiringSoon = (leases || []).filter(
+          (l: any) =>
+            l.lease_end_date &&
+            new Date(l.lease_end_date).getTime() - Date.now() <
+              90 * 86400000
+        ).length;
+
+        const totalRecovered = (recoveries || []).reduce(
+          (s: number, r: any) => s + (r.recovered_amount || 0),
+          0
+        );
+
+        const totalRecovered = (recoveries || []).reduce(
+  (s: number, r: any) => s + Number(r.recovered_amount || 0),
+  0
+);
+
+const totalActual = (recoveries || []).reduce(
+  (s: number, r: any) => s + Number(r.actual_amount || 0),
+  0
+);
+
+const avgRecoveryRate =
+  totalActual > 0
+    ? Math.round((totalRecovered / totalActual) * 100)
+    : 0;
+
+        setLiveData({
+          revenue: {
+            leases: activeLeases || 0,
+            total: totalRevenue,
+            expiring: expiringSoon,
+          },
+          maintenance: {
+            open: openIssues || 0,
+            emergency: emergencyIssues || 0,
+          },
+          utilities: {
+            recovered: totalRecovered,
+            rate: avgRecoveryRate,
+          },
+          inspections: {
+            overdue: overdueInsp || 0,
+            upcoming: todayInsp || 0,
+          },
+          procurement: {
+            pending: pendingProc || 0,
+          },
+        });
+
+        setHealthScores({
+          Revenue: activeLeases ? 95 : 0,
+          Maintenance: emergencyIssues
+            ? Math.max(30, 100 - emergencyIssues * 20)
+            : openIssues
+              ? 80
+              : 100,
+          Compliance: overdueInsp
+            ? Math.max(40, 100 - overdueInsp * 15)
+            : 95,
+          Utilities: avgRecoveryRate || 0,
+          Procurement: pendingProc
+            ? Math.max(40, 100 - pendingProc * 25)
+            : 90,
+        });
+
+        setActivityFeed(activity || []);
+      } else {
+        console.log("[OperationsHub] NO ENTITIES");
+      }
+
+      console.log("[OperationsHub] SETTING LOADING FALSE");
+
       setLoading(false);
-      setTimeout(() => setVisible(true), 80);
+
+      setTimeout(() => {
+        console.log("[OperationsHub] SETTING VISIBLE TRUE");
+        setVisible(true);
+      }, 80);
+
+    } catch (error) {
+      console.error(
+        "[OperationsHub] INITIALIZATION CRASH:",
+        error
+      );
+
+      setLoading(false);
+      setVisible(true);
     }
-    init();
-  }, []);
+  }
+
+  init();
+}, []);
 
   if (loading) return null;
 

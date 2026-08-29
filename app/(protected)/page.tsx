@@ -18,57 +18,209 @@ export default function OperationsHub() {
   const [visible, setVisible] = useState(false);
   const [hoveredModule, setHoveredModule] = useState<string | null>(null);
   const [scrollY, setScrollY] = useState(0);
-  const [liveData, setLiveData] = useState<Record<string, any>>({});
+  const [liveData, setLiveData] = useState<Record<string, Record<string, number>>>({});
 
   useEffect(() => {
-    async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.replace('/landing'); return; }
-      const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', session.user.id).single();
-      if (profile?.display_name) setDisplayName(profile.display_name);
+  let mounted = true;
 
-      // Load live data
+  async function init() {
+    try {
+      console.log("[OperationsHub] Starting initialization");
+
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      console.log("[OperationsHub] Session:", !!session);
+      console.log("[OperationsHub] Session error:", sessionError);
+
+      if (!session) {
+        console.log("[OperationsHub] No session — redirecting");
+        router.replace("/landing");
+        return;
+      }
+
+      // The page itself should never remain blank because profile/data
+      // enrichment failed. Authentication is already established.
+      if (mounted) {
+        setLoading(false);
+        setVisible(true);
+      }
+
+      // Load profile independently.
       try {
-        const { data: entities } = await supabase.rpc('auth_entities');
-        if (entities?.length) {
-          const entityId = entities[0];
-          const [
-            { count: activeLeases }, { count: openIssues }, { count: emergencyIssues },
-            { data: recoveries }, { count: upcomingInsp }, { count: pendingProcurement },
-          ] = await Promise.all([
-            supabase.from('leases').select('*', { count: 'exact', head: true }).eq('owner_entity_id', entityId).eq('lease_status', 'Active'),
-            supabase.from('maintenance_issues').select('*', { count: 'exact', head: true }).eq('entity_id', entityId).in('status', ['reported', 'classified', 'in_progress']),
-            supabase.from('maintenance_issues').select('*', { count: 'exact', head: true }).eq('entity_id', entityId).eq('priority', 'emergency').in('status', ['reported', 'classified']),
-            supabase.from('recoveries').select('recovered_amount, actual_expense').eq('entity_id', entityId),
-            supabase.from('inspections').select('*', { count: 'exact', head: true }).eq('entity_id', entityId).eq('status', 'scheduled').eq('scheduled_date', new Date().toISOString().split('T')[0]),
-            supabase.from('procurement_spend_requests').select('*', { count: 'exact', head: true }).eq('entity_id', entityId).eq('status', 'submitted'),
-          ]);
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("id", session.user.id)
+          .maybeSingle();
 
-          const totalRecovered = (recoveries || []).reduce((s: number, r: any) => s + (r.recovered_amount || 0), 0);
-          const totalActual = (recoveries || []).reduce((s: number, r: any) => s + (r.actual_expense || 0), 0);
-          const recoveryRate = totalActual > 0 ? Math.round((totalRecovered / totalActual) * 100) : 0;
+        console.log("[OperationsHub] Profile:", profile);
+        console.log("[OperationsHub] Profile error:", profileError);
 
+        if (mounted && profile?.display_name) {
+          setDisplayName(profile.display_name);
+        }
+      } catch (error) {
+        console.error("[OperationsHub] Profile load failed:", error);
+      }
+
+      // Load live operational data independently.
+      try {
+        console.log("[OperationsHub] Loading entities");
+
+        const { data: entities, error: entityError } =
+          await supabase.rpc("auth_entities");
+
+        console.log("[OperationsHub] Entities:", entities);
+        console.log("[OperationsHub] Entity error:", entityError);
+
+        if (!entities?.length) {
+          console.log("[OperationsHub] No entities available");
+          return;
+        }
+
+        const entityId =
+          typeof entities[0] === "string"
+            ? entities[0]
+            : entities[0]?.id;
+
+        if (!entityId) {
+          console.warn("[OperationsHub] Could not resolve entity ID");
+          return;
+        }
+
+        console.log("[OperationsHub] Entity ID:", entityId);
+
+        const [
+          { count: activeLeases, error: leasesError },
+          { count: openIssues, error: issuesError },
+          { count: emergencyIssues, error: emergencyError },
+          { data: recoveries, error: recoveriesError },
+          { count: upcomingInsp, error: inspectionsError },
+          { count: pendingProcurement, error: procurementError },
+        ] = await Promise.all([
+          supabase
+            .from("leases")
+            .select("*", { count: "exact", head: true })
+            .eq("owner_entity_id", entityId)
+            .eq("lease_status", "Active"),
+
+          supabase
+            .from("maintenance_issues")
+            .select("*", { count: "exact", head: true })
+            .eq("entity_id", entityId)
+            .in("status", ["reported", "classified", "in_progress"]),
+
+          supabase
+            .from("maintenance_issues")
+            .select("*", { count: "exact", head: true })
+            .eq("entity_id", entityId)
+            .eq("priority", "emergency")
+            .in("status", ["reported", "classified"]),
+
+          supabase
+            .from("recoveries")
+            .select("recovered_amount, actual_expense")
+            .eq("entity_id", entityId),
+
+          supabase
+            .from("inspections")
+            .select("*", { count: "exact", head: true })
+            .eq("entity_id", entityId)
+            .eq("status", "scheduled")
+            .eq(
+              "scheduled_date",
+              new Date().toISOString().split("T")[0]
+            ),
+
+          supabase
+            .from("procurement_spend_requests")
+            .select("*", { count: "exact", head: true })
+            .eq("entity_id", entityId)
+            .eq("status", "submitted"),
+        ]);
+
+        console.log("[OperationsHub] Data query errors:", {
+          leasesError,
+          issuesError,
+          emergencyError,
+          recoveriesError,
+          inspectionsError,
+          procurementError,
+        });
+
+        const totalRecovered = (recoveries || []).reduce(
+          (sum, recovery) =>
+            sum + Number(recovery.recovered_amount || 0),
+          0
+        );
+
+        const totalActual = (recoveries || []).reduce(
+          (sum, recovery) =>
+            sum + Number(recovery.actual_expense || 0),
+          0
+        );
+
+        const recoveryRate =
+          totalActual > 0
+            ? Math.round((totalRecovered / totalActual) * 100)
+            : 0;
+
+        if (mounted) {
           setLiveData({
-            revenue: { leases: activeLeases || 0 },
-            maintenance: { open: openIssues || 0, emergency: emergencyIssues || 0 },
-            utilities: { recoveryRate },
-            inspections: { today: upcomingInsp || 0 },
-            procurement: { pending: pendingProcurement || 0 },
+            revenue: {
+              leases: activeLeases || 0,
+            },
+            maintenance: {
+              open: openIssues || 0,
+              emergency: emergencyIssues || 0,
+            },
+            utilities: {
+              recoveryRate,
+            },
+            inspections: {
+              today: upcomingInsp || 0,
+            },
+            procurement: {
+              pending: pendingProcurement || 0,
+            },
           });
         }
       } catch (error) {
-  console.error("Operations Hub initialization error:", error);
-}
+        console.error(
+          "[OperationsHub] Live data loading failed:",
+          error
+        );
+      }
+    } catch (error) {
+      console.error(
+        "[OperationsHub] Initialization failed:",
+        error
+      );
 
-      setLoading(false);
-      setTimeout(() => setVisible(true), 100);
+      // Authentication has already been checked. Never leave the
+      // application on a permanent blank/loading state.
+      if (mounted) {
+        setLoading(false);
+        setVisible(true);
+      }
     }
-    init();
+  }
 
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  init();
+
+  const handleScroll = () => setScrollY(window.scrollY);
+
+  window.addEventListener("scroll", handleScroll);
+
+  return () => {
+    mounted = false;
+    window.removeEventListener("scroll", handleScroll);
+  };
+}, [router]);
+  
 
   if (loading) {
   return (

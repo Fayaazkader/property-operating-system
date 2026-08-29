@@ -16,12 +16,31 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
 
   useEffect(() => {
-    async function checkAccess() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+  let mounted = true;
+
+  async function checkAccess() {
+    try {
+      console.log("[ProtectedLayout] Checking session...");
+
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      console.log("[ProtectedLayout] Session:", !!session);
+      console.log("[ProtectedLayout] Session error:", sessionError);
+
+      if (!mounted) return;
+
+      if (sessionError || !session) {
+        console.log("[ProtectedLayout] No session — redirecting to /landing");
+
+        setReady(true);
         router.replace("/landing");
         return;
       }
+
+      console.log("[ProtectedLayout] Checking entity access...");
 
       const { data: access, error } = await supabase
         .from("user_entity_access")
@@ -29,25 +48,61 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         .eq("user_id", session.user.id)
         .limit(1);
 
+      if (!mounted) return;
+
+      console.log("[ProtectedLayout] Access:", access);
+      console.log("[ProtectedLayout] Access error:", error);
+
       if (error) {
-        console.error("Access check error:", error.message, error.code);
-        // Fallback: allow access if RLS check fails (RLS on tables still protects data)
+        console.error(
+          "[ProtectedLayout] Access check error:",
+          error.message,
+          error.code
+        );
+
+        // Keep the existing fallback behaviour.
         setHasAccess(true);
       } else if (access && access.length > 0) {
         setHasAccess(true);
+      } else {
+        setHasAccess(false);
       }
 
       setReady(true);
+
+      console.log("[ProtectedLayout] READY");
+    } catch (error) {
+      console.error("[ProtectedLayout] Initialization failed:", error);
+
+      if (!mounted) return;
+
+      // Do not leave the application permanently blank.
+      setHasAccess(true);
+      setReady(true);
     }
-    checkAccess();
-  }, []);
+  }
+
+  checkAccess();
+
+  return () => {
+    mounted = false;
+  };
+}, [router]);
   useEffect(() => {
   if (ready && hasAccess) {
     trackEvent(AnalyticsEvents.PAGE_VIEW, undefined, { path: pathname });
   }
 }, [pathname, ready, hasAccess]);
 
-  if (!ready) return null;
+  if (!ready) {
+  return (
+    <div className="fixed inset-0 z-[200] bg-[var(--bg-primary)] flex items-center justify-center">
+      <div className="text-sm text-[var(--text-muted)]">
+        Loading AssetFlow...
+      </div>
+    </div>
+  );
+}
 
   if (!hasAccess) {
     return (
