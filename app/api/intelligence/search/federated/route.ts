@@ -122,9 +122,20 @@ if (intent === "arrears") {
   statements?.forEach(s => results.push({ type: "statement", id: s.id, title: s.source_id?.replace("INV-", "Statement: "), subtitle: new Date(s.created_at).toLocaleDateString("en-ZA"), meta: "Statement", href: `/financials/revenue`, icon: "Receipt" }));
 
   // 7. Task search
-  const { data: tasks } = await supabase.from("tasks").select("id, title, description, status, due_date, priority")
-    .or(`title.ilike.%${query}%,description.ilike.%${query}%`).limit(5);
-  tasks?.forEach(t => results.push({ type: "task", id: t.id, title: t.title || t.description, subtitle: t.due_date ? `Due: ${t.due_date}` : "", meta: t.priority || t.status, href: `/tasks`, icon: "CheckSquare" }));
+  const { data: tasks } = await supabase
+    .from("tasks")
+    .select("id, task_id, task_type, tenant_name, property_name, task_status, due_date, priority")
+    .or(`task_id.ilike.%${query}%,task_type.ilike.%${query}%,tenant_name.ilike.%${query}%,property_name.ilike.%${query}%`)
+    .limit(5);
+  tasks?.forEach((task) => results.push({
+    type: "task",
+    id: task.id,
+    title: task.task_type || task.task_id,
+    subtitle: [task.task_id, task.tenant_name, task.property_name, task.due_date ? `Due: ${task.due_date}` : ""].filter(Boolean).join(" · "),
+    meta: task.priority || task.task_status,
+    href: "/tasks",
+    icon: "CheckSquare",
+  }));
 
   // Sort: intent-based results first, then by relevance
   const prioritized = results.sort((a, b) => {

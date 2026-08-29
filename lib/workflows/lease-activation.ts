@@ -2,7 +2,7 @@
 // Lease Activation Workflow
 // Uses the authenticated supabase client passed from the API route
 
-import { publish } from "@/lib/conversation/event-bus";
+import { publish } from "@/lib/platform/events/event-bus";
 
 export async function activateLease(context: any, config: any) {
   const { intakeId, initiated_by, intake, supabase } = context;
@@ -274,10 +274,10 @@ export async function notifyTenant(context: any, config: any) {
 
   // Publish lease.activated event
   await publish("lease.activated", {
-    event: "lease.activated",
-    tenantId: intake.tenant_id,
-    propertyId: intake.property_id,
-    data: {
+  source: "lease-activation",
+  version: "1",
+  correlationId: context.correlationId || crypto.randomUUID(),
+  payload: {
       lease_id: lease.id,
       intake_id: intake.id,
       tenant_id: intake.tenant_id,

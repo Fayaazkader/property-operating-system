@@ -32,9 +32,24 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      console.log('Login successful, redirecting...');
-      router.push("/app");
-    }
+  console.log("Login successful");
+
+  const { data: sessionData, error: sessionError } =
+    await supabase.auth.getSession();
+
+  console.log("SESSION AFTER LOGIN:", sessionData.session);
+  console.log("SESSION ERROR:", sessionError);
+
+  if (!sessionData.session) {
+    setError("Login succeeded, but the session could not be established. Please try again.");
+    setLoading(false);
+    return;
+  }
+
+  console.log("Session established:", sessionData.session.user.id);
+
+  router.replace("/app");
+}
   }
 
   return (

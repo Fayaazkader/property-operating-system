@@ -73,7 +73,7 @@ setNotes(noteData?.notes || '');
   const daysRemaining = lease?.lease_end_date ? Math.ceil((new Date(lease.lease_end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
   const yearsRemaining = daysRemaining ? (daysRemaining / 365).toFixed(1) : null;
   const expiringSoon = daysRemaining !== null && daysRemaining <= 180;
-  const openTasks = tasks?.filter((t: any) => t.status !== 'completed').length || 0;
+  const openTasks = tasks?.filter((t: any) => t.task_status !== 'Completed').length || 0;
 
   const commStatusIcon = (status: string) => {
     if (status === 'read') return <Eye className="w-3 h-3 text-emerald-400" />;
@@ -411,8 +411,8 @@ setNotes(noteData?.notes || '');
           <div className="space-y-2">
             {tasks?.length === 0 ? <p className="text-[var(--text-muted)] text-sm py-4">No tasks.</p> : tasks?.map((t: any) => (
               <div key={t.id} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-sm flex items-center justify-between">
-                <div><p className="text-[var(--text-primary)]">{t.title || t.description || "Task"}</p><p className="text-xs text-[var(--text-muted)]">{t.assigned_to ? `Assigned: ${t.assigned_to}` : ""} · Due: {t.due_date || "—"} · {t.priority || ""}</p></div>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${t.status === 'completed' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'}`}>{t.status}</span>
+                <div><p className="text-[var(--text-primary)]">{t.task_type || t.task_id || "Task"}</p><p className="text-xs text-[var(--text-muted)]">{t.assigned_to ? `Assigned: ${t.assigned_to}` : ""} · Due: {t.due_date || "—"} · {t.priority || ""}</p></div>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${t.task_status === 'Completed' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'}`}>{t.task_status || 'Open'}</span>
               </div>
             ))}
           </div>

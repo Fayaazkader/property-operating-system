@@ -46,7 +46,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { data: communications } = await supabase.from("communications").select("*").eq("tenant_id", id).order("created_at", { ascending: false }).limit(50);
 
   // Tasks
-  const { data: tasks } = await supabase.from("tasks").select("*").eq("tenant_id", id).order("created_at", { ascending: false }).limit(10);
+  const { data: tasks } = await supabase.from("tasks").select("*").eq("tenant_id", id).order("created_date", { ascending: false }).limit(10);
 
   // Aging analysis
   const now = new Date();

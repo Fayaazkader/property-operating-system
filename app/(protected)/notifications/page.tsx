@@ -48,11 +48,11 @@ export default function NotificationsPage() {
       });
 
       tasks?.forEach((task) => {
-        if (task.status !== "Completed") {
+        if (task.task_status !== "Completed") {
           generatedNotifications.push({
             type: "task",
             title: "Outstanding Task",
-            message: `Outstanding operational task: ${task.task_title}`,
+            message: `Outstanding operational task: ${task.task_type || task.task_id || "Task"}`,
             detail: "Operational workflow remains incomplete and requires action.",
           });
         }

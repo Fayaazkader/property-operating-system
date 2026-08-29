@@ -33,17 +33,50 @@ export default function TasksPage() {
   const formatDate = (d: string) => d ? new Date(d).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : "—";
 
   const priorityBadge = (priority: string) => {
-    if (priority === 'high') return <Flag className="w-3 h-3 text-red-400" />;
-    if (priority === 'medium') return <Flag className="w-3 h-3 text-amber-400" />;
+    if (priority === 'Critical' || priority === 'High') return <Flag className="w-3 h-3 text-red-400" />;
+    if (priority === 'Medium') return <Flag className="w-3 h-3 text-amber-400" />;
     return <Flag className="w-3 h-3 text-[var(--text-muted)]" />;
   };
 
   const statusBadge = (status: string, dueDate: string) => {
-    if (status === 'completed') return <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300">Done</span>;
-    if (dueDate && new Date(dueDate) < new Date()) return <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-300">Overdue</span>;
-    if (dueDate && new Date(dueDate).toDateString() === new Date().toDateString()) return <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300">Today</span>;
-    return <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300">Open</span>;
-  };
+  if (status === "Completed") {
+    return (
+      <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300">
+        Done
+      </span>
+    );
+  }
+
+  if (dueDate) {
+    const due = new Date(dueDate);
+    const today = new Date();
+
+    const dueDay = due.toISOString().split("T")[0];
+    const todayDay = today.toISOString().split("T")[0];
+
+    if (dueDay < todayDay) {
+      return (
+        <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-300">
+          Overdue
+        </span>
+      );
+    }
+
+    if (dueDay === todayDay) {
+      return (
+        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300">
+          Today
+        </span>
+      );
+    }
+  }
+
+  return (
+    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300">
+      {status || "Open"}
+    </span>
+  );
+};
 
 
 const sourceIcon = (source: string) => {
@@ -58,14 +91,18 @@ const sourceIcon = (source: string) => {
 };
 
   const filters = [
-    { key: "all", label: "All", count: summary?.total || 0 },
-    { key: "my", label: "My Work", count: summary?.open || 0 },
-    { key: "pending", label: "Open", count: summary?.open || 0 },
-    { key: "overdue", label: "Overdue", count: summary?.overdue || 0 },
-    { key: "today", label: "Today", count: summary?.today || 0 },
-    { key: "high", label: "High Priority", count: summary?.high || 0 },
-    { key: "completed", label: "Done", count: (summary?.total || 0) - (summary?.open || 0) },
-  ];
+  { key: "all", label: "All", count: summary?.total || 0 },
+  { key: "my", label: "My Work", count: summary?.open || 0 },
+  { key: "pending", label: "Open", count: summary?.open || 0 },
+  { key: "overdue", label: "Overdue", count: summary?.overdue || 0 },
+  { key: "today", label: "Today", count: summary?.today || 0 },
+  { key: "high", label: "High Priority", count: summary?.high || 0 },
+  {
+    key: "completed",
+    label: "Done",
+    count: (summary?.total || 0) - (summary?.open || 0),
+  },
+];
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-6 pt-8 pb-12">
@@ -125,13 +162,24 @@ const sourceIcon = (source: string) => {
                   <tr key={t.id} className="border-b border-[var(--border-default)] last:border-0 hover:bg-[var(--bg-elevated)] transition-colors">
                     <td className="py-2.5 px-4">{priorityBadge(t.priority)}</td>
                     <td className="py-2.5 px-4">
-                      <p className="text-[var(--text-primary)] font-medium">{t.title || t.description || "Untitled Task"}</p>
-                      {t.description && t.title && <p className="text-xs text-[var(--text-muted)] truncate max-w-xs">{t.description}</p>}
+                      <div>
+  <p className="text-[var(--text-primary)] font-medium">
+    {t.task_type
+      ? t.task_type.charAt(0).toUpperCase() + t.task_type.slice(1)
+      : "Task"}
+  </p>
+
+  <p className="text-xs text-[var(--text-muted)] truncate max-w-xs">
+    {t.task_id || "—"}
+    {t.tenant_name ? ` · ${t.tenant_name}` : ""}
+    {t.property_name ? ` · ${t.property_name}` : ""}
+  </p>
+</div>
                     </td>
-                    <td className="py-2.5 px-4"><span className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">{sourceIcon(t.source)} {t.source || "—"}</span></td>
+                    <td className="py-2.5 px-4"><span className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">{sourceIcon(t.task_type)} {t.task_type || "—"}</span></td>
                     <td className="py-2.5 px-4"><span className="text-xs text-[var(--text-muted)]">{t.assigned_to || "—"}</span></td>
                     <td className="py-2.5 px-4"><span className="text-xs text-[var(--text-muted)] flex items-center gap-1"><Calendar className="w-3 h-3" /> {formatDate(t.due_date)}</span></td>
-                    <td className="py-2.5 px-4">{statusBadge(t.status, t.due_date)}</td>
+                    <td className="py-2.5 px-4">{statusBadge(t.task_status, t.due_date)}</td>
                   </tr>
                 ))}
               </tbody>

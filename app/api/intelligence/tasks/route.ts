@@ -23,29 +23,93 @@ export async function GET(request: NextRequest) {
     }
   );
 
-  let query = supabase.from("tasks").select("*", { count: "exact" }).order("created_at", { ascending: false });
-  if (search) query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
+  let query = supabase
+    .from("tasks")
+    .select("*", { count: "exact" })
+    .order("created_date", { ascending: false });
+
+  if (search) {
+    query = query.or(
+      `task_id.ilike.%${search}%,task_type.ilike.%${search}%,tenant_name.ilike.%${search}%,property_name.ilike.%${search}%,assigned_to.ilike.%${search}%`
+    );
+  }
 
   const now = new Date();
   const today = now.toISOString().split("T")[0];
 
-  if (filter === "overdue") query = query.lt("due_date", today).neq("status", "completed");
-  else if (filter === "today") query = query.eq("due_date", today).neq("status", "completed");
-  else if (filter === "week") query = query.gte("due_date", today).lte("due_date", new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]).neq("status", "completed");
-  else if (filter === "completed") query = query.eq("status", "completed");
-  else if (filter === "high") query = query.eq("priority", "high").neq("status", "completed");
-  else if (filter === "pending") query = query.neq("status", "completed");
+  if (filter === "overdue") {
+    query = query.lt("due_date", today).neq("task_status", "Completed");
+  } else if (filter === "today") {
+    query = query.eq("due_date", today).neq("task_status", "Completed");
+  } else if (filter === "week") {
+    query = query
+      .gte("due_date", today)
+      .lte(
+        "due_date",
+        new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0]
+      )
+      .neq("task_status", "Completed");
+  } else if (filter === "completed") {
+    query = query.eq("task_status", "Completed");
+  } else if (filter === "high") {
+    query = query.eq("priority", "High").neq("task_status", "Completed");
+  } else if (filter === "pending") {
+    query = query.neq("task_status", "Completed");
+  }
 
   const from = page * pageSize;
   const to = from + pageSize - 1;
-  const { data, count } = await query.range(from, to);
+  const { data, count, error } = await query.range(from, to);
 
-  const { data: allTasks } = await supabase.from("tasks").select("status, due_date, priority");
+if (error) {
+  console.error("[Tasks API]", error);
+
+  return NextResponse.json(
+    {
+      error: "Failed to load tasks",
+      tasks: [],
+      total: 0,
+      page,
+      pageSize,
+      summary: {
+        total: 0,
+        open: 0,
+        overdue: 0,
+        today: 0,
+        high: 0,
+      },
+    },
+    { status: 500 }
+  );
+}
+
+  const { data: allTasks } = await supabase
+    .from("tasks")
+    .select("task_status, due_date, priority");
+
   const total = allTasks?.length || 0;
-  const openCount = allTasks?.filter(t => t.status !== 'completed').length || 0;
-  const overdueCount = allTasks?.filter(t => t.due_date && t.due_date < today && t.status !== 'completed').length || 0;
-  const todayCount = allTasks?.filter(t => t.due_date === today && t.status !== 'completed').length || 0;
-  const highCount = allTasks?.filter(t => t.priority === 'high' && t.status !== 'completed').length || 0;
+  const openCount =
+    allTasks?.filter((task) => task.task_status !== "Completed").length || 0;
+  const overdueCount =
+    allTasks?.filter(
+      (task) =>
+        task.due_date &&
+        new Date(task.due_date) < now &&
+        task.task_status !== "Completed"
+    ).length || 0;
+  const todayCount =
+    allTasks?.filter(
+      (task) =>
+        task.due_date &&
+        new Date(task.due_date).toISOString().split("T")[0] === today &&
+        task.task_status !== "Completed"
+    ).length || 0;
+  const highCount =
+    allTasks?.filter(
+      (task) => task.priority === "High" && task.task_status !== "Completed"
+    ).length || 0;
 
   return NextResponse.json({
     tasks: data || [],

@@ -34,7 +34,7 @@ export default function Sidebar() {
     async function loadCounts() {
       const { count: unallocated } = await supabase.from("bank_transactions").select("id", { count: "exact", head: true }).eq("allocation_status", "unallocated");
       const { count: expiring } = await supabase.from("leases").select("id", { count: "exact", head: true }).eq("lease_status", "Active").lte("lease_end_date", new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
-      const { count: pendingTasks } = await supabase.from("tasks").select("id", { count: "exact", head: true }).neq("status", "completed");
+      const { count: pendingTasks } = await supabase.from("tasks").select("id", { count: "exact", head: true }).neq("task_status", "Completed");
       const { count: unreadComms } = await supabase.from("communications").select("id", { count: "exact", head: true }).eq("status", "sent");
       setCounts({
         revenue: (unallocated || 0),

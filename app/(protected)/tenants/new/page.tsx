@@ -58,16 +58,25 @@ export default function LeaseActivationPage() {
   });
 
   useEffect(() => {
-    async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/landing'); return; }
-      const { data: entities } = await supabase.rpc('auth_entities');
-      if (entities?.length) setEntityId(entities[0]);
-      const { data: props } = await supabase.from('properties').select('id, property_name').eq('entity_id', entities?.[0] || '');
-      setProperties(props || []);
+  async function init() {
+    const { data: entities } = await supabase.rpc('auth_entities');
+    console.log('AUTH USER:', (await supabase.auth.getUser()).data.user);
+console.log('AUTH ENTITIES:', entities);
+
+    if (entities?.length) {
+      setEntityId(entities[0]);
     }
-    init();
-  }, []);
+
+    const { data: props } = await supabase
+      .from('properties')
+      .select('id, property_name')
+      .eq('entity_id', entities?.[0] || '');
+
+    setProperties(props || []);
+  }
+
+  init();
+}, []);
 
   async function loadUnits(propertyId: string) {
     const { data } = await supabase.from('units').select('id, unit_number, occupancy_status').eq('property_id', propertyId);

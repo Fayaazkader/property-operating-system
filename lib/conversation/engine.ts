@@ -257,15 +257,36 @@ export async function handleMaintenanceRequest(
 ): Promise<ServiceResponse> {
   const ticketId = `MNT-${Date.now().toString(36).toUpperCase()}`;
 
-  await supabase.from("tasks").insert({
-    tenant_id: tenantId,
-    title: `Maintenance: ${message.slice(0, 100)}`,
-    description: `WhatsApp request from ${tenantName}${summary?.property_name ? ` at ${summary.property_name}` : ""}.${mediaUrls.length > 0 ? `\n\nPhotos: ${mediaUrls.join(", ")}` : ""}`,
-    status: "open",
-    priority: message.toLowerCase().includes("emergency") || message.toLowerCase().includes("urgent") ? "high" : "medium",
-    source: "whatsapp",
-    due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-  });
+  const isEmergency =
+  message.toLowerCase().includes("emergency") ||
+  message.toLowerCase().includes("urgent");
+
+const propertyName = summary?.property_name || null;
+
+const { error: taskError } = await supabase.from("tasks").insert({
+  client_id: tenantId,
+  task_id: ticketId,
+  tenant_id: tenantId,
+  tenant_name: tenantName,
+  property_name: propertyName,
+  task_type: "maintenance",
+  priority: isEmergency ? "High" : "Medium",
+  task_status: "Open",
+  escalation_level: isEmergency ? 1 : 0,
+  created_date: new Date().toISOString(),
+  due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+});
+
+if (taskError) {
+  console.error("[Maintenance] Failed to create task:", taskError);
+
+  return {
+    reply: "I couldn't log the maintenance request right now. Please try again shortly.",
+    confidence: 0,
+    requiresHumanReview: true,
+    action: "escalate",
+  };
+}
 
   return {
     reply: `🔧 Maintenance Logged\n\nTicket: ${ticketId}\nPriority: ${message.toLowerCase().includes("emergency") ? "🔴 Emergency" : "🟡 Standard"}\n${mediaUrls.length > 0 ? `Photos: ${mediaUrls.length} attached ✅` : ""}\n\nExpected response: ${message.toLowerCase().includes("emergency") ? "Within 2 hours" : "Within 24 hours"}`,

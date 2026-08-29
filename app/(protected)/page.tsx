@@ -56,7 +56,9 @@ export default function OperationsHub() {
             procurement: { pending: pendingProcurement || 0 },
           });
         }
-      } catch {}
+      } catch (error) {
+  console.error("Operations Hub initialization error:", error);
+}
 
       setLoading(false);
       setTimeout(() => setVisible(true), 100);
@@ -68,7 +70,13 @@ export default function OperationsHub() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  if (loading) return null;
+  if (loading) {
+  return (
+    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+      <p className="text-sm text-zinc-500">Loading AssetFlow...</p>
+    </div>
+  );
+}
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';

@@ -14,7 +14,6 @@ export async function proxy(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value);
@@ -25,20 +24,15 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getClaims();
+  // Refresh/validate the Supabase session and propagate
+  // refreshed auth cookies back to the browser.
+  await supabase.auth.getUser();
 
   return response;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Run on application routes, but skip:
-     * - Next.js internals
-     * - static files
-     * - images
-     * - favicon
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

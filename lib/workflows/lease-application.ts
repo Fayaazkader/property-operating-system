@@ -29,12 +29,18 @@ export async function draftLease(context: any, config: any) {
 }
 
 export async function notifyManager(context: any, config: any) {
-  // Notify property manager about new draft lease
-  const { publish } = await import("@/lib/conversation/event-bus");
-  publish("lease_draft_ready", {
-    event: "lease_draft_ready",
-    tenantId: context.tenantId,
-    data: { leaseId: context.leaseId, ...context.extractedFields },
+  const { publish } = await import("@/lib/platform/events/event-bus");
+
+  await publish("lease.draft_ready", {
+    source: "lease-application",
+    version: "1",
+    correlationId: context.correlationId || crypto.randomUUID(),
+    payload: {
+      leaseId: context.leaseId,
+      tenantId: context.tenantId,
+      extractedFields: context.extractedFields,
+    },
   });
+
   return { notified: true };
 }

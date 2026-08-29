@@ -3,7 +3,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { orchestrator } from "@/lib/conversation/workflow-orchestrator";
-import { publish } from "@/lib/conversation/event-bus";
+import { publish } from "@/lib/platform/events/event-bus";
 import {
   extractTextFromBuffer,
   type DocumentEvidence,
@@ -165,27 +165,101 @@ const fieldEvidence = buildFieldEvidence(
 
   // Workflow routing — same as before
   let workflowId: string | undefined;
-  switch (documentType) {
+    switch (documentType) {
     case "lease_application":
       workflowId = "lease_application_intake";
-            await orchestrator.execute("lease_application_intake", { fileBuffer, fileName, tenantId, extractedFields });
-      publish("document_processed", { event: "lease_application_received", tenantId, data: extractedFields });
+
+      await orchestrator.execute(
+        "lease_application_intake",
+        { fileBuffer, fileName, tenantId, extractedFields }
+      );
+
+      await publish("document.processed", {
+        source: "document-intelligence",
+        version: "1",
+        correlationId: metadata?.correlationId || crypto.randomUUID(),
+        payload: {
+          documentType,
+          workflowId,
+          eventType: "lease_application_received",
+          tenantId,
+          fileName,
+          extractedFields,
+        },
+      });
       break;
+
     case "signed_lease":
       workflowId = "lease_activation";
-            await orchestrator.execute("lease_activation", { fileBuffer, fileName, tenantId, extractedFields });
-      publish("document_processed", { event: "lease_signed", tenantId, data: extractedFields });
+
+      await orchestrator.execute(
+        "lease_activation",
+        { fileBuffer, fileName, tenantId, extractedFields }
+      );
+
+      await publish("document.processed", {
+        source: "document-intelligence",
+        version: "1",
+        correlationId: metadata?.correlationId || crypto.randomUUID(),
+        payload: {
+          documentType,
+          workflowId,
+          eventType: "lease_signed",
+          tenantId,
+          fileName,
+          extractedFields,
+        },
+      });
       break;
+
     case "invoice":
       workflowId = "invoice_intake";
-      publish("document_processed", { event: "invoice_received", data: extractedFields });
+
+      await publish("document.processed", {
+        source: "document-intelligence",
+        version: "1",
+        correlationId: metadata?.correlationId || crypto.randomUUID(),
+        payload: {
+          documentType,
+          workflowId,
+          eventType: "invoice_received",
+          tenantId,
+          fileName,
+          extractedFields,
+        },
+      });
       break;
+
     case "maintenance_photo":
       workflowId = "maintenance_photo_attached";
-      publish("document_processed", { event: "maintenance_photo_received", tenantId, data: extractedFields });
+
+      await publish("document.processed", {
+        source: "document-intelligence",
+        version: "1",
+        correlationId: metadata?.correlationId || crypto.randomUUID(),
+        payload: {
+          documentType,
+          workflowId,
+          eventType: "maintenance_photo_received",
+          tenantId,
+          fileName,
+          extractedFields,
+        },
+      });
       break;
+
     default:
-      publish("document_processed", { event: "document_received", data: { type: documentType } });
+      await publish("document.processed", {
+        source: "document-intelligence",
+        version: "1",
+        correlationId: metadata?.correlationId || crypto.randomUUID(),
+        payload: {
+          documentType,
+          eventType: "document_received",
+          tenantId,
+          fileName,
+        },
+      });
   }
 
   return {
