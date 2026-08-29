@@ -127,26 +127,28 @@ const FIELD_DEFINITIONS: FieldDefinition[] = [
   },
 
   {
-    key: 'property_name',
-    label: 'Property Name',
-    type: 'text',
-    required: true,
-    patterns: [
-      /premises\s+are\s+situated\s+at\s+([^,\n]+),/i,
-      /property\s*:\s*([^\n]+)/i,
-    ],
-  },
+  key: 'property_name',
+  label: 'Property Name',
+  type: 'text',
+  required: true,
+  patterns: [
+    /property\s+name\s*:\s*(?:\n\s*)?([^\n]+)/i,
+    /property\s*:\s*(?:\n\s*)?([^\n]+)/i,
+    /premises\s+are\s+situated\s+at\s+([^,\n]+)/i,
+  ],
+},
 
   {
-    key: 'unit_number',
-    label: 'Unit / Shop Number',
-    type: 'text',
-    required: true,
-    patterns: [
-  /(?:Unit\s*\/?\s*Shop\s*Number|Unit\s*Number|Shop\s*Number)\s*:\s*([^\n.]+)/i,
-  /(?:Unit|Shop)\s*(?:No\.?|Number)\s*[:\-]?\s*([A-Za-z0-9 -]+)/i,
-],
-  },
+  key: 'unit_number',
+  label: 'Unit / Shop Number',
+  type: 'text',
+  required: true,
+  patterns: [
+    /unit\s*(?:\/\s*shop\s*)?number\s*:\s*(?:\n\s*)?([^\n.]+)/i,
+    /shop\s*number\s*:\s*(?:\n\s*)?([^\n.]+)/i,
+    /(?:unit|shop)\s*(?:no\.?|number)?\s*[:\-]\s*(?:\n\s*)?([A-Za-z0-9][A-Za-z0-9 .\/-]*)/i,
+  ],
+},
 
   {
     key: 'lease_commencement_date',
@@ -173,16 +175,16 @@ const FIELD_DEFINITIONS: FieldDefinition[] = [
   },
 
   {
-    key: 'monthly_rental',
-    label: 'Monthly Rental',
-    type: 'currency',
-    required: true,
-    patterns: [
-      /monthly\s+rental\s+(?:is\s+)?R\s*([\d,\s]+\.\d{2})/i,
-      /monthly\s+rent\s+(?:is\s+)?R\s*([\d,\s]+\.\d{2})/i,
-      /rental\s+(?:is\s+)?R\s*([\d,\s]+\.\d{2})/i,
-    ],
-  },
+  key: 'monthly_rental',
+  label: 'Monthly Rental',
+  type: 'currency',
+  required: true,
+  patterns: [
+    /monthly\s+rental\s*(?:is\s*)?[:\-]?\s*(?:\n\s*)?(?:R\s*)?([\d,\s]+(?:\.\d{2})?)/i,
+    /monthly\s+rent\s*(?:is\s*)?[:\-]?\s*(?:\n\s*)?(?:R\s*)?([\d,\s]+(?:\.\d{2})?)/i,
+    /rental\s*(?:is\s*)?[:\-]?\s*(?:\n\s*)?(?:R\s*)?([\d,\s]+(?:\.\d{2})?)/i,
+  ],
+},
 
   {
     key: 'rental_escalation',
@@ -328,6 +330,85 @@ function getPartyContext(
     confidence: 94,
   };
 }
+function extractPartyIdentifier(
+  text: string,
+  party: Party,
+  labels: string[],
+  identifierType: 'registration' | 'vat'
+): { value?: string; confidence: number } {
+  const context = getPartyContext(text, party);
+
+  if (!context) {
+    return {
+      confidence: 0,
+    };
+  }
+
+  const escapedLabels = labels.map(label =>
+    label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  );
+
+  if (!escapedLabels.length) {
+    return {
+      confidence: 0,
+    };
+  }
+
+  const labelPattern = escapedLabels.join('|');
+
+  const registrationPattern =
+    '(?:\\d{4}\\/\\d{4,8}\\/\\d{2}|\\d{4}\\/\\d{5,8}\\/\\d{2})';
+
+  const vatPattern =
+    '\\d{8,12}';
+
+  const identifierPattern =
+    identifierType === 'registration'
+      ? registrationPattern
+      : vatPattern;
+
+  const pattern = new RegExp(
+    `(?:${labelPattern})\\s*[:\\-–—=]?\\s*(?:No\\.?\\s*)?(${identifierPattern})\\b`,
+    'i'
+  );
+
+  const match = context.block.match(pattern);
+
+  if (match?.[1]) {
+    return {
+      value: normaliseExtractedValue(match[1]),
+      confidence: context.confidence,
+    };
+  }
+
+  /*
+   * OCR / DOCX fallback:
+   *
+   * Handles cases where the label and identifier are
+   * separated by line breaks or extra punctuation.
+   */
+  const fallbackPattern = new RegExp(
+    `(?:${labelPattern})[\\s\\S]{0,40}?(${identifierPattern})\\b`,
+    'i'
+  );
+
+  const fallbackMatch = context.block.match(
+    fallbackPattern
+  );
+
+  if (fallbackMatch?.[1]) {
+    return {
+      value: normaliseExtractedValue(
+        fallbackMatch[1]
+      ),
+      confidence: 88,
+    };
+  }
+
+  return {
+    confidence: 0,
+  };
+}
 
 function extractPartyField(
   text: string,
@@ -336,96 +417,57 @@ function extractPartyField(
 ): { value?: string; confidence: number } {
   const context = getPartyContext(text, party);
 
+  if (!context) {
+    return { confidence: 0 };
+  }
+
+  const block = normaliseExtractedValue(context.block);
+
   /*
    * PARTY NAME
    *
-   * Handles:
+   * The legal-name extraction is deliberately conservative.
    *
-   * LESSOR: Summit Commercial Estates (Pty) Ltd
-   *
-   * LESSEE / TENANT: Prime Retail Concepts (Pty) Ltd
+   * We stop before:
+   * Registration
+   * Company Registration
+   * VAT
+   * Email
+   * Telephone
+   * Cell
+   * Phone
+   * hereinafter
    */
   if (labels.length === 0) {
-    const partyPattern =
-      party === 'tenant'
-        ? '(?:LESSEE\\s*/\\s*TENANT|TENANT\\s*/\\s*LESSEE|LESSEE|TENANT|APPLICANT)'
-        : '(?:LESSOR\\s*/\\s*LANDLORD|LANDLORD\\s*/\\s*LESSOR|LESSOR|LANDLORD)';
-
-    const namePattern = new RegExp(
-      `${partyPattern}\\s*:?\\s*(.+?)(?=\\s+Registration\\s+Number|\\s+VAT\\s+Number|\\s+Telephone|\\s+Phone|\\s+Cell|\\s+Mobile|\\s+Email|$)`,
-      'i'
+    const nameMatch = block.match(
+      /^(.+?)(?=\s*,?\s*(?:hereinafter|company\s+registration|registration\s+(?:no\.?|number)|vat(?:\s+registration)?(?:\s+no\.?|number)?|email|e-mail|telephone|phone|cell|mobile)\b|$)/i
     );
 
-    const match = text.match(namePattern);
+    if (nameMatch?.[1]) {
+      const value = normaliseExtractedValue(
+        nameMatch[1]
+      );
 
-    if (match?.[1]) {
-      const value = cleanValue(match[1]);
-
-      if (value) {
+      if (
+        value &&
+        !/^(?:the\s+)?(?:lessor|landlord|lessee|tenant)$/i.test(value)
+      ) {
         return {
           value,
-          confidence: 94,
+          confidence: context.confidence,
         };
       }
     }
 
-    /*
-     * If the direct extraction fails, try the party context.
-     */
-    if (context) {
-      const contextMatch = context.block.match(
-        /^\s*(.+?)(?=\s+Registration\s+Number|\s+VAT\s+Number|\s+Telephone|\s+Phone|\s+Cell|\s+Mobile|\s+Email|$)/i
-      );
-
-      if (contextMatch?.[1]) {
-        const value = cleanValue(contextMatch[1]);
-
-        if (value) {
-          return {
-            value,
-            confidence: context.confidence,
-          };
-        }
-      }
-    }
-
-    return {
-      confidence: 0,
-    };
+    return { confidence: 0 };
   }
 
   /*
-   * STRUCTURED PARTY FIELDS
-   */
-  if (context) {
-    for (const label of labels) {
-      const escapedLabel = label.replace(
-        /[.*+?^${}()|[\]\\]/g,
-        '\\$&'
-      );
-
-      const pattern = new RegExp(
-        `${escapedLabel}\\s*[:\\-]?\\s*(.+?)(?=\\s+(?:Registration Number|VAT Number|Telephone|Phone|Cell|Mobile|Email)\\b|$)`,
-        'i'
-      );
-
-      const match = context.block.match(pattern);
-
-      if (match?.[1]) {
-        const value = cleanValue(match[1]);
-
-        if (value) {
-          return {
-            value,
-            confidence: context.confidence,
-          };
-        }
-      }
-    }
-  }
-
-  /*
-   * COLLAPSED OCR / DOCX FALLBACK
+   * STRUCTURED PARTY FIELD
+   *
+   * Each labelled value is extracted independently.
+   * This prevents registration/VAT/email/phone values from
+   * consuming unrelated numbers later in the document.
    */
   for (const label of labels) {
     const escapedLabel = label.replace(
@@ -433,28 +475,158 @@ function extractPartyField(
       '\\$&'
     );
 
-    const pattern = new RegExp(
-      `${escapedLabel}\\s*[:\\-]?\\s*(.+?)(?=Registration\\s+Number|VAT\\s+Number|Telephone|Phone|Cell|Mobile|Email|$)`,
-      'i'
+    const match = block.match(
+      new RegExp(
+        `${escapedLabel}\\s*(?:[:\\-–—=]|is|of)?\\s*([^,;\\n]+?)(?=\\s*(?:,|;|\\n|$))`,
+        'i'
+      )
     );
 
-    const match = text.match(pattern);
-
     if (match?.[1]) {
-      const value = cleanValue(match[1]);
+      const value = normaliseExtractedValue(
+        match[1]
+      );
 
       if (value) {
         return {
           value,
-          confidence: 88,
+          confidence: context.confidence,
         };
       }
     }
   }
 
+  /*
+   * Label may be followed by punctuation and then another
+   * labelled field without a comma.
+   */
+  for (const label of labels) {
+    const escapedLabel = label.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      '\\$&'
+    );
+
+    const match = block.match(
+      new RegExp(
+        `${escapedLabel}\\s*(?:[:\\-–—=]|is|of)?\\s*([A-Za-z0-9@+./()\\-\\s]{1,120}?)(?=\\s+(?:Registration|Company Registration|VAT|VAT Registration|Email|E-mail|Telephone|Phone|Cell|Mobile)\\b|$)`,
+        'i'
+      )
+    );
+
+    if (match?.[1]) {
+      const value = normaliseExtractedValue(
+        match[1]
+      );
+
+      if (value) {
+        return {
+          value,
+          confidence: context.confidence,
+        };
+      }
+    }
+  }
+
+  return { confidence: 0 };
+}
+function extractPartyNumericField(
+  text: string,
+  party: Party,
+  labels: string[],
+  type: 'registration' | 'vat'
+): { value?: string; confidence: number } {
+  const context = getPartyContext(text, party);
+
+  // Prefer the party-specific block.
+  // Only fall back to the complete document if no party block exists.
+  const searchText = context?.block || text;
+
+  const escapedLabels = labels.map(label =>
+    label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  );
+
+  if (escapedLabels.length === 0) {
+    return { confidence: 0 };
+  }
+
+  const labelPattern = escapedLabels.join('|');
+
+  const valuePattern =
+    type === 'vat'
+      ? '\\d{10}'
+      : '\\d{4}\\/\\d{3,8}(?:\\/\\d{2})?';
+
+  const pattern = new RegExp(
+    `(?:${labelPattern})\\s*(?:number|no\\.?|nr\\.?)?\\s*(?:is|:|-|–|—|=)?\\s*(${valuePattern})(?!\\d)`,
+    'i'
+  );
+
+  const match = searchText.match(pattern);
+
+  if (!match?.[1]) {
+    return { confidence: 0 };
+  }
+
+  const extracted = match[1].trim();
+
+  if (isContaminatedExtractedValue(extracted, type)) {
+    return { confidence: 0 };
+  }
+
   return {
-    confidence: 0,
+    value: extracted,
+    confidence: context?.confidence ?? 90,
   };
+}
+
+
+function extractPartyRegistrationNumber(
+  text: string,
+  party: Party
+): { value?: string; confidence: number } {
+  return extractPartyNumericField(
+    text,
+    party,
+    [
+      'Company Registration Number',
+      'Company Registration No.',
+      'Company Registration No',
+      'Registration Number',
+      'Registration No.',
+      'Registration No',
+      'Registration Nr.',
+      'Registration Nr',
+      'Reg Number',
+      'Reg No.',
+      'Reg No',
+    ],
+    'registration'
+  );
+}
+
+
+function extractPartyVatNumber(
+  text: string,
+  party: Party
+): { value?: string; confidence: number } {
+  return extractPartyNumericField(
+    text,
+    party,
+    [
+      'VAT Registration Number',
+      'VAT Registration No.',
+      'VAT Registration No',
+      'VAT Number',
+      'VAT No.',
+      'VAT No',
+      'VAT Nr.',
+      'VAT Nr',
+      'VAT Reg Number',
+      'VAT Reg No.',
+      'VAT Reg No',
+    ],
+    'vat'
+  );
 }
 
 function extractPartyPhone(
@@ -468,7 +640,7 @@ function extractPartyPhone(
   }
 
   const match = context.block.match(
-    /(?:Telephone|Phone|Cell|Mobile)\s*[:\-]?\s*([+()\d\s-]{7,})/i
+    /(?:Telephone|Phone|Cell|Mobile)\s*(?:[:\-–—=])?\s*([+]?[0-9][0-9\s()\-]{6,18})(?=\s*(?:[,;.]|$))/i
   );
 
   if (!match?.[1]) {
@@ -541,10 +713,287 @@ function validateLeaseTemplate(
     warnings,
   };
 }
+function normaliseLeaseText(text: string): string {
+  return text
+    .replace(/\u00a0/g, ' ')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim();
+}
+
+function normaliseExtractedValue(value: string): string {
+  return value
+    .replace(/\u00a0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s:;,\-–—="“”'']+/, '')
+    .replace(/[\s:;,\-–—="“”'']+$/, '')
+    .trim();
+}
+function isContaminatedExtractedValue(
+  value: string,
+  type: 'registration' | 'vat'
+): boolean {
+  const normalised = value.trim();
+
+  if (!normalised) {
+    return true;
+  }
+
+  if (type === 'vat') {
+    return !/^\d{10}$/.test(normalised);
+  }
+
+  return !/^\d{4}\/\d{3,8}(?:\/\d{2})?$/.test(normalised);
+}
+
+function extractFirst(
+  text: string,
+  patterns: RegExp[],
+  confidence = 92
+): { value?: string; confidence: number } {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+
+    if (match?.[1]) {
+      const value = normaliseExtractedValue(match[1]);
+
+      if (value) {
+        return {
+          value,
+          confidence,
+        };
+      }
+    }
+  }
+
+  return { confidence: 0 };
+}
+
+function extractCurrencyValue(
+  text: string,
+  patterns: RegExp[]
+): { value?: string; confidence: number } {
+  const result = extractFirst(text, patterns, 94);
+
+  if (!result.value) {
+    return result;
+  }
+
+  const cleaned = result.value
+    .replace(/\s/g, '')
+    .replace(/,/g, '');
+
+  const numeric = Number(
+    cleaned.replace(/^R/i, '')
+  );
+
+  if (!Number.isFinite(numeric)) {
+    return { confidence: 0 };
+  }
+
+  return {
+    value: numeric.toFixed(2),
+    confidence: result.confidence,
+  };
+}
+
+function extractDateValue(
+  text: string,
+  patterns: RegExp[]
+): { value?: string; confidence: number } {
+  return extractFirst(text, patterns, 94);
+}
+
+function extractLabelledValue(
+  text: string,
+  labels: string[],
+  confidence = 90
+): { value?: string; confidence: number } {
+  const escapedLabels = labels.map(label =>
+    label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  );
+
+  if (!escapedLabels.length) {
+    return { confidence: 0 };
+  }
+
+  const labelPattern = escapedLabels.join('|');
+
+  const patterns = [
+    new RegExp(
+      `(?:${labelPattern})\\s*(?:[:\\-–—=]|is|of)?\\s*([^\\n]+)`,
+      'i'
+    ),
+
+    new RegExp(
+      `(?:${labelPattern})\\s*(?:[:\\-–—=]|is|of)?\\s*([A-Za-z0-9][\\s\\S]{0,120}?)(?=\\s+(?:Registration|VAT|Telephone|Phone|Cell|Mobile|Email|Tenant|Lessee|Landlord|Lessor|Property|Premises|Unit|Shop|Suite|Commencement|Expiry|Termination)\\b|$)`,
+      'i'
+    ),
+  ];
+
+  return extractFirst(text, patterns, confidence);
+}
+
+function extractPropertyName(
+  text: string
+): { value?: string; confidence: number } {
+  return extractFirst(
+    text,
+    [
+      /property\s+name\s*[:\-–—=]\s*([^\n]+)/i,
+      /property\s*[:\-–—=]\s*([^\n]+)/i,
+      /building\s+name\s*[:\-–—=]\s*([^\n]+)/i,
+      /building\s*[:\-–—=]\s*([^\n]+)/i,
+      /shopping\s+centre\s+name\s*[:\-–—=]\s*([^\n]+)/i,
+      /shopping\s+centre\s*[:\-–—=]\s*([^\n]+)/i,
+      /centre\s+name\s*[:\-–—=]\s*([^\n]+)/i,
+      /estate\s+name\s*[:\-–—=]\s*([^\n]+)/i,
+      /site\s+name\s*[:\-–—=]\s*([^\n]+)/i,
+
+      /(?:property|building|shopping\s+centre|centre|estate|site)\s+(?:is|known\s+as)\s+["']?([^,"\n]+)["']?/i,
+
+      /premises\s+(?:known\s+as|called)\s+["']?([^,"\n]+)["']?/i,
+
+      /premises\s+(?:are|is)\s+situated\s+at\s+([^,\n]+)/i,
+
+      /situated\s+at\s+([^,\n]+?)(?=\s+(?:unit|shop|suite|office|portion)\b|,|$)/i,
+    ],
+    94
+  );
+}
+
+function extractUnitNumber(
+  text: string
+): { value?: string; confidence: number } {
+  return extractFirst(
+    text,
+    [
+      /(?:unit|shop|suite|office|portion)\s*(?:number|no\.?|nr\.?)?\s*[:\-–—=]\s*([A-Za-z0-9][A-Za-z0-9 /_-]*)/i,
+
+      /(?:unit|shop|suite|office|portion)\s+(?:number|no\.?|nr\.?)?\s*([A-Za-z0-9][A-Za-z0-9 /_-]*)(?=\s*(?:,|\.|\n|$))/i,
+
+      /(?:unit|shop|suite|office)\s*#\s*([A-Za-z0-9][A-Za-z0-9 /_-]*)/i,
+
+      /(?:unit|shop|suite|office)\s*([A-Za-z0-9][A-Za-z0-9 /_-]*)(?=\s+(?:at|situated|within|in)\b)/i,
+
+      /premises\s*[:\-–—=]\s*(?:unit|shop|suite|office)\s*([A-Za-z0-9][A-Za-z0-9 /_-]*)/i,
+
+      /(?:unit|shop|suite|office)\s+(?:being|forming)\s+number\s+([A-Za-z0-9][A-Za-z0-9 /_-]*)/i,
+    ],
+    94
+  );
+}
+
+function extractMonthlyRental(
+  text: string
+): { value?: string; confidence: number } {
+  const amount =
+    '(\\d{1,3}(?:[\\s,]\\d{3})*(?:\\.\\d{2})?|\\d+(?:\\.\\d{2})?)';
+
+  return extractCurrencyValue(text, [
+    new RegExp(
+      `(?:monthly\\s+rental|monthly\\s+rent|basic\\s+rental|base\\s+rent|gross\\s+rental|initial\\s+rental|commencing\\s+rental|rental\\s+amount|monthly\\s+rental\\s+amount)\\s*(?:is|shall\\s+be|of|:|-|–|—|=)?\\s*R?\\s*${amount}`,
+      'i'
+    ),
+
+    new RegExp(
+      `(?:rental|rent)\\s+(?:payable|per\\s+month|monthly)\\s*(?:is|shall\\s+be|of|:|-|–|—|=)?\\s*R?\\s*${amount}`,
+      'i'
+    ),
+
+    new RegExp(
+      `R\\s*${amount}\\s*(?:per\\s+month|monthly|per\\s+calendar\\s+month)`,
+      'i'
+    ),
+
+    new RegExp(
+      `monthly\\s+rental[^\\n]{0,100}?R\\s*${amount}`,
+      'i'
+    ),
+
+    new RegExp(
+      `monthly\\s+rent[^\\n]{0,100}?R\\s*${amount}`,
+      'i'
+    ),
+  ]);
+}
+
+function extractLeaseDate(
+  text: string,
+  kind: 'commencement' | 'expiry'
+): { value?: string; confidence: number } {
+  const date =
+    '(\\d{1,2}\\s+[A-Za-z]+\\s+\\d{4}|\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|\\d{4}[/-]\\d{1,2}[/-]\\d{1,2})';
+
+  if (kind === 'commencement') {
+    return extractDateValue(text, [
+      new RegExp(
+        `(?:lease\\s+)?commencement\\s+date\\s*(?:is|:|-|–|—|=)?\\s*${date}`,
+        'i'
+      ),
+
+      new RegExp(
+        `commenc(?:es|ing|ement)\\s+(?:on|from)\\s*${date}`,
+        'i'
+      ),
+
+      new RegExp(
+        `(?:start|effective|occupation)\\s+date\\s*(?:is|:|-|–|—|=)?\\s*${date}`,
+        'i'
+      ),
+
+      new RegExp(
+        `lease\\s+(?:shall\\s+)?commence[^\\n]{0,100}?${date}`,
+        'i'
+      ),
+    ]);
+  }
+
+  return extractDateValue(text, [
+    new RegExp(
+      `(?:lease\\s+)?(?:expiry|expiration|termination|end)\\s+date\\s*(?:is|:|-|–|—|=)?\\s*${date}`,
+      'i'
+    ),
+
+    new RegExp(
+      `(?:expires|expire|terminates|terminate)\\s+(?:on|upon)\\s*${date}`,
+      'i'
+    ),
+
+    new RegExp(
+      `(?:lease|agreement)\\s+(?:ends|shall\\s+end)\\s+(?:on|at)\\s*${date}`,
+      'i'
+    ),
+  ]);
+}
 
 export function analyseLeaseTemplate(
   text: string
 ): LeaseTemplateAnalysis {
+  const sourceText = text;
+  const normalisedText = normaliseLeaseText(text);
+    const tenantRegistration = extractPartyRegistrationNumber(
+    normalisedText,
+    'tenant'
+  );
+
+  const landlordRegistration = extractPartyRegistrationNumber(
+    normalisedText,
+    'landlord'
+  );
+
+  const tenantVat = extractPartyVatNumber(
+    normalisedText,
+    'tenant'
+  );
+
+  const landlordVat = extractPartyVatNumber(
+    normalisedText,
+    'landlord'
+  );
   const placeholders: LeaseTemplateAnalysis['placeholders'] = [];
   const suggestions: LeaseTemplateAnalysis['suggestions'] = [];
 
@@ -597,101 +1046,239 @@ export function analyseLeaseTemplate(
   const fields: LeaseTemplateField[] = [];
 
   for (const definition of FIELD_DEFINITIONS) {
-  let extracted = extractValue(text, definition.patterns);
+  let extracted = extractValue(
+    normalisedText,
+    definition.patterns
+  );
 
-  if (definition.key === 'tenant_name') {
-  extracted = extractPartyField(text, 'tenant', []);
-}
+  switch (definition.key) {
+    case 'tenant_name':
+      extracted = extractPartyField(
+        normalisedText,
+        'tenant',
+        []
+      );
+      break;
 
-if (definition.key === 'landlord_name') {
-  extracted = extractPartyField(text, 'landlord', []);
-}
+    case 'landlord_name':
+      extracted = extractPartyField(
+        normalisedText,
+        'landlord',
+        []
+      );
+      break;
 
-  if (definition.key === 'tenant_registration_number') {
-  extracted = extractPartyField(text, 'tenant', [
-    'Registration Number',
-    'Company Registration',
-    'Registration No',
-    'Reg No',
-  ]);
-}
+    case 'tenant_registration_number':
+      extracted = extractPartyIdentifier(
+        normalisedText,
+        'tenant',
+        [
+          'Registration Number',
+          'Company Registration Number',
+          'Registration No',
+          'Registration Nr',
+          'Reg No',
+          'Reg Nr',
+          'Company No',
+          'Company Number',
+        ],
+        'registration'
+      );
+      break;
 
-if (definition.key === 'landlord_registration_number') {
-  extracted = extractPartyField(text, 'landlord', [
-    'Registration Number',
-    'Company Registration',
-    'Registration No',
-    'Reg No',
-  ]);
-}
+    case 'landlord_registration_number':
+      extracted = extractPartyIdentifier(
+        normalisedText,
+        'landlord',
+        [
+          'Registration Number',
+          'Company Registration Number',
+          'Registration No',
+          'Registration Nr',
+          'Reg No',
+          'Reg Nr',
+          'Company No',
+          'Company Number',
+        ],
+        'registration'
+      );
+      break;
 
-if (definition.key === 'tenant_vat_number') {
-  extracted = extractPartyField(text, 'tenant', [
-    'VAT Number',
-    'VAT No',
-    'VAT Registration Number',
-  ]);
-}
+    case 'tenant_vat_number':
+      extracted = extractPartyIdentifier(
+        normalisedText,
+        'tenant',
+        [
+          'VAT Registration Number',
+          'VAT Registration No',
+          'VAT Number',
+          'VAT No',
+          'VAT Nr',
+        ],
+        'vat'
+      );
+      break;
 
-if (definition.key === 'landlord_vat_number') {
-  extracted = extractPartyField(text, 'landlord', [
-    'VAT Number',
-    'VAT No',
-    'VAT Registration Number',
-  ]);
-}
+    case 'landlord_vat_number':
+      extracted = extractPartyIdentifier(
+        normalisedText,
+        'landlord',
+        [
+          'VAT Registration Number',
+          'VAT Registration No',
+          'VAT Number',
+          'VAT No',
+          'VAT Nr',
+        ],
+        'vat'
+      );
+      break;
 
-if (definition.key === 'tenant_email') {
-  extracted = extractPartyField(text, 'tenant', [
-    'Email',
-    'Email Address',
-  ]);
-}
+    case 'tenant_email':
+      extracted = extractPartyField(
+        normalisedText,
+        'tenant',
+        [
+          'Email',
+          'Email Address',
+          'Email Address',
+          'E-mail',
+          'E-mail Address',
+        ]
+      );
+      break;
 
-if (definition.key === 'landlord_email') {
-  extracted = extractPartyField(text, 'landlord', [
-    'Email',
-    'Email Address',
-  ]);
-}
+    case 'landlord_email':
+      extracted = extractPartyField(
+        normalisedText,
+        'landlord',
+        [
+          'Email',
+          'Email Address',
+          'E-mail',
+          'E-mail Address',
+        ]
+      );
+      break;
 
-if (definition.key === 'tenant_phone') {
-  extracted = extractPartyPhone(text, 'tenant');
-}
+    case 'tenant_phone':
+      extracted = extractPartyPhone(
+        normalisedText,
+        'tenant'
+      );
+      break;
 
-if (definition.key === 'landlord_phone') {
-  extracted = extractPartyPhone(text, 'landlord');
-}
+    case 'landlord_phone':
+      extracted = extractPartyPhone(
+        normalisedText,
+        'landlord'
+      );
+      break;
 
+    case 'property_name':
+      extracted = extractPropertyName(
+        normalisedText
+      );
+      break;
 
-    if (extracted.value) {
-  const extractedText = String(extracted.value);
-  const startOffset = text.indexOf(extractedText);
+    case 'unit_number':
+      extracted = extractUnitNumber(
+        normalisedText
+      );
+      break;
 
-  fields.push({
-    key: definition.key,
-    label: definition.label,
-    type: definition.type,
-    required: definition.required,
-    value: extracted.value,
-    confidence: extracted.confidence,
-    source: 'ai',
-    approved: false,
-    evidence: [
-      {
-        text: extractedText,
-        ...(startOffset >= 0
-          ? {
-              startOffset,
-              endOffset: startOffset + extractedText.length,
-            }
-          : {}),
-      },
-    ],
-  });
+    case 'lease_commencement_date':
+      extracted = extractLeaseDate(
+        normalisedText,
+        'commencement'
+      );
+      break;
 
-  continue;
-}
+    case 'lease_expiry_date':
+      extracted = extractLeaseDate(
+        normalisedText,
+        'expiry'
+      );
+      break;
+
+    case 'monthly_rental':
+      extracted = extractMonthlyRental(
+        normalisedText
+      );
+      break;
+
+    case 'rental_escalation':
+      extracted = extractFirst(
+        normalisedText,
+        [
+          /(?:annual|yearly|per\s+annum)?\s*(?:rental\s+)?escalation\s*(?:of|is|:|-|–|—|=)?\s*(\d+(?:\.\d+)?)\s*%/i,
+
+          /(\d+(?:\.\d+)?)\s*%\s*(?:annual|yearly|per\s+annum)\s+(?:rental\s+)?escalation/i,
+
+          /rent(?:al)?[^.\n]{0,100}?increase[^.\n]{0,50}?(\d+(?:\.\d+)?)\s*%/i,
+
+          /rent(?:al)?[^.\n]{0,100}?escalat[^.\n]{0,50}?(\d+(?:\.\d+)?)\s*%/i,
+        ],
+        92
+      );
+      break;
+
+    case 'deposit_amount':
+      extracted = extractCurrencyValue(
+        normalisedText,
+        [
+          /security\s+deposit\s*(?:of|is|:|-|–|—|=)?\s*R?\s*(\d{1,3}(?:[\s,]\d{3})*(?:\.\d{2})?|\d+(?:\.\d{2})?)/i,
+
+          /deposit\s*(?:of|is|:|-|–|—|=)?\s*R?\s*(\d{1,3}(?:[\s,]\d{3})*(?:\.\d{2})?|\d+(?:\.\d{2})?)/i,
+
+          /deposit[^.\n]{0,100}?R\s*(\d{1,3}(?:[\s,]\d{3})*(?:\.\d{2})?|\d+(?:\.\d{2})?)/i,
+        ]
+      );
+      break;
+
+    case 'lease_fee':
+      extracted = extractCurrencyValue(
+        normalisedText,
+        [
+          /(?:lease|administration|admin)\s+fee\s*(?:of|is|:|-|–|—|=)?\s*R?\s*(\d{1,3}(?:[\s,]\d{3})*(?:\.\d{2})?|\d+(?:\.\d{2})?)/i,
+
+          /(?:lease|administration|admin)\s+fee[^.\n]{0,100}?R\s*(\d{1,3}(?:[\s,]\d{3})*(?:\.\d{2})?|\d+(?:\.\d{2})?)/i,
+        ]
+      );
+      break;
+  }
+
+  if (extracted.value) {
+    const extractedText = String(extracted.value);
+
+    const startOffset = text.indexOf(extractedText);
+
+    fields.push({
+      key: definition.key,
+      label: definition.label,
+      type: definition.type,
+      required: definition.required,
+      value: extracted.value,
+      confidence: extracted.confidence,
+      source: 'ai',
+      approved: false,
+      evidence: [
+        {
+          text: extractedText,
+          ...(startOffset >= 0
+            ? {
+                startOffset,
+                endOffset:
+                  startOffset + extractedText.length,
+              }
+            : {}),
+        },
+      ],
+    });
+
+    continue;
+  }
+
 
 
     /*
@@ -699,8 +1286,8 @@ if (definition.key === 'landlord_phone') {
      * review suggestion rather than pretending it was extracted.
      */
     const conceptDetected = definition.patterns.some(pattern =>
-      pattern.test(text)
-    );
+  pattern.test(normalisedText)
+);
 
     if (conceptDetected) {
       suggestions.push({
