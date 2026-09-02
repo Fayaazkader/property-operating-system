@@ -137,7 +137,12 @@ export default function AccountWorkspacePage() {
   let filtered = transactions.filter(tx => {
     if (searchTerm) { const q = searchTerm.toLowerCase(); if (!tx.transaction_description?.toLowerCase().includes(q) && !tx.transaction_reference?.toLowerCase().includes(q)) return false; }
     if (activeQueue === "ready") return tx.allocation_status === "fully_allocated";
-    if (activeQueue === "review") return tx.allocation_status === "unallocated";
+    if (activeQueue === "review") {
+  return (
+    tx.allocation_status === "unallocated" ||
+    tx.allocation_status === "partially_allocated"
+  );
+}
     if (activeQueue === "exceptions") return tx.allocation_status === "posting_failed" || tx.queue === "exceptions";
     if (activeQueue === "posted") return tx.allocation_status === "posted" || tx.queue === "posted";
     return true;
@@ -155,7 +160,12 @@ export default function AccountWorkspacePage() {
   });
 
   const readyCount = transactions.filter(t => t.allocation_status === 'fully_allocated').length;
-  const reviewCount = transactions.filter(t => t.queue === 'review' || t.allocation_status === 'allocated' || t.allocation_status === 'unallocated').length;
+  const reviewCount = transactions.filter(
+  t =>
+    t.queue === 'review' ||
+    t.allocation_status === 'unallocated' ||
+    t.allocation_status === 'partially_allocated'
+).length;
   const exceptionCount = transactions.filter(t => t.allocation_status === 'posting_failed' || t.queue === 'exceptions').length;
   const postedCount = transactions.filter(t => t.allocation_status === 'posted' || t.queue === 'posted').length;
   const statementBalance = account?.statement_balance || 0;
@@ -240,7 +250,7 @@ export default function AccountWorkspacePage() {
                     {tx.allocation_status === 'fully_allocated' && (
                       <button onClick={async () => { await handlePostTransaction(tx); await loadData(); }} className="rounded-lg bg-white px-2 py-1 text-[10px] font-medium text-black hover:bg-gray-100">Post</button>
                     )}
-                        {(tx.allocation_status === 'ready_to_post' || tx.allocation_status === 'posting_failed') && (
+                        {tx.allocation_status === 'posting_failed' && (
                           <button onClick={() => handlePostTransaction(tx)} className="rounded-lg bg-white px-2 py-1 text-[10px] font-medium text-black hover:bg-gray-100">Post</button>
                         )}
                       </>

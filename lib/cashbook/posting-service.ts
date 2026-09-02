@@ -45,8 +45,15 @@ export const cashbookPostingService = {
       const classification = await classificationEngine.classify(txn);
 
       if (classification.class === 'unknown') {
-        await supabase.from('bank_transactions').update({ allocation_status: 'allocated' }).eq('id', transactionId);
-        return { success: false, message: 'Cannot classify transaction — needs manual review', newState: 'allocated' };
+  await supabase
+    .from('bank_transactions')
+    .update({
+      allocation_status: 'fully_allocated',
+      queue: 'review',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', transactionId);
+        return { success: false, message: 'Cannot classify transaction — needs manual review', newState: 'fully_allocated' };
       }
 
       // Map classification to posting event
@@ -79,8 +86,12 @@ export const cashbookPostingService = {
 
       const mapping = eventMap[classification.class];
       if (!mapping) {
-        await supabase.from('bank_transactions').update({ allocation_status: 'allocated' }).eq('id', transactionId);
-        return { success: false, message: 'No posting rule for classification', newState: 'allocated' };
+        await supabase.from('bank_transactions').update({
+  allocation_status: 'fully_allocated',
+  queue: 'review',
+  updated_at: new Date().toISOString(),
+}).eq('id', transactionId);
+        return { success: false, message: 'No posting rule for classification', newState: 'fully_allocated' };
       }
 
       // Get entity_id from bank account

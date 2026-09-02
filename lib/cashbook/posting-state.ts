@@ -1,27 +1,40 @@
 // Posting state machine for bank transactions
 
-export type PostingState = 'unallocated' | 'allocated' | 'fully_allocated' | 'ready_to_post' | 'posting' | 'posted' | 'posting_failed';
+export type PostingState =
+  | 'unallocated'
+  | 'partially_allocated'
+  | 'fully_allocated'
+  | 'posting'
+  | 'posted'
+  | 'posting_failed';
 
 export const VALID_TRANSITIONS: Record<PostingState, PostingState[]> = {
-  unallocated: ['allocated', 'fully_allocated'],
-  allocated: ['ready_to_post', 'fully_allocated', 'unallocated'],
-  fully_allocated: ['posting', 'allocated', 'unallocated'],
-  ready_to_post: ['posting', 'allocated'],
+  unallocated: ['partially_allocated', 'fully_allocated'],
+  partially_allocated: ['unallocated', 'fully_allocated'],
+  fully_allocated: ['partially_allocated', 'posting'],
   posting: ['posted', 'posting_failed'],
   posted: [],
-  posting_failed: ['ready_to_post'],
+  posting_failed: ['fully_allocated', 'posting'],
 };
 
-export function canTransition(from: PostingState, to: PostingState): boolean {
+export function canTransition(
+  from: PostingState,
+  to: PostingState
+): boolean {
   return VALID_TRANSITIONS[from]?.includes(to) || false;
 }
 
-export function nextState(current: PostingState, success: boolean): PostingState {
-  if (success) {
-    if (current === 'ready_to_post' || current === 'fully_allocated' || current === 'posting_failed') return 'posting';
-    if (current === 'posting') return 'posted';
-  } else {
-    if (current === 'posting') return 'posting_failed';
+export function nextState(
+  current: PostingState,
+  success: boolean
+): PostingState {
+  if (success && current === 'posting') {
+    return 'posted';
   }
+
+  if (!success && current === 'posting') {
+    return 'posting_failed';
+  }
+
   return current;
 }

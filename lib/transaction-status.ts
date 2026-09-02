@@ -1,7 +1,16 @@
 // Single source of truth for transaction statuses and queues
 
-export type AllocationStatus = "unallocated" | "partially_allocated" | "fully_allocated" | "posted";
-export type Queue = "ready" | "review" | "exceptions" | "posted";
+export type AllocationStatus =
+  | "unallocated"
+  | "partially_allocated"
+  | "fully_allocated"
+  | "posted";
+
+export type Queue =
+  | "ready"
+  | "review"
+  | "exceptions"
+  | "posted";
 
 // Queue rules
 export function isReady(tx: { allocation_status: string; queue: string; confidence?: number; matched_tenant_id?: string | null }) {
