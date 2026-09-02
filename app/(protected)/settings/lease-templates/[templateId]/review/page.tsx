@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { leaseTemplateService } from '@/lib/lease/templates/service';
 import LeaseTemplateReviewWorkspace from '@/app/components/lease-templates/LeaseTemplateReviewWorkspace';
+import LeaseTemplateReviewActions from '@/app/components/lease-templates/LeaseTemplateReviewActions';
 
 interface PageProps {
   params: Promise<{
@@ -331,31 +332,7 @@ if (!template) {
         </p>
       </section>
 
-      {/* Actions */}
-      <div className="flex items-center justify-between border-t border-white/[0.06] pt-6">
-        <button
-          type="button"
-          className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm text-zinc-400 transition hover:bg-white/[0.04] hover:text-white"
-        >
-          Back
-        </button>
-
-        <div className="flex gap-3">
-          <button
-            type="button"
-            className="rounded-lg border border-red-400/20 px-4 py-2.5 text-sm text-red-400 transition hover:bg-red-400/[0.05]"
-          >
-            Reject
-          </button>
-
-          <button
-            type="button"
-            className="rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-black transition hover:bg-zinc-200"
-          >
-            Approve Template
-          </button>
-        </div>
-      </div>
+      <LeaseTemplateReviewActions templateId={templateId} />
     </div>
   );
 }

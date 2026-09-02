@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import ImportDropzone from "@/components/widgets/ImportDropzone";
-import { importBankTransactions } from "@/lib/services/banking";
+import { importBankStatement } from "@/lib/banking/import-engine";
 import { supabase } from "@/lib/supabase";
 import { BankImportPresets } from "@/components/financials/BankImportPresets";
 import { validateBankImport } from "@/lib/banking/import-validation";
@@ -142,7 +142,7 @@ if (data) setEntities(data);
       return;
     }
 
-    const result = await importBankTransactions(file, activePreset);
+    const result = await importBankStatement(file, activePreset);
 
     if (result.success && result.data) {
       console.log('Import: got', result.data.length, 'transactions to save');

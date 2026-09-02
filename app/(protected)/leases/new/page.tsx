@@ -31,9 +31,13 @@ const [selectedUnit, setSelectedUnit] = useState("");
 
 
   // Section 1: Lease Information
-  const leaseNumber = `LSE-${Date.now().toString().slice(-8)}`;
+  const [leaseNumber] = useState(
+  () => `LSE-${Date.now().toString().slice(-8)}`
+);
   const [selectedEntity, setSelectedEntity] = useState("");
   const [selectedTenant, setSelectedTenant] = useState("");
+const [tenantSearch, setTenantSearch] = useState("");
+const [isCreatingTenant, setIsCreatingTenant] = useState(false);
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [vatNumber, setVatNumber] = useState("");
   const [taxNumber, setTaxNumber] = useState("");
@@ -117,9 +121,30 @@ const [selectedUnit, setSelectedUnit] = useState("");
 
 
   // Readiness calculation
-  const requiredFields = [selectedEntity, selectedTenant, selectedProperty, baseRental, leaseStart, leaseEnd];
-  const filledRequired = requiredFields.filter(f => !!f).length;
-  const readiness = Math.round((filledRequired / requiredFields.length) * 70 + (depositAmount ? 1 : 0) * 10 + (signatories.length > 0 ? 1 : 0) * 10 + (vatNumber ? 1 : 0) * 10);
+  const effectiveTenantName = isCreatingTenant
+  ? tenantSearch
+  : tenants.find((t) => t.id === selectedTenant)?.tenant_name || "";
+
+const requiredFields = [
+  selectedEntity,
+  effectiveTenantName,
+  selectedProperty,
+  selectedUnit,
+  baseRental,
+  leaseStart,
+  leaseEnd,
+];
+  const filledRequired = requiredFields.filter(Boolean).length;
+
+const readiness = Math.min(
+  100,
+  Math.round(
+    (filledRequired / requiredFields.length) * 70 +
+      (depositAmount ? 10 : 0) +
+      (signatories.length > 0 ? 10 : 0) +
+      (vatNumber ? 10 : 0)
+  )
+);
 
   // Revenue Streams
   const revenueStreams: { name: string; amount: string; frequency: string }[] = [];
@@ -160,42 +185,172 @@ const [selectedUnit, setSelectedUnit] = useState("");
   function addResolution() { setResolutions([...resolutions, { date: "", number: "" }]); }
 
  async function handleCreate() {
-    if (!selectedEntity || !selectedTenant || !selectedProperty || !baseRental || !leaseStart) {
-      alert("Please fill in all required fields: Entity, Tenant, Property, Rental, and Lease Start.");
-      return;
-    }
-    setLoading(true);
+  const tenantName = effectiveTenantName;
 
-    const { data: newTenant, error: tenantError } = await supabase
-      .from("tenants")
-      .insert({
-        tenant_name: selectedTenant,
-        company_registration: registrationNumber || null,
-        vat_number: vatNumber || null,
-        industry: industry || null,
-      })
-      .select("id")
-      .single();
+  if (
+    !selectedEntity ||
+    !tenantName ||
+    !selectedProperty ||
+    !selectedUnit ||
+    !baseRental ||
+    !leaseStart ||
+    !leaseEnd
+  ) {
+    alert(
+      "Please complete all required fields: Entity, Tenant, Property, Unit, Rental, Lease Start and Lease End."
+    );
+    return;
+  }
 
-    if (tenantError) {
-      console.error(tenantError);
-      alert("Error creating tenant: " + tenantError.message);
+  setLoading(true);
+
+  let tenantId = selectedTenant;
+
+  if (isCreatingTenant) {
+    const { data: existingTenant, error: existingTenantError } =
+      await supabase
+        .from("tenants")
+        .select("id, tenant_name")
+        .ilike("tenant_name", tenantName.trim())
+        .maybeSingle();
+
+    if (existingTenantError) {
+      console.error(existingTenantError);
+      alert(
+        "Unable to check existing tenants: " +
+          existingTenantError.message
+      );
       setLoading(false);
       return;
     }
+
+    if (existingTenant) {
+      tenantId = existingTenant.id;
+    } else {
+      const { data: createdTenant, error: tenantError } =
+        await supabase
+          .from("tenants")
+          .insert({
+            tenant_name: tenantName.trim(),
+            company_registration:
+              registrationNumber || null,
+            vat_number:
+              vatNumber || null,
+            industry:
+              industry || null,
+          })
+          .select("id")
+          .single();
+
+      if (tenantError) {
+        console.error(tenantError);
+        alert(
+          "Error creating tenant: " +
+            tenantError.message
+        );
+        setLoading(false);
+        return;
+      }
+
+      tenantId = createdTenant.id;
+    }
+  }
+
+    const { data: currentUnit, error: unitCheckError } =
+  await supabase
+    .from("units")
+    .select(
+      "id, unit_number, occupancy_status, property_id, current_lease_id"
+    )
+    .eq("id", selectedUnit)
+    .single();
+
+if (unitCheckError || !currentUnit) {
+  console.error(unitCheckError);
+  alert("Unable to validate the selected unit.");
+  setLoading(false);
+  return;
+}
+
+// The unit must belong to the selected property.
+if (currentUnit.property_id !== selectedProperty) {
+  alert("The selected unit does not belong to the selected property.");
+  setLoading(false);
+  return;
+}
+
+// A new lease may only be created against a vacant unit.
+if (currentUnit.occupancy_status !== "Vacant") {
+  alert(
+    `Unit ${currentUnit.unit_number} is currently ${currentUnit.occupancy_status} and cannot be leased.`
+  );
+  setLoading(false);
+  return;
+}
+
+
+// Extra protection: make sure there isn't already
+// an active lease against this unit.
+const { data: existingActiveLease, error: activeLeaseError } =
+  await supabase
+    .from("leases")
+    .select("id, lease_id, lease_status")
+    .eq("unit_id", selectedUnit)
+    .eq("lease_status", "Active")
+    .maybeSingle();
+
+if (activeLeaseError) {
+  console.error(activeLeaseError);
+  alert(
+    "Unable to verify whether the unit already has an active lease: " +
+      activeLeaseError.message
+  );
+  setLoading(false);
+  return;
+}
+
+if (existingActiveLease) {
+  alert(
+    `Unit ${currentUnit.unit_number} already has an active lease (${existingActiveLease.lease_id}).`
+  );
+  setLoading(false);
+  return;
+}
     // Get property entity relationships
-    const { data: propertyData } = await supabase
+      const { data: propertyData, error: propertyError } =
+    await supabase
       .from("properties")
-      .select("owner_entity_id, managing_entity_id, entity_id, property_name")
+      .select(
+        "id, owner_entity_id, managing_entity_id, entity_id, property_name"
+      )
       .eq("id", selectedProperty)
       .single();
+
+  if (propertyError || !propertyData) {
+    console.error(propertyError);
+    alert("Unable to load the selected property.");
+    setLoading(false);
+    return;
+  }
+
+  if (
+    propertyData.entity_id &&
+    propertyData.entity_id !== selectedEntity
+  ) {
+    alert(
+      "The selected property does not belong to the selected entity."
+    );
+    setLoading(false);
+    return;
+  }
     const { data, error } = await supabase
       .from("leases")
       .insert({
         client_id: "C001",
         lease_id: leaseNumber,
-        tenant_id: newTenant.id,
+        tenant_id: tenantId,
         property_id: selectedProperty,
+        unit_id: selectedUnit,
         owner_entity_id: propertyData?.owner_entity_id || null,
         managing_entity_id: propertyData?.managing_entity_id || null,
         tenant_name: selectedTenant,
@@ -305,16 +460,75 @@ console.log("RULES CREATED:", rulesCreated);
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Entity *</label>
                   <select value={selectedEntity} onChange={(e) => { setSelectedEntity(e.target.value); setSelectedProperty(""); }}
-                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none">
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none">
                     <option value="">Select entity...</option>
                     {entities.map(e => <option key={e.id} value={e.id}>{e.entity_name}</option>)}
                   </select>
                 </div>
                <div>
   <label className="block text-xs text-zinc-500 mb-1.5">Tenant Name *</label>
-  <input type="text" value={selectedTenant} onChange={(e) => setSelectedTenant(e.target.value)}
-    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none"
-    placeholder="Enter new tenant name" />
+  <div>
+  <label className="block text-xs text-zinc-500 mb-1.5">
+    Tenant *
+  </label>
+
+  <select
+    value={isCreatingTenant ? "__new__" : selectedTenant}
+    onChange={(e) => {
+      if (e.target.value === "__new__") {
+        setIsCreatingTenant(true);
+        setSelectedTenant("");
+      } else {
+        setIsCreatingTenant(false);
+        setSelectedTenant(e.target.value);
+
+        const tenant = tenants.find(
+          (t) => t.id === e.target.value
+        );
+
+        if (tenant) {
+          setRegistrationNumber(
+            tenant.company_registration || ""
+          );
+          setVatNumber(
+            tenant.vat_number || ""
+          );
+          setIndustry(
+            tenant.industry || ""
+          );
+        }
+      }
+    }}
+    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none"
+  >
+    <option value="">Select tenant...</option>
+
+    {tenants.map((tenant) => (
+      <option key={tenant.id} value={tenant.id}>
+        {tenant.tenant_name}
+      </option>
+    ))}
+
+    <option value="__new__">
+      + Create New Tenant
+    </option>
+  </select>
+</div>
+{isCreatingTenant && (
+  <div className="col-span-2">
+    <label className="block text-xs text-zinc-500 mb-1.5">
+      New Tenant Name *
+    </label>
+
+    <input
+      type="text"
+      value={tenantSearch}
+      onChange={(e) => setTenantSearch(e.target.value)}
+      placeholder="Enter tenant/company name"
+      className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]"
+    />
+  </div>
+)}
 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Registration Number</label>
@@ -324,7 +538,7 @@ console.log("RULES CREATED:", rulesCreated);
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">VAT Number</label>
                   <input type="text" value={vatNumber} onChange={(e) => setVatNumber(e.target.value)}
-                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Tax Number</label>
@@ -346,7 +560,7 @@ console.log("RULES CREATED:", rulesCreated);
                 <div className="col-span-2">
                   <label className="block text-xs text-zinc-500 mb-1.5">External Reference</label>
                   <input type="text" value={externalReference} onChange={(e) => setExternalReference(e.target.value)}
-                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" placeholder="e.g. Attorney file number, legacy system reference" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" placeholder="e.g. Attorney file number, legacy system reference" />
                 </div>
               </div>
             </div>
@@ -365,9 +579,9 @@ console.log("RULES CREATED:", rulesCreated);
                 {contacts.map((c, i) => (
                   <div key={i} className="grid grid-cols-4 gap-2">
                     <input placeholder="Name" value={c.name} onChange={(e) => { const n = [...contacts]; n[i].name = e.target.value; setContacts(n); }}
-                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                                         <select value={c.role} onChange={(e) => { const n = [...contacts]; n[i].role = e.target.value; setContacts(n); }}
-                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none">
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none">
                       <option value="">Position</option>
                       <option value="Accounts Payable">Accounts Payable</option>
                       <option value="Branch Manager">Branch Manager</option>
@@ -379,9 +593,9 @@ console.log("RULES CREATED:", rulesCreated);
                       <option value="Other">Other</option>
                     </select>
                     <input placeholder="Email" value={c.email} onChange={(e) => { const n = [...contacts]; n[i].email = e.target.value; setContacts(n); }}
-                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                     <input placeholder="Mobile" value={c.mobile} onChange={(e) => { const n = [...contacts]; n[i].mobile = e.target.value; setContacts(n); }}
-                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                   </div>
                 ))}
               </div>
@@ -396,9 +610,9 @@ console.log("RULES CREATED:", rulesCreated);
                     <input placeholder="Name" value={s.name} onChange={(e) => { const n = [...signatories]; n[i].name = e.target.value; setSignatories(n); }}
                       className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                     <input placeholder="ID Number" value={s.idNumber} onChange={(e) => { const n = [...signatories]; n[i].idNumber = e.target.value; setSignatories(n); }}
-                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                     <input placeholder="Capacity" value={s.capacity} onChange={(e) => { const n = [...signatories]; n[i].capacity = e.target.value; setSignatories(n); }}
-                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                   </div>
                 ))}
               </div>
@@ -413,7 +627,7 @@ console.log("RULES CREATED:", rulesCreated);
                     <input placeholder="Name" value={s.name} onChange={(e) => { const n = [...sureties]; n[i].name = e.target.value; setSureties(n); }}
                       className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                     <input placeholder="ID Number" value={s.idNumber} onChange={(e) => { const n = [...sureties]; n[i].idNumber = e.target.value; setSureties(n); }}
-                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                   </div>
                 ))}
               </div>
@@ -428,7 +642,7 @@ console.log("RULES CREATED:", rulesCreated);
                     <input type="date" value={r.date} onChange={(e) => { const n = [...resolutions]; n[i].date = e.target.value; setResolutions(n); }}
                       className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                     <input placeholder="Resolution Number" value={r.number} onChange={(e) => { const n = [...resolutions]; n[i].number = e.target.value; setResolutions(n); }}
-                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" />
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" />
                   </div>
                 ))}
               </div>
@@ -511,7 +725,7 @@ console.log("RULES CREATED:", rulesCreated);
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Base Rental (R) *</label>
                   <input type="number" value={baseRental} onChange={(e) => setBaseRental(e.target.value)}
-                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none tabular-nums" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none tabular-nums" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Escalation %</label>
@@ -530,7 +744,7 @@ console.log("RULES CREATED:", rulesCreated);
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Deposit (R)</label>
                   <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)}
-                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none tabular-nums" />
+                    className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none tabular-nums" />
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1.5">Bank Guarantee (R)</label>
@@ -565,7 +779,7 @@ console.log("RULES CREATED:", rulesCreated);
                       <div>
                         <label className="block text-xs text-zinc-500 mb-1">Breakpoint (R)</label>
                         <input type="number" value={turnoverBreakpoint} onChange={(e) => setTurnoverBreakpoint(e.target.value)}
-                          className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none tabular-nums" />
+                          className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none tabular-nums" />
                       </div>
                     </div>
                   )}
@@ -595,7 +809,7 @@ console.log("RULES CREATED:", rulesCreated);
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-4">Dates & Occupation</p>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs text-zinc-500 mb-1.5">Lease Start *</label><input type="date" value={leaseStart} onChange={(e) => setLeaseStart(e.target.value)} className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]appearance-none" /></div>
+                <div><label className="block text-xs text-zinc-500 mb-1.5">Lease Start *</label><input type="date" value={leaseStart} onChange={(e) => setLeaseStart(e.target.value)} className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" /></div>
                 <div><label className="block text-xs text-zinc-500 mb-1.5">Lease End *</label><input type="date" value={leaseEnd} onChange={(e) => setLeaseEnd(e.target.value)} className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" /></div>
                 <div><label className="block text-xs text-zinc-500 mb-1.5">BO Start</label><input type="date" value={boStart} onChange={(e) => setBoStart(e.target.value)} className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" /></div>
                 <div><label className="block text-xs text-zinc-500 mb-1.5">BO End</label><input type="date" value={boEnd} onChange={(e) => setBoEnd(e.target.value)} className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)] appearance-none" /></div>

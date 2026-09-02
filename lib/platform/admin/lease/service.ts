@@ -1,7 +1,7 @@
 import { leaseRepository } from './repository';
 import { archiveService } from '../../shared/archive-service';
 import { publish } from '@/lib/platform/events/event-bus';
-import { supabase } from '@/lib/supabase';
+import { leaseActivationService } from '@/lib/workflow/services/lease-activation-service';
 
 export const leaseService = {
   // Queries
@@ -12,32 +12,7 @@ export const leaseService = {
   async getByProperty(propertyId: string) { return leaseRepository.findByProperty(propertyId); },
   async getExpiring(days: number = 90) { return leaseRepository.findExpiring(days); },
 
-  // Activate — single atomic RPC call, all-or-nothing
-  async activate(intakeId: string, initiatedBy: string = 'system') {
-    const { data, error } = await supabase.rpc('activate_lease_rpc', {
-      p_intake_id: intakeId,
-      p_initiated_by: initiatedBy,
-    });
-
-    if (error || !data?.success) {
-      throw new Error(data?.message || error?.message || 'Activation failed');
-    }
-
-    // Publish event after successful atomic commit
-    await publish('lease.activated', {
-      correlationId: crypto.randomUUID(),
-      source: 'lease-service',
-      version: '1.0',
-      payload: {
-        leaseId: data.lease_id,
-        leaseCode: data.lease_code,
-        intakeId,
-      },
-    });
-
-    return data;
-  },
-
+ 
   async update(id: string, data: Record<string, any>) {
     await leaseRepository.update(id, data);
   },

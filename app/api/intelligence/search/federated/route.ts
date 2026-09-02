@@ -30,8 +30,8 @@ export async function GET(request: NextRequest) {
     filters.expiryDays = days;
   } else if (query.includes("owing") || query.includes("arrears") || query.includes("outstanding") || query.includes("owe")) {
     intent = "arrears";
-  } else if (query.includes("vacant") || query.includes("vacancy") || query.includes("unoccupied")) {
-    intent = "vacant";
+  } else if (query.includes("Vacant") || query.includes("vacancy") || query.includes("unoccupied")) {
+    intent = "Vacant";
   } else if (query.includes("invoice") || query.includes("invoiced")) {
     intent = "invoices";
   } else if (query.includes("statement")) {

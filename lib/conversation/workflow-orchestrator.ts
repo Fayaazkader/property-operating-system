@@ -83,13 +83,3 @@ orchestrator.register({
     { id: "notify_review", action: "notifyManager", service: "lease-application", config: { reason: "needs_review" } },
   ],
 });
-
-orchestrator.register({
-  id: "lease_activation",
-  name: "Lease Activation",
-  steps: [
-    { id: "activate", action: "activateLease", service: "lease-activation", config: {}, nextOnSuccess: "billing" },
-    { id: "billing", action: "createBilling", service: "lease-activation", config: {}, nextOnSuccess: "notify" },
-    { id: "notify", action: "notifyTenant", service: "lease-activation", config: {} },
-  ],
-});

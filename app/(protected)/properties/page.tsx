@@ -81,7 +81,7 @@ export default function PropertiesPage() {
   { key: "retail", label: "Retail" },
   { key: "office", label: "Office" },
   { key: "residential", label: "Residential" },
-  { key: "vacant", label: "Vacant" },
+  { key: "Vacant", label: "Vacant" },
   { key: "sold", label: "Sold" },
 ];
 const hasSearch = searchTerm.length > 0;
@@ -105,7 +105,7 @@ if (!hasSearch) {
       if (p.property_type?.toLowerCase() !== viewBy) return;
       groupKey = p.entity_name || "Unknown";
       subKey = "All";
-    } else if (viewBy === "vacant") {
+    } else if (viewBy === "Vacant") {
       if (p.occupied > 0) return;
       groupKey = p.entity_name || "Unknown";
       subKey = "All";

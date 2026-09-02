@@ -27,7 +27,12 @@
 - `lease.archived` — after successful archive
 
 ## RPCs
-- `activate_lease_rpc(p_intake_id, p_initiated_by)` — atomic activation
+Lease activation is handled by the canonical
+LeaseActivationService:
+
+lib/workflow/services/lease-activation-service.ts
+
+The service calls the activate_lease Supabase RPC.
 - `next_business_code(seq_name)` — shared sequence generator
 
 ## Validation Strategy

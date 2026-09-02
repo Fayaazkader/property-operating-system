@@ -102,7 +102,7 @@ export function CommandPalette({ open, onClose }: Props) {
             <p className="text-xs text-[var(--text-muted)]">
               {intent === "expiring_leases" && "Showing leases expiring soon"}
               {intent === "arrears" && "Showing tenants with outstanding balances"}
-              {intent === "vacant" && "Showing vacant properties"}
+              {intent === "Vacant" && "Showing vacant properties"}
               {intent === "invoices" && "Showing matching invoices"}
               {intent === "statements" && "Showing matching statements"}
             </p>
