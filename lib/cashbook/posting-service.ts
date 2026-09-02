@@ -8,6 +8,7 @@ import { logger } from '@/lib/platform/events/logger.service';
 import { classificationEngine } from './classification-engine';
 import { canTransition } from './posting-state';
 import type { PostingState } from './posting-state';
+import { permissionService } from '@/lib/rbac/permission-service';
 
 export interface CashBookPostingResult {
   success: boolean;
@@ -29,6 +30,7 @@ export const cashbookPostingService = {
       return { success: false, message: 'Transaction not found', newState: 'posting_failed' };
     }
 
+    
     const currentState = (txn.allocation_status as PostingState) || 'unallocated';
 
     if (!canTransition(currentState, 'posting')) {
@@ -165,7 +167,7 @@ export const cashbookPostingService = {
 
   // Bulk post — called by event handler
   async postReadyTransactions(entityId: string, accountId?: string): Promise<{ posted: number; failed: number }> {
-    let query = supabase.from('bank_transactions').select('id, bank_accounts!inner(entity_id)').eq('bank_accounts.entity_id', entityId).in('allocation_status', ['ready_to_post', 'fully_allocated', 'posting_failed']);
+    let query = supabase.from('bank_transactions').select('id, bank_accounts!inner(entity_id)').eq('bank_accounts.entity_id', entityId).in('allocation_status', ['fully_allocated', 'posting_failed']);
     if (accountId) query = query.eq('bank_account_id', accountId);
     const { data: readyTxns } = await query;
     if (!readyTxns?.length) return { posted: 0, failed: 0 };

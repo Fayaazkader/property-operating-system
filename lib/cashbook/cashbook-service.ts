@@ -125,10 +125,10 @@ export const cashbookService = {
 
     // Only fully allocated transactions are ready for posting.
     const queue =
-      allocationStatus === 'fully_allocated'
-        ? 'ready'
-        : 'review';
-
+  allocationStatus === 'fully_allocated'
+    ? 'ready_to_post'
+    : 'review';
+    
     const { error } = await supabase
       .from('bank_transactions')
       .update({
