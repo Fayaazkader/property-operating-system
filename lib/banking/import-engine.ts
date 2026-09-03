@@ -109,7 +109,7 @@ export async function importBankStatement(
         amount,
         reference: reference || undefined,
         status: "unmatched",
-        queue: "ready",
+        queue: "review",
         allocationStatus: "unallocated",
         isBalanced: false,
         splitAllocations: [],

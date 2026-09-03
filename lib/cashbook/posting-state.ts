@@ -1,4 +1,4 @@
-// Posting state machine for bank transactions
+// lib/cashbook/posting-state.ts
 
 export type PostingState =
   | 'unallocated'
@@ -21,20 +21,16 @@ export function canTransition(
   from: PostingState,
   to: PostingState
 ): boolean {
-  return VALID_TRANSITIONS[from]?.includes(to) || false;
+  return VALID_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
 export function nextState(
   current: PostingState,
   success: boolean
 ): PostingState {
-  if (success && current === 'posting') {
-    return 'posted';
+  if (current !== 'posting') {
+    return current;
   }
 
-  if (!success && current === 'posting') {
-    return 'posting_failed';
-  }
-
-  return current;
+  return success ? 'posted' : 'posting_failed';
 }

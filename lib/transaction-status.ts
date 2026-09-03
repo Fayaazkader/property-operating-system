@@ -1,10 +1,16 @@
-// Single source of truth for transaction statuses and queues
+// Single source of truth for bank transaction allocation,
+// posting and operational queue state.
 
 export type AllocationStatus =
   | "unallocated"
   | "partially_allocated"
-  | "fully_allocated"
-  | "posted";
+  | "fully_allocated";
+
+export type PostingStatus =
+  | "not_posted"
+  | "posting"
+  | "posted"
+  | "posting_failed";
 
 export type Queue =
   | "ready"
@@ -12,30 +18,61 @@ export type Queue =
   | "exceptions"
   | "posted";
 
-// Queue rules
-export function isReady(tx: { allocation_status: string; queue: string; confidence?: number; matched_tenant_id?: string | null }) {
-  return tx.queue !== "posted" && tx.allocation_status !== "posted" && (!!tx.matched_tenant_id || (tx.confidence || 0) >= 90);
+type TransactionState = {
+  allocation_status: AllocationStatus;
+  posting_status?: PostingStatus | null;
+  queue: Queue;
+  confidence?: number;
+  matched_tenant_id?: string | null;
+};
+
+export function isReady(tx: TransactionState): boolean {
+  return (
+    tx.queue === "ready" &&
+    tx.allocation_status === "fully_allocated" &&
+    tx.posting_status !== "posted"
+  );
 }
 
-export function isReview(tx: { allocation_status: string; confidence?: number; matched_tenant_id?: string | null }) {
-  return tx.allocation_status !== "posted" && (tx.confidence || 0) >= 70 && (tx.confidence || 0) < 90 && !tx.matched_tenant_id;
+export function isReview(tx: TransactionState): boolean {
+  return (
+    tx.queue === "review" &&
+    tx.posting_status !== "posted"
+  );
 }
 
-export function isException(tx: { allocation_status: string; confidence?: number; matched_tenant_id?: string | null }) {
-  return tx.allocation_status !== "posted" && (tx.confidence || 0) < 70 && !tx.matched_tenant_id;
+export function isException(tx: TransactionState): boolean {
+  return (
+    tx.queue === "exceptions" &&
+    tx.posting_status !== "posted"
+  );
 }
 
-export function isPosted(tx: { allocation_status: string; queue: string }) {
-  return tx.allocation_status === "posted" || tx.queue === "posted";
+export function isPosted(tx: TransactionState): boolean {
+  return (
+    tx.posting_status === "posted" ||
+    tx.queue === "posted"
+  );
 }
 
-// Queue display rules
-export function isInQueue(tx: { allocation_status: string; queue: string; confidence?: number; matched_tenant_id?: string | null }, queue: Queue) {
+export function isInQueue(
+  tx: TransactionState,
+  queue: Queue
+): boolean {
   switch (queue) {
-    case "ready": return isReady(tx);
-    case "review": return isReview(tx);
-    case "exceptions": return isException(tx);
-    case "posted": return isPosted(tx);
-    default: return false;
+    case "ready":
+      return isReady(tx);
+
+    case "review":
+      return isReview(tx);
+
+    case "exceptions":
+      return isException(tx);
+
+    case "posted":
+      return isPosted(tx);
+
+    default:
+      return false;
   }
 }

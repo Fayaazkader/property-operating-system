@@ -52,7 +52,7 @@ export default function ManualAllocationWorkspace() {
         setTransaction(tx);
         setTotalAmount(Math.abs(tx.transaction_amount || 0));
         setIsReceipt((tx.transaction_amount || 0) >= 0);
-        setIsReallocation(tx.allocation_status === 'posted');
+        setIsReallocation(tx.posting_status === 'posted');
       }
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {

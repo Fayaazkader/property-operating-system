@@ -29,15 +29,9 @@ export function canModifyTransaction(
   transaction: ImportedTransaction,
   role: UserRole
 ) {
-
-  if (
-    role === "admin"
-  ) {
-
-    return true;
+  if (transaction.periodLocked) {
+    return false;
   }
 
-  return !isTransactionLocked(
-    transaction
-  );
+  return !isTransactionLocked(transaction);
 }

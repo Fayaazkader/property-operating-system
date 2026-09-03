@@ -12,7 +12,9 @@ import { permissionService } from '@/lib/rbac/permission-service';
 type Transaction = {
   id: string; transaction_date: string; transaction_description: string;
   transaction_amount: number; transaction_reference: string;
-  allocation_status: string; queue: string;
+  allocation_status: string;
+posting_status?: string | null;
+queue: string;
   matched_tenant_id: string; matched_invoice_id: string; matched_tenant_name?: string; matched_tenant_code?: string; matched_property_name?: string; matched_entity_name?: string; matched_gl_code?: string;
   matched_journal_id?: string; confidence: number; is_reconciled: boolean;
 };
@@ -80,7 +82,10 @@ export default function AccountWorkspacePage() {
         resource_type: 'transaction',
         resource_id: tx.id,
         resource_label: `Posted ${tx.transaction_description}`,
-        old_values: { status: tx.allocation_status },
+        old_values: {
+  allocation_status: tx.allocation_status,
+  posting_status: tx.posting_status,
+},
         new_values: {
           status: 'posted',
           journalId: result.journalId,
@@ -143,8 +148,10 @@ export default function AccountWorkspacePage() {
     tx.allocation_status === "partially_allocated"
   );
 }
-    if (activeQueue === "exceptions") return tx.allocation_status === "posting_failed" || tx.queue === "exceptions";
-    if (activeQueue === "posted") return tx.allocation_status === "posted" || tx.queue === "posted";
+    if (activeQueue === "exceptions") {
+  return tx.posting_status === "posting_failed" || tx.queue === "exceptions";
+}
+    if (activeQueue === "posted") return tx.posting_status === "posted" || tx.queue === "posted";
     return true;
   });
 
@@ -153,7 +160,11 @@ export default function AccountWorkspacePage() {
     if (sortField === 'date') cmp = a.transaction_date?.localeCompare(b.transaction_date || '') || 0;
     else if (sortField === 'description') cmp = (a.transaction_description || '').localeCompare(b.transaction_description || '');
     else if (sortField === 'amount') cmp = Math.abs(a.transaction_amount) - Math.abs(b.transaction_amount);
-    else if (sortField === 'status') cmp = (a.allocation_status || '').localeCompare(b.allocation_status || '');
+    else if (sortField === 'status') {
+  cmp = (a.posting_status || a.allocation_status || '').localeCompare(
+    b.posting_status || b.allocation_status || ''
+  );
+}
     else if (sortField === 'confidence') cmp = (a.confidence || 0) - (b.confidence || 0);
     else if (sortField === 'reference') cmp = (a.transaction_reference || '').localeCompare(b.transaction_reference || '');
     return sortDir === 'asc' ? cmp : -cmp;
@@ -163,15 +174,23 @@ export default function AccountWorkspacePage() {
   const reviewCount = transactions.filter(
   t =>
     t.queue === 'review' ||
-    t.allocation_status === 'unallocated' ||
-    t.allocation_status === 'partially_allocated'
+    (
+      t.allocation_status !== 'fully_allocated' &&
+      t.posting_status !== 'posted'
+    )
 ).length;
-  const exceptionCount = transactions.filter(t => t.allocation_status === 'posting_failed' || t.queue === 'exceptions').length;
-  const postedCount = transactions.filter(t => t.allocation_status === 'posted' || t.queue === 'posted').length;
+  const exceptionCount = transactions.filter(
+  t => t.posting_status === 'posting_failed' || t.queue === 'exceptions'
+).length;
+  const postedCount = transactions.filter(
+  t => t.posting_status === 'posted' || t.queue === 'posted'
+).length;
   const statementBalance = account?.statement_balance || 0;
   const bookBalance = account?.current_balance || 0;
   const difference = Math.abs(statementBalance - bookBalance);
-  const allPosted = transactions.length > 0 && transactions.every(t => t.allocation_status === 'posted');
+  const allPosted =
+  transactions.length > 0 &&
+  transactions.every(t => t.posting_status === 'posted');
 
   if (loading) return <div className="p-8 text-zinc-500">Loading...</div>;
 
@@ -192,7 +211,7 @@ export default function AccountWorkspacePage() {
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-500">Statement Balance</p><p className="text-lg font-light text-white mt-1">R{statementBalance.toLocaleString()}</p></div>
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-500">Book Balance</p><p className="text-lg font-light text-white mt-1">R{bookBalance.toLocaleString()}</p></div>
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-500">Difference</p><p className={`text-lg font-light mt-1 ${difference < 1 ? 'text-emerald-400' : 'text-amber-400'}`}>R{difference.toLocaleString()}</p></div>
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-500">Ready to Close</p><p className={`text-lg font-light mt-1 ${allPosted ? 'text-emerald-400' : 'text-amber-400'}`}>{allPosted ? 'Yes' : `${transactions.filter(t => t.allocation_status !== 'posted').length} pending`}</p></div>
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-500">Ready to Close</p><p className={`text-lg font-light mt-1 ${allPosted ? 'text-emerald-400' : 'text-amber-400'}`}>{allPosted ? 'Yes' : `${transactions.filter(t => t.posting_status !== 'posted').length} pending`}</p></div>
       </div>
 
       <div className="grid grid-cols-4 gap-3">
@@ -236,10 +255,12 @@ export default function AccountWorkspacePage() {
                 <td className="px-2 py-2 text-zinc-500 text-xs font-mono">{tx.transaction_reference || "—"}</td>
                 <td className={`px-2 py-2 text-right tabular-nums text-xs font-medium ${tx.transaction_amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{tx.transaction_amount >= 0 ? '+' : '−'}R{Math.abs(tx.transaction_amount).toLocaleString()}</td>
                 <td className="px-2 py-2 text-center"><span className={`text-xs px-2 py-0.5 rounded-full ${tx.confidence >= 90 ? "bg-emerald-500/10 text-emerald-300" : tx.confidence >= 60 ? "bg-amber-500/10 text-amber-300" : "bg-red-500/10 text-red-300"}`}>{tx.confidence || 0}%</span></td>
-                <td className="px-2 py-2 text-center"><span className={`text-[10px] px-2 py-0.5 rounded-full ${tx.allocation_status === 'posted' ? 'bg-emerald-500/10 text-emerald-400' : tx.allocation_status === 'posting_failed' ? 'bg-red-500/10 text-red-400' : 'bg-zinc-800 text-zinc-500'}`}>{tx.allocation_status || tx.queue}</span></td>
+                <td className="px-2 py-2 text-center"><span className={`text-[10px] px-2 py-0.5 rounded-full ${tx.posting_status === 'posted'
+  ? 'bg-emerald-500/10 text-emerald-400'
+  : tx.posting_status === 'posting_failed' ? 'bg-red-500/10 text-red-400' : 'bg-zinc-800 text-zinc-500'}`}>{tx.posting_status || tx.allocation_status || tx.queue}</span></td>
                 <td className="px-2 py-2 text-right" onClick={e => e.stopPropagation()}>
                   <div className="flex gap-1 justify-end">
-                    {tx.allocation_status === 'posted' ? (
+                    {tx.posting_status === 'posted' ? (
                       <>
                         <button onClick={() => router.push(`/financials?journal=${tx.matched_journal_id || ''}`)} className="rounded-lg border border-white/[0.08] px-2 py-1 text-[10px] text-white hover:border-white/20">View</button>
                         <button onClick={() => router.push(`/financials/cash-book/${accountId}/allocate/${tx.id}`)} className="rounded-lg border border-amber-500/20 text-amber-400 px-2 py-1 text-[10px] hover:border-amber-500/40">Reverse</button>
@@ -250,7 +271,7 @@ export default function AccountWorkspacePage() {
                     {tx.allocation_status === 'fully_allocated' && (
                       <button onClick={async () => { await handlePostTransaction(tx); await loadData(); }} className="rounded-lg bg-white px-2 py-1 text-[10px] font-medium text-black hover:bg-gray-100">Post</button>
                     )}
-                        {tx.allocation_status === 'posting_failed' && (
+                        {tx.posting_status === 'posting_failed' && (
                           <button onClick={() => handlePostTransaction(tx)} className="rounded-lg bg-white px-2 py-1 text-[10px] font-medium text-black hover:bg-gray-100">Post</button>
                         )}
                       </>
@@ -300,20 +321,22 @@ export default function AccountWorkspacePage() {
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] text-zinc-500 uppercase">Status</span>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    selectedTx.allocation_status === 'posted' ? 'bg-emerald-500/10 text-emerald-400' :
+                    selectedTx.posting_status === 'posted' ? 'bg-emerald-500/10 text-emerald-400' :
                     selectedTx.allocation_status === 'fully_allocated' ? 'bg-blue-500/10 text-blue-400' :
                     'bg-zinc-800 text-zinc-500'
-                  }`}>{selectedTx.allocation_status?.replace(/_/g, ' ') || 'unallocated'}</span>
+                  }`}>{selectedTx.posting_status?.replace(/_/g, ' ') ||
+ selectedTx.allocation_status?.replace(/_/g, ' ') ||
+ 'unallocated'}</span>
                 </div>
 
                 <div className="flex gap-2 pt-3 border-t border-white/[0.06]">
                   {selectedTx.allocation_status === 'fully_allocated' && (
                     <button onClick={async () => { await handlePostTransaction(selectedTx); setSelectedTx(null); await loadData(); }} className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-100">Post</button>
                   )}
-                  {selectedTx.allocation_status === 'posted' && (
+                  {selectedTx.posting_status === 'posted' && (
                     <button onClick={() => { setSelectedTx(null); router.push(`/financials/cash-book/${accountId}/allocate/${selectedTx.id}`); }} className="rounded-lg border border-amber-500/20 text-amber-400 px-3 py-1.5 text-xs hover:border-amber-500/40">Reverse</button>
                   )}
-                  {selectedTx.allocation_status !== 'posted' && (
+                  {selectedTx.posting_status !== 'posted' && (
                     <button onClick={() => { setSelectedTx(null); router.push(`/financials/cash-book/${accountId}/allocate/${selectedTx.id}`); }} className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white hover:border-white/20">Manual Allocate</button>
                   )}
                   <button onClick={() => setSelectedTx(null)} className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-white hover:border-white/20">Close</button>

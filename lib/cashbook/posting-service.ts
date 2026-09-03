@@ -31,14 +31,24 @@ export const cashbookPostingService = {
     }
 
     
-    const currentState = (txn.allocation_status as PostingState) || 'unallocated';
+    const allocationState =
+  (txn.allocation_status as PostingState) || 'unallocated';
 
-    if (!canTransition(currentState, 'posting')) {
-      return { success: false, message: `Cannot post from state: ${currentState}`, newState: currentState };
-    }
+if (allocationState !== 'fully_allocated') {
+  return {
+    success: false,
+    message: `Cannot post from allocation state: ${allocationState}`,
+    newState: allocationState,
+  };
+}
 
-    // Transition to posting
-    await supabase.from('bank_transactions').update({ allocation_status: 'posting' }).eq('id', transactionId);
+await supabase
+  .from('bank_transactions')
+  .update({
+    posting_status: 'posting',
+    updated_at: new Date().toISOString(),
+  })
+  .eq('id', transactionId);
 
     try {
       // Classify the transaction
@@ -48,10 +58,11 @@ export const cashbookPostingService = {
   await supabase
     .from('bank_transactions')
     .update({
-      allocation_status: 'fully_allocated',
-      queue: 'review',
-      updated_at: new Date().toISOString(),
-    })
+  allocation_status: 'fully_allocated',
+  posting_status: 'review',
+  queue: 'review',
+  updated_at: new Date().toISOString(),
+})
     .eq('id', transactionId);
         return { success: false, message: 'Cannot classify transaction — needs manual review', newState: 'fully_allocated' };
       }
@@ -118,11 +129,15 @@ export const cashbookPostingService = {
       });
 
       // Success — update to posted with journal link
-      await supabase.from('bank_transactions').update({
-        allocation_status: 'posted',
-        queue: 'posted',
-        updated_at: new Date().toISOString(),
-      }).eq('id', transactionId);
+      await supabase
+  .from('bank_transactions')
+  .update({
+    allocation_status: 'fully_allocated',
+    posting_status: 'posted',
+    queue: 'posted',
+    updated_at: new Date().toISOString(),
+  })
+  .eq('id', transactionId);
 
             // Update statements_generated with the receipt line
       if (mapping.event === 'rental_receipt_received' && mapping.dimensions?.tenant_id) {
@@ -170,7 +185,14 @@ export const cashbookPostingService = {
 
       return { success: true, journalId: result.journal?.id, message: 'Posted to General Ledger', newState: 'posted' };
     } catch (error) {
-      await supabase.from('bank_transactions').update({ allocation_status: 'posting_failed' }).eq('id', transactionId);
+      await supabase
+  .from('bank_transactions')
+  .update({
+    posting_status: 'posting_failed',
+    queue: 'ready',
+    updated_at: new Date().toISOString(),
+  })
+  .eq('id', transactionId);
       logger.error('Cash Book posting failed', { transactionId, error });
       return { success: false, message: error instanceof Error ? error.message : 'Posting failed', newState: 'posting_failed' };
     }
@@ -178,7 +200,8 @@ export const cashbookPostingService = {
 
   // Bulk post — called by event handler
   async postReadyTransactions(entityId: string, accountId?: string): Promise<{ posted: number; failed: number }> {
-    let query = supabase.from('bank_transactions').select('id, bank_accounts!inner(entity_id)').eq('bank_accounts.entity_id', entityId).in('allocation_status', ['fully_allocated', 'posting_failed']);
+    let query = supabase.from('bank_transactions').select('id, bank_accounts!inner(entity_id)').eq('bank_accounts.entity_id', entityId).in('allocation_status', ['fully_allocated'])
+.in('posting_status', ['not_posted', 'posting_failed']);
     if (accountId) query = query.eq('bank_account_id', accountId);
     const { data: readyTxns } = await query;
     if (!readyTxns?.length) return { posted: 0, failed: 0 };

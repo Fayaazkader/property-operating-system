@@ -57,7 +57,7 @@ export default function CashBookPage() {
             .from("bank_transactions")
             .select("id", { count: "exact", head: true })
             .eq("bank_account_id", acc.id)
-            .neq("allocation_status", "posted");
+            .neq("posting_status", "posted");
           return { ...acc, unreconciled: count || 0 };
         }));
         setAccounts(enriched as any[]);
