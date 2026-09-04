@@ -1,24 +1,22 @@
 // lib/cashbook/posting-service.ts
-// Cash Book Posting Service — Reacts to allocation events, never called by UI
+// Cash Book Posting Service — Governed posting authority for bank transactions.
 
 import { supabase } from '@/lib/supabase';
 import { postingEngine } from '@/lib/financial/posting-engine';
 import { publish } from '@/lib/platform/events/event-bus';
 import { logger } from '@/lib/platform/events/logger.service';
 import { classificationEngine } from './classification-engine';
-import { canTransition } from './posting-state';
-import type { PostingState } from './posting-state';
-import { permissionService } from '@/lib/rbac/permission-service';
+import type { PostingStatus } from '@/lib/transaction-status';
 
 export interface CashBookPostingResult {
   success: boolean;
   journalId?: string;
   message: string;
-  newState: PostingState;
+  newState: PostingStatus;
 }
 
 export const cashbookPostingService = {
-  // Called by event handler, not React
+  // Posts one fully allocated bank transaction.
   async postTransaction(transactionId: string): Promise<CashBookPostingResult> {
     const { data: txn, error: txnError } = await supabase
       .from('bank_transactions')
@@ -31,24 +29,60 @@ export const cashbookPostingService = {
     }
 
     
-    const allocationState =
-  (txn.allocation_status as PostingState) || 'unallocated';
+    const allocationState = txn.allocation_status || 'unallocated';
+    const postingState: PostingStatus =
+  txn.posting_status || 'not_posted';
+
+if (postingState === 'posted') {
+  return {
+    success: false,
+    message: 'Transaction has already been posted.',
+    newState: 'posted',
+  };
+}
+
+if (postingState === 'posting') {
+  return {
+    success: false,
+    message: 'Transaction is already being posted.',
+    newState: 'posting',
+  };
+}
 
 if (allocationState !== 'fully_allocated') {
   return {
     success: false,
     message: `Cannot post from allocation state: ${allocationState}`,
-    newState: allocationState,
+    newState: 'not_posted',
   };
 }
 
-await supabase
+const { data: claimedTxn, error: claimError } = await supabase
   .from('bank_transactions')
   .update({
     posting_status: 'posting',
     updated_at: new Date().toISOString(),
   })
-  .eq('id', transactionId);
+  .eq('id', transactionId)
+  .in('posting_status', ['not_posted', 'posting_failed'])
+  .select('id')
+  .maybeSingle();
+
+if (claimError) {
+  return {
+    success: false,
+    message: claimError.message,
+    newState: postingState,
+  };
+}
+
+if (!claimedTxn) {
+  return {
+    success: false,
+    message: 'Transaction could not be claimed for posting.',
+    newState: postingState,
+  };
+}
 
     try {
       // Classify the transaction
@@ -59,12 +93,12 @@ await supabase
     .from('bank_transactions')
     .update({
   allocation_status: 'fully_allocated',
-  posting_status: 'review',
+  posting_status: 'not_posted',
   queue: 'review',
   updated_at: new Date().toISOString(),
 })
     .eq('id', transactionId);
-        return { success: false, message: 'Cannot classify transaction — needs manual review', newState: 'fully_allocated' };
+        return { success: false, message: 'Cannot classify transaction — needs manual review', newState: 'not_posted' };
       }
 
       // Map classification to posting event
@@ -99,21 +133,28 @@ await supabase
       if (!mapping) {
         await supabase.from('bank_transactions').update({
   allocation_status: 'fully_allocated',
+  posting_status: 'not_posted',
   queue: 'review',
   updated_at: new Date().toISOString(),
-}).eq('id', transactionId);
-        return { success: false, message: 'No posting rule for classification', newState: 'fully_allocated' };
+})
+.eq('id', transactionId);
+        return { success: false, message: 'No posting rule for classification', newState: 'not_posted' };
       }
 
       // Get entity_id from bank account
       const { data: bankAccount } = await supabase.from('bank_accounts').select('entity_id').eq('id', txn.bank_account_id).single();
+      if (!bankAccount?.entity_id) {
+  throw new Error(
+    'Cannot post transaction because its bank account has no entity.'
+  );
+}
       
       // Post to engine
       console.log('Posting event with entity_id:', bankAccount?.entity_id, txn);
       const result = await postingEngine.post({
         source_engine: 'cashbook',
         business_event: mapping.event,
-        entity_id: bankAccount?.entity_id || txn.entity_id,
+        entity_id: bankAccount.entity_id,
         amount: Math.abs(txn.transaction_amount),
         occurred_at: txn.transaction_date || new Date().toISOString(),
         effective_date: txn.transaction_date?.split('T')[0] || new Date().toISOString().split('T')[0],
@@ -135,6 +176,7 @@ await supabase
     allocation_status: 'fully_allocated',
     posting_status: 'posted',
     queue: 'posted',
+    matched_journal_id: result.journal?.id || null,
     updated_at: new Date().toISOString(),
   })
   .eq('id', transactionId);
@@ -189,7 +231,7 @@ await supabase
   .from('bank_transactions')
   .update({
     posting_status: 'posting_failed',
-    queue: 'ready',
+    queue: 'exceptions',
     updated_at: new Date().toISOString(),
   })
   .eq('id', transactionId);

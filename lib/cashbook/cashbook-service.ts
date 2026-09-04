@@ -130,20 +130,22 @@ export const cashbookService = {
     : 'review';
 
     const { error } = await supabase
-      .from('bank_transactions')
-      .update({
-        matched_invoice_id: input.matchedInvoiceId || null,
-        matched_tenant_id: input.matchedTenantId || null,
-        split_allocations: splitAllocations,
-        allocation_status: allocationStatus,
-        queue,
-        reconciliation_notes:
-          allocationStatus === 'fully_allocated'
-            ? 'Allocation confirmed with complete allocation evidence'
-            : `Allocation confirmed — ${allocatedAmount.toFixed(2)} of ${transactionAmount.toFixed(2)} allocated`,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', transactionId);
+  .from('bank_transactions')
+  .update({
+    matched_invoice_id: input.matchedInvoiceId || null,
+    matched_tenant_id: input.matchedTenantId || null,
+    matched_supplier_id: input.matchedSupplierId || null,
+    split_allocations: splitAllocations,
+    allocation_status: allocationStatus,
+    posting_status: 'not_posted',
+    queue,
+    reconciliation_notes:
+      allocationStatus === 'fully_allocated'
+        ? 'Allocation confirmed with complete allocation evidence'
+        : `Allocation confirmed — ${allocatedAmount.toFixed(2)} of ${transactionAmount.toFixed(2)} allocated`,
+    updated_at: new Date().toISOString(),
+  })
+  .eq('id', transactionId);
 
     if (error) {
       logger.error('Allocation failed', {

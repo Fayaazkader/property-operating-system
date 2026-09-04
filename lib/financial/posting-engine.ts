@@ -118,58 +118,107 @@ export class PostingEngine {
       natural_language: `This journal was created because a ${event.business_event.replace(/_/g, ' ')} occurred from ${event.source_engine}. Posting template "${template.description || template.business_event}" (v${template.version || 1}) was applied. ${resolvedAccounts.map(a => `${a.direction} ${a.account_name} (${a.gl_code}) for R${a.amount.toLocaleString()}`).join('. ')}. VAT treatment: ${vatTreatment}. Posted to ${period?.period_name || 'current period'}.`,
     };
 
-    // ═══════════════════════════════════════
-    // ATOMIC POSTING — Single transaction
-    // ═══════════════════════════════════════
-    try {
-      const { error: insertErr } = await supabase.from('journals').insert({
-        id: journal.id, entity_id: journal.entity_id, journal_number: journal.journal_number,
-        journal_type: journal.journal_type, description: journal.description,
-        period_id: journal.period_id, source_event: journal.source_event,
-        source_id: journal.source_id, reference: journal.reference,
-        template_id: journal.template_id, template_version: journal.template_version,
-        is_posted: true, posted_at: new Date().toISOString(),
-        explanation, created_by: journal.created_by, created_at: journal.created_at,
-      });
-      if (insertErr) { logger.error('Journal insert failed', { error: insertErr }); throw new Error(insertErr.message); }
+     // ═══════════════════════════════════════
+  // ATOMIC POSTING — Database transaction
+  // ═══════════════════════════════════════
+  try {
+    const { data: postedJournalId, error: postingError } = await supabase.rpc(
+      'atomic_post_journal',
+      {
+        p_journal: {
+          id: journal.id,
+          entity_id: journal.entity_id,
+          journal_number: journal.journal_number,
+          journal_type: journal.journal_type,
+          description: journal.description,
+          period_id: journal.period_id,
+          source_event: journal.source_event,
+          source_id: journal.source_id || null,
+          reference: journal.reference || null,
+          is_posted: true,
+          posted_at: new Date().toISOString(),
+          created_by: journal.created_by,
+          created_at: journal.created_at,
+          explanation: JSON.stringify(explanation),
+          template_id: journal.template_id || null,
+          template_version: journal.template_version || 1,
+        },
 
-      for (const line of journal.lines!) {
-        const { error: lineErr } = await supabase.from('journal_lines').insert({
-          id: line.id, journal_id: line.journal_id, account_id: line.account_id,
-          description: line.description, debit_amount: line.debit_amount,
-          credit_amount: line.credit_amount, vat_amount: line.vat_amount,
+        p_lines: journal.lines!.map((line) => ({
+          id: line.id,
+          journal_id: line.journal_id,
+          account_id: line.account_id,
+          description: line.description,
+          debit_amount: line.debit_amount,
+          credit_amount: line.credit_amount,
+          vat_amount: line.vat_amount,
           vat_rate: line.vat_rate,
-          entity_id: line.entity_id, property_id: line.property_id,
-          lease_id: line.lease_id, tenant_id: line.tenant_id,
-          supplier_id: line.supplier_id, broker_id: line.broker_id,
-          cost_centre: line.cost_centre, created_at: line.created_at,
-      });
-      if (lineErr) { logger.error('Journal line insert failed', { error: lineErr, line }); throw new Error(lineErr.message); }
-
-        await supabase.from('general_ledger').insert({
-          id: crypto.randomUUID(), entity_id: journal.entity_id,
-          account_id: line.account_id, period_id: journal.period_id,
-          journal_line_id: line.id, debit_amount: line.debit_amount,
-          credit_amount: line.credit_amount, posted_at: new Date().toISOString(),
-        });
+          entity_id: line.entity_id,
+          property_id: line.property_id,
+          lease_id: line.lease_id,
+          tenant_id: line.tenant_id,
+          supplier_id: line.supplier_id,
+          broker_id: line.broker_id,
+          cost_centre: line.cost_centre,
+          created_at: line.created_at,
+        })),
       }
+    );
 
-      await subLedgerEngine.postToSubLedgers(journal);
-
-      await financialTimelineEngine.recordJournalLifecycle(journalId, event.entity_id, 'posted', event.metadata?.created_by, event.correlation_id);
-
-      await publish('financial.journal.posted', {
-        correlationId: event.correlation_id || crypto.randomUUID(),
-        source: 'posting-engine', version: '1.0',
-        payload: { journalId, businessEvent: event.business_event, entityId: event.entity_id, balanced: true },
+    if (postingError) {
+      logger.error('Atomic journal posting failed', {
+        error: postingError,
+        journalId,
+        event: event.business_event,
       });
 
-      logger.info('Journal posted successfully', { journalId, event: event.business_event, entityId: event.entity_id });
-    } catch (error) {
-      logger.error('Journal posting failed', { error, event: event.business_event });
-      throw new Error(`Posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(postingError.message);
     }
 
+    if (!postedJournalId) {
+      throw new Error('Atomic posting completed without returning journal ID');
+    }
+
+    await subLedgerEngine.postToSubLedgers(journal);
+
+    await financialTimelineEngine.recordJournalLifecycle(
+      journalId,
+      event.entity_id,
+      'posted',
+      event.metadata?.created_by,
+      event.correlation_id
+    );
+
+    await publish('financial.journal.posted', {
+      correlationId: event.correlation_id || crypto.randomUUID(),
+      source: 'posting-engine',
+      version: '1.0',
+      payload: {
+        journalId,
+        businessEvent: event.business_event,
+        entityId: event.entity_id,
+        balanced: true,
+      },
+    });
+
+    logger.info('Journal posted successfully', {
+      journalId,
+      event: event.business_event,
+      entityId: event.entity_id,
+    });
+  } catch (error) {
+    logger.error('Journal posting failed', {
+      error,
+      event: event.business_event,
+      journalId,
+    });
+
+    throw new Error(
+      `Posting failed: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`
+    );
+  }
     return { journal, balanced: true, explanation };
   }
 

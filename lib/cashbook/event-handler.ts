@@ -1,8 +1,9 @@
 // lib/cashbook/event-handler.ts
-// Cash Book Event Handler — Subscribes to allocation events, triggers posting service
+// Cash Book Event Handler
+// Allocation completion does NOT automatically post.
+// Posting requires an explicit governed posting action.
 
 import { subscribe } from '@/lib/platform/events/event-bus';
-import { cashbookPostingService } from './posting-service';
 import { logger } from '@/lib/platform/events/logger.service';
 
 let initialized = false;
@@ -11,11 +12,13 @@ export function initializeCashBookEvents(): void {
   if (initialized) return;
   initialized = true;
 
-  // React to allocation completion — post to ledger
   subscribe('cashbook.allocation.completed', async (event) => {
-    const { transactionId } = event.payload;
-    logger.info('Allocation completed, posting to ledger', { transactionId });
-    await cashbookPostingService.postTransaction(transactionId);
+    const { transactionId, allocationStatus } = event.payload;
+
+    logger.info('Cash Book allocation completed', {
+      transactionId,
+      allocationStatus,
+    });
   });
 
   logger.info('Cash Book event handlers initialized');

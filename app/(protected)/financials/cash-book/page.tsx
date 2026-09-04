@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import { PageHeader } from "@/app/components/layout/PageHeader";
 
 type BankAccount = {
@@ -26,46 +26,158 @@ export default function CashBookPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const entityFilterRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    async function load() {
-      const { data: entityIds } = await supabase.rpc('auth_entities');
-      const { data: ent } = entityIds && entityIds.length > 0 
-        ? await supabase.from("entities").select("id, entity_code, entity_name").in("id", entityIds).order("entity_name")
-        : { data: [] };
-      if (ent && ent.length > 0) {
-        setEntities(ent);
-        setSelectedEntity(ent[0].id);
-      }
+ useEffect(() => {
+  async function load() {
+    console.log("[CashBook] Loading entities...");
+
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    console.log("[CashBook] Session:", !!session);
+    console.log("[CashBook] User ID:", session?.user?.id);
+    console.log("[CashBook] Session error:", sessionError);
+
+    if (!session) {
+      console.error("[CashBook] No session");
+      return;
     }
-    load();
-  }, []);
 
-  useEffect(() => {
-    async function loadAccounts() {
-      if (!selectedEntity) return;
-      setLoading(true);
-      const { data } = await supabase
-        .from("bank_accounts")
-        .select("*")
-        .eq("entity_id", selectedEntity)
-        .eq("is_active", true)
-        .order("is_trust_account", { ascending: false });
+    const {
+      data: entityIds,
+      error: entityError,
+    } = await supabase.rpc("auth_entities");
 
-      if (data) {
-        const enriched = await Promise.all(data.map(async (acc: BankAccount) => {
-          const { count } = await supabase
-            .from("bank_transactions")
-            .select("id", { count: "exact", head: true })
-            .eq("bank_account_id", acc.id)
-            .neq("posting_status", "posted");
-          return { ...acc, unreconciled: count || 0 };
-        }));
-        setAccounts(enriched as any[]);
-      }
+    console.log("[CashBook] auth_entities:", entityIds);
+    console.log("[CashBook] auth_entities error:", entityError);
+
+    if (entityError) {
+      console.error(
+        "[CashBook] Entity RPC failed:",
+        entityError.message,
+        entityError.code
+      );
+      setLoading(false);
+      return;
+    }
+
+    if (!entityIds || entityIds.length === 0) {
+      console.error("[CashBook] No entities available");
+      setLoading(false);
+      return;
+    }
+
+    const {
+      data: ent,
+      error: entError,
+    } = await supabase
+      .from("entities")
+      .select("id, entity_code, entity_name")
+      .in("id", entityIds)
+      .order("entity_name");
+
+    console.log("[CashBook] Entities:", ent);
+    console.log("[CashBook] Entities error:", entError);
+
+    if (entError) {
+      console.error(
+        "[CashBook] Entity query failed:",
+        entError.message,
+        entError.code
+      );
+      setLoading(false);
+      return;
+    }
+
+    if (ent && ent.length > 0) {
+      setEntities(ent);
+      setSelectedEntity(ent[0].id);
+      console.log("[CashBook] Selected entity:", ent[0].id);
+    } else {
+      console.error("[CashBook] No entities returned");
       setLoading(false);
     }
-    loadAccounts();
-  }, [selectedEntity]);
+  }
+
+  load();
+}, []);
+
+  useEffect(() => {
+  async function loadAccounts() {
+    if (!selectedEntity) {
+      console.log("[CashBook] No selected entity yet");
+      return;
+    }
+
+    console.log("[CashBook] START loadAccounts");
+    console.log("[CashBook] selectedEntity:", selectedEntity);
+
+    setLoading(true);
+
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("bank_accounts")
+      .select("*")
+      .eq("entity_id", selectedEntity)
+      .eq("is_active", true)
+      .order("is_trust_account", { ascending: false });
+
+    console.log("[CashBook] bank_accounts DATA:", data);
+    console.log("[CashBook] bank_accounts ERROR:", error);
+
+    if (error) {
+      console.error("[CashBook] BANK ACCOUNT QUERY FAILED:", error);
+      setAccounts([]);
+      setLoading(false);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      console.warn("[CashBook] ZERO BANK ACCOUNTS RETURNED");
+      setAccounts([]);
+      setLoading(false);
+      return;
+    }
+
+    console.log("[CashBook] Found accounts:", data.length);
+
+    const enriched = await Promise.all(
+      data.map(async (acc: BankAccount) => {
+        console.log("[CashBook] Loading transactions for:", acc.id);
+
+        const {
+          count,
+          error: transactionError,
+        } = await supabase
+          .from("bank_transactions")
+          .select("id", { count: "exact", head: true })
+          .eq("bank_account_id", acc.id)
+          .neq("posting_status", "posted");
+
+        console.log("[CashBook] Transaction count:", count);
+        console.log("[CashBook] Transaction error:", transactionError);
+
+        return {
+          ...acc,
+          unreconciled: transactionError ? 0 : count || 0,
+        };
+      })
+    );
+
+    console.log("[CashBook] ENRICHED ACCOUNTS:", enriched);
+
+    setAccounts(enriched as BankAccount[]);
+
+    console.log("[CashBook] Setting loading FALSE");
+
+    setLoading(false);
+  }
+
+  loadAccounts();
+}, [selectedEntity]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
