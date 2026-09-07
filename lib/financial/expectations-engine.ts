@@ -7,7 +7,14 @@ import type { FinancialExpectation } from './types';
 
 export class ExpectationsEngine {
   async learnPatterns(entityId: string, periodId: string): Promise<void> {
-    const { data: prevPeriods } = await supabase.from('financial_periods').select('id, start_date').eq('entity_id', entityId).eq('period_type', 'financial').eq('status', 'closed').order('start_date', { ascending: false }).limit(12);
+    const { data: prevPeriods } = await supabase
+  .from('financial_periods')
+  .select('id, period_start')
+  .eq('entity_id', entityId)
+  .eq('period_type', 'financial')
+  .eq('status', 'closed')
+  .order('period_start', { ascending: false })
+  .limit(12);
 
     if (!prevPeriods || prevPeriods.length < 3) return;
 

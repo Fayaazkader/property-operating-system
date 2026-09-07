@@ -1,37 +1,85 @@
-import {
-  importedStatements,
-} from "@/lib/banking/statements";
+import { supabase } from "@/lib/supabase";
 
-export function validateStatementContinuity(
+export type StatementContinuityResult = {
+  valid: boolean;
+  previousStatementId?: string;
+  previousClosingBalance?: number;
+  reason?: string;
+};
+
+export async function validateStatementContinuity(
+  bankAccountId: string,
   openingBalance: number
-) {
+): Promise<StatementContinuityResult> {
+  const { data: latestStatement, error } = await supabase
+    .from("bank_statements")
+    .select("id, closing_balance, statement_date")
+    .eq("bank_account_id", bankAccountId)
+    .order("statement_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  const latestStatement =
-    importedStatements[
-      importedStatements.length - 1
-    ];
-
-  if (!latestStatement) {
-    return true;
+  if (error) {
+    throw new Error(
+      `Unable to verify bank statement continuity: ${error.message}`
+    );
   }
 
-  return (
-    latestStatement.closingBalance ===
-    openingBalance
-  );
+  // First statement for this account.
+  if (!latestStatement) {
+    return {
+      valid: true,
+    };
+  }
+
+  const difference =
+    Math.round((openingBalance - latestStatement.closing_balance) * 100) / 100;
+
+  if (Math.abs(difference) > 0.01) {
+    return {
+      valid: false,
+      previousStatementId: latestStatement.id,
+      previousClosingBalance: latestStatement.closing_balance,
+      reason:
+        `Opening balance R${openingBalance.toLocaleString("en-ZA", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} does not match the previous statement closing balance of ` +
+        `R${latestStatement.closing_balance.toLocaleString("en-ZA", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}. Difference: R${difference.toLocaleString("en-ZA", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}.`,
+    };
+  }
+
+  return {
+    valid: true,
+    previousStatementId: latestStatement.id,
+    previousClosingBalance: latestStatement.closing_balance,
+  };
 }
-export function hasOverlappingStatement(
+
+export async function hasOverlappingStatement(
+  bankAccountId: string,
   startDate: string,
   endDate: string
-) {
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("bank_statements")
+    .select("id")
+    .eq("bank_account_id", bankAccountId)
+    .gte("statement_date", startDate)
+    .lte("statement_date", endDate)
+    .limit(1);
 
-  return importedStatements.some(
-    (statement) =>
+  if (error) {
+    throw new Error(
+      `Unable to check for overlapping bank statements: ${error.message}`
+    );
+  }
 
-      startDate <=
-        statement.endDate &&
-
-      endDate >=
-        statement.startDate
-  );
+  return (data?.length ?? 0) > 0;
 }

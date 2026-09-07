@@ -17,9 +17,15 @@ export interface ChartAccount {
 }
 
 export interface FinancialPeriod {
-  id: string; entity_id: string; period_type: PeriodType;
-  period_name: string; start_date: string; end_date: string;
-  status: PeriodStatus; closed_at?: string; closed_by?: string;
+  id: string;
+  entity_id: string;
+  period_type: PeriodType;
+  period_name: string;
+  period_start: string;
+  period_end: string;
+  status: PeriodStatus;
+  closed_at?: string;
+  closed_by?: string;
 }
 
 export interface PostingTemplate {

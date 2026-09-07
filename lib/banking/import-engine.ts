@@ -7,12 +7,27 @@ export type BankImportPreset = {
   date_format: string;
   skip_rows: number;
   bank_name?: string | null;
+
+  statement_mapping?: {
+    opening_balance?: number;
+    closing_balance?: number;
+    statement_date?: number;
+  };
+};
+
+export type ParsedBankImport = {
+  transactions: ImportedTransaction[];
+  startDate: string;
+  endDate: string;
+  openingBalance: number | null;
+  closingBalance: number | null;
+  statementDate: string | null;
 };
 
 export async function importBankStatement(
   file: File,
   preset?: BankImportPreset | null
-): Promise<ServiceResponse<ImportedTransaction[]>> {
+): Promise<ServiceResponse<ParsedBankImport>> {
   try {
     const text = await file.text();
 
@@ -42,6 +57,7 @@ export async function importBankStatement(
     const skipRows = preset?.skip_rows || 0;
     const dateFormat = preset?.date_format || "DD/MM/YYYY";
     const amountType = preset?.amount_type || "single";
+    const statementMapping = preset?.statement_mapping;
 
     const headerIndex = skipRows;
     const dataStartIndex = skipRows + 1;
@@ -54,6 +70,27 @@ export async function importBankStatement(
     }
 
     const transactions: ImportedTransaction[] = [];
+    let openingBalance: number | null = null;
+let closingBalance: number | null = null;
+let statementDate: string | null = null;
+
+if (statementMapping) {
+  if (statementMapping.opening_balance) {
+    const raw = rows[headerIndex]?.[getColumnIndex(statementMapping.opening_balance)];
+    openingBalance = parseAmount(raw);
+  }
+
+  if (statementMapping.closing_balance) {
+    const raw = rows[headerIndex]?.[getColumnIndex(statementMapping.closing_balance)];
+    closingBalance = parseAmount(raw);
+  }
+
+  if (statementMapping.statement_date) {
+    const raw = rows[headerIndex]?.[getColumnIndex(statementMapping.statement_date)];
+    const parsed = parseDate(raw || "", dateFormat);
+    statementDate = parsed || raw || null;
+  }
+}
 
     for (const columns of rows.slice(dataStartIndex)) {
       if (columns.length < 2) continue;
@@ -123,10 +160,33 @@ export async function importBankStatement(
       };
     }
 
-    return {
-      success: true,
-      data: transactions,
-    };
+    const dates = transactions
+  .map((transaction) => transaction.transactionDate)
+  .filter(
+    (date): date is string =>
+      typeof date === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(date)
+  )
+  .sort();
+
+if (dates.length === 0) {
+  return {
+    success: false,
+    error: "No valid transaction dates could be determined from the file.",
+  };
+}
+
+return {
+  success: true,
+  data: {
+    transactions,
+    startDate: dates[0],
+    endDate: dates[dates.length - 1],
+    openingBalance,
+    closingBalance,
+    statementDate,
+  },
+};
   } catch (error: unknown) {
     return {
       success: false,

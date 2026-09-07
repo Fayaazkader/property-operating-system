@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { BankImportPresets } from "@/components/financials/BankImportPresets";
 import { validateBankImport } from "@/lib/banking/import-validation";
 import { runReconciliationEngine } from "@/lib/banking/reconciliation-engine";
+import { validateBankImportFinancialPeriod } from "@/lib/banking/financial-period-governance";
 
 
 export default function BankingImportsPage() {
@@ -145,64 +146,245 @@ if (data) setEntities(data);
     const result = await importBankStatement(file, activePreset);
 
     if (result.success && result.data) {
-      console.log('Import: got', result.data.length, 'transactions to save');
-      console.log('Import: selectedBankAccount:', selectedBankAccount);
-      for (const tx of result.data) {
-        console.log('Import: saving tx:', tx.id, tx.description, tx.amount);
-        const { error: upsertError } = await supabase.from("bank_transactions").upsert({
-          id: tx.id,
-          transaction_date: tx.transactionDate || null,
-          transaction_description: tx.description || null,
-          transaction_amount: tx.amount || 0,
-          transaction_reference: tx.reference || null,
-          bank_account_name: activePreset?.bank_name || null,
-          bank_account_id: selectedBankAccount || null,
-          bank_account_number: null,
-          allocation_status: "unallocated",
-          split_allocations: tx.splitAllocations || [],
-          queue: "ready",
-          imported_batch_reference: batchRef,
-          imported_at: new Date().toISOString(),
-        });
-        if (upsertError) { console.error('Import: upsert error:', upsertError.message, upsertError.code, upsertError.details); }
-      }
-// Update bank account balance
-const totalImported = result.data.reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
-const { data: currentAccount } = await supabase
-  .from("bank_accounts")
-  .select("current_balance")
-  .eq("id", selectedBankAccount)
-  .single();
+  const periodValidation = await validateBankImportFinancialPeriod(
+    selectedEntity,
+    result.data.startDate,
+    result.data.endDate
+  );
 
-const newBalance = (currentAccount?.current_balance || 0) + totalImported;
+  if (!periodValidation.valid) {
+    setMessage({
+      type: "error",
+      text: periodValidation.reason || "Bank import is outside the open financial period.",
+    });
+    setLoading(false);
+    return;
+  }
+}
 
-await supabase
-  .from("bank_accounts")
-  .update({ 
-    current_balance: newBalance,
-    statement_balance: newBalance
-  })
-  .eq("id", selectedBankAccount);
-      const importedCount = result.data.length;
+    if (result.success && result.data) {
+  const {
+    transactions,
+    startDate,
+    endDate,
+    openingBalance,
+    closingBalance,
+    statementDate,
+  } = result.data;
 
-      const recon = await runReconciliationEngine(selectedEntity);
+  console.log(
+    "Import: got",
+    transactions.length,
+    "transactions to save"
+  );
 
-      if (recon.total > 0) {
-        setMessage({
-          type: "success",
-          text: `${importedCount} imported. ${recon.autoAllocated} auto-allocated, ${recon.partiallyAllocated} flagged for review, ${recon.unallocated} need manual allocation.`
-        });
-      } else {
-        setMessage({ type: "success", text: `${importedCount} transactions imported and posted to Cash Book.` });
-      }
+  /*
+   * Statement balance validation.
+   *
+   * If the source provides opening and closing balances,
+   * verify that the transactions reconcile to the statement.
+   *
+   * We deliberately do not manufacture a bank closing balance
+   * from AssetFlow's existing account balance.
+   */
+  if (openingBalance !== null && closingBalance !== null) {
+    const transactionMovement = transactions.reduce(
+      (sum, tx) => sum + (tx.amount || 0),
+      0
+    );
+
+    const calculatedClosing =
+      Math.round((openingBalance + transactionMovement) * 100) / 100;
+
+    const difference =
+      Math.round((calculatedClosing - closingBalance) * 100) / 100;
+
+    if (Math.abs(difference) > 0.01) {
+      setMessage({
+        type: "error",
+        text:
+          `Bank statement balance validation failed. ` +
+          `Opening balance R${openingBalance.toLocaleString("en-ZA", {
+            minimumFractionDigits: 2,
+          })} plus imported transactions does not equal the ` +
+          `statement closing balance R${closingBalance.toLocaleString("en-ZA", {
+            minimumFractionDigits: 2,
+          })}. ` +
+          `Difference: R${difference.toLocaleString("en-ZA", {
+            minimumFractionDigits: 2,
+          })}.`,
+      });
 
       setLoading(false);
       return;
     }
-
-    setMessage({ type: "error", text: "Import failed. Please check the file format and try again." });
-    setLoading(false);
   }
+
+  /*
+   * Create the governed bank statement first.
+   */
+  const { data: statement, error: statementError } = await supabase
+    .from("bank_statements")
+    .insert({
+      bank_account_id: selectedBankAccount,
+      entity_id: selectedEntity,
+      statement_date: statementDate || endDate,
+      opening_balance: openingBalance,
+      closing_balance: closingBalance,
+      status: "imported",
+    })
+    .select("id")
+    .single();
+
+  if (statementError || !statement) {
+    console.error(
+      "Import: failed to create bank statement:",
+      statementError
+    );
+
+    setMessage({
+      type: "error",
+      text:
+        statementError?.message ||
+        "The bank statement could not be created.",
+    });
+
+    setLoading(false);
+    return;
+  }
+
+  /*
+   * Save transactions into the canonical bank transaction workflow.
+   *
+   * Imported transactions are NOT Ready.
+   * They must pass reconciliation/allocation before becoming Ready.
+   */
+  for (const tx of transactions) {
+    console.log(
+      "Import: saving tx:",
+      tx.id,
+      tx.description,
+      tx.amount
+    );
+
+    const { error: upsertError } = await supabase
+      .from("bank_transactions")
+      .upsert({
+        id: tx.id,
+        transaction_date: tx.transactionDate || null,
+        transaction_description: tx.description || null,
+        transaction_amount: tx.amount || 0,
+        transaction_reference: tx.reference || null,
+
+        bank_account_name: activePreset?.bank_name || null,
+        bank_account_id: selectedBankAccount || null,
+        bank_account_number: null,
+
+        allocation_status: "unallocated",
+        split_allocations: tx.splitAllocations || [],
+
+        queue: "review",
+        posting_status: "not_posted",
+
+        imported_batch_reference: batchRef,
+        imported_at: new Date().toISOString(),
+
+        statement_id: statement.id,
+      });
+
+    if (upsertError) {
+  console.error(
+    "Import: upsert error:",
+    upsertError.message,
+    upsertError.code,
+    upsertError.details
+  );
+
+  await supabase
+    .from("bank_transactions")
+    .delete()
+    .eq("imported_batch_reference", batchRef)
+    .eq("statement_id", statement.id);
+
+  await supabase
+    .from("bank_statements")
+    .delete()
+    .eq("id", statement.id);
+
+  setMessage({
+    type: "error",
+    text: `Transaction import failed: ${upsertError.message}`,
+  });
+
+  setLoading(false);
+  return;
+}
+  }
+
+  /*
+   * Only update the bank account balance when the source
+   * actually supplied a verified closing balance.
+   */
+  if (closingBalance !== null) {
+    const { error: balanceError } = await supabase
+      .from("bank_accounts")
+      .update({
+        current_balance: closingBalance,
+        statement_balance: closingBalance,
+      })
+      .eq("id", selectedBankAccount);
+
+    if (balanceError) {
+      console.error(
+        "Import: failed to update account balance:",
+        balanceError
+      );
+
+      setMessage({
+        type: "error",
+        text:
+          "The statement was imported, but the bank account balance could not be updated.",
+      });
+
+      setLoading(false);
+      return;
+    }
+  }
+
+  /*
+   * Reconciliation happens after canonical ingestion.
+   * Reconciliation does not itself mean posting.
+   */
+  const recon = await runReconciliationEngine(selectedEntity);
+
+  const importedCount = transactions.length;
+
+  if (recon.total > 0) {
+    setMessage({
+      type: "success",
+      text:
+        `${importedCount} transactions imported. ` +
+        `${recon.autoAllocated} matched automatically, ` +
+        `${recon.partiallyAllocated} flagged for review, ` +
+        `${recon.unallocated} require manual allocation.`,
+    });
+  } else {
+    setMessage({
+      type: "success",
+      text:
+        `${importedCount} transactions imported into Cash Book for reconciliation.`,
+    });
+  }
+
+  setLoading(false);
+  return;
+}
+  setMessage({
+    type: "error",
+    text: "Import failed. Please check the file format and try again.",
+  });
+  setLoading(false);
+}
 
   async function hashContent(content: string): Promise<string> {
     const encoder = new TextEncoder();
@@ -223,7 +405,7 @@ await supabase
           Banking Imports
         </h1>
         <p className="mt-4 max-w-3xl text-lg leading-8 text-zinc-400">
-          Upload bank statements to populate the Cash Book. All transactions are automatically posted and ready for reconciliation.
+          Upload bank statements into the Cash Book. Imported transactions are validated, reconciled and routed through the governed allocation and posting workflow.
         </p>
       </div>
       {message && (
@@ -319,7 +501,7 @@ await supabase
       {/* Upload */}
       <ImportDropzone
         title="Bank Statement Import"
-        description="Upload your bank CSV file. Transactions will be validated and automatically posted to the Cash Book for reconciliation."
+        description="Upload your bank statement. Transactions are validated, reconciled and routed through the governed allocation and posting workflow."
         loading={loading}
         fileName={fileName}
         onFileSelect={handleImport}

@@ -1,7 +1,7 @@
 // lib/cashbook/posting-service.ts
 // Cash Book Posting Service — Governed posting authority for bank transactions.
 
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase/client';
 import { postingEngine } from '@/lib/financial/posting-engine';
 import { publish } from '@/lib/platform/events/event-bus';
 import { logger } from '@/lib/platform/events/logger.service';
@@ -240,10 +240,15 @@ if (!claimedTxn) {
     }
   },
 
-  // Bulk post — called by event handler
+  // Bulk post — explicit governed action from the Cash Book UI.
   async postReadyTransactions(entityId: string, accountId?: string): Promise<{ posted: number; failed: number }> {
-    let query = supabase.from('bank_transactions').select('id, bank_accounts!inner(entity_id)').eq('bank_accounts.entity_id', entityId).in('allocation_status', ['fully_allocated'])
-.in('posting_status', ['not_posted', 'posting_failed']);
+    let query = supabase
+  .from('bank_transactions')
+  .select('id, bank_accounts!inner(entity_id)')
+  .eq('bank_accounts.entity_id', entityId)
+  .eq('allocation_status', 'fully_allocated')
+  .eq('posting_status', 'not_posted')
+  .eq('queue', 'ready');
     if (accountId) query = query.eq('bank_account_id', accountId);
     const { data: readyTxns } = await query;
     if (!readyTxns?.length) return { posted: 0, failed: 0 };

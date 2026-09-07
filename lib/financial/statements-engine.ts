@@ -131,7 +131,16 @@ export class FinancialStatementsEngine {
 
     // Opening cash from previous period
     let openingCash = 0;
-    const { data: prevPeriod } = await supabase.from('financial_periods').select('id').eq('entity_id', entityId).eq('period_type', 'financial').eq('status', 'closed').lt('end_date', new Date().toISOString()).order('end_date', { ascending: false }).limit(1).single();
+    const { data: prevPeriod } = await supabase
+  .from('financial_periods')
+  .select('id')
+  .eq('entity_id', entityId)
+  .eq('period_type', 'financial')
+  .eq('status', 'closed')
+  .lt('period_end', new Date().toISOString().slice(0, 10))
+  .order('period_end', { ascending: false })
+  .limit(1)
+  .single();
 
     if (prevPeriod) {
       const { data: prevLines } = await supabase.from('journal_lines').select('debit_amount, credit_amount').in('account_id', bankIds).eq('journals.period_id', prevPeriod.id);
