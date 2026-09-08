@@ -3,11 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import ImportDropzone from "@/components/widgets/ImportDropzone";
 import { importBankStatement } from "@/lib/banking/import-engine";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import { BankImportPresets } from "@/components/financials/BankImportPresets";
 import { validateBankImport } from "@/lib/banking/import-validation";
+import { validateBankStatementGovernance } from "@/lib/banking/import-governance";
 import { runReconciliationEngine } from "@/lib/banking/reconciliation-engine";
 import { validateBankImportFinancialPeriod } from "@/lib/banking/financial-period-governance";
+import { detectBankImport } from "@/lib/banking/import-detection";
+import { matchBankAccount } from "@/lib/banking/account-detection";
 
 
 export default function BankingImportsPage() {
@@ -15,11 +18,8 @@ export default function BankingImportsPage() {
   const [fileName, setFileName] = useState("");
   const [presetsOpen, setPresetsOpen] = useState(false);
   const [activePreset, setActivePreset] = useState<any>(null);
-  const [presets, setPresets] = useState<any[]>([]);
-  const [showPresetDropdown, setShowPresetDropdown] = useState(false);
-  const [importHistory, setImportHistory] = useState<any[]>([]);
-  const presetDropdownRef = useRef<HTMLDivElement>(null);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [importHistory, setImportHistory] = useState<any[]>([]);
+    const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Entity & Bank Account
   const [entities, setEntities] = useState<any[]>([]);
@@ -27,33 +27,64 @@ export default function BankingImportsPage() {
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [selectedBankAccount, setSelectedBankAccount] = useState("");
 
-  // Load presets
-  useEffect(() => {
-    async function loadPresets() {
-      const { data } = await supabase
-        .from("bank_import_presets")
-        .select("*")
-        .order("is_default", { ascending: false })
-        .order("preset_name");
-      if (data && data.length > 0) {
-        setPresets(data);
-        setActivePreset(data[0]);
-      }
-    }
-    loadPresets();
-  }, []);
+ // Presets are loaded and managed by BankImportPresets.
+// The import page only uses the preset selected by the user.
 
   // Load entities
-  useEffect(() => {
-    async function loadEntities() {
-      const { data: entityIds } = await supabase.rpc('auth_entities');
-const { data } = entityIds && entityIds.length > 0
-  ? await supabase.from("entities").select("id, entity_name").in("id", entityIds).order("entity_name")
-  : { data: [] };
-if (data) setEntities(data);
+useEffect(() => {
+  async function loadEntities() {
+    
+    const {
+      data: entityIds,
+      error: entityError,
+    } = await supabase.rpc("auth_entities");
+
+
+    if (entityError) {
+      console.error(
+        "[Imports] Entity RPC failed:",
+        entityError.message,
+        entityError.code
+      );
+      return;
     }
-    loadEntities();
-  }, []);
+
+    if (!entityIds || entityIds.length === 0) {
+           return;
+    }
+
+    const {
+      data: ent,
+      error: entError,
+    } = await supabase
+      .from("entities")
+      .select("id, entity_code, entity_name")
+      .in("id", entityIds)
+      .order("entity_name");
+
+    if (entError) {
+      console.error(
+        "[Imports] Entity lookup failed:",
+        entError.message,
+        entError.code
+      );
+      return;
+    }
+
+    setEntities(ent || []);
+
+    const firstEntityId =
+      typeof entityIds[0] === "string"
+        ? entityIds[0]
+        : entityIds[0]?.id;
+
+    if (firstEntityId) {
+            setSelectedEntity(firstEntityId);
+    }
+  }
+
+  loadEntities();
+}, []);
 
   // Load bank accounts when entity changes
   async function loadAccounts() {
@@ -98,17 +129,7 @@ if (data) setEntities(data);
     loadHistory();
   }, [loading]);
 
-  // Click outside
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      const target = e.target as HTMLElement;
-      if (presetDropdownRef.current && !presetDropdownRef.current.contains(target)) {
-        setShowPresetDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  
 
   async function handleImport(file: File) {
     const { data: { session } } = await supabase.auth.getSession();
@@ -123,13 +144,36 @@ if (data) setEntities(data);
     const text = await file.text();
     const batchRef = await hashContent(text);
 
-    const validation = await validateBankImport(file, activePreset);
+    
+    const fileText = await file.text();
 
-    if (!validation.valid) {
-      setMessage({ type: "error", text: validation.errors.join(" · ") });
-      setLoading(false);
-      return;
-    }
+const detection = detectBankImport(fileText);
+
+const accountMatch = await matchBankAccount(
+  detection.accountNumber,
+  detection.bankName,
+  selectedEntity
+);
+
+console.log("AssetFlow bank import detection:", detection);
+console.log("AssetFlow bank account match:", accountMatch);
+console.log({
+  bankName: detection.bankName,
+  accountNumber: detection.accountNumber,
+  dateColumn: detection.dateColumn,
+  descriptionColumn: detection.descriptionColumn,
+  referenceColumn: detection.referenceColumn,
+  amountColumn: detection.amountColumn,
+  debitColumn: detection.debitColumn,
+  creditColumn: detection.creditColumn,
+  dateFormat: detection.dateFormat,
+  amountType: detection.amountType,
+  confidence: detection.confidence,
+  needsReview: detection.needsReview,
+  reasons: detection.reasons,
+});
+
+
 
     const { data: existing } = await supabase
       .from("bank_transactions")
@@ -143,7 +187,115 @@ if (data) setEntities(data);
       return;
     }
 
-    const result = await importBankStatement(file, activePreset);
+    const importPreset = activePreset
+  ? {
+      ...activePreset,
+      transaction_header_row:
+        detection.transactionHeaderRow,
+      column_mapping: {
+        ...activePreset.column_mapping,
+        ...(detection.dateColumn
+          ? { date: detection.dateColumn }
+          : {}),
+        ...(detection.descriptionColumn
+          ? {
+              description:
+                detection.descriptionColumn,
+            }
+          : {}),
+        ...(detection.referenceColumn
+          ? {
+              reference:
+                detection.referenceColumn,
+            }
+          : {}),
+        ...(detection.amountColumn
+          ? {
+              amount: detection.amountColumn,
+            }
+          : {}),
+        ...(detection.debitColumn
+          ? {
+              debit: detection.debitColumn,
+            }
+          : {}),
+        ...(detection.creditColumn
+          ? {
+              credit: detection.creditColumn,
+            }
+          : {}),
+      },
+      date_format:
+        detection.dateFormat ||
+        activePreset.date_format,
+      amount_type:
+        detection.amountType ||
+        activePreset.amount_type,
+    }
+  : {
+      column_mapping: {
+        ...(detection.dateColumn
+          ? { date: detection.dateColumn }
+          : {}),
+        ...(detection.descriptionColumn
+          ? {
+              description:
+                detection.descriptionColumn,
+            }
+          : {}),
+        ...(detection.referenceColumn
+          ? {
+              reference:
+                detection.referenceColumn,
+            }
+          : {}),
+        ...(detection.amountColumn
+          ? {
+              amount: detection.amountColumn,
+            }
+          : {}),
+        ...(detection.debitColumn
+          ? {
+              debit: detection.debitColumn,
+            }
+          : {}),
+        ...(detection.creditColumn
+          ? {
+              credit: detection.creditColumn,
+            }
+          : {}),
+      },
+      amount_type: detection.amountType,
+      date_format:
+        detection.dateFormat || "DD/MM/YYYY",
+      skip_rows: 0,
+      transaction_header_row:
+        detection.transactionHeaderRow,
+    };
+    
+console.log(
+  "AssetFlow FINAL import preset:",
+  importPreset
+);
+
+const validation = await validateBankImport(
+  file,
+  importPreset
+);
+
+if (!validation.valid) {
+  setMessage({
+    type: "error",
+    text: validation.errors.join(" · "),
+  });
+  setLoading(false);
+  return;
+}
+
+const result = await importBankStatement(
+  file,
+  importPreset
+);
 
     if (result.success && result.data) {
   const periodValidation = await validateBankImportFinancialPeriod(
@@ -177,6 +329,24 @@ if (data) setEntities(data);
     transactions.length,
     "transactions to save"
   );
+
+  const governanceValidation = await validateBankStatementGovernance(
+  selectedBankAccount,
+  openingBalance,
+  startDate,
+  endDate
+);
+
+if (!governanceValidation.valid) {
+  setMessage({
+    type: "error",
+    text:
+      governanceValidation.reason ||
+      "Bank statement governance validation failed.",
+  });
+  setLoading(false);
+  return;
+}
 
   /*
    * Statement balance validation.
@@ -424,56 +594,39 @@ if (data) setEntities(data);
         </div>
       )}
 
-      {/* Bank Presets */}
-      <div className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Bank Import Presets</p>
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1" ref={presetDropdownRef}>
-            <button
-              type="button"
-              onClick={() => setShowPresetDropdown(!showPresetDropdown)}
-              className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-zinc-600 flex items-center justify-between"
-            >
-              <span className={activePreset ? "text-white" : "text-zinc-500"}>
-                {activePreset ? `${activePreset.preset_name} ${activePreset.bank_name ? `(${activePreset.bank_name})` : ""}` : "Select a preset..."}
-              </span>
-              <span className="text-zinc-500 text-xs">▼</span>
-            </button>
-            {showPresetDropdown && (
-              <div className="absolute left-0 right-0 z-40 mt-1 rounded-2xl border border-zinc-700 bg-[var(--bg-secondary)] shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
-                <button
-                  type="button"
-                  onClick={() => { setActivePreset(null); setShowPresetDropdown(false); }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-zinc-500 hover:bg-zinc-800"
-                >
-                  None
-                </button>
-                {presets.map((p: any) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => { setActivePreset(p); setShowPresetDropdown(false); }}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                      activePreset?.id === p.id
-                        ? "bg-white text-black font-medium"
-                        : "text-zinc-300 hover:bg-zinc-800"
-                    }`}
-                  >
-                    {p.preset_name}
-                    {p.bank_name && <span className="text-xs text-zinc-500 ml-1">({p.bank_name})</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button
-            onClick={() => setPresetsOpen(true)}
-            className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white whitespace-nowrap"
-          >
-            Edit Presets
-          </button>
-        </div>
-      </div>
+      {/* Bank Import Presets */}
+<div className="space-y-2">
+  <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+    Bank Import Preset
+  </p>
+
+  <div className="flex items-center gap-3">
+    <div className="flex-1 rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3">
+      <span
+        className={
+          activePreset ? "text-white text-sm" : "text-zinc-500 text-sm"
+        }
+      >
+        {activePreset
+          ? `${activePreset.preset_name}${
+              activePreset.bank_name
+                ? ` (${activePreset.bank_name})`
+                : ""
+            }`
+          : "No preset selected"}
+      </span>
+    </div>
+
+    <button
+      type="button"
+      onClick={() => setPresetsOpen(true)}
+      disabled={!selectedEntity}
+      className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 whitespace-nowrap"
+    >
+      Manage Presets
+    </button>
+  </div>
+</div>
 
       {/* Entity & Bank Account Selector */}
       <div className="grid grid-cols-2 gap-4">
@@ -482,7 +635,11 @@ if (data) setEntities(data);
           <CustomDropdown
             value={selectedEntity}
             options={entities.map((e: any) => ({ id: e.id, label: e.entity_name }))}
-            onChange={(id: string) => { setSelectedEntity(id); setSelectedBankAccount(""); }}
+            onChange={(id: string) => {
+  setSelectedEntity(id);
+  setSelectedBankAccount("");
+  setActivePreset(null);
+}}
             placeholder="Select entity..."
           />
         </div>
@@ -535,11 +692,12 @@ if (data) setEntities(data);
           <p className="text-zinc-500">No imports yet. Select a bank preset and upload your first statement.</p>
         </div>
       )}
-
+      
       {/* Preset Manager Modal */}
       <BankImportPresets
-        open={presetsOpen}
+              open={presetsOpen}
         onClose={() => setPresetsOpen(false)}
+        entityId={selectedEntity}
         onPresetSelected={(preset) => {
           setActivePreset(preset);
           setPresetsOpen(false);

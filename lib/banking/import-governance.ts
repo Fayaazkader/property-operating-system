@@ -1,11 +1,43 @@
-import { validateStatementContinuity, hasOverlappingStatement } from "@/lib/banking/continuity";
+import {
+  validateStatementContinuity,
+  hasOverlappingStatement,
+} from "@/lib/banking/continuity";
 
-export async function validateBankImport(
+export async function validateBankStatementGovernance(
   bankAccountId: string,
-  openingBalance: number,
+  openingBalance: number | null,
   startDate: string,
   endDate: string
 ) {
+  if (!bankAccountId) {
+    return {
+      valid: false,
+      reason: "No bank account was selected.",
+    };
+  }
+
+  if (openingBalance === null) {
+    return {
+      valid: false,
+      reason:
+        "The bank statement opening balance could not be determined. Select a template that maps the statement opening balance.",
+    };
+  }
+
+  if (!startDate || !endDate) {
+    return {
+      valid: false,
+      reason: "The bank statement date range could not be determined.",
+    };
+  }
+
+  if (startDate > endDate) {
+    return {
+      valid: false,
+      reason: "The bank statement start date is after its end date.",
+    };
+  }
+
   const continuity = await validateStatementContinuity(
     bankAccountId,
     openingBalance
@@ -16,7 +48,7 @@ export async function validateBankImport(
       valid: false,
       reason:
         continuity.reason ||
-        "Opening balance does not match previous statement closing balance.",
+        "Opening balance does not match the previous statement closing balance.",
     };
   }
 

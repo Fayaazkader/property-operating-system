@@ -228,6 +228,14 @@ async function extractScannedPdfText(
 
       const { data } = await worker.recognize(page.content);
 
+      if (data.text?.trim()) {
+        pageTexts.push(data.text.trim());
+      }
+
+      if (typeof data.confidence === 'number') {
+        confidences.push(data.confidence);
+      }
+
 const ocrPage = data as typeof data & {
   words?: Array<{
     text?: string;

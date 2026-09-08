@@ -9,6 +9,7 @@ type Preset = {
   preset_name: string;
   bank_name: string | null;
   is_default: boolean;
+  entity_id: string | null;
   column_mapping: Record<string, number>;
   amount_type: "single" | "dual";
   date_format: string;
@@ -19,9 +20,15 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onPresetSelected: (preset: Preset) => void;
+  entityId: string;
 }
 
-export function BankImportPresets({ open, onClose, onPresetSelected }: Props) {
+export function BankImportPresets({
+  open,
+  onClose,
+  onPresetSelected,
+  entityId,
+}: Props) {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [selectedPreset, setSelectedPreset] = useState<Preset | null>(null);
   const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
@@ -29,32 +36,44 @@ export function BankImportPresets({ open, onClose, onPresetSelected }: Props) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) loadPresets();
-  }, [open]);
+  if (open && entityId) {
+    loadPresets();
+  }
+}, [open, entityId]);
 
   async function loadPresets() {
-    const { data } = await supabase
-      .from("bank_import_presets")
-      .select("*")
-      .order("is_default", { ascending: false })
-      .order("preset_name");
-    if (data) setPresets(data as Preset[]);
+  const { data, error } = await supabase
+    .from("bank_import_presets")
+    .select("*")
+    .or(`entity_id.is.null,entity_id.eq.${entityId}`)
+    .order("is_default", { ascending: false })
+    .order("preset_name");
+
+  if (error) {
+    console.error("[BankImportPresets] Failed to load presets:", error);
+    return;
   }
 
-  function startNew() {
-    setEditingPreset({
-      id: "",
-      preset_name: "",
-      bank_name: "",
-      is_default: false,
-      column_mapping: { date: 1, description: 2, amount: 3, reference: 4 },
-      amount_type: "single",
-      date_format: "DD/MM/YYYY",
-      skip_rows: 0,
-    });
-    setIsNew(true);
-    setSelectedPreset(null);
+  if (data) {
+    setPresets(data as Preset[]);
   }
+}
+
+  function startNew() {
+      setEditingPreset({
+    id: "",
+    preset_name: "",
+    bank_name: "",
+    is_default: false,
+    entity_id: entityId || null,
+    column_mapping: { date: 1, description: 2, amount: 3, reference: 4 },
+    amount_type: "single",
+    date_format: "DD/MM/YYYY",
+    skip_rows: 0,
+  });
+  setIsNew(true);
+  setSelectedPreset(null);
+}
 
   function startEdit(preset: Preset) {
     setEditingPreset({ ...preset, column_mapping: { ...preset.column_mapping } });
@@ -76,6 +95,7 @@ export function BankImportPresets({ open, onClose, onPresetSelected }: Props) {
           date_format: editingPreset.date_format,
           skip_rows: editingPreset.skip_rows,
           is_default: false,
+          entity_id: entityId || null,
         })
         .select()
         .single();
@@ -152,22 +172,81 @@ export function BankImportPresets({ open, onClose, onPresetSelected }: Props) {
               <Plus className="w-4 h-4" /> New Preset
             </button>
             <div className="space-y-1">
-              {presets.map((preset) => (
-                <button
-                  key={preset.id}
-                  onClick={() => { setSelectedPreset(preset); setEditingPreset(null); setIsNew(false); }}
-                  className={`w-full text-left px-4 py-2.5 rounded-xl text-sm transition-colors ${
-                    selectedPreset?.id === preset.id
-                      ? "bg-white text-black font-medium"
-                      : "text-zinc-300 hover:bg-zinc-900"
-                  }`}
-                >
-                  <div className="truncate">{preset.preset_name}</div>
-                  {preset.bank_name && (
-                    <div className="text-xs text-zinc-500 truncate">{preset.bank_name}</div>
-                  )}
-                </button>
-              ))}
+              {presets.some((preset) => preset.entity_id === null) && (
+  <div className="mb-5">
+    <div className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+      System Templates
+    </div>
+
+    <div className="space-y-1">
+      {presets
+        .filter((preset) => preset.entity_id === null)
+        .map((preset) => (
+          <button
+            key={preset.id}
+            onClick={() => {
+              setSelectedPreset(preset);
+              setEditingPreset(null);
+            }}
+            className={`w-full text-left rounded-xl px-3 py-2.5 transition ${
+              selectedPreset?.id === preset.id
+                ? "bg-white text-black font-medium"
+                : "text-zinc-300 hover:bg-zinc-900"
+            }`}
+          >
+            <div className="truncate">{preset.preset_name}</div>
+
+            {preset.bank_name && (
+              <div
+                className={`text-xs truncate ${
+                  selectedPreset?.id === preset.id
+                    ? "text-zinc-500"
+                    : "text-zinc-500"
+                }`}
+              >
+                {preset.bank_name}
+              </div>
+            )}
+          </button>
+        ))}
+    </div>
+  </div>
+)}
+
+{presets.some((preset) => preset.entity_id === entityId) && (
+  <div>
+    <div className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+      My Templates
+    </div>
+
+    <div className="space-y-1">
+      {presets
+        .filter((preset) => preset.entity_id === entityId)
+        .map((preset) => (
+          <button
+            key={preset.id}
+            onClick={() => {
+              setSelectedPreset(preset);
+              setEditingPreset(null);
+            }}
+            className={`w-full text-left rounded-xl px-3 py-2.5 transition ${
+              selectedPreset?.id === preset.id
+                ? "bg-white text-black font-medium"
+                : "text-zinc-300 hover:bg-zinc-900"
+            }`}
+          >
+            <div className="truncate">{preset.preset_name}</div>
+
+            {preset.bank_name && (
+              <div className="text-xs text-zinc-500 truncate">
+                {preset.bank_name}
+              </div>
+            )}
+          </button>
+        ))}
+    </div>
+  </div>
+)}
             </div>
           </div>
 
@@ -311,25 +390,31 @@ export function BankImportPresets({ open, onClose, onPresetSelected }: Props) {
                   </div>
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={() => onPresetSelected(selectedPreset)}
-                    className="rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-500 flex items-center gap-2"
-                  >
-                    <Check className="w-4 h-4" /> Use This Preset
-                  </button>
-                  <button
-                    onClick={() => startEdit(selectedPreset)}
-                    className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => deletePreset(selectedPreset.id)}
-                    className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300 hover:bg-red-500/20"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+  <button
+    onClick={() => onPresetSelected(selectedPreset)}
+    className="rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-500 flex items-center gap-2"
+  >
+    <Check className="w-4 h-4" /> Use This Preset
+  </button>
+
+  {selectedPreset.entity_id === entityId && (
+    <>
+      <button
+        onClick={() => startEdit(selectedPreset)}
+        className="rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white"
+      >
+        Edit
+      </button>
+
+      <button
+        onClick={() => deletePreset(selectedPreset.id)}
+        className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300 hover:bg-red-500/20"
+      >
+        <Trash2 className="w-4 h-4" />
+      </button>
+    </>
+  )}
+</div>
               </div>
             ) : (
               <div className="flex items-center justify-center h-full text-zinc-500 text-sm">

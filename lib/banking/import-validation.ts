@@ -1,3 +1,5 @@
+import { parseCSV } from "@/lib/banking/csv-parser";
+
 export type ValidationResult = {
   valid: boolean;
   errors: string[];
@@ -10,6 +12,7 @@ type PresetMapping = {
   amount_type: "single" | "dual";
   date_format: string;
   skip_rows: number;
+  transaction_header_row?: number;
 };
 
 export async function validateBankImport(
@@ -22,83 +25,175 @@ export async function validateBankImport(
   // 1. File integrity
   if (!file || file.size === 0) {
     errors.push("File is empty or corrupt.");
-    return { valid: false, errors, warnings };
+
+    return {
+      valid: false,
+      errors,
+      warnings,
+    };
   }
 
   const text = await file.text();
-  const lines = text.split("\n").filter(line => line.trim().length > 0);
+  const rows = parseCSV(text);
+  console.log("AssetFlow validation rows:", rows);
+console.log("AssetFlow validation preset:", preset);
+console.log(
+  "AssetFlow validation header row:",
+  preset?.transaction_header_row
+);
 
-  if (lines.length < 2) {
+  // 2. Basic file structure
+  if (rows.length < 2) {
     errors.push("File contains no transaction data.");
-    return { valid: false, errors, warnings };
+
+    return {
+      valid: false,
+      errors,
+      warnings,
+    };
   }
 
-  // 2. Use preset mapping or default
-  const mapping = preset?.column_mapping || {
-    date: 1,
-    description: 3,
-    amount: 4,
-    reference: 2,
-  };
+  // 3. Use preset mapping or default mapping
+  const mapping =
+    preset?.column_mapping || {
+      date: 1,
+      description: 3,
+      amount: 4,
+      reference: 2,
+    };
+
   const skipRows = preset?.skip_rows || 0;
 
-  // 3. Check header row exists if skip_rows is 0
-  const headerLine = lines[skipRows] || lines[0];
-  const columns = headerLine.split(",").map(col => col.replace(/"/g, "").trim());
+  // 4. Check header row exists
+  const headerIndex =
+  preset?.transaction_header_row ?? skipRows;
 
-  if (columns.length < 3) {
-    errors.push("File format invalid. Expected at least 3 columns.");
-    return { valid: false, errors, warnings };
+const columns =
+  rows[headerIndex] || rows[0];
+
+  console.log("AssetFlow validation header index:", headerIndex);
+console.log("AssetFlow validation columns:", columns);
+console.log(
+  "AssetFlow validation column count:",
+  columns?.length
+);
+
+  if (!columns || columns.length < 3) {
+    errors.push(
+      "File format invalid. Expected at least 3 columns."
+    );
+
+    return {
+      valid: false,
+      errors,
+      warnings,
+    };
   }
 
-  // 4. Validate column mapping against actual columns
+  // 5. Validate column mapping against actual columns
   const dateIdx = (mapping.date || 1) - 1;
   const descIdx = (mapping.description || 3) - 1;
   const amountIdx = (mapping.amount || 4) - 1;
   const refIdx = (mapping.reference || 2) - 1;
 
-  const maxIdx = Math.max(dateIdx, descIdx, amountIdx, refIdx);
+  const maxIdx = Math.max(
+    dateIdx,
+    descIdx,
+    amountIdx,
+    refIdx
+  );
+
   if (maxIdx >= columns.length) {
     errors.push(
-      `Column mapping references column ${maxIdx + 1} but file only has ${columns.length} columns. Check your preset settings.`
+      `Column mapping references column ${
+        maxIdx + 1
+      } but the file only has ${
+        columns.length
+      } columns. Check your preset settings.`
     );
-    return { valid: false, errors, warnings };
+
+    return {
+      valid: false,
+      errors,
+      warnings,
+    };
   }
 
-  // 5. Check if mapped columns exist and have data
-  const dataRows = lines.slice(skipRows + 1).filter(line => line.trim().length > 0);
-  
+  // 6. Get transaction rows
+  const dataRows = rows.slice(headerIndex + 1);
+
   if (dataRows.length === 0) {
-    errors.push("No transaction data found after header rows.");
-    return { valid: false, errors, warnings };
+    errors.push(
+      "No transaction data found after header rows."
+    );
+
+    return {
+      valid: false,
+      errors,
+      warnings,
+    };
   }
 
-  // 6. Validate first data row has values in mapped columns
-  const firstRow = dataRows[0].split(",").map(col => col.replace(/"/g, "").trim());
-  
-  if (!firstRow[dateIdx] || firstRow[dateIdx].trim() === "") {
-    warnings.push(`Date column (column ${mapping.date}) is empty in first row.`);
-  }
-  if (!firstRow[amountIdx] || firstRow[amountIdx].trim() === "") {
-    errors.push(`Amount column (column ${mapping.amount}) is empty in first row.`);
-    return { valid: false, errors, warnings };
+  // 7. Validate first transaction row
+  const firstRow = dataRows[0];
+
+  if (
+    !firstRow[dateIdx] ||
+    firstRow[dateIdx].trim() === ""
+  ) {
+    warnings.push(
+      `Date column (column ${mapping.date}) is empty in the first transaction.`
+    );
   }
 
-  // 7. Check amount is numeric
-  const amountStr = firstRow[amountIdx]?.replace(/[^0-9.\-]/g, "") || "";
-  if (isNaN(parseFloat(amountStr))) {
-    errors.push(`Amount column contains non-numeric value: "${firstRow[amountIdx]}". Check column mapping.`);
-    return { valid: false, errors, warnings };
+  if (
+    !firstRow[amountIdx] ||
+    firstRow[amountIdx].trim() === ""
+  ) {
+    errors.push(
+      `Amount column (column ${mapping.amount}) is empty in the first transaction.`
+    );
+
+    return {
+      valid: false,
+      errors,
+      warnings,
+    };
   }
 
-  // 8. Count transactions
+  // 8. Validate amount
+  const amountStr =
+    firstRow[amountIdx]
+      ?.replace(/R/gi, "")
+      .replace(/,/g, "")
+      .replace(/\s/g, "")
+      .trim() || "";
+
+  const parsedAmount = Number(amountStr);
+
+  if (!Number.isFinite(parsedAmount)) {
+    errors.push(
+      `Amount column contains a non-numeric value: "${firstRow[amountIdx]}". Check the column mapping.`
+    );
+
+    return {
+      valid: false,
+      errors,
+      warnings,
+    };
+  }
+
+  // 9. Transaction count
   const transactionCount = dataRows.length;
+
   if (transactionCount > 5000) {
-    warnings.push(`Large import: ${transactionCount} transactions. This may take a moment.`);
+    warnings.push(
+      `Large import: ${transactionCount} transactions. This may take a moment.`
+    );
   }
 
   return {
-    valid: true,
+    valid: errors.length === 0,
     errors,
     warnings,
     transactionCount,
