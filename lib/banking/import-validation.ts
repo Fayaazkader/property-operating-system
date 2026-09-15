@@ -1,10 +1,13 @@
-import { parseCSV } from "@/lib/banking/csv-parser";
+import { ingestDocument } from "@/lib/document-intelligence/ingestion";
+import { extractBankStatement } from "@/lib/document-intelligence/extractors/bank-statement";
 
 export type ValidationResult = {
   valid: boolean;
   errors: string[];
   warnings: string[];
   transactionCount?: number;
+  confidence?: number;
+  requiresReview?: boolean;
 };
 
 type PresetMapping = {
@@ -15,74 +18,35 @@ type PresetMapping = {
   transaction_header_row?: number;
 };
 
-export async function validateBankImport(
-  file: File,
-  preset?: PresetMapping | null
-): Promise<ValidationResult> {
+function validatePresetShape(
+  rows: string[][],
+  preset: PresetMapping,
+): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // 1. File integrity
-  if (!file || file.size === 0) {
-    errors.push("File is empty or corrupt.");
-
-    return {
-      valid: false,
-      errors,
-      warnings,
-    };
-  }
-
-  const text = await file.text();
-  const rows = parseCSV(text);
-  console.log("AssetFlow validation rows:", rows);
-console.log("AssetFlow validation preset:", preset);
-console.log(
-  "AssetFlow validation header row:",
-  preset?.transaction_header_row
-);
-
-  // 2. Basic file structure
-  if (rows.length < 2) {
-    errors.push("File contains no transaction data.");
-
-    return {
-      valid: false,
-      errors,
-      warnings,
-    };
-  }
-
-  // 3. Use preset mapping or default mapping
-  const mapping =
-    preset?.column_mapping || {
-      date: 1,
-      description: 3,
-      amount: 4,
-      reference: 2,
-    };
-
-  const skipRows = preset?.skip_rows || 0;
-
-  // 4. Check header row exists
   const headerIndex =
-  preset?.transaction_header_row ?? skipRows;
+    preset.transaction_header_row ?? preset.skip_rows ?? 0;
 
-const columns =
-  rows[headerIndex] || rows[0];
+  const columns = rows[headerIndex];
 
-  console.log("AssetFlow validation header index:", headerIndex);
-console.log("AssetFlow validation columns:", columns);
-console.log(
-  "AssetFlow validation column count:",
-  columns?.length
-);
+  if (!columns || columns.length === 0) {
+    return {
+      valid: false,
+      errors: ["Configured transaction header row could not be found."],
+      warnings,
+    };
+  }
 
-  if (!columns || columns.length < 3) {
-    errors.push(
-      "File format invalid. Expected at least 3 columns."
-    );
+  for (const [name, value] of Object.entries(preset.column_mapping)) {
+    if (!Number.isInteger(value) || value < 1) {
+      errors.push(
+        `Invalid ${name} column mapping: ${value}. Column mappings must be 1-based positive integers.`,
+      );
+    }
+  }
 
+  if (errors.length > 0) {
     return {
       valid: false,
       errors,
@@ -90,112 +54,138 @@ console.log(
     };
   }
 
-  // 5. Validate column mapping against actual columns
-  const dateIdx = (mapping.date || 1) - 1;
-  const descIdx = (mapping.description || 3) - 1;
-  const amountIdx = (mapping.amount || 4) - 1;
-  const refIdx = (mapping.reference || 2) - 1;
-
-  const maxIdx = Math.max(
-    dateIdx,
-    descIdx,
-    amountIdx,
-    refIdx
-  );
-
-  if (maxIdx >= columns.length) {
-    errors.push(
-      `Column mapping references column ${
-        maxIdx + 1
-      } but the file only has ${
-        columns.length
-      } columns. Check your preset settings.`
+  const dataRows = rows
+    .slice(headerIndex + 1)
+    .filter((row) =>
+      row.some((cell) => String(cell ?? "").trim() !== ""),
     );
-
-    return {
-      valid: false,
-      errors,
-      warnings,
-    };
-  }
-
-  // 6. Get transaction rows
-  const dataRows = rows.slice(headerIndex + 1);
 
   if (dataRows.length === 0) {
-    errors.push(
-      "No transaction data found after header rows."
-    );
-
     return {
       valid: false,
-      errors,
+      errors: ["No transaction data found after the configured header row."],
       warnings,
     };
   }
 
-  // 7. Validate first transaction row
-  const firstRow = dataRows[0];
-
-  if (
-    !firstRow[dateIdx] ||
-    firstRow[dateIdx].trim() === ""
-  ) {
+  if (dataRows.length > 5000) {
     warnings.push(
-      `Date column (column ${mapping.date}) is empty in the first transaction.`
-    );
-  }
-
-  if (
-    !firstRow[amountIdx] ||
-    firstRow[amountIdx].trim() === ""
-  ) {
-    errors.push(
-      `Amount column (column ${mapping.amount}) is empty in the first transaction.`
-    );
-
-    return {
-      valid: false,
-      errors,
-      warnings,
-    };
-  }
-
-  // 8. Validate amount
-  const amountStr =
-    firstRow[amountIdx]
-      ?.replace(/R/gi, "")
-      .replace(/,/g, "")
-      .replace(/\s/g, "")
-      .trim() || "";
-
-  const parsedAmount = Number(amountStr);
-
-  if (!Number.isFinite(parsedAmount)) {
-    errors.push(
-      `Amount column contains a non-numeric value: "${firstRow[amountIdx]}". Check the column mapping.`
-    );
-
-    return {
-      valid: false,
-      errors,
-      warnings,
-    };
-  }
-
-  // 9. Transaction count
-  const transactionCount = dataRows.length;
-
-  if (transactionCount > 5000) {
-    warnings.push(
-      `Large import: ${transactionCount} transactions. This may take a moment.`
+      `Large import: ${dataRows.length} transactions. This may take a moment.`,
     );
   }
 
   return {
-    valid: errors.length === 0,
+    valid: true,
     errors,
     warnings,
-    transactionCount,
+    transactionCount: dataRows.length,
   };
+}
+
+export async function validateBankImport(
+  file: File,
+  preset?: PresetMapping | null,
+): Promise<ValidationResult> {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  if (!file || file.size === 0) {
+    return {
+      valid: false,
+      errors: ["File is empty or corrupt."],
+      warnings,
+    };
+  }
+
+  try {
+    const ingestion = await ingestDocument(file);
+
+    /*
+     * All bank statement formats ultimately use the same
+     * canonical bank statement extractor.
+     *
+     * Structured formats such as CSV/XLS/XLSX are normalized
+     * into rows by Document Intelligence before extraction.
+     *
+     * PDF/image/scanned statements use the same extractor after
+     * native text/OCR processing.
+     */
+    const extraction =
+  ingestion.content.kind === "structured"
+    ? extractBankStatement({
+        rows: ingestion.content.rows,
+      })
+    : extractBankStatement({
+        text: ingestion.content.text,
+        rawText: ingestion.content.rawText,
+        confidence: ingestion.content.confidence,
+        evidence: ingestion.content.evidence,
+      });
+
+    /*
+     * Presets remain supported for configured bank/customer
+     * mappings, but they validate configuration shape only.
+     * They do not replace canonical extraction.
+     */
+    if (preset && ingestion.content.kind === "structured") {
+      const presetValidation = validatePresetShape(
+        ingestion.content.rows,
+        preset,
+      );
+
+      if (!presetValidation.valid) {
+        return {
+          valid: false,
+          errors: presetValidation.errors,
+          warnings: presetValidation.warnings,
+          transactionCount: extraction.transactions.length,
+          confidence: extraction.overallConfidence,
+          requiresReview: true,
+        };
+      }
+
+      warnings.push(...presetValidation.warnings);
+    }
+
+    const transactionCount = extraction.transactions.length;
+
+    if (transactionCount === 0) {
+      errors.push(
+        extraction.warnings.join(" ") ||
+          "No bank transactions could be extracted from the document.",
+      );
+    }
+
+    if (extraction.warnings.length > 0) {
+      warnings.push(...extraction.warnings);
+    }
+
+    const confidence = extraction.overallConfidence;
+    const requiresReview = extraction.requiresReview;
+
+    if (requiresReview) {
+      warnings.push(
+        "Document extraction requires review before import.",
+      );
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      warnings,
+      transactionCount,
+      confidence,
+      requiresReview,
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      errors: [
+        error instanceof Error
+          ? error.message
+          : "Bank document could not be processed.",
+      ],
+      warnings,
+    };
+  }
 }

@@ -382,52 +382,65 @@ function extractStructuredTransactions(
         : "";
 
     const debitValue =
-      header.columns.debit !== undefined
-        ? parseAmount(row[header.columns.debit] || "")
-        : undefined;
+  header.columns.debit !== undefined
+    ? parseAmount(row[header.columns.debit] || "")
+    : undefined;
 
-    const creditValue =
-      header.columns.credit !== undefined
-        ? parseAmount(row[header.columns.credit] || "")
-        : undefined;
+const creditValue =
+  header.columns.credit !== undefined
+    ? parseAmount(row[header.columns.credit] || "")
+    : undefined;
 
-    const amountValue =
-      header.columns.amount !== undefined
-        ? parseAmount(row[header.columns.amount] || "")
-        : undefined;
+const amountValue =
+  header.columns.amount !== undefined
+    ? parseAmount(row[header.columns.amount] || "")
+    : undefined;
 
-    const balanceValue =
-      header.columns.balance !== undefined
-        ? parseAmount(row[header.columns.balance] || "")
-        : undefined;
+const balanceValue =
+  header.columns.balance !== undefined
+    ? parseAmount(row[header.columns.balance] || "")
+    : undefined;
 
-    transactions.push({
-      date: field(date, Math.min(98, sourceConfidence)),
-      description: field(
-        description || undefined,
-        description ? Math.min(95, sourceConfidence) : 0,
-      ),
-      reference: field(
-        reference || undefined,
-        reference ? Math.min(95, sourceConfidence) : 0,
-      ),
-      debit:
-        debitValue !== undefined
-          ? field(Math.abs(debitValue), Math.min(98, sourceConfidence))
-          : undefined,
-      credit:
-        creditValue !== undefined
-          ? field(Math.abs(creditValue), Math.min(98, sourceConfidence))
-          : undefined,
-      amount:
-        amountValue !== undefined
-          ? field(amountValue, Math.min(98, sourceConfidence))
-          : undefined,
-      runningBalance:
-        balanceValue !== undefined
-          ? field(balanceValue, Math.min(98, sourceConfidence))
-          : undefined,
-    });
+const hasDebit = debitValue !== undefined;
+const hasCredit = creditValue !== undefined;
+
+let canonicalAmount: number | undefined;
+
+if (amountValue !== undefined) {
+  canonicalAmount = amountValue;
+} else if (hasDebit && !hasCredit) {
+  canonicalAmount = -Math.abs(debitValue);
+} else if (hasCredit && !hasDebit) {
+  canonicalAmount = Math.abs(creditValue);
+}
+
+transactions.push({
+  date: field(date, Math.min(98, sourceConfidence)),
+  description: field(
+    description || undefined,
+    description ? Math.min(95, sourceConfidence) : 0,
+  ),
+  reference: field(
+    reference || undefined,
+    reference ? Math.min(95, sourceConfidence) : 0,
+  ),
+  debit:
+    hasDebit
+      ? field(Math.abs(debitValue), Math.min(98, sourceConfidence))
+      : undefined,
+  credit:
+    hasCredit
+      ? field(Math.abs(creditValue), Math.min(98, sourceConfidence))
+      : undefined,
+  amount:
+    canonicalAmount !== undefined
+      ? field(canonicalAmount, Math.min(98, sourceConfidence))
+      : undefined,
+  runningBalance:
+    balanceValue !== undefined
+      ? field(balanceValue, Math.min(98, sourceConfidence))
+      : undefined,
+});
   }
 
   return transactions;
@@ -580,11 +593,11 @@ export function extractBankStatement(
     warnings.push("Statement date could not be identified.");
   }
 
-  if (!openingBalance) {
+  if (openingBalance === undefined) {
     warnings.push("Opening balance could not be identified.");
   }
 
-  if (!closingBalance) {
+  if (closingBalance === undefined) {
     warnings.push("Closing balance could not be identified.");
   }
 

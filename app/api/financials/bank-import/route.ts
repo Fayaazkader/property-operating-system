@@ -370,6 +370,43 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
+        /*
+     * Statement-level duplicate protection.
+     *
+     * A statement is uniquely identified by bank account + statement date.
+     * This protects against the same statement being supplied as a
+     * different file, and also handles statements created before any
+     * transaction rows exist.
+     */
+    const governedStatementDate =
+      statementDate || endDate;
+
+    const { data: existingStatement, error: existingStatementError } =
+      await supabase
+        .from("bank_statements")
+        .select("id, statement_date")
+        .eq("bank_account_id", bankAccountId)
+        .eq("statement_date", governedStatementDate)
+        .maybeSingle();
+
+    if (existingStatementError) {
+      throw new Error(
+        `Unable to verify whether this bank statement already exists: ${existingStatementError.message}`
+      );
+    }
+
+    if (existingStatement) {
+      return NextResponse.json(
+        {
+          error:
+            `This bank statement has already been imported for this account ` +
+            `with statement date ${governedStatementDate}. Duplicate detected.`,
+          code: "BANK_STATEMENT_ALREADY_IMPORTED",
+          statementId: existingStatement.id,
+        },
+        { status: 409 }
+      );
+    }
 
     /*
      * Create governed statement.
@@ -380,8 +417,7 @@ export async function POST(request: NextRequest) {
         .insert({
           bank_account_id: bankAccountId,
           entity_id: entityId,
-          statement_date:
-            statementDate || endDate,
+          statement_date: governedStatementDate,
           opening_balance: openingBalance,
           closing_balance: closingBalance,
           status: "imported",
