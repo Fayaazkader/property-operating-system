@@ -29,7 +29,7 @@ export type ParsedBankImport = {
 
 export async function importBankStatement(
   file: File,
-  preset?: BankImportPreset | null
+  preset?: BankImportPreset | null,
 ): Promise<ServiceResponse<ParsedBankImport>> {
   try {
     const ingestion = await ingestDocument(file);
@@ -55,53 +55,50 @@ export async function importBankStatement(
         evidence: ingestion.content.evidence,
       });
 
-      const transactions: ImportedTransaction[] =
-        extraction.transactions
-          .map((transaction): ImportedTransaction | null => {
-            const date = transaction.date?.value;
-            const description = transaction.description?.value;
-            const reference = transaction.reference?.value;
-            const amount =
-              transaction.amount?.value ??
-              (
-                typeof transaction.credit?.value === "number" ||
-                typeof transaction.debit?.value === "number"
-                  ? Number(transaction.credit?.value || 0) -
-                    Number(transaction.debit?.value || 0)
-                  : undefined
-              );
+      const transactions: ImportedTransaction[] = extraction.transactions
+        .map((transaction): ImportedTransaction | null => {
+          const date = transaction.date?.value;
+          const description = transaction.description?.value;
+          const reference = transaction.reference?.value;
+          const amount =
+            transaction.amount?.value ??
+            (typeof transaction.credit?.value === "number" ||
+            typeof transaction.debit?.value === "number"
+              ? Number(transaction.credit?.value || 0) -
+                Number(transaction.debit?.value || 0)
+              : undefined);
 
-            if (
-              typeof date !== "string" ||
-              !date ||
-              typeof description !== "string" ||
-              !description ||
-              typeof amount !== "number" ||
-              !Number.isFinite(amount)
-            ) {
-              return null;
-            }
+          if (
+            typeof date !== "string" ||
+            !date ||
+            typeof description !== "string" ||
+            !description ||
+            typeof amount !== "number" ||
+            !Number.isFinite(amount)
+          ) {
+            return null;
+          }
 
-            return {
-              id: crypto.randomUUID(),
-              transactionDate: date,
-              description,
-              amount,
-              reference:
-                typeof reference === "string" && reference
-                  ? reference
-                  : undefined,
-              status: "unmatched",
-              queue: "review",
-              allocationStatus: "unallocated",
-              isBalanced: false,
-              splitAllocations: [],
-            };
-          })
-          .filter(
-            (transaction): transaction is ImportedTransaction =>
-              transaction !== null
-          );
+          return {
+            id: crypto.randomUUID(),
+            transactionDate: date,
+            description,
+            amount,
+            reference:
+              typeof reference === "string" && reference
+                ? reference
+                : undefined,
+            status: "unmatched",
+            queue: "review",
+            allocationStatus: "unallocated",
+            isBalanced: false,
+            splitAllocations: [],
+          };
+        })
+        .filter(
+          (transaction): transaction is ImportedTransaction =>
+            transaction !== null,
+        );
 
       if (transactions.length === 0) {
         return {
@@ -116,8 +113,7 @@ export async function importBankStatement(
         .map((transaction) => transaction.transactionDate)
         .filter(
           (date): date is string =>
-            typeof date === "string" &&
-            /^\d{4}-\d{2}-\d{2}$/.test(date)
+            typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date),
         )
         .sort();
 
@@ -177,53 +173,50 @@ export async function importBankStatement(
     if (!preset) {
       const extraction = extractBankStatement({ rows });
 
-      const transactions: ImportedTransaction[] =
-        extraction.transactions
-          .map((transaction): ImportedTransaction | null => {
-            const date = transaction.date?.value;
-            const description = transaction.description?.value;
-            const reference = transaction.reference?.value;
-            const amount =
-              transaction.amount?.value ??
-              (
-                typeof transaction.credit?.value === "number" ||
-                typeof transaction.debit?.value === "number"
-                  ? Number(transaction.credit?.value || 0) -
-                    Number(transaction.debit?.value || 0)
-                  : undefined
-              );
+      const transactions: ImportedTransaction[] = extraction.transactions
+        .map((transaction): ImportedTransaction | null => {
+          const date = transaction.date?.value;
+          const description = transaction.description?.value;
+          const reference = transaction.reference?.value;
+          const amount =
+            transaction.amount?.value ??
+            (typeof transaction.credit?.value === "number" ||
+            typeof transaction.debit?.value === "number"
+              ? Number(transaction.credit?.value || 0) -
+                Number(transaction.debit?.value || 0)
+              : undefined);
 
-            if (
-              typeof date !== "string" ||
-              !date ||
-              typeof description !== "string" ||
-              !description ||
-              typeof amount !== "number" ||
-              !Number.isFinite(amount)
-            ) {
-              return null;
-            }
+          if (
+            typeof date !== "string" ||
+            !date ||
+            typeof description !== "string" ||
+            !description ||
+            typeof amount !== "number" ||
+            !Number.isFinite(amount)
+          ) {
+            return null;
+          }
 
-            return {
-              id: crypto.randomUUID(),
-              transactionDate: date,
-              description,
-              amount,
-              reference:
-                typeof reference === "string" && reference
-                  ? reference
-                  : undefined,
-              status: "unmatched",
-              queue: "review",
-              allocationStatus: "unallocated",
-              isBalanced: false,
-              splitAllocations: [],
-            };
-          })
-          .filter(
-            (transaction): transaction is ImportedTransaction =>
-              transaction !== null
-          );
+          return {
+            id: crypto.randomUUID(),
+            transactionDate: date,
+            description,
+            amount,
+            reference:
+              typeof reference === "string" && reference
+                ? reference
+                : undefined,
+            status: "unmatched",
+            queue: "review",
+            allocationStatus: "unallocated",
+            isBalanced: false,
+            splitAllocations: [],
+          };
+        })
+        .filter(
+          (transaction): transaction is ImportedTransaction =>
+            transaction !== null,
+        );
 
       if (transactions.length === 0) {
         return {
@@ -238,8 +231,7 @@ export async function importBankStatement(
         .map((transaction) => transaction.transactionDate)
         .filter(
           (date): date is string =>
-            typeof date === "string" &&
-            /^\d{4}-\d{2}-\d{2}$/.test(date)
+            typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date),
         )
         .sort();
 
@@ -280,8 +272,7 @@ export async function importBankStatement(
     const amountType = preset.amount_type || "single";
     const statementMapping = preset.statement_mapping;
 
-    const headerIndex =
-      preset.transaction_header_row ?? skipRows;
+    const headerIndex = preset.transaction_header_row ?? skipRows;
 
     const dataStartIndex = headerIndex + 1;
 
@@ -299,14 +290,14 @@ export async function importBankStatement(
     if (statementMapping?.opening_balance) {
       openingBalance = findMappedStatementAmount(
         rows,
-        statementMapping.opening_balance
+        statementMapping.opening_balance,
       );
     }
 
     if (statementMapping?.closing_balance) {
       closingBalance = findMappedStatementAmount(
         rows,
-        statementMapping.closing_balance
+        statementMapping.closing_balance,
       );
     }
 
@@ -314,7 +305,7 @@ export async function importBankStatement(
       statementDate = findMappedStatementDate(
         rows,
         statementMapping.statement_date,
-        dateFormat
+        dateFormat,
       );
     }
 
@@ -332,7 +323,7 @@ export async function importBankStatement(
           "brought forward",
           "balance brought fwd",
         ],
-        "opening"
+        "opening",
       );
     }
 
@@ -350,7 +341,7 @@ export async function importBankStatement(
           "carried forward",
           "balance carried fwd",
         ],
-        "closing"
+        "closing",
       );
     }
 
@@ -373,16 +364,12 @@ export async function importBankStatement(
 
       if (!description) continue;
 
-      let amount = 0;
+      let amount: number | undefined;
 
       if (amountType === "dual") {
-        const debitIdx = getColumnIndex(
-          mapping.debit ?? mapping.amount
-        );
+        const debitIdx = getColumnIndex(mapping.debit ?? mapping.amount);
 
-        const creditIdx = getColumnIndex(
-          mapping.credit
-        );
+        const creditIdx = getColumnIndex(mapping.credit);
 
         const debit = parseAmount(columns[debitIdx]);
         const credit = parseAmount(columns[creditIdx]);
@@ -405,11 +392,19 @@ export async function importBankStatement(
         amount = parsedAmount;
       }
 
+      if (amount === undefined || !Number.isFinite(amount)) {
+        continue;
+      }
+
       const parsedDate = parseDate(rawDate, dateFormat);
+
+      if (!parsedDate) {
+        continue;
+      }
 
       transactions.push({
         id: crypto.randomUUID(),
-        transactionDate: parsedDate || rawDate,
+        transactionDate: parsedDate,
         description,
         amount,
         reference: reference || undefined,
@@ -432,16 +427,14 @@ export async function importBankStatement(
       .map((transaction) => transaction.transactionDate)
       .filter(
         (date): date is string =>
-          typeof date === "string" &&
-          /^\d{4}-\d{2}-\d{2}$/.test(date)
+          typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date),
       )
       .sort();
 
     if (dates.length === 0) {
       return {
         success: false,
-        error:
-          "No valid transaction dates could be determined from the file.",
+        error: "No valid transaction dates could be determined from the file.",
       };
     }
 
@@ -475,7 +468,7 @@ export async function importBankStatement(
  */
 function findMappedStatementAmount(
   rows: string[][],
-  column: number
+  column: number,
 ): number | null {
   const index = getColumnIndex(column);
 
@@ -495,7 +488,7 @@ function findMappedStatementAmount(
 function findMappedStatementDate(
   rows: string[][],
   column: number,
-  dateFormat: string
+  dateFormat: string,
 ): string | null {
   const index = getColumnIndex(column);
 
@@ -504,15 +497,9 @@ function findMappedStatementDate(
 
     if (!value) continue;
 
-    const parsed = parseDate(
-      value,
-      dateFormat
-    );
+    const parsed = parseDate(value, dateFormat);
 
-    if (
-      parsed &&
-      /^\d{4}-\d{2}-\d{2}$/.test(parsed)
-    ) {
+    if (parsed && /^\d{4}-\d{2}-\d{2}$/.test(parsed)) {
       return parsed;
     }
   }
@@ -530,11 +517,9 @@ function findMappedStatementDate(
 function detectStatementBalance(
   rows: string[][],
   labels: string[],
-  direction: "opening" | "closing"
+  direction: "opening" | "closing",
 ): number | null {
-  const normalizedLabels = labels.map(
-    normalizeLabel
-  );
+  const normalizedLabels = labels.map(normalizeLabel);
 
   /*
    * First pass:
@@ -542,18 +527,14 @@ function detectStatementBalance(
    * another column on the same row.
    */
   for (const row of rows) {
-    const normalizedRow = row.map(
-      normalizeLabel
-    );
+    const normalizedRow = row.map(normalizeLabel);
 
     const labelIndex = normalizedRow.findIndex(
       (cell) =>
         cell &&
         normalizedLabels.some(
-          (label) =>
-            cell === label ||
-            cell.includes(label)
-        )
+          (label) => cell === label || cell.includes(label),
+        ),
     );
 
     if (labelIndex === -1) continue;
@@ -562,11 +543,7 @@ function detectStatementBalance(
      * Prefer a numeric value immediately following
      * the balance label.
      */
-    for (
-      let index = labelIndex + 1;
-      index < row.length;
-      index++
-    ) {
+    for (let index = labelIndex + 1; index < row.length; index++) {
       const parsed = parseAmount(row[index]);
 
       if (parsed !== null) {
@@ -577,11 +554,7 @@ function detectStatementBalance(
     /*
      * Some statements put the amount before the label.
      */
-    for (
-      let index = labelIndex - 1;
-      index >= 0;
-      index--
-    ) {
+    for (let index = labelIndex - 1; index >= 0; index--) {
       const parsed = parseAmount(row[index]);
 
       if (parsed !== null) {
@@ -605,9 +578,7 @@ function detectStatementBalance(
       const normalized = normalizeLabel(cell);
 
       return normalizedLabels.some(
-        (label) =>
-          normalized === label ||
-          normalized.includes(label)
+        (label) => normalized === label || normalized.includes(label),
       );
     });
 
@@ -615,8 +586,7 @@ function detectStatementBalance(
 
     for (
       let nextRowIndex = rowIndex + 1;
-      nextRowIndex <=
-        Math.min(rowIndex + 2, rows.length - 1);
+      nextRowIndex <= Math.min(rowIndex + 2, rows.length - 1);
       nextRowIndex++
     ) {
       for (const cell of rows[nextRowIndex]) {
@@ -642,7 +612,7 @@ function detectStatementBalance(
 
 function detectStatementDate(
   rows: string[][],
-  dateFormat: string
+  dateFormat: string,
 ): string | null {
   const labels = [
     "statement date",
@@ -654,36 +624,19 @@ function detectStatementDate(
   ].map(normalizeLabel);
 
   for (const row of rows) {
-    const normalizedRow = row.map(
-      normalizeLabel
-    );
+    const normalizedRow = row.map(normalizeLabel);
 
     const labelIndex = normalizedRow.findIndex(
       (cell) =>
-        cell &&
-        labels.some(
-          (label) =>
-            cell === label ||
-            cell.includes(label)
-        )
+        cell && labels.some((label) => cell === label || cell.includes(label)),
     );
 
     if (labelIndex === -1) continue;
 
-    for (
-      let index = labelIndex + 1;
-      index < row.length;
-      index++
-    ) {
-      const parsed = parseDate(
-        row[index] || "",
-        dateFormat
-      );
+    for (let index = labelIndex + 1; index < row.length; index++) {
+      const parsed = parseDate(row[index] || "", dateFormat);
 
-      if (
-        parsed &&
-        /^\d{4}-\d{2}-\d{2}$/.test(parsed)
-      ) {
+      if (parsed && /^\d{4}-\d{2}-\d{2}$/.test(parsed)) {
         return parsed;
       }
     }
@@ -692,9 +645,7 @@ function detectStatementDate(
   return null;
 }
 
-function normalizeLabel(
-  value: string | undefined
-): string {
+function normalizeLabel(value: string | undefined): string {
   return (value || "")
     .toLowerCase()
     .replace(/[_:]/g, " ")
@@ -702,48 +653,44 @@ function normalizeLabel(
     .trim();
 }
 
-function getColumnIndex(
-  column?: number
-): number {
+function getColumnIndex(column?: number): number {
   if (!column || column < 1) return 0;
 
   // Presets use 1-based column numbers.
   return column - 1;
 }
 
-function parseAmount(
-  value?: string
-): number | null {
+function parseAmount(value?: string): number | null {
   if (!value) return null;
 
-  const cleaned = value
-    .replace(/\s/g, "")
-    .replace(/R/gi, "")
-    .replace(/,/g, "");
+  let normalized = value.trim();
 
-  if (!cleaned) return null;
+  if (!normalized) return null;
 
-  const parsed = Number(
-    cleaned.replace(/[^0-9.-]/g, "")
-  );
+  const negative = /^\(.*\)$/.test(normalized) || normalized.includes("-");
 
-  return Number.isFinite(parsed)
-    ? parsed
-    : null;
+  normalized = normalized
+    .replace(/[R$£€]/gi, "")
+    .replace(/[,\s]/g, "")
+    .replace(/[()]/g, "")
+    .replace(/[^0-9.]/g, "");
+
+  if (!normalized) return null;
+
+  const parsed = Number(normalized);
+
+  if (!Number.isFinite(parsed)) return null;
+
+  return negative ? -Math.abs(parsed) : parsed;
 }
 
-function parseDate(
-  dateStr: string,
-  format: string
-): string | null {
+function parseDate(dateStr: string, format: string): string | null {
   if (!dateStr) return null;
 
-  const parts = dateStr
-    .trim()
-    .split(/[\/.\-]/);
+  const parts = dateStr.trim().split(/[\/.\-]/);
 
   if (parts.length !== 3) {
-    return dateStr;
+    return null;
   }
 
   let day: number;
@@ -763,23 +710,29 @@ function parseDate(
     month = parseInt(parts[1], 10);
     day = parseInt(parts[2], 10);
   } else {
-    return dateStr;
+    return null;
   }
 
-  if (
-    Number.isNaN(day) ||
-    Number.isNaN(month) ||
-    Number.isNaN(year)
-  ) {
-    return dateStr;
+  if (Number.isNaN(day) || Number.isNaN(month) || Number.isNaN(year)) {
+    return null;
   }
 
   if (year < 100) {
     year += 2000;
   }
 
-  return `${year}-${String(month).padStart(
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    candidate.getUTCFullYear() !== year ||
+    candidate.getUTCMonth() !== month - 1 ||
+    candidate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(
     2,
-    "0"
-  )}-${String(day).padStart(2, "0")}`;
+    "0",
+  )}`;
 }
