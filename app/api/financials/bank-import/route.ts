@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     const authClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { persistSession: false } }
+      { auth: { persistSession: false } },
     );
 
     const {
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } }
+      { auth: { persistSession: false } },
     );
 
     const formData = await request.formData();
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         {
           error: "file, entityId, and bankAccountId are required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       } catch {
         return NextResponse.json(
           { error: "Invalid import preset." },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -78,10 +78,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!access) {
-      return NextResponse.json(
-        { error: "Access denied." },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "Access denied." }, { status: 403 });
     }
 
     /*
@@ -99,7 +96,7 @@ export async function POST(request: NextRequest) {
     if (!bankAccount) {
       return NextResponse.json(
         { error: "Bank account not found or access denied." },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -120,19 +117,16 @@ export async function POST(request: NextRequest) {
       const accountMatch = await matchBankAccount(
         detection.accountNumber,
         detection.bankName,
-        entityId
+        entityId,
       );
 
-      if (
-        accountMatch &&
-        accountMatch.id !== bankAccountId
-      ) {
+      if (accountMatch && accountMatch.id !== bankAccountId) {
         return NextResponse.json(
           {
             error:
               "The bank account detected in the statement does not match the selected AssetFlow bank account.",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
     } catch {
@@ -152,13 +146,10 @@ export async function POST(request: NextRequest) {
         ? preset
           ? {
               ...preset,
-              transaction_header_row:
-                detection.transactionHeaderRow,
+              transaction_header_row: detection.transactionHeaderRow,
               column_mapping: {
                 ...preset.column_mapping,
-                ...(detection.dateColumn
-                  ? { date: detection.dateColumn }
-                  : {}),
+                ...(detection.dateColumn ? { date: detection.dateColumn } : {}),
                 ...(detection.descriptionColumn
                   ? { description: detection.descriptionColumn }
                   : {}),
@@ -175,16 +166,12 @@ export async function POST(request: NextRequest) {
                   ? { credit: detection.creditColumn }
                   : {}),
               },
-              date_format:
-                detection.dateFormat || preset.date_format,
-              amount_type:
-                detection.amountType || preset.amount_type,
+              date_format: detection.dateFormat || preset.date_format,
+              amount_type: detection.amountType || preset.amount_type,
             }
           : {
               column_mapping: {
-                ...(detection.dateColumn
-                  ? { date: detection.dateColumn }
-                  : {}),
+                ...(detection.dateColumn ? { date: detection.dateColumn } : {}),
                 ...(detection.descriptionColumn
                   ? { description: detection.descriptionColumn }
                   : {}),
@@ -202,21 +189,16 @@ export async function POST(request: NextRequest) {
                   : {}),
               },
               amount_type: detection.amountType,
-              date_format:
-                detection.dateFormat || "DD/MM/YYYY",
+              date_format: detection.dateFormat || "DD/MM/YYYY",
               skip_rows: 0,
-              transaction_header_row:
-                detection.transactionHeaderRow,
+              transaction_header_row: detection.transactionHeaderRow,
             }
         : preset;
 
     /*
      * Validation is server-side.
      */
-    const validation = await validateBankImport(
-      file,
-      importPreset
-    );
+    const validation = await validateBankImport(file, importPreset);
 
     if (!validation.valid) {
       return NextResponse.json(
@@ -224,26 +206,21 @@ export async function POST(request: NextRequest) {
           error: validation.errors.join(" · "),
           validation,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     /*
      * Document Intelligence + existing bank import engine.
      */
-    const result = await importBankStatement(
-      file,
-      importPreset
-    );
+    const result = await importBankStatement(file, importPreset);
 
     if (!result.success || !result.data) {
       return NextResponse.json(
         {
-          error:
-            result.error ||
-            "Bank statement could not be processed.",
+          error: result.error || "Bank statement could not be processed.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -259,12 +236,11 @@ export async function POST(request: NextRequest) {
     /*
      * Financial period governance.
      */
-    const periodValidation =
-      await validateBankImportFinancialPeriod(
-        entityId,
-        startDate,
-        endDate
-      );
+    const periodValidation = await validateBankImportFinancialPeriod(
+      entityId,
+      startDate,
+      endDate,
+    );
 
     if (!periodValidation.valid) {
       return NextResponse.json(
@@ -273,20 +249,19 @@ export async function POST(request: NextRequest) {
             periodValidation.reason ||
             "Bank import is outside the open financial period.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     /*
      * Statement continuity / overlap governance.
      */
-    const governanceValidation =
-      await validateBankStatementGovernance(
-        bankAccountId,
-        openingBalance,
-        startDate,
-        endDate
-      );
+    const governanceValidation = await validateBankStatementGovernance(
+      bankAccountId,
+      openingBalance,
+      startDate,
+      endDate,
+    );
 
     if (!governanceValidation.valid) {
       return NextResponse.json(
@@ -295,43 +270,35 @@ export async function POST(request: NextRequest) {
             governanceValidation.reason ||
             "Bank statement governance validation failed.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     /*
      * Verify source opening + transactions = source closing.
      */
-    if (
-      openingBalance !== null &&
-      closingBalance !== null
-    ) {
+    if (openingBalance !== null && closingBalance !== null) {
       const transactionMovement = transactions.reduce(
         (sum, tx) => sum + (tx.amount || 0),
-        0
+        0,
       );
 
       const calculatedClosing =
-        Math.round(
-          (openingBalance + transactionMovement) * 100
-        ) / 100;
+        Math.round((openingBalance + transactionMovement) * 100) / 100;
 
       const difference =
-        Math.round(
-          (calculatedClosing - closingBalance) * 100
-        ) / 100;
+        Math.round((calculatedClosing - closingBalance) * 100) / 100;
 
       if (Math.abs(difference) > 0.01) {
         return NextResponse.json(
           {
             error:
               `Bank statement balance validation failed. ` +
-              `Difference: R${difference.toLocaleString(
-                "en-ZA",
-                { minimumFractionDigits: 2 }
-              )}.`,
+              `Difference: R${difference.toLocaleString("en-ZA", {
+                minimumFractionDigits: 2,
+              })}.`,
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -341,14 +308,9 @@ export async function POST(request: NextRequest) {
      */
     const fileBuffer = await file.arrayBuffer();
 
-    const digest = await crypto.subtle.digest(
-      "SHA-256",
-      fileBuffer
-    );
+    const digest = await crypto.subtle.digest("SHA-256", fileBuffer);
 
-    const batchRef = Array.from(
-      new Uint8Array(digest)
-    )
+    const batchRef = Array.from(new Uint8Array(digest))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
 
@@ -367,10 +329,10 @@ export async function POST(request: NextRequest) {
           error:
             "This bank statement has already been imported. Duplicate detected.",
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
-        /*
+    /*
      * Statement-level duplicate protection.
      *
      * A statement is uniquely identified by bank account + statement date.
@@ -378,8 +340,7 @@ export async function POST(request: NextRequest) {
      * different file, and also handles statements created before any
      * transaction rows exist.
      */
-    const governedStatementDate =
-      statementDate || endDate;
+    const governedStatementDate = statementDate || endDate;
 
     const { data: existingStatement, error: existingStatementError } =
       await supabase
@@ -391,7 +352,7 @@ export async function POST(request: NextRequest) {
 
     if (existingStatementError) {
       throw new Error(
-        `Unable to verify whether this bank statement already exists: ${existingStatementError.message}`
+        `Unable to verify whether this bank statement already exists: ${existingStatementError.message}`,
       );
     }
 
@@ -404,31 +365,58 @@ export async function POST(request: NextRequest) {
           code: "BANK_STATEMENT_ALREADY_IMPORTED",
           statementId: existingStatement.id,
         },
-        { status: 409 }
+        { status: 409 },
       );
+    }
+
+    /*
+     * Validate persistence invariants before writing anything.
+     */
+    for (const tx of transactions) {
+      if (typeof tx.amount !== "number" || !Number.isFinite(tx.amount)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Bank statement contains a transaction with an invalid amount. Nothing was imported.",
+            code: "INVALID_TRANSACTION_AMOUNT",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (!tx.transactionDate) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Bank statement contains a transaction with an invalid date. Nothing was imported.",
+            code: "INVALID_TRANSACTION_DATE",
+          },
+          { status: 400 },
+        );
+      }
     }
 
     /*
      * Create governed statement.
      */
-    const { data: statement, error: statementError } =
-      await supabase
-        .from("bank_statements")
-        .insert({
-          bank_account_id: bankAccountId,
-          entity_id: entityId,
-          statement_date: governedStatementDate,
-          opening_balance: openingBalance,
-          closing_balance: closingBalance,
-          status: "imported",
-        })
-        .select("id")
-        .single();
+    const { data: statement, error: statementError } = await supabase
+      .from("bank_statements")
+      .insert({
+        bank_account_id: bankAccountId,
+        entity_id: entityId,
+        statement_date: governedStatementDate,
+        opening_balance: openingBalance,
+        closing_balance: closingBalance,
+        status: "imported",
+      })
+      .select("id")
+      .single();
 
     if (statementError || !statement) {
       throw new Error(
-        statementError?.message ||
-          "The bank statement could not be created."
+        statementError?.message || "The bank statement could not be created.",
       );
     }
 
@@ -440,27 +428,19 @@ export async function POST(request: NextRequest) {
         .from("bank_transactions")
         .upsert({
           id: tx.id,
-          transaction_date:
-            tx.transactionDate || null,
-          transaction_description:
-            tx.description || null,
-          transaction_amount:
-            tx.amount || 0,
-          transaction_reference:
-            tx.reference || null,
-          bank_account_name:
-            bankAccount.bank_name || null,
+          transaction_date: tx.transactionDate || null,
+          transaction_description: tx.description || null,
+          transaction_amount: tx.amount,
+          transaction_reference: tx.reference || null,
+          bank_account_name: bankAccount.bank_name || null,
           bank_account_id: bankAccountId,
-          bank_account_number:
-            bankAccount.account_number || null,
+          bank_account_number: bankAccount.account_number || null,
           allocation_status: "unallocated",
-          split_allocations:
-            tx.splitAllocations || [],
+          split_allocations: tx.splitAllocations || [],
           queue: "review",
           posting_status: "not_posted",
           imported_batch_reference: batchRef,
-          imported_at:
-            new Date().toISOString(),
+          imported_at: new Date().toISOString(),
           statement_id: statement.id,
         });
 
@@ -468,20 +448,12 @@ export async function POST(request: NextRequest) {
         await supabase
           .from("bank_transactions")
           .delete()
-          .eq(
-            "imported_batch_reference",
-            batchRef
-          )
+          .eq("imported_batch_reference", batchRef)
           .eq("statement_id", statement.id);
 
-        await supabase
-          .from("bank_statements")
-          .delete()
-          .eq("id", statement.id);
+        await supabase.from("bank_statements").delete().eq("id", statement.id);
 
-        throw new Error(
-          `Transaction import failed: ${upsertError.message}`
-        );
+        throw new Error(`Transaction import failed: ${upsertError.message}`);
       }
     }
 
@@ -490,18 +462,41 @@ export async function POST(request: NextRequest) {
      * a verified closing balance.
      */
     if (closingBalance !== null) {
-      const { error: balanceError } =
-        await supabase
-          .from("bank_accounts")
-          .update({
-            current_balance: closingBalance,
-            statement_balance: closingBalance,
-          })
-          .eq("id", bankAccountId);
+      const { error: balanceError } = await supabase
+        .from("bank_accounts")
+        .update({
+          current_balance: closingBalance,
+          statement_balance: closingBalance,
+        })
+        .eq("id", bankAccountId);
 
       if (balanceError) {
+        const { error: rollbackTransactionsError } = await supabase
+          .from("bank_transactions")
+          .delete()
+          .eq("imported_batch_reference", batchRef)
+          .eq("statement_id", statement.id);
+
+        const { error: rollbackStatementError } = await supabase
+          .from("bank_statements")
+          .delete()
+          .eq("id", statement.id);
+
+        if (rollbackTransactionsError || rollbackStatementError) {
+          throw new Error(
+            `Bank import failed during account balance update and automatic rollback was incomplete. ` +
+              `Balance error: ${balanceError.message}. ` +
+              `Transaction rollback: ${
+                rollbackTransactionsError?.message || "completed"
+              }. ` +
+              `Statement rollback: ${
+                rollbackStatementError?.message || "completed"
+              }.`,
+          );
+        }
+
         throw new Error(
-          `Statement imported, but account balance update failed: ${balanceError.message}`
+          `Bank import failed during account balance update. No statement or transactions were retained. ${balanceError.message}`,
         );
       }
     }
@@ -509,8 +504,7 @@ export async function POST(request: NextRequest) {
     /*
      * Reconciliation remains separate from posting.
      */
-    const recon =
-      await runReconciliationEngine(entityId);
+    const recon = await runReconciliationEngine(entityId);
 
     return NextResponse.json({
       success: true,
@@ -522,19 +516,14 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error(
-      "Bank statement import API error:",
-      error
-    );
+    console.error("Bank statement import API error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Bank statement import failed.",
+        error: error?.message || "Bank statement import failed.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
