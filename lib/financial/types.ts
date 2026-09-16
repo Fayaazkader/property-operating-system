@@ -69,6 +69,7 @@ export interface JournalLine {
   entity_id?: string; property_id?: string | null;
   lease_id?: string | null; tenant_id?: string | null;
   supplier_id?: string | null; broker_id?: string | null;
+  bank_account_id?: string | null;
   cost_centre?: string | null; created_at: string;
 }
 
@@ -89,7 +90,8 @@ export interface FinancialEvent {
 
 export interface FinancialEventDimensions {
   property_id?: string; lease_id?: string; tenant_id?: string;
-  supplier_id?: string; broker_id?: string; cost_centre?: string;
+  supplier_id?: string; broker_id?: string; bank_account_id?: string;
+  cost_centre?: string;
 }
 
 export interface PostingResult {
