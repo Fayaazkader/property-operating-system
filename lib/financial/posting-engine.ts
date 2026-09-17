@@ -70,7 +70,7 @@ export class PostingEngine {
       source_id: event.metadata?.source_id,
       reference: event.reference,
       template_id: template.id,
-      template_version: template.version || 1,
+      template_version: 1,
       is_posted: false,
       created_by: event.metadata?.created_by || "system",
       created_at: new Date().toISOString(),
@@ -147,7 +147,7 @@ export class PostingEngine {
     const explanation: PostingExplanation = {
       business_event: event.business_event,
       template_id: template.id,
-      template_version: template.version || 1,
+      template_version: 1,
       resolved_accounts: resolvedAccounts,
       vat_decision: {
         treatment: vatTreatment,
@@ -169,7 +169,7 @@ export class PostingEngine {
       },
       overrides_applied: overridesApplied,
       settings_used: settingsUsed,
-      natural_language: `This journal was created because a ${event.business_event.replace(/_/g, " ")} occurred from ${event.source_engine}. Posting template "${template.description || template.business_event}" (v${template.version || 1}) was applied. ${resolvedAccounts.map((a) => `${a.direction} ${a.account_name} (${a.gl_code}) for R${a.amount.toLocaleString()}`).join(". ")}. VAT treatment: ${vatTreatment}. Posted to ${period?.period_name || "current period"}.`,
+      natural_language: `This journal was created because a ${event.business_event.replace(/_/g, " ")} occurred from ${event.source_engine}. Posting template "${template.description || template.business_event}" (v1) was applied. ${resolvedAccounts.map((a) => `${a.direction} ${a.account_name} (${a.gl_code}) for R${a.amount.toLocaleString()}`).join(". ")}. VAT treatment: ${vatTreatment}. Posted to ${period?.period_name || "current period"}.`,
     };
 
     // ═══════════════════════════════════════

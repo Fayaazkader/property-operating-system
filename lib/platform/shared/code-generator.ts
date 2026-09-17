@@ -1,9 +1,11 @@
-import { supabase } from '@/lib/supabase';
+import { supabase } from "@/lib/supabase";
 
 export const codeGenerator = {
   async generate(prefix: string): Promise<string> {
-    const { data, error } = await supabase.rpc('next_sequence', { seq_name: prefix });
+    const { data, error } = await supabase.rpc("next_business_code", {
+      seq_name: prefix,
+    });
     if (error) throw error;
     return data as string;
-  }
+  },
 };
