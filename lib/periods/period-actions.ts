@@ -31,16 +31,21 @@ export async function startBillingRun(entityId: string, statementPeriod: string,
 export async function closeStatementPeriod(entityId: string, periodName: string, correlationId?: string): Promise<PeriodActionResult> {
   const cid = correlationId || crypto.randomUUID();
   return withIdempotency(cid, 'close_statement_period', async () => {
-    const [billingStatus, reconciliationStatus, tbStatus] = await Promise.all([
-      billingStatusService.getStatus(entityId), reconciliationStatusService.getStatus(entityId), tbStatusService.getStatus(entityId),
-    ]);
-    if (!billingStatus.completed || !reconciliationStatus.balanced || !tbStatus.balanced) {
-      return { success: false, message: 'Close validations failed', validations: [
-        { check: 'invoices', passed: billingStatus.completed, message: `${billingStatus.invoicesGenerated} invoices` },
-        { check: 'cashbook', passed: reconciliationStatus.balanced, message: reconciliationStatus.balanced ? 'Reconciled' : `${reconciliationStatus.unreconciled} unreconciled` },
-        { check: 'tb', passed: tbStatus.balanced, message: tbStatus.balanced ? 'TB balanced' : 'TB out of balance' },
-      ]};
-    }
+    const billingStatus = await billingStatusService.getStatus(entityId);
+
+if (!billingStatus.completed) {
+  return {
+    success: false,
+    message: 'Close validations failed',
+    validations: [
+      {
+        check: 'invoices',
+        passed: false,
+        message: `${billingStatus.invoicesGenerated} invoices`,
+      },
+    ],
+  };
+}
     const { data, error } = await supabase.rpc('close_statement_period_atomic', { p_entity_id: entityId, p_period_name: periodName, p_expected_phase: 'billing_complete' });
     if (error) return { success: false, message: error.message };
     const result = data as any;
