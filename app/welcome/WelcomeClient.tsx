@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { propertyService } from "@/lib/platform/admin/property/service";
+import { leaseNumberService } from "@/lib/workflow/services/lease-number-service";
 
 const STEPS = [
   { key: "workspace", label: "Workspace Created", done: true },
@@ -79,26 +81,28 @@ export default function WelcomePage() {
     if (!propertyName || !entityId) return;
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("properties")
-      .insert({
+    try {
+      const property = await propertyService.create({
         property_name: propertyName,
-        physical_address: propertyAddress || null,
+        address_line_1: propertyAddress || undefined,
         entity_id: entityId,
-        gla_sqm: parseFloat(propertyGLA) || null,
-      })
-      .select("id")
-      .single();
+      });
 
-    if (error || !data) {
+      if (!property?.id) {
+        throw new Error("Property was created without an ID.");
+      }
+
+      setPropertyId(property.id);
+      setCompleted([...completed, "property"]);
+      nextStep();
+    } catch (error) {
+      alert(
+        "Error creating property: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setPropertyId(data.id);
-    setCompleted([...completed, "property"]);
-    nextStep();
-    setLoading(false);
   }
 
   async function handleCreatePremises() {
@@ -107,16 +111,19 @@ export default function WelcomePage() {
     const { data, error } = await supabase
       .from("units")
       .insert({
+        unit_number: premisesName,
         unit_name: premisesName,
         property_id: propertyId,
         gla_sqm: parseFloat(premisesGLA) || null,
         occupancy_status: "Vacant",
+        operational_status: "Active",
       })
       .select("id")
       .single();
 
     if (error || !data) {
       setLoading(false);
+      alert("Error creating premises: " + (error?.message || "Unknown error"));
       return;
     }
 
@@ -137,12 +144,14 @@ export default function WelcomePage() {
         email: tenantEmail || null,
         phone: tenantPhone || null,
         entity_id: entityId,
+        kyc_status: "Pending",
       })
       .select("id")
       .single();
 
     if (error || !data) {
       setLoading(false);
+      alert("Error creating tenant: " + (error?.message || "Unknown error"));
       return;
     }
 
@@ -156,29 +165,75 @@ export default function WelcomePage() {
     if (!monthlyRental || !tenantId || !propertyId || !entityId) return;
     setLoading(true);
 
-    const { error } = await supabase.from("leases").insert({
-      tenant_id: tenantId,
-      tenant_name: tenantName,
-      property_id: propertyId,
-      property_name: propertyName,
-      unit_number: premisesName || null,
-      monthly_rental: parseFloat(monthlyRental),
-      lease_start_date: leaseStart || null,
-      lease_end_date: leaseEnd || null,
-      lease_status: "Active",
-      owner_entity_id: entityId,
-      managing_entity_id: entityId,
-      billing_frequency: "monthly",
-    });
+    try {
+      const { data: property, error: propertyError } = await supabase
+        .from("properties")
+        .select("property_code")
+        .eq("id", propertyId)
+        .single();
 
-    if (error) {
+      if (propertyError || !property) {
+        throw new Error(
+          propertyError?.message || "Unable to load the selected property.",
+        );
+      }
+
+      const propertyCode = property.property_code || "PRP";
+      const leaseRef = await leaseNumberService.generate(propertyCode);
+
+      const { data: lease, error } = await supabase
+        .from("leases")
+        .insert({
+          client_id: tenantId,
+          tenant_id: tenantId,
+          property_id: propertyId,
+          unit_id: premisesId,
+          owner_entity_id: entityId,
+          managing_entity_id: entityId,
+          lease_id: leaseRef,
+          tenant_name: tenantName,
+          property_name: propertyName,
+          unit_number: premisesName || null,
+          monthly_rental: parseFloat(monthlyRental),
+          lease_start_date: leaseStart || null,
+          lease_end_date: leaseEnd || null,
+          lease_status: "Active",
+          billing_frequency: "monthly",
+        })
+        .select("id")
+        .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (premisesId) {
+        const { error: unitError } = await supabase
+          .from("units")
+          .update({
+            occupancy_status: "Occupied",
+            current_tenant_name: tenantName,
+            current_lease_id: lease.id,
+          })
+          .eq("id", premisesId);
+
+        if (unitError) {
+          throw new Error(
+            `Lease was created, but the premises could not be updated: ${unitError.message}`,
+          );
+        }
+      }
+
+      setCompleted([...completed, "lease"]);
+      nextStep();
+    } catch (error) {
+      alert(
+        "Error creating lease: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setCompleted([...completed, "lease"]);
-    nextStep();
-    setLoading(false);
   }
 
   function nextStep() {
