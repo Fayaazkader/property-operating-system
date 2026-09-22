@@ -13,6 +13,7 @@ export interface CashBookPostingResult {
   journalId?: string;
   message: string;
   newState: PostingStatus;
+  deferred?: boolean;
 }
 
 export const cashbookPostingService = {
@@ -59,32 +60,7 @@ export const cashbookPostingService = {
       };
     }
 
-    const { data: claimedTxn, error: claimError } = await supabase
-      .from("bank_transactions")
-      .update({
-        posting_status: "posting",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", transactionId)
-      .in("posting_status", ["not_posted", "posting_failed"])
-      .select("id")
-      .maybeSingle();
-
-    if (claimError) {
-      return {
-        success: false,
-        message: claimError.message,
-        newState: postingState,
-      };
-    }
-
-    if (!claimedTxn) {
-      return {
-        success: false,
-        message: "Transaction could not be claimed for posting.",
-        newState: postingState,
-      };
-    }
+    let transactionClaimed = false;
 
     try {
       // Classify the transaction
@@ -173,6 +149,43 @@ export const cashbookPostingService = {
           "Cannot post transaction because its bank account has no entity.",
         );
       }
+      /*
+       * Atomically govern and claim the transaction.
+       *
+       * For tenant receipts, the database function locks the transaction
+       * and the current statement period before allowing the claim.
+       * This prevents a statement-period transition from racing receipt
+       * posting.
+       */
+      const { data: claimResult, error: claimError } = await supabase.rpc(
+        "claim_cashbook_transaction",
+        {
+          p_transaction_id: transactionId,
+          p_requires_receipt_governance:
+            mapping.event === "rental_receipt_received",
+        },
+      );
+
+      if (claimError) {
+        return {
+          success: false,
+          message: claimError.message,
+          newState: postingState,
+        };
+      }
+
+      if (!claimResult?.success) {
+        return {
+          success: false,
+          message:
+            claimResult?.message ||
+            "Transaction could not be claimed for posting.",
+          newState: postingState,
+          deferred: claimResult?.deferred === true,
+        };
+      }
+
+      transactionClaimed = true;
 
       // Post to engine
       console.log("Posting event with entity_id:", bankAccount?.entity_id, txn);
@@ -342,15 +355,23 @@ export const cashbookPostingService = {
         newState: "posted",
       };
     } catch (error) {
-      await supabase
-        .from("bank_transactions")
-        .update({
-          posting_status: "posting_failed",
-          queue: "exceptions",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", transactionId);
-      logger.error("Cash Book posting failed", { transactionId, error });
+      if (transactionClaimed) {
+        await supabase
+          .from("bank_transactions")
+          .update({
+            posting_status: "posting_failed",
+            queue: "exceptions",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", transactionId);
+      }
+
+      logger.error("Cash Book posting failed", {
+        transactionId,
+        error,
+        transactionClaimed,
+      });
+
       return {
         success: false,
         message: error instanceof Error ? error.message : "Posting failed",
@@ -363,7 +384,7 @@ export const cashbookPostingService = {
   async postReadyTransactions(
     entityId: string,
     accountId?: string,
-  ): Promise<{ posted: number; failed: number }> {
+  ): Promise<{ posted: number; failed: number; deferred: number }> {
     let query = supabase
       .from("bank_transactions")
       .select("id, bank_accounts!inner(entity_id)")
@@ -373,15 +394,26 @@ export const cashbookPostingService = {
       .eq("queue", "ready");
     if (accountId) query = query.eq("bank_account_id", accountId);
     const { data: readyTxns } = await query;
-    if (!readyTxns?.length) return { posted: 0, failed: 0 };
+    if (!readyTxns?.length) {
+      return { posted: 0, failed: 0, deferred: 0 };
+    }
 
     let posted = 0,
-      failed = 0;
+      failed = 0,
+      deferred = 0;
+
     for (const txn of readyTxns) {
       const result = await this.postTransaction(txn.id);
-      if (result.success) posted++;
-      else failed++;
+
+      if (result.success) {
+        posted++;
+      } else if (result.deferred) {
+        deferred++;
+      } else {
+        failed++;
+      }
     }
-    return { posted, failed };
+
+    return { posted, failed, deferred };
   },
 };

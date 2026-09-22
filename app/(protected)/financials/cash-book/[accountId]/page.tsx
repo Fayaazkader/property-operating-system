@@ -60,6 +60,7 @@ export default function AccountWorkspacePage() {
   const [postingResult, setPostingResult] = useState<{
     posted: number;
     failed: number;
+    deferred: number;
   } | null>(null);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
@@ -366,7 +367,8 @@ export default function AccountWorkspacePage() {
           className={`rounded-xl border p-4 ${postingResult.failed === 0 ? "border-emerald-500/20 bg-emerald-500/5" : "border-amber-500/20 bg-amber-500/5"}`}
         >
           <p className="text-sm text-white">
-            Posted: {postingResult.posted} · Failed: {postingResult.failed}
+            Posted: {postingResult.posted} · Deferred: {postingResult.deferred}{" "}
+            · Failed: {postingResult.failed}
           </p>
           <button
             onClick={() => setPostingResult(null)}
