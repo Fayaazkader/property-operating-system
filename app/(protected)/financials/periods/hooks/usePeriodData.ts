@@ -12,7 +12,15 @@ type StatementPhase = 'open' | 'receipting' | 'allocation' | 'billing_requested'
 type FinancialPhase = 'open' | 'closing' | 'closed';
 
 async function safelyGetPeriod(eid: string, type: string) {
-  const { data } = await supabase.from('financial_periods').select('period_name, status, workflow_phase').eq('entity_id', eid).eq('period_type', type).eq('status', 'open').order('period_start').limit(1);
+  const { data } = await supabase
+    .from('financial_periods')
+    .select('period_name, period_start, period_end, status, workflow_phase')
+    .eq('entity_id', eid)
+    .eq('period_type', type)
+    .eq('status', 'open')
+    .order('period_start')
+    .limit(1);
+
   return data?.[0] || null;
 }
 
@@ -20,6 +28,8 @@ export function usePeriodData() {
   const [loading, setLoading] = useState(true);
   const [entityId, setEntityId] = useState("");
   const [statementPeriod, setStatementPeriod] = useState("");
+  const [statementStart, setStatementStart] = useState("");
+  const [statementEnd, setStatementEnd] = useState("");
   const [statementPhase, setStatementPhase] = useState<StatementPhase>("open");
   const [financialPeriod, setFinancialPeriod] = useState("");
   const [financialPhase, setFinancialPhase] = useState<FinancialPhase>("open");
@@ -50,6 +60,8 @@ export function usePeriodData() {
 
       // Phase comes DIRECTLY from the database — domain is the source of truth
       setStatementPeriod(stmtPeriod?.period_name || "");
+      setStatementStart(stmtPeriod?.period_start || "");
+      setStatementEnd(stmtPeriod?.period_end || "");
       setStatementPhase((stmtPeriod?.workflow_phase || stmtPeriod?.status || 'open') as StatementPhase);
       setFinancialPeriod(finPeriod?.period_name || "");
       setFinancialPhase((finPeriod?.workflow_phase || finPeriod?.status || 'open') as FinancialPhase);
@@ -83,5 +95,22 @@ export function usePeriodData() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  return { loading, entityId, statementPeriod, statementPhase, financialPeriod, financialPhase, activeLeases, invoicesGenerated, unreconciled, cashbookBalanced, tbBalanced, startBillingRun: startBilling, closeStatement, closeFinancial };
+  return {
+    loading,
+    entityId,
+    statementPeriod,
+    statementStart,
+    statementEnd,
+    statementPhase,
+    financialPeriod,
+    financialPhase,
+    activeLeases,
+    invoicesGenerated,
+    unreconciled,
+    cashbookBalanced,
+    tbBalanced,
+    startBillingRun: startBilling,
+    closeStatement,
+    closeFinancial,
+  };
 }

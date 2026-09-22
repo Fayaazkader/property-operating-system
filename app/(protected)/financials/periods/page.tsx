@@ -11,11 +11,55 @@ import { useState } from "react";
 import type { PeriodActionResult } from "@/lib/periods/period-actions";
 
 export default function PeriodWorkspacePage() {
-  const { loading, entityId, statementPeriod, statementPhase, financialPeriod, financialPhase, activeLeases, invoicesGenerated, unreconciled, cashbookBalanced, tbBalanced, startBillingRun, closeStatement, closeFinancial } = usePeriodData();
+  const {
+  loading,
+  entityId,
+  statementPeriod,
+  statementStart,
+  statementEnd,
+  statementPhase,
+  financialPeriod,
+  financialPhase,
+  activeLeases,
+  invoicesGenerated,
+  unreconciled,
+  cashbookBalanced,
+  tbBalanced,
+  startBillingRun,
+  closeStatement,
+  closeFinancial,
+} = usePeriodData();
   const [showGenerateCharges, setShowGenerateCharges] = useState(false);
   const [actionResult, setActionResult] = useState<PeriodActionResult | null>(null);
 
-  async function handleStartBilling() { setShowGenerateCharges(true); }
+  async function handleStartBilling() {
+  setActionResult(null);
+
+  if (statementPhase === 'open') {
+    const result = await startBillingRun();
+
+    if (!result.success) {
+      setActionResult(result);
+      return;
+    }
+  }
+
+  if (
+    statementPhase !== 'open' &&
+    statementPhase !== 'billing_requested'
+  ) {
+    setActionResult({
+      success: false,
+      nextPeriod: statementPeriod,
+      message: `Billing cannot be started from phase "${statementPhase}".`,
+      validations: [],
+      concurrencyConflict: false,
+    });
+    return;
+  }
+
+  setShowGenerateCharges(true);
+}
   async function handleCloseStatement() { setActionResult(await closeStatement()); }
   async function handleCloseFinancial() { setActionResult(await closeFinancial()); }
 
@@ -66,17 +110,23 @@ export default function PeriodWorkspacePage() {
           <GovernanceCenter statementStatus={statementPhase} financialStatus={financialPhase} onStartBilling={handleStartBilling} onCloseStatement={handleCloseStatement} onCloseFinancial={handleCloseFinancial} statementPeriod={statementPeriod} financialPeriod={financialPeriod} />
         </div>
       </div>
-      {showGenerateCharges && statementPeriod && (
-        <GenerateChargesModal
-          entityId={entityId}
-          periodStart="2026-08-01"
-          periodEnd="2026-08-31"
-          periodName={statementPeriod}
-          leaseCount={activeLeases}
-          onComplete={() => { setShowGenerateCharges(false); handleCloseStatement(); }}
-          onClose={() => setShowGenerateCharges(false)}
-        />
-      )}
+      {showGenerateCharges &&
+  statementPeriod &&
+  statementStart &&
+  statementEnd && (
+    <GenerateChargesModal
+      entityId={entityId}
+      periodStart={statementStart}
+      periodEnd={statementEnd}
+      periodName={statementPeriod}
+      leaseCount={activeLeases}
+      onComplete={async () => {
+        setShowGenerateCharges(false);
+        await handleCloseStatement();
+      }}
+      onClose={() => setShowGenerateCharges(false)}
+    />
+  )}
     </div>
   );
 }

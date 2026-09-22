@@ -8,23 +8,92 @@ import { billingStatusService } from '@/lib/revenue/billing-status-service';
 import { reconciliationStatusService } from '@/lib/cashbook/reconciliation-status-service';
 import { tbStatusService } from '@/lib/financial/tb-status-service';
 import { withIdempotency } from './idempotency';
-import { withOptimisticLock } from './concurrency';
+import { claimPeriodPhase } from './concurrency';
 import { publishWithRetry } from './event-delivery';
 
 export interface ValidationResult { check: string; passed: boolean; message: string; }
 export interface PeriodActionResult { success: boolean; nextPeriod: string; message: string; validations: ValidationResult[]; newPhase?: string; idempotent?: boolean; concurrencyConflict?: boolean; }
 
-export async function startBillingRun(entityId: string, statementPeriod: string, correlationId?: string): Promise<PeriodActionResult> {
+export async function startBillingRun(
+  entityId: string,
+  statementPeriod: string,
+  correlationId?: string
+): Promise<PeriodActionResult> {
   const cid = correlationId || crypto.randomUUID();
+
   return withIdempotency(cid, 'start_billing_run', async () => {
-    return withOptimisticLock(entityId, 'statement', statementPeriod, 'open', 'billing_requested', async () => {
-      const billingStatus = await billingStatusService.getStatus(entityId);
-      if (billingStatus.activeLeases === 0) return { success: false, message: 'No active leases' };
-      await publishWithRetry('period.billing_run.requested', { correlationId: cid, source: 'period-governance', version: '1.0', payload: { entityId, statementPeriod } });
-      await financialTimelineEngine.addEntry({ entity_id: entityId, reference_type: 'statement_period', reference_id: statementPeriod, event_type: 'billing_run_requested', description: `Billing requested`, source_engine: 'period-governance', correlation_id: cid });
-      await logAudit({ action: 'create', resource_type: 'billing_run', resource_label: `Billing requested for ${statementPeriod}`, new_values: { entityId, statementPeriod } });
-      return { success: true, nextPeriod: statementPeriod, message: 'Billing requested', newPhase: 'billing_requested' };
+    const billingStatus = await billingStatusService.getStatus(entityId);
+
+    if (billingStatus.activeLeases === 0) {
+      return {
+        success: false,
+        nextPeriod: statementPeriod,
+        message: 'No active leases',
+        validations: [
+          {
+            check: 'active_leases',
+            passed: false,
+            message: 'No active leases found',
+          },
+        ],
+      };
+    }
+
+    const claim = await claimPeriodPhase(
+      entityId,
+      'statement',
+      statementPeriod,
+      'open',
+      'billing_requested'
+    );
+
+    if (!claim.success) {
+      return {
+        success: false,
+        nextPeriod: statementPeriod,
+        message: claim.message || 'Unable to start billing run',
+        validations: [],
+        concurrencyConflict: claim.concurrencyConflict,
+      };
+    }
+
+    await publishWithRetry('period.billing_run.requested', {
+      correlationId: cid,
+      source: 'period-governance',
+      version: '1.0',
+      payload: {
+        entityId,
+        statementPeriod,
+      },
     });
+
+    await financialTimelineEngine.addEntry({
+      entity_id: entityId,
+      reference_type: 'statement_period',
+      reference_id: statementPeriod,
+      event_type: 'billing_run_requested',
+      description: 'Billing requested',
+      source_engine: 'period-governance',
+      correlation_id: cid,
+    });
+
+    await logAudit({
+      action: 'create',
+      resource_type: 'billing_run',
+      resource_label: `Billing requested for ${statementPeriod}`,
+      new_values: {
+        entityId,
+        statementPeriod,
+        phase: 'billing_requested',
+      },
+    });
+
+    return {
+      success: true,
+      nextPeriod: statementPeriod,
+      message: 'Billing requested',
+      newPhase: 'billing_requested',
+    };
   });
 }
 

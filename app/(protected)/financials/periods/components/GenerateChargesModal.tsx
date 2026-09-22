@@ -16,18 +16,63 @@ interface Props {
 
 export function GenerateChargesModal({ entityId, periodStart, periodEnd, periodName, leaseCount, onComplete, onClose }: Props) {
   const [phase, setPhase] = useState<'confirm' | 'running' | 'review' | 'complete'>('confirm');
+  const [correlationId] = useState(() => crypto.randomUUID());
   const [progress, setProgress] = useState<FreezeProgress>({ total: 0, processed: 0, currentLease: '', chargesCreated: 0, status: 'idle', errors: [] });
 
   useEffect(() => {
-    const unsub1 = subscribe('period.charge_lease_progress', async (e: any) => { setProgress(e.payload); });
-    const unsub2 = subscribe('period.charges_frozen', async (e: any) => { setProgress(e.payload); setPhase('review'); });
-    return () => { /* cleanup */ };
-  }, []);
+  subscribe(
+    'period.charge_lease_progress',
+    async (e: any) => {
+      setProgress(e.payload);
+    }
+  );
+
+  subscribe(
+    'period.charges_frozen',
+    async (e: any) => {
+      setProgress(e.payload);
+      setPhase('review');
+    }
+  );
+
+  subscribe(
+    'period.charges_freeze_failed',
+    async (e: any) => {
+      setProgress(e.payload);
+      setPhase('review');
+    }
+  );
+}, []);
 
   async function handleGenerate() {
-    setPhase('running');
-    await freezeChargesService.freezeChargesForPeriod(entityId, periodStart, periodEnd);
+  setPhase('running');
+
+  try {
+    const result = await freezeChargesService.freezeChargesForPeriod(
+  entityId,
+  periodStart,
+  periodEnd,
+  periodName,
+  correlationId
+);
+
+    setProgress(result);
+    setPhase('review');
+  } catch (error) {
+    setProgress({
+      total: progress.total,
+      processed: progress.processed,
+      currentLease: '',
+      chargesCreated: progress.chargesCreated,
+      status: 'error',
+      errors: [
+        ...progress.errors,
+        error instanceof Error ? error.message : 'Billing run failed unexpectedly.',
+      ],
+    });
+    setPhase('review');
   }
+}
 
   return (
     <>
@@ -66,31 +111,93 @@ export function GenerateChargesModal({ entityId, periodStart, periodEnd, periodN
           )}
 
           {phase === 'review' && (
-            <div className="space-y-6 text-center">
-              <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto">
-                <span className="text-emerald-400 text-xl">✓</span>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-white">Charges Generated</p>
-                <div className="mt-3 space-y-1 text-xs text-zinc-400 font-light">
-                  <p>{progress.total} leases processed</p>
-                  <p>{progress.chargesCreated} charges created</p>
-                </div>
-                {progress.errors.length > 0 && <p className="text-xs text-amber-400 mt-2">{progress.errors.length} warning(s)</p>}
-              </div>
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4 text-left">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-2 font-medium">Validation</p>
-                <div className="space-y-1 text-xs">
-                  <p className="text-emerald-400 font-light">✓ Charges generated for all active leases</p>
-                  <p className="text-emerald-400 font-light">✓ No duplicate charges detected</p>
-                  {progress.errors.length === 0 && <p className="text-emerald-400 font-light">✓ No errors</p>}
-                </div>
-              </div>
-              <button onClick={onComplete} className="w-full rounded-xl bg-white py-3 text-sm font-medium text-black hover:bg-gray-100">
-                Continue to Close Period
-              </button>
-            </div>
-          )}
+  <div className="space-y-6 text-center">
+    {progress.status === 'complete' ? (
+      <>
+        <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto">
+          <span className="text-emerald-400 text-xl">✓</span>
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-white">Charges Generated</p>
+          <div className="mt-3 space-y-1 text-xs text-zinc-400 font-light">
+            <p>{progress.total} leases processed</p>
+            <p>{progress.chargesCreated} charges created</p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4 text-left">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-2 font-medium">
+            Validation
+          </p>
+
+          <div className="space-y-1 text-xs">
+            <p className="text-emerald-400 font-light">
+              ✓ Charges generated for all active leases
+            </p>
+            <p className="text-emerald-400 font-light">
+              ✓ Billing run completed
+            </p>
+            <p className="text-emerald-400 font-light">
+              ✓ No errors
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={onComplete}
+          className="w-full rounded-xl bg-white py-3 text-sm font-medium text-black hover:bg-gray-100"
+        >
+          Continue to Close Period
+        </button>
+      </>
+    ) : (
+      <>
+        <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto">
+          <span className="text-red-400 text-xl">!</span>
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-white">
+            Billing Run Requires Attention
+          </p>
+
+          <div className="mt-3 space-y-1 text-xs text-zinc-400 font-light">
+            <p>{progress.processed} / {progress.total} leases processed</p>
+            <p>{progress.chargesCreated} charges created</p>
+            <p className="text-red-400">
+              {progress.errors.length} lease(s) failed
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-red-500/10 bg-red-500/[0.03] p-4 text-left">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-2 font-medium">
+            Errors
+          </p>
+
+          <div className="space-y-2 text-xs text-red-300">
+            {progress.errors.map((error, index) => (
+              <p key={`${error}-${index}`}>{error}</p>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-xs text-zinc-500">
+          The statement period has not been marked as billing complete.
+          Resolve the failed leases before closing the period.
+        </p>
+
+        <button
+          onClick={onClose}
+          className="w-full rounded-xl border border-white/[0.08] py-3 text-sm text-zinc-300 hover:text-white"
+        >
+          Close
+        </button>
+      </>
+    )}
+  </div>
+)}
         </div>
       </div>
     </>

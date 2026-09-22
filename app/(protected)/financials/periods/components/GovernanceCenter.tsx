@@ -20,8 +20,24 @@ export function GovernanceCenter({ statementStatus, financialStatus, onStartBill
           <span className={`text-xs px-2 py-1 rounded-full ${financialStatus === 'closed' ? 'bg-zinc-800 text-zinc-500' : 'bg-emerald-500/10 text-emerald-300'}`}>{financialStatus}</span>
         </div>
         <div className="pt-3 border-t border-[var(--border-default)] space-y-2">
-          {statementStatus === 'open' && <button onClick={onStartBilling} className="w-full rounded-xl bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500">Start Billing Run</button>}
-          {statementStatus === 'ready_to_close' && <button onClick={onCloseStatement} className="w-full rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">Close Statement Period</button>}
+          {(statementStatus === 'open' || statementStatus === 'billing_requested') && (
+  <button
+    onClick={onStartBilling}
+    className="w-full rounded-xl bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500"
+  >
+    {statementStatus === 'billing_requested'
+      ? 'Resume Billing Run'
+      : 'Start Billing Run'}
+  </button>
+)}
+          {statementStatus === 'billing_complete' && (
+  <button
+    onClick={onCloseStatement}
+    className="w-full rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+  >
+    Close Statement Period
+  </button>
+)}
           {financialStatus === 'open' && <button onClick={onCloseFinancial} className="w-full rounded-xl bg-white text-black px-4 py-2 text-sm font-medium hover:bg-zinc-200">Close Financial Period</button>}
         </div>
       </div>
