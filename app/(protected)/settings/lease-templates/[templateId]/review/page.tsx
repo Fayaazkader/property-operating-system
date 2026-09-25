@@ -1,9 +1,19 @@
-import { notFound } from 'next/navigation';
+import {
+  notFound,
+  redirect,
+} from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
 import { leaseTemplateService } from '@/lib/lease/templates/service';
 import LeaseTemplateReviewWorkspace from '@/app/components/lease-templates/LeaseTemplateReviewWorkspace';
 import LeaseTemplateReviewActions from '@/app/components/lease-templates/LeaseTemplateReviewActions';
+import {
+  isCanonicalLeaseFieldKey,
+} from '@/lib/lease/templates/field-registry';
+
+import type {
+  LeaseTemplateAISuggestion,
+  LeaseTemplateFieldMapping,
+} from '@/lib/lease/templates/types';
 
 interface PageProps {
   params: Promise<{
@@ -11,45 +21,10 @@ interface PageProps {
   }>;
 }
 
-interface FieldEvidence {
-  text: string;
-  page?: number;
-  startOffset?: number;
-  endOffset?: number;
-  boundingBox?: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-}
-
-interface FieldMapping {
-  key: string;
-  label: string;
-  type: string;
-  required: boolean;
-  value?: unknown;
-  confidence?: number;
-  source?: string;
-  evidence?: FieldEvidence[];
-  approved?: boolean;
-}
-
-interface AISuggestion {
-  type: 'field' | 'clause' | 'inconsistency' | 'warning';
-  title: string;
-  description: string;
-  severity: 'info' | 'warning' | 'critical';
-}
-
 export default async function LeaseTemplateReviewPage({
   params,
 }: PageProps) {
   const { templateId } = await params;
-
-  console.log('[LEASE REVIEW] templateId:', templateId);
-  const cookieStore = await cookies();
 
   const supabase = await createClient();
 
@@ -57,48 +32,70 @@ export default async function LeaseTemplateReviewPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  console.log(
-    '[LEASE REVIEW] server user:',
-    user?.id || 'NO USER'
-  );
-
   if (!user) {
-    console.error('[LEASE REVIEW] No authenticated server user');
     notFound();
   }
 
-  const { data: entities } = await supabase.rpc('auth_entities');
-  console.log('[LEASE REVIEW] entities:', entities);
-console.log('[LEASE REVIEW] entityId:', entities?.[0] || 'NO ENTITY');
+  /*
+   * This page still uses the existing server-side active-entity
+   * resolution contract.
+   *
+   * The mapping API does not infer an entity this way: it receives the
+   * explicit entityId and verifies user_entity_access before mutation.
+   *
+   * Active-company/entity resolution across the wider platform remains
+   * a separate architecture item to standardise.
+   */
+  const { data: entities, error: entityError } =
+    await supabase.rpc('auth_entities');
+
+  if (entityError) {
+    console.error(
+      '[LEASE REVIEW] Unable to resolve authorised entities:',
+      entityError
+    );
+    notFound();
+  }
+
   const entityId = entities?.[0];
 
   if (!entityId) {
     notFound();
   }
-console.log('[LEASE REVIEW] querying template:', {
-  templateId,
-  entityId,
-});
-  const template = await leaseTemplateService.getForReview(
-  templateId,
-  entityId,
-  supabase
-);
-console.log('[LEASE REVIEW] template result:', template);
 
-if (!template) {
-  console.error('[LEASE REVIEW] TEMPLATE NOT FOUND');
-}
+  const template =
+    await leaseTemplateService.getForReview(
+      templateId,
+      entityId,
+      supabase
+    );
 
-  if (!template) {
+    if (!template) {
     notFound();
   }
-    let sourceDocumentUrl: string | null = null;
+
+  /*
+   * Approved templates are immutable from the review workspace.
+   * Their canonical route is the read-only template detail page.
+   */
+  if (
+    template.status === 'active' &&
+    template.review_status === 'approved'
+  ) {
+    redirect(
+      `/settings/lease-templates/${templateId}`
+    );
+  }
+
+  let sourceDocumentUrl: string | null = null;
 
   if (template.source_document_url) {
     const { data, error } = await supabase.storage
       .from('documents')
-      .createSignedUrl(template.source_document_url, 3600);
+      .createSignedUrl(
+        template.source_document_url,
+        3600
+      );
 
     if (error) {
       console.error(
@@ -106,51 +103,235 @@ if (!template) {
         error
       );
     } else {
-      sourceDocumentUrl = data?.signedUrl || null;
-      console.log(
-  '[LEASE REVIEW] source document URL:',
-  sourceDocumentUrl
-);
+      sourceDocumentUrl =
+        data?.signedUrl || null;
     }
   }
 
-  console.log(
-    '[LEASE REVIEW] source document available:',
-    Boolean(sourceDocumentUrl)
-  );
+  const mappings: LeaseTemplateFieldMapping[] =
+    Array.isArray(template.field_mapping)
+      ? template.field_mapping
+      : [];
 
-  const fields = Array.isArray(template.field_mapping)
-    ? (template.field_mapping as FieldMapping[])
-    : [];
+  const suggestions: LeaseTemplateAISuggestion[] =
+    Array.isArray(template.ai_suggestions)
+      ? template.ai_suggestions
+      : [];
 
-  const suggestions = Array.isArray(template.ai_suggestions)
-    ? (template.ai_suggestions as AISuggestion[])
-    : [];
+  const confirmedMappings =
+    mappings.filter(
+      mapping =>
+        mapping.status === 'confirmed'
+    );
 
-  const detectedFields = fields.filter(
-    field =>
-      field.value !== undefined &&
-      field.value !== null &&
-      field.value !== ''
-  );
+  const suggestedMappings =
+    mappings.filter(
+      mapping =>
+        mapping.status === 'suggested'
+    );
 
-  const missingRequired = fields.filter(
-    field =>
-      field.required &&
-      (field.value === undefined ||
-        field.value === null ||
-        field.value === '')
-  );
+  const rejectedMappings =
+    mappings.filter(
+      mapping =>
+        mapping.status === 'rejected'
+    );
 
-  const overallConfidence =
-    fields.length > 0
-      ? Math.round(
-          fields.reduce(
-            (total, field) => total + (field.confidence || 0),
-            0
-          ) / fields.length
+  const unresolvedMappings =
+    mappings.filter(
+      mapping =>
+        mapping.status === 'unresolved' ||
+        !mapping.target
+    );
+
+  /*
+   * Approval requires every mapping to have reached an explicit
+   * terminal human-review state.
+   *
+   * This also catches malformed or legacy mapping states rather than
+   * allowing the UI to appear approval-ready while the database will
+   * correctly reject the transaction.
+   */
+  const unreviewedMappings =
+    mappings.filter(
+      mapping =>
+        mapping.status !== 'confirmed' &&
+        mapping.status !== 'rejected'
+    );
+
+  /*
+   * Suggested and unresolved mappings already have their own user-facing
+   * review messages. This collection isolates only malformed or unknown
+   * review states so those mappings are not silently overlooked.
+   */
+  const unknownStatusMappings =
+    unreviewedMappings.filter(
+      mapping =>
+        mapping.status !== 'suggested' &&
+        mapping.status !== 'unresolved'
+    );
+
+  /*
+   * Confirmed mappings must remain structurally reusable:
+   *   - canonical AssetFlow field;
+   *   - object target;
+   *   - non-empty targetId.
+   *
+   * The approval RPC independently enforces the same invariant.
+   */
+  const invalidConfirmedMappings =
+    confirmedMappings.filter(
+      mapping =>
+        !isCanonicalLeaseFieldKey(
+          mapping.fieldKey
+        ) ||
+        !mapping.target ||
+        typeof mapping.target !== 'object' ||
+        typeof mapping.target.targetId !==
+          'string' ||
+        mapping.target.targetId.trim().length === 0
+    );
+
+  /*
+   * A target-bearing suggestion represents reusable document structure
+   * that has been discovered but has not yet been assigned to a
+   * canonical AssetFlow field.
+   *
+   * General analyser warnings without targets remain review context but
+   * do not count as unresolved document targets.
+   */
+  const unresolvedTargetSuggestions =
+    suggestions.filter(
+      suggestion =>
+        Boolean(
+          suggestion.target &&
+            typeof suggestion.target.targetId ===
+              'string' &&
+            suggestion.target.targetId.trim().length > 0
         )
-      : 0;
+    );
+
+  const blockingSuggestions =
+    suggestions.filter(
+      suggestion =>
+        suggestion.severity === 'critical'
+    );
+
+  const reviewRequiredCount =
+    suggestedMappings.length +
+    unresolvedMappings.length +
+    unresolvedTargetSuggestions.length;
+
+  /*
+   * Client-facing approval readiness mirrors the database governance
+   * invariants so the UI does not offer an approval action that is
+   * already known to be invalid.
+   *
+   * The database RPC remains authoritative and re-validates every
+   * invariant inside the locked approval transaction.
+   */
+  const hasSourceDocument =
+    Boolean(template.source_document_id);
+
+  const canApprove =
+    hasSourceDocument &&
+    confirmedMappings.length > 0 &&
+    suggestedMappings.length === 0 &&
+    unresolvedMappings.length === 0 &&
+    unreviewedMappings.length === 0 &&
+    invalidConfirmedMappings.length === 0 &&
+    unresolvedTargetSuggestions.length === 0 &&
+    blockingSuggestions.length === 0;
+
+  const approvalBlockedReasons: string[] = [];
+
+  if (!hasSourceDocument) {
+    approvalBlockedReasons.push(
+      'A source document is required.'
+    );
+  }
+
+  if (confirmedMappings.length === 0) {
+    approvalBlockedReasons.push(
+      'At least one reusable mapping must be confirmed.'
+    );
+  }
+
+  if (suggestedMappings.length > 0) {
+    approvalBlockedReasons.push(
+      `${suggestedMappings.length} suggested ${
+        suggestedMappings.length === 1
+          ? 'mapping requires'
+          : 'mappings require'
+      } review.`
+    );
+  }
+
+  if (unresolvedMappings.length > 0) {
+    approvalBlockedReasons.push(
+      `${unresolvedMappings.length} ${
+        unresolvedMappings.length === 1
+          ? 'mapping is'
+          : 'mappings are'
+      } unresolved.`
+    );
+  }
+
+  if (unknownStatusMappings.length > 0) {
+    approvalBlockedReasons.push(
+      `${unknownStatusMappings.length} ${
+        unknownStatusMappings.length === 1
+          ? 'mapping has'
+          : 'mappings have'
+      } an invalid review state.`
+    );
+  }
+
+  if (invalidConfirmedMappings.length > 0) {
+    approvalBlockedReasons.push(
+      `${invalidConfirmedMappings.length} confirmed ${
+        invalidConfirmedMappings.length === 1
+          ? 'mapping has'
+          : 'mappings have'
+      } an invalid canonical field or document target.`
+    );
+  }
+
+  if (unresolvedTargetSuggestions.length > 0) {
+    approvalBlockedReasons.push(
+      `${unresolvedTargetSuggestions.length} document ${
+        unresolvedTargetSuggestions.length === 1
+          ? 'target still requires'
+          : 'targets still require'
+      } assignment.`
+    );
+  }
+
+  if (blockingSuggestions.length > 0) {
+    approvalBlockedReasons.push(
+      `${blockingSuggestions.length} critical ${
+        blockingSuggestions.length === 1
+          ? 'finding must'
+          : 'findings must'
+      } be resolved.`
+    );
+  }
+
+   const approvalBlockedReason =
+    approvalBlockedReasons.length > 0
+      ? approvalBlockedReasons.join(' ')
+      : null;
+
+  const averageDetectionConfidence =
+    calculateAverageConfidence(
+      mappings,
+      'detection'
+    );
+
+  const averageMappingConfidence =
+    calculateAverageConfidence(
+      mappings,
+      'mapping'
+    );
 
   return (
     <div className="space-y-8 pb-12">
@@ -163,7 +344,8 @@ if (!template) {
             </h1>
 
             <p className="mt-1 text-sm text-zinc-500">
-              {template.template_name} · v{template.version}
+              {template.template_name} · v
+              {template.version}
             </p>
           </div>
 
@@ -173,34 +355,124 @@ if (!template) {
         </div>
 
         <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-400">
-          AssetFlow has analysed the source document and identified
-          candidate fields and review suggestions. Nothing has been
-          approved automatically.
+          AssetFlow has analysed the source
+          document and proposed reusable mappings
+          between locations in the customer&apos;s
+          lease template and canonical AssetFlow
+          lease fields. Nothing has been approved
+          automatically.
         </p>
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <SummaryCard
-          label="Fields Detected"
-          value={String(detectedFields.length)}
+          label="Mappings Detected"
+          value={String(mappings.length)}
         />
 
         <SummaryCard
-          label="Fields Analysed"
-          value={String(fields.length)}
+          label="Confirmed"
+          value={String(
+            confirmedMappings.length
+          )}
         />
 
         <SummaryCard
-          label="Suggestions"
-          value={String(suggestions.length)}
+          label="Review Required"
+          value={String(
+            reviewRequiredCount
+          )}
         />
 
         <SummaryCard
-          label="Confidence"
-          value={`${overallConfidence}%`}
+          label="Unresolved Targets"
+          value={String(
+            unresolvedTargetSuggestions.length +
+              unresolvedMappings.length
+          )}
         />
       </div>
+
+      {/* Mapping state */}
+      <section className="rounded-xl border border-white/[0.06] bg-white/[0.01]">
+        <div className="border-b border-white/[0.06] px-6 py-5">
+          <h2 className="text-sm font-medium text-white">
+            Mapping Status
+          </h2>
+
+          <p className="mt-1 text-xs text-zinc-500">
+            Review state for reusable document
+            mappings. Template approval remains a
+            separate governance step.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6 px-6 py-5 lg:grid-cols-4">
+          <MetaItem
+            label="Suggested"
+            value={String(
+              suggestedMappings.length
+            )}
+          />
+
+          <MetaItem
+            label="Confirmed"
+            value={String(
+              confirmedMappings.length
+            )}
+          />
+
+          <MetaItem
+            label="Rejected"
+            value={String(
+              rejectedMappings.length
+            )}
+          />
+
+          <MetaItem
+            label="Critical Findings"
+            value={String(
+              blockingSuggestions.length
+            )}
+          />
+        </div>
+      </section>
+
+      {/* Confidence */}
+      <section className="rounded-xl border border-white/[0.06] bg-white/[0.01]">
+        <div className="border-b border-white/[0.06] px-6 py-5">
+          <h2 className="text-sm font-medium text-white">
+            Analysis Confidence
+          </h2>
+
+          <p className="mt-1 text-xs text-zinc-500">
+            Confidence is shown by analysis
+            dimension rather than as a single
+            template-wide score.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6 px-6 py-5">
+          <MetaItem
+            label="Target Detection"
+            value={
+              averageDetectionConfidence === null
+                ? 'Not available'
+                : `${averageDetectionConfidence}%`
+            }
+          />
+
+          <MetaItem
+            label="Semantic Mapping"
+            value={
+              averageMappingConfidence === null
+                ? 'Not available'
+                : `${averageMappingConfidence}%`
+            }
+          />
+        </div>
+      </section>
 
       {/* Document context */}
       <section className="rounded-xl border border-white/[0.06] bg-white/[0.01]">
@@ -210,19 +482,27 @@ if (!template) {
           </h2>
 
           <p className="mt-1 text-xs text-zinc-500">
-            The original legal document remains preserved.
+            The original legal document remains
+            preserved and is not modified during
+            review.
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-6 px-6 py-5">
+        <div className="grid grid-cols-1 gap-6 px-6 py-5 md:grid-cols-3">
           <MetaItem
             label="File"
-            value={template.source_file_name || 'Not available'}
+            value={
+              template.source_file_name ||
+              'Not available'
+            }
           />
 
           <MetaItem
             label="Document Type"
-            value={template.source_mime_type || 'Unknown'}
+            value={
+              template.source_mime_type ||
+              'Unknown'
+            }
           />
 
           <MetaItem
@@ -233,88 +513,83 @@ if (!template) {
       </section>
 
       <LeaseTemplateReviewWorkspace
-  sourceDocumentUrl={sourceDocumentUrl}
-  sourceMimeType={template.source_mime_type}
-  fields={fields}
-  suggestions={suggestions}
-/>
+        templateId={templateId}
+        entityId={entityId}
+        sourceDocumentUrl={
+          sourceDocumentUrl
+        }
+        sourceMimeType={
+          template.source_mime_type
+        }
+        fields={mappings}
+        suggestions={suggestions}
+      />
 
-      {/* Missing required fields */}
-      {missingRequired.length > 0 && (
-        <section className="rounded-xl border border-red-400/15 bg-red-400/[0.03]">
-          <div className="px-6 py-5">
-            <h2 className="text-sm font-medium text-red-300">
-              Required Fields Requiring Review
-            </h2>
-
-            <p className="mt-1 text-xs text-red-300/60">
-              AssetFlow could not confidently identify values for
-              these required fields.
-            </p>
-          </div>
-
-          <div className="border-t border-red-400/10 divide-y divide-red-400/10">
-            {missingRequired.map(field => (
-              <div
-                key={field.key}
-                className="px-6 py-4"
-              >
-                <p className="text-sm text-zinc-300">
-                  {field.label}
-                </p>
-
-                <p className="mt-1 text-xs text-zinc-600">
-                  {field.key}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* AI suggestions */}
+      {/* Analysis suggestions */}
       <section className="rounded-xl border border-white/[0.06] bg-white/[0.01]">
         <div className="border-b border-white/[0.06] px-6 py-5">
           <h2 className="text-sm font-medium text-white">
-            Analysis Suggestions
+            Analysis Findings
           </h2>
 
           <p className="mt-1 text-xs text-zinc-500">
-            These are recommendations only. AssetFlow does not make
-            legal decisions.
+            Findings may include unresolved
+            document targets, warnings and other
+            analyser observations. They are not
+            approved mappings.
           </p>
         </div>
 
         {suggestions.length === 0 ? (
           <div className="px-6 py-10">
             <p className="text-sm text-zinc-500">
-              No additional suggestions were generated.
+              No additional findings were
+              generated.
             </p>
           </div>
         ) : (
           <div className="divide-y divide-white/[0.05]">
-            {suggestions.map((suggestion, index) => (
-              <div
-                key={`${suggestion.type}-${index}`}
-                className="px-6 py-5"
-              >
-                <div className="flex items-start gap-4">
-                  <SuggestionBadge
-                    severity={suggestion.severity}
-                  />
+            {suggestions.map(
+              (suggestion, index) => (
+                <div
+                  key={
+                    suggestion.id ||
+                    `${suggestion.type}-${index}`
+                  }
+                  className="px-6 py-5"
+                >
+                  <div className="flex items-start gap-4">
+                    <SuggestionBadge
+                      severity={
+                        suggestion.severity
+                      }
+                    />
 
-                  <div>
-                    <p className="text-sm text-zinc-200">
-                      {suggestion.title}
-                    </p>
+                    <div className="min-w-0">
+                      <p className="text-sm text-zinc-200">
+                        {suggestion.title}
+                      </p>
 
-                    <p className="mt-1 max-w-3xl text-sm leading-6 text-zinc-500">
-                      {suggestion.description}
-                    </p>
+                      <p className="mt-1 max-w-3xl text-sm leading-6 text-zinc-500">
+                        {
+                          suggestion.description
+                        }
+                      </p>
+
+                      {suggestion.target && (
+                        <p className="mt-2 break-all text-xs text-zinc-600">
+                          Target:{' '}
+                          {
+                            suggestion.target
+                              .targetId
+                          }
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
           </div>
         )}
       </section>
@@ -326,14 +601,53 @@ if (!template) {
         </p>
 
         <p className="mt-2 max-w-4xl text-sm leading-6 text-zinc-400">
-          This review does not alter the original legal document.
-          Extracted values and suggestions remain provisional until
-          reviewed and approved by an authorised user.
+          Mapping review does not alter the
+          customer&apos;s original legal document.
+          Suggested mappings and unresolved targets
+          remain provisional until reviewed by an
+          authorised user. Template-level approval
+          is a separate governance decision and
+          must not manufacture or infer missing
+          mappings.
         </p>
       </section>
 
-      <LeaseTemplateReviewActions templateId={templateId} />
+      <LeaseTemplateReviewActions
+  templateId={templateId}
+  entityId={entityId}
+  canApprove={canApprove}
+  approvalBlockedReason={
+    approvalBlockedReason
+  }
+/>
     </div>
+  );
+}
+
+function calculateAverageConfidence(
+  mappings: LeaseTemplateFieldMapping[],
+  dimension: 'detection' | 'mapping'
+): number | null {
+  const values = mappings
+    .map(
+      mapping =>
+        mapping.confidence?.[dimension]
+    )
+    .filter(
+      (value): value is number =>
+        typeof value === 'number'
+    );
+
+  if (values.length === 0) {
+    return null;
+  }
+
+  return Math.round(
+    values.reduce(
+      (total, value) =>
+        total + value,
+      0
+    ) / values.length
   );
 }
 
@@ -380,7 +694,7 @@ function MetaItem({
 function SuggestionBadge({
   severity,
 }: {
-  severity: AISuggestion['severity'];
+  severity: LeaseTemplateAISuggestion['severity'];
 }) {
   const label =
     severity === 'critical'
@@ -394,16 +708,4 @@ function SuggestionBadge({
       {label}
     </span>
   );
-}
-
-function formatFieldValue(value: unknown): string {
-  if (Array.isArray(value)) {
-    return value.join(', ');
-  }
-
-  if (typeof value === 'object' && value !== null) {
-    return JSON.stringify(value);
-  }
-
-  return String(value);
 }

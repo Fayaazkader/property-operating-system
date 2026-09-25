@@ -1,4 +1,13 @@
-import type { LeaseTemplateField } from './types';
+import type {
+  LeaseTemplateAnalysisMode,
+  LeaseTemplateField,
+} from './types';
+
+import {
+  inferLeaseFieldType,
+  labelFromLeaseFieldToken,
+  normaliseLeaseFieldToken,
+} from './field-registry';
 
 export interface LeaseTemplateValidation {
   valid: boolean;
@@ -15,15 +24,35 @@ export interface LeaseTemplateValidation {
 }
 
 export interface LeaseTemplateAnalysis {
+  mode: LeaseTemplateAnalysisMode;
   fields: LeaseTemplateField[];
 
   placeholders: Array<{
-    token: string;
-    suggestedKey: string;
-    label: string;
-    confidence: number;
-    source: 'explicit_placeholder' | 'pattern';
-  }>;
+  /*
+   * Stable identity for this specific occurrence in the analysed
+   * document. Multiple occurrences of the same token remain
+   * independently addressable.
+   */
+  targetId: string;
+
+  token: string;
+
+  /*
+   * Semantic mapping is optional. Anonymous insertion targets such
+   * as underscore blanks must not be assigned a fabricated field key.
+   */
+  suggestedKey?: string;
+
+  label: string;
+  confidence: number;
+
+  source: 'explicit_placeholder' | 'pattern';
+
+  startOffset: number;
+  endOffset: number;
+
+  evidence: LeaseTemplateField['evidence'];
+}>;
 
   suggestions: Array<{
     type: 'field' | 'clause' | 'inconsistency' | 'warning';
@@ -219,19 +248,7 @@ const FIELD_DEFINITIONS: FieldDefinition[] = [
   },
 ];
 
-function normaliseToken(token: string): string {
-  return token
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-}
 
-function labelFromToken(token: string): string {
-  return token
-    .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, char => char.toUpperCase());
-}
 
 function cleanValue(value: string): string {
   return value
@@ -260,36 +277,6 @@ function extractValue(
   };
 }
 
-function inferFieldType(key: string): LeaseTemplateField['type'] {
-  if (key.includes('email')) return 'email';
-
-  if (
-    key.includes('phone') ||
-    key.includes('telephone')
-  ) {
-    return 'phone';
-  }
-
-  if (key.includes('date')) return 'date';
-
-  if (
-    key.includes('rental') ||
-    key.includes('deposit') ||
-    key.includes('fee') ||
-    key.includes('amount')
-  ) {
-    return 'currency';
-  }
-
-  if (
-    key.includes('percentage') ||
-    key.includes('escalation')
-  ) {
-    return 'percentage';
-  }
-
-  return 'text';
-}
 
 type Party = 'tenant' | 'landlord';
 
@@ -659,11 +646,17 @@ function extractPartyPhone(
 
 function validateLeaseTemplate(
   text: string,
-  fields: LeaseTemplateField[]
+  fields: LeaseTemplateField[],
+  mode: LeaseTemplateAnalysisMode
 ): LeaseTemplateValidation {
   const errors: LeaseTemplateValidation['errors'] = [];
   const warnings: LeaseTemplateValidation['warnings'] = [];
 
+  /*
+   * These checks establish whether the uploaded document contains
+   * recognisable lease-party context. They apply to both blank
+   * templates and completed examples.
+   */
   const hasTenant =
     /\btenant\b|\blessee\b|\bapplicant\b/i.test(text);
 
@@ -695,15 +688,32 @@ function validateLeaseTemplate(
     'monthly_rental',
   ];
 
-  for (const key of requiredKeys) {
-    const field = fields.find(item => item.key === key);
+  /*
+   * Blank customer templates are expected to contain unpopulated
+   * fields. Missing values must therefore not invalidate the source
+   * template.
+   *
+   * Completed examples are analysed for actual values. Missing
+   * required values remain review issues, but they are expressed as
+   * warnings rather than making the legal document unusable as
+   * mapping evidence.
+   */
+  if (mode === 'completed_example') {
+    for (const key of requiredKeys) {
+      const field = fields.find(item => item.key === key);
 
-    if (!field?.value) {
-      errors.push({
-        code: 'REQUIRED_FIELD_MISSING',
-        field: key,
-        message: `Required lease field "${field?.label || key}" could not be resolved.`,
-      });
+      if (
+        field?.value === undefined ||
+        field.value === null ||
+        field.value === ''
+      ) {
+        warnings.push({
+          code: 'REQUIRED_VALUE_NOT_EXTRACTED',
+          field: key,
+          message:
+            `Lease field "${field?.label || key}" did not produce a populated value and requires review.`,
+        });
+      }
     }
   }
 
@@ -713,6 +723,7 @@ function validateLeaseTemplate(
     warnings,
   };
 }
+
 function normaliseLeaseText(text: string): string {
   return text
     .replace(/\u00a0/g, ' ')
@@ -971,7 +982,8 @@ function extractLeaseDate(
 }
 
 export function analyseLeaseTemplate(
-  text: string
+  text: string,
+  mode: LeaseTemplateAnalysisMode
 ): LeaseTemplateAnalysis {
   const sourceText = text;
   const normalisedText = normaliseLeaseText(text);
@@ -1010,28 +1022,123 @@ export function analyseLeaseTemplate(
    *
    * This remains important for blank lease templates.
    */
-  const explicitPatterns = [
-    /_{5,}/g,
-    /\{\{\s*([^}]+?)\s*\}\}/g,
-    /\[\[\s*([^\]]+?)\s*\]\]/g,
-  ];
+  const explicitPatterns: Array<{
+  pattern: RegExp;
+  kind: 'anonymous_blank' | 'named_placeholder';
+}> = [
+  {
+    pattern: /_{5,}/g,
+    kind: 'anonymous_blank',
+  },
+  {
+    pattern: /\{\{\s*([^}]+?)\s*\}\}/g,
+    kind: 'named_placeholder',
+  },
+  {
+    pattern: /\[\[\s*([^\]]+?)\s*\]\]/g,
+    kind: 'named_placeholder',
+  },
+];
 
-  for (const pattern of explicitPatterns) {
-    for (const match of text.matchAll(pattern)) {
-      const raw = match[1] || match[0];
-      const key = normaliseToken(raw);
+let placeholderOccurrence = 0;
 
-      if (!key || key.length < 2) continue;
-
-      placeholders.push({
-        token: match[0],
-        suggestedKey: key,
-        label: labelFromToken(key),
-        confidence: match[1] ? 100 : 85,
-        source: 'explicit_placeholder',
-      });
+for (const definition of explicitPatterns) {
+  for (const match of text.matchAll(definition.pattern)) {
+    if (match.index === undefined) {
+      continue;
     }
+
+    const token = match[0];
+    const startOffset = match.index;
+    const endOffset = startOffset + token.length;
+
+    placeholderOccurrence += 1;
+
+    /*
+     * The target ID identifies this exact occurrence rather than
+     * merely the token text. Repeated placeholders therefore remain
+     * distinct insertion targets.
+     */
+    const targetId =
+      `placeholder-${startOffset}-${endOffset}-${placeholderOccurrence}`;
+
+    if (definition.kind === 'anonymous_blank') {
+      /*
+       * An underscore blank proves that an insertion target exists,
+       * but the underscores themselves contain no semantic meaning.
+       *
+       * Do not manufacture a canonical AssetFlow field key here.
+       * Semantic mapping will be handled separately using surrounding
+       * document context and human review.
+       */
+      placeholders.push({
+        targetId,
+        token,
+        label: 'Unmapped blank field',
+        confidence: 85,
+        source: 'explicit_placeholder',
+        startOffset,
+        endOffset,
+        evidence: [
+          {
+            text: token,
+            startOffset,
+            endOffset,
+          },
+        ],
+      });
+
+      continue;
+    }
+
+    const raw = match[1] || '';
+    const key = normaliseLeaseFieldToken(raw);
+
+    /*
+     * A malformed named placeholder is still a discovered insertion
+     * target. Preserve it rather than silently discarding evidence
+     * from the customer's legal document.
+     */
+    if (!key || key.length < 2) {
+      placeholders.push({
+        targetId,
+        token,
+        label: 'Unmapped placeholder',
+        confidence: 70,
+        source: 'explicit_placeholder',
+        startOffset,
+        endOffset,
+        evidence: [
+          {
+            text: token,
+            startOffset,
+            endOffset,
+          },
+        ],
+      });
+
+      continue;
+    }
+
+    placeholders.push({
+      targetId,
+      token,
+      suggestedKey: key,
+      label: labelFromLeaseFieldToken(key),
+      confidence: 100,
+      source: 'explicit_placeholder',
+      startOffset,
+      endOffset,
+      evidence: [
+        {
+          text: token,
+          startOffset,
+          endOffset,
+        },
+      ],
+    });
   }
+}
 
   /*
    * ------------------------------------------------------------
@@ -1301,36 +1408,75 @@ export function analyseLeaseTemplate(
   }
 
   /*
-   * ------------------------------------------------------------
-   * 3. PLACEHOLDER-ONLY FIELDS
-   * ------------------------------------------------------------
+ * ------------------------------------------------------------
+ * 3. PLACEHOLDER-BASED FIELD CANDIDATES
+ * ------------------------------------------------------------
+ *
+ * Placeholder discovery and semantic field extraction are separate
+ * concerns.
+ *
+ * A named placeholder may suggest a semantic field even when the
+ * blank template contains no populated value. Anonymous insertion
+ * targets remain in `placeholders` for later mapping review and must
+ * not be assigned a fabricated field key.
+ *
+ * The actual reusable relationship between a canonical AssetFlow
+ * field and a specific document target will be created as a
+ * LeaseTemplateFieldMapping, not represented by this field record.
+ */
+const existingKeys = new Set(fields.map(field => field.key));
+
+for (const placeholder of placeholders) {
+  const suggestedKey = placeholder.suggestedKey;
+
+  /*
+   * Anonymous or malformed insertion targets have been discovered,
+   * but their semantic meaning is unresolved.
    *
-   * If a blank template contains explicit placeholders, make sure
-   * those fields also appear even when no actual value exists.
+   * Preserve them in `placeholders`; do not manufacture a field.
    */
-  const existingKeys = new Set(fields.map(field => field.key));
-
-  for (const placeholder of placeholders) {
-    if (existingKeys.has(placeholder.suggestedKey)) {
-      continue;
-    }
-
-    fields.push({
-      key: placeholder.suggestedKey,
-      label: placeholder.label,
-      type: inferFieldType(placeholder.suggestedKey),
-      required: [
-        'tenant_name',
-        'landlord_name',
-        'property_name',
-        'unit_number',
-        'lease_commencement_date',
-        'monthly_rental',
-      ].includes(placeholder.suggestedKey),
-      confidence: 100,
-      source: 'user',
-    });
+  if (!suggestedKey) {
+    continue;
   }
+
+  if (existingKeys.has(suggestedKey)) {
+    continue;
+  }
+
+  fields.push({
+    key: suggestedKey,
+    label: placeholder.label,
+    type: inferLeaseFieldType(suggestedKey),
+    required: [
+      'tenant_name',
+      'landlord_name',
+      'property_name',
+      'unit_number',
+      'lease_commencement_date',
+      'monthly_rental',
+    ].includes(suggestedKey),
+
+    /*
+     * This confidence represents the placeholder's semantic
+     * suggestion only. It is not approval of the reusable mapping.
+     */
+    confidence: placeholder.confidence,
+
+    source: 'ai',
+
+    /*
+     * Retain the source occurrence as evidence for review.
+     * The insertion target itself remains in `placeholders`.
+     */
+    evidence: placeholder.evidence,
+
+    placeholder: placeholder.token,
+
+    approved: false,
+  });
+
+  existingKeys.add(suggestedKey);
+}
 
   /*
    * ------------------------------------------------------------
@@ -1406,9 +1552,14 @@ export function analyseLeaseTemplate(
           ) / confidenceValues.length
         )
       : 0;
-const validation = validateLeaseTemplate(text, fields);
+const validation = validateLeaseTemplate(
+  text,
+  fields,
+  mode
+);
 
 return {
+  mode,
   fields,
   placeholders,
   suggestions,

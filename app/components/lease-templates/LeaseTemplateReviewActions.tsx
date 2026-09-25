@@ -6,19 +6,30 @@ import { createClient } from '@/lib/supabase/client';
 
 interface Props {
   templateId: string;
+  entityId: string;
+  canApprove: boolean;
+  approvalBlockedReason?: string | null;
 }
 
 export default function LeaseTemplateReviewActions({
   templateId,
+  entityId,
+  canApprove,
+  approvalBlockedReason = null,
 }: Props) {
   const router = useRouter();
 
-  const [loading, setLoading] = useState<'approve' | 'reject' | null>(
-    null
-  );
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] =
+    useState<'approve' | null>(null);
+
+  const [error, setError] =
+    useState<string | null>(null);
 
   async function approveTemplate() {
+    if (!canApprove || loading !== null) {
+      return;
+    }
+
     try {
       setLoading('approve');
       setError(null);
@@ -30,7 +41,9 @@ export default function LeaseTemplateReviewActions({
       } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
-        throw new Error('Your session has expired. Please sign in again.');
+        throw new Error(
+          'Your session has expired. Please sign in again.'
+        );
       }
 
       const response = await fetch(
@@ -38,8 +51,13 @@ export default function LeaseTemplateReviewActions({
         {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization:
+              `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            entityId,
+          }),
         }
       );
 
@@ -47,7 +65,8 @@ export default function LeaseTemplateReviewActions({
 
       if (!response.ok) {
         throw new Error(
-          result?.error || 'Unable to approve lease template.'
+          result?.error ||
+            'Unable to approve lease template.'
         );
       }
 
@@ -69,15 +88,8 @@ export default function LeaseTemplateReviewActions({
     }
   }
 
-  async function rejectTemplate() {
-    // Rejection will be wired to the dedicated rejection workflow.
-    setError(
-      'Rejection workflow is not yet connected.'
-    );
-  }
-
   return (
-    <div className="flex items-center justify-between border-t border-white/[0.06] pt-6">
+    <div className="flex items-start justify-between gap-6 border-t border-white/[0.06] pt-6">
       <button
         type="button"
         onClick={() => router.back()}
@@ -87,27 +99,24 @@ export default function LeaseTemplateReviewActions({
         Back
       </button>
 
-      <div className="flex items-end gap-3">
+      <div className="flex max-w-xl flex-col items-end gap-2">
         {error && (
-          <p className="max-w-md text-xs text-red-400">
+          <p className="text-right text-xs text-red-400">
             {error}
+          </p>
+        )}
+
+        {!canApprove && approvalBlockedReason && (
+          <p className="text-right text-xs leading-5 text-amber-400/80">
+            {approvalBlockedReason}
           </p>
         )}
 
         <button
           type="button"
-          onClick={rejectTemplate}
-          disabled={loading !== null}
-          className="rounded-lg border border-red-400/20 px-4 py-2.5 text-sm text-red-400 transition hover:bg-red-400/[0.05] disabled:opacity-50"
-        >
-          {loading === 'reject' ? 'Rejecting…' : 'Reject'}
-        </button>
-
-        <button
-          type="button"
           onClick={approveTemplate}
-          disabled={loading !== null}
-          className="rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!canApprove || loading !== null}
+          className="rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {loading === 'approve'
             ? 'Approving…'

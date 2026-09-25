@@ -285,8 +285,8 @@ console.log('LEASE FILE NAME:', file.name);
                   className="border-b border-white/[0.03]"
                 >
                   <td className="py-3 px-4 text-xs">
-  <Link
-    href={`/settings/lease-templates/${template.id}/review`}
+    <Link
+    href={`/settings/lease-templates/${template.id}`}
     className="text-white transition hover:text-zinc-300"
   >
     {template.template_name}

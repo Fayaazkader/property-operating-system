@@ -3,27 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
 import { processDocument } from '@/lib/document-intelligence/engine';
 import { analyseLeaseTemplate } from '@/lib/lease/templates/analyser';
-import type { DocumentEvidence } from '@/lib/document-intelligence/ocr-adapter';
+import { buildLeaseTemplateMappings } from '@/lib/lease/templates/mapping-builder';
 
-function getFieldConfidence(
-  fieldKey: string,
-  result: Awaited<ReturnType<typeof processDocument>>
-): number {
-  const value = result.extractedFields?.[fieldKey];
-
-  if (value === undefined || value === null || value === '') {
-    return 0;
-  }
-
-  /*
-   * The current Document Intelligence result exposes overall
-   * extraction confidence rather than per-field confidence.
-   *
-   * Until per-field confidence is surfaced through the engine,
-   * use the overall extraction confidence as the review confidence.
-   */
-  return result.extractedFields?.confidence ?? 0;
-}
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
@@ -293,7 +274,8 @@ if (duplicate) {
     );
 
     const templateAnalysis = analyseLeaseTemplate(
-  result.rawOcrText || result.ocrText || ''
+  result.rawOcrText || result.ocrText || '',
+  'blank_template'
 );
 
 if (!templateAnalysis.validation.valid) {
@@ -312,52 +294,10 @@ if (!templateAnalysis.validation.valid) {
      */
     const extractedFields = result.extractedFields || {};
 
-    function toLeaseFieldEvidence(
-  evidence: DocumentEvidence[]
-) {
-  return evidence.map(item => ({
-    text: item.text,
-    page: item.location?.page,
-    startOffset: item.location?.startOffset,
-    endOffset: item.location?.endOffset,
-    boundingBox:
-      item.location?.x !== undefined &&
-      item.location?.y !== undefined &&
-      item.location?.width !== undefined &&
-      item.location?.height !== undefined
-        ? {
-            x: item.location.x,
-            y: item.location.y,
-            width: item.location.width,
-            height: item.location.height,
-          }
-        : undefined,
-  }));
-}
-
-const fieldMapping = templateAnalysis.fields.map(field => ({
-  key: field.key,
-  label: field.label,
-  type: field.type,
-  required: field.required,
-
-  value: field.value ?? null,
-
-  confidence: field.confidence ?? 0,
-
-  source: field.source || 'ai',
-
-  evidence:
-  result.fieldEvidence?.[field.key]?.length
-    ? toLeaseFieldEvidence(
-        result.fieldEvidence[field.key]
-      )
-    : field.evidence || [],
-
-  approved: false,
-}));
-
-const aiSuggestions = templateAnalysis.suggestions;
+   const {
+  mappings: fieldMapping,
+  suggestions: aiSuggestions,
+} = buildLeaseTemplateMappings(templateAnalysis);
 
     const { data: updatedTemplate, error: updateError } =
       await serviceClient
@@ -371,7 +311,7 @@ const aiSuggestions = templateAnalysis.suggestions;
   field_mapping: fieldMapping,
   ai_suggestions: aiSuggestions,
   clause_suggestions: [],
-  fields: fieldMapping,
+  fields: templateAnalysis.fields,
   review_status: 'in_review',
   status: 'draft',
   updated_at: new Date().toISOString(),
