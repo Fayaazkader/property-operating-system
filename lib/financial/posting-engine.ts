@@ -31,12 +31,30 @@ export class PostingEngine {
       throw new Error(`Cannot post: ${validation.reason}`);
     }
 
-    const periodId =
-      event.period_id ||
-      (await financialRulesEngine.getCurrentPeriod(event.entity_id));
-    if (!periodId) throw new Error("No open financial period");
+    // Financial periods follow the transaction's effective date,
+    // not its import date or the currently displayed statement period.
+    const effectiveDate = event.effective_date || event.occurred_at;
+    if (!effectiveDate) {
+      throw new Error("Financial posting requires a transaction date");
+    }
 
+    const resolvedPeriodId = await financialRulesEngine.getPeriodForDate(
+      event.entity_id,
+      effectiveDate,
+    );
+
+    // Explicit period IDs must agree with the date-based resolution.
+    if (event.period_id && event.period_id !== resolvedPeriodId) {
+      throw new Error(
+        `Financial period mismatch: the supplied period does not match ${event.effective_date}`,
+      );
+    }
+
+    const periodId = resolvedPeriodId;
     const period = await financialRulesEngine.getPeriodById(periodId);
+    if (!period) {
+      throw new Error("Resolved financial period could not be loaded");
+    }
 
     const template = await financialRulesEngine.resolveTemplate(
       event.entity_id,

@@ -50,6 +50,43 @@ export class FinancialRulesEngine {
     return (data?.vat_category as VatCategory) || 'non_vatable';
   }
 
+  async getPeriodForDate(
+    entityId: string,
+    effectiveDate: string
+  ): Promise<string> {
+    const date = effectiveDate.slice(0, 10);
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+        Number.isNaN(Date.parse(date)) ||
+        new Date(date).toISOString().slice(0, 10) !== date) {
+      throw new Error('Invalid financial effective date');
+    }
+
+    const { data, error } = await supabase
+      .from('financial_periods')
+      .select('id')
+      .eq('entity_id', entityId)
+      .eq('period_type', 'financial')
+      .eq('status', 'open')
+      .lte('period_start', date)
+      .gte('period_end', date)
+      .limit(2);
+
+    if (error) {
+      throw new Error(`Financial period lookup failed: ${error.message}`);
+    }
+
+    if (!data?.length) {
+      throw new Error(`No open financial period covers ${date}`);
+    }
+
+    if (data.length > 1) {
+      throw new Error(`Overlapping financial periods cover ${date}`);
+    }
+
+    return data[0].id;
+  }
+
   async getCurrentPeriod(entityId: string): Promise<string | null> {
     const { data } = await supabase
       .from('financial_periods')
