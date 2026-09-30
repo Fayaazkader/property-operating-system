@@ -3,6 +3,8 @@
 
 import { supabase } from '@/lib/supabase';
 import { formulaEngine } from './formula-engine';
+import { requireTransactionDate } from './transaction-date';
+import { selectFinancialPeriod } from './period-selection';
 import type { PostingTemplate, FinancialEvent, VatCategory } from './types';
 
 export class FinancialRulesEngine {
@@ -54,17 +56,11 @@ export class FinancialRulesEngine {
     entityId: string,
     effectiveDate: string
   ): Promise<string> {
-    const date = effectiveDate.slice(0, 10);
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
-        Number.isNaN(Date.parse(date)) ||
-        new Date(date).toISOString().slice(0, 10) !== date) {
-      throw new Error('Invalid financial effective date');
-    }
+    const date = requireTransactionDate(effectiveDate);
 
     const { data, error } = await supabase
       .from('financial_periods')
-      .select('id')
+      .select('id, entity_id, period_type, status, period_start, period_end')
       .eq('entity_id', entityId)
       .eq('period_type', 'financial')
       .eq('status', 'open')
@@ -76,15 +72,7 @@ export class FinancialRulesEngine {
       throw new Error(`Financial period lookup failed: ${error.message}`);
     }
 
-    if (!data?.length) {
-      throw new Error(`No open financial period covers ${date}`);
-    }
-
-    if (data.length > 1) {
-      throw new Error(`Overlapping financial periods cover ${date}`);
-    }
-
-    return data[0].id;
+    return selectFinancialPeriod(entityId, date, data ?? []);
   }
 
   async getCurrentPeriod(entityId: string): Promise<string | null> {

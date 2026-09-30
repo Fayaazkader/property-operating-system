@@ -9,6 +9,10 @@
  */
 
 export const PERMISSIONS = {
+  FINANCE: {
+    BANK_STATEMENT_VERIFY_COVERAGE: 'finance.bank_statement.verify_coverage',
+  },
+
   LEASING: {
     OPPORTUNITY_CREATE: 'leasing.opportunity.create',
     OPPORTUNITY_EDIT: 'leasing.opportunity.edit',
@@ -36,6 +40,7 @@ export const PERMISSIONS = {
 } as const;
 
 export type PermissionKey =
+  | (typeof PERMISSIONS.FINANCE)[keyof typeof PERMISSIONS.FINANCE]
   | (typeof PERMISSIONS.LEASING)[keyof typeof PERMISSIONS.LEASING]
   | (typeof PERMISSIONS.PROPERTY)[keyof typeof PERMISSIONS.PROPERTY];
 

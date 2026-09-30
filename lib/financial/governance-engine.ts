@@ -2,6 +2,7 @@
 // Financial Governance Engine — Validation, integrity, close checklist
 
 import { supabase } from "@/lib/supabase";
+import { financialRulesEngine } from "./rules-engine";
 import { publish } from "../platform/events/event-bus";
 import type {
   FinancialEvent,
@@ -23,20 +24,30 @@ export class FinancialGovernanceEngine {
     if (!event.source_engine)
       return { valid: false, reason: "Source engine is required" };
 
-    const periodId =
-      event.period_id || (await this.getCurrentPeriodId(event.entity_id));
-    if (!periodId)
-      return { valid: false, reason: "No open financial period found" };
+    // Validate against the transaction date, never the import date
+    // or whichever financial period happens to be open first.
+    const effectiveDate = event.effective_date || event.occurred_at;
+    if (!effectiveDate)
+      return { valid: false, reason: "Transaction date is required" };
 
-    const { data: period } = await supabase
-      .from("financial_periods")
-      .select("status")
-      .eq("id", periodId)
-      .single();
-    if (period?.status === "closed")
-      return { valid: false, reason: "Financial period is closed" };
-    if (period?.status === "pending_review")
-      return { valid: false, reason: "Period is pending review" };
+    try {
+      const periodId = await financialRulesEngine.getPeriodForDate(
+        event.entity_id,
+        effectiveDate,
+      );
+
+      if (event.period_id && event.period_id !== periodId) {
+        return {
+          valid: false,
+          reason: "Supplied financial period does not match the transaction date",
+        };
+      }
+    } catch (error) {
+      return {
+        valid: false,
+        reason: error instanceof Error ? error.message : "Financial period validation failed",
+      };
+    }
 
     return { valid: true };
   }

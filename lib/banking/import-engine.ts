@@ -25,6 +25,8 @@ export type ParsedBankImport = {
   openingBalance: number | null;
   closingBalance: number | null;
   statementDate: string | null;
+  statementCoverageStart: string | null;
+  statementCoverageEnd: string | null;
 };
 
 export async function importBankStatement(
@@ -143,6 +145,8 @@ export async function importBankStatement(
             typeof extraction.fields.statementDate?.value === "string"
               ? extraction.fields.statementDate.value
               : null,
+          statementCoverageStart: null,
+          statementCoverageEnd: null,
         },
       };
     }
@@ -261,6 +265,8 @@ export async function importBankStatement(
             typeof extraction.fields.statementDate?.value === "string"
               ? extraction.fields.statementDate.value
               : null,
+          statementCoverageStart: null,
+          statementCoverageEnd: null,
         },
       };
     }
@@ -447,6 +453,8 @@ export async function importBankStatement(
         openingBalance,
         closingBalance,
         statementDate,
+        statementCoverageStart: null,
+        statementCoverageEnd: null,
       },
     };
   } catch (error: unknown) {

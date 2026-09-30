@@ -63,6 +63,26 @@ export const cashbookPostingService = {
     let transactionClaimed = false;
 
     try {
+      // Use the bank's transaction date, never the import date.
+      const transactionDate = txn.transaction_date;
+      const dateOnly =
+        typeof transactionDate === "string"
+          ? transactionDate.slice(0, 10)
+          : "";
+
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(dateOnly) ||
+        Number.isNaN(Date.parse(dateOnly)) ||
+        new Date(dateOnly).toISOString().slice(0, 10) !== dateOnly
+      ) {
+        return {
+          success: false,
+          message:
+            "Invalid bank transaction date. Correct the import before posting.",
+          newState: postingState,
+        };
+      }
+
       // Classify the transaction
       const classification = await classificationEngine.classify(txn);
 
@@ -194,10 +214,8 @@ export const cashbookPostingService = {
         business_event: mapping.event,
         entity_id: bankAccount.entity_id,
         amount: Math.abs(txn.transaction_amount),
-        occurred_at: txn.transaction_date || new Date().toISOString(),
-        effective_date:
-          txn.transaction_date?.split("T")[0] ||
-          new Date().toISOString().split("T")[0],
+        occurred_at: transactionDate,
+        effective_date: transactionDate.slice(0, 10),
         dimensions: mapping.dimensions,
         metadata: {
           source_id: txn.id,

@@ -7,6 +7,7 @@ import { validateBankImportFinancialPeriod } from "@/lib/banking/financial-perio
 import { runReconciliationEngine } from "@/lib/banking/reconciliation-engine";
 import { detectBankImport } from "@/lib/banking/import-detection";
 import { matchBankAccount } from "@/lib/banking/account-detection";
+import { registerStatementDocument } from "@/lib/banking/statement-document";
 
 export async function POST(request: NextRequest) {
   try {
@@ -421,6 +422,113 @@ export async function POST(request: NextRequest) {
     }
 
     /*
+     * Preserve the original bank-issued statement as supporting evidence.
+     * Registration must succeed before transaction insertion.
+     * Coverage remains unverified until authorised human review.
+     */
+    let statementDocument: Awaited<
+      ReturnType<typeof registerStatementDocument>
+    >;
+
+    try {
+      statementDocument = await registerStatementDocument({
+        db: supabase,
+        file,
+        fileBuffer,
+        checksum: batchRef,
+        entityId,
+        statementId: statement.id,
+        uploadedBy: user.id,
+      });
+    } catch (registrationError) {
+      const { error: statementCleanupError } = await supabase
+        .from("bank_statements")
+        .delete()
+        .eq("id", statement.id);
+
+      if (statementCleanupError) {
+        throw new Error(
+          `Document registration failed and statement cleanup was incomplete: ${
+            registrationError instanceof Error
+              ? registrationError.message
+              : String(registrationError)
+          }. Statement cleanup: ${statementCleanupError.message}`,
+        );
+      }
+
+      throw registrationError;
+    }
+
+    /*
+     * Roll back every artifact created by this import.
+     * Delete the relationship before its document and storage object.
+     */
+    const rollbackImport = async (): Promise<void> => {
+      const { error: transactionsError } = await supabase
+        .from("bank_transactions")
+        .delete()
+        .eq("imported_batch_reference", batchRef)
+        .eq("statement_id", statement.id);
+
+      if (transactionsError) {
+        throw new Error(
+          `Import rollback stopped: transaction cleanup failed. ` +
+          `Statement and evidence retained for investigation: ` +
+          transactionsError.message,
+        );
+      }
+
+      const { error: relationshipError } = await supabase
+        .from("document_relationships")
+        .delete()
+        .eq("document_id", statementDocument.documentId)
+        .eq("related_entity_type", "bank_statement")
+        .eq("related_entity_id", statement.id);
+
+      if (relationshipError) {
+        throw new Error(
+          `Import rollback stopped: relationship cleanup failed. ` +
+          `Statement and evidence retained: ${relationshipError.message}`,
+        );
+      }
+
+      const { error: documentError } = await supabase
+        .from("documents")
+        .delete()
+        .eq("id", statementDocument.documentId);
+
+      if (documentError) {
+        throw new Error(
+          `Import rollback stopped: document cleanup failed. ` +
+          `Statement and storage object retained: ${documentError.message}`,
+        );
+      }
+
+      const { error: storageError } = await supabase.storage
+        .from("bank-statement-evidence")
+        .remove([statementDocument.storageKey]);
+
+      if (storageError) {
+        throw new Error(
+          `Import rollback incomplete: private storage cleanup failed. ` +
+          `Statement retained: ${storageError.message}`,
+        );
+      }
+
+      const { error: statementError } = await supabase
+        .from("bank_statements")
+        .delete()
+        .eq("id", statement.id);
+
+      if (statementError) {
+        throw new Error(
+          `Import rollback incomplete: statement cleanup failed: ` +
+          statementError.message,
+        );
+      }
+    };
+
+    /*
      * Save canonical bank transactions.
      */
     for (const tx of transactions) {
@@ -445,14 +553,7 @@ export async function POST(request: NextRequest) {
         });
 
       if (upsertError) {
-        await supabase
-          .from("bank_transactions")
-          .delete()
-          .eq("imported_batch_reference", batchRef)
-          .eq("statement_id", statement.id);
-
-        await supabase.from("bank_statements").delete().eq("id", statement.id);
-
+        await rollbackImport();
         throw new Error(`Transaction import failed: ${upsertError.message}`);
       }
     }
@@ -471,32 +572,9 @@ export async function POST(request: NextRequest) {
         .eq("id", bankAccountId);
 
       if (balanceError) {
-        const { error: rollbackTransactionsError } = await supabase
-          .from("bank_transactions")
-          .delete()
-          .eq("imported_batch_reference", batchRef)
-          .eq("statement_id", statement.id);
-
-        const { error: rollbackStatementError } = await supabase
-          .from("bank_statements")
-          .delete()
-          .eq("id", statement.id);
-
-        if (rollbackTransactionsError || rollbackStatementError) {
-          throw new Error(
-            `Bank import failed during account balance update and automatic rollback was incomplete. ` +
-              `Balance error: ${balanceError.message}. ` +
-              `Transaction rollback: ${
-                rollbackTransactionsError?.message || "completed"
-              }. ` +
-              `Statement rollback: ${
-                rollbackStatementError?.message || "completed"
-              }.`,
-          );
-        }
-
+        await rollbackImport();
         throw new Error(
-          `Bank import failed during account balance update. No statement or transactions were retained. ${balanceError.message}`,
+          `Bank import failed during account balance update: ${balanceError.message}`,
         );
       }
     }
@@ -504,7 +582,20 @@ export async function POST(request: NextRequest) {
     /*
      * Reconciliation remains separate from posting.
      */
-    const recon = await runReconciliationEngine(entityId);
+    let recon: Awaited<ReturnType<typeof runReconciliationEngine>> | null = null;
+    let reconciliationWarning: string | null = null;
+
+    try {
+      recon = await runReconciliationEngine(entityId);
+    } catch (error) {
+      reconciliationWarning =
+        error instanceof Error ? error.message : "Reconciliation failed";
+
+      console.error(
+        "Bank statement imported, but reconciliation failed:",
+        error,
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -512,7 +603,9 @@ export async function POST(request: NextRequest) {
         ...result,
         batchRef,
         statementId: statement.id,
+        documentId: statementDocument.documentId,
         reconciliation: recon,
+        reconciliationWarning,
       },
     });
   } catch (error: any) {
