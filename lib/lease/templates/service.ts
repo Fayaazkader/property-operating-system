@@ -27,157 +27,86 @@ export interface UpdateLeaseTemplateInput {
 }
 
 export const leaseTemplateService = {
-  async createDraft(input: CreateLeaseTemplateInput,  client: SupabaseClient): Promise<LeaseTemplate> {
-    const { data: family, error: familyError } = await client
-  .from('lease_template_families')
-  .insert({
-    entity_id: input.entityId,
-    name: input.templateName,
-    category: input.category,
-    is_active: true,
-    created_by: input.createdBy || null,
-  })
-  .select('id')
-  .single();
-
-if (familyError) throw familyError;
-
-const familyId = family.id;
-
-    const { data, error } = await client
-      .from('lease_templates')
-      .insert({
-        entity_id: input.entityId,
-        family_id: familyId,
-        template_name: input.templateName,
-        category: input.category,
-        version: 1,
-        status: 'draft',
-        review_status: 'pending',
-        source_document_id: null,
-        source_document_url: null,
-        source_file_name: null,
-        source_mime_type: null,
-        fields: [],
-        field_mapping: [],
-        ai_suggestions: [],
-        clause_suggestions: [],
-        property_ids: input.propertyIds || [],
-        applies_to_property_types: input.appliesToPropertyTypes,
-        ai_enabled: true,
-        created_by: input.createdBy || null,
-      })
-      .select('*')
-      .single();
+  async createDraft(
+    input: CreateLeaseTemplateInput,
+    client: SupabaseClient,
+  ): Promise<LeaseTemplate> {
+    const { data, error } = await client.rpc(
+      'create_lease_template_draft',
+      {
+        p_entity_id: input.entityId,
+        p_template_name: input.templateName,
+        p_category: input.category,
+        p_applies_to_property_types: input.appliesToPropertyTypes,
+        p_property_ids: input.propertyIds ?? [],
+      },
+    );
 
     if (error) throw error;
+    if (!data) {
+      throw new Error('Lease-template draft creation returned no template.');
+    }
 
     return data as LeaseTemplate;
   },
 
   async update(
-  templateId: string,
-  entityId: string,
-  input: UpdateLeaseTemplateInput,
-  client: SupabaseClient
-): Promise<LeaseTemplate> {
-  const { data, error } = await client
-      .from('lease_templates')
-      .update({
-        ...input,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', templateId)
-      .eq('entity_id', entityId)
-      .eq('status', 'draft')
-      .select('*')
-      .single();
-
-    if (error) throw error;
-
-    return data as LeaseTemplate;
-  },
-
-  async attachSourceDocument(
     templateId: string,
     entityId: string,
-    documentId: string,
-    documentUrl: string,
-    fileName: string,
-    mimeType: string,
+    input: UpdateLeaseTemplateInput,
     client: SupabaseClient,
-    checksum?: string
   ): Promise<LeaseTemplate> {
-    const { data, error } = await client
-      .from('lease_templates')
-      .update({
-        source_document_id: documentId,
-        source_document_url: documentUrl,
-        source_file_name: fileName,
-        source_mime_type: mimeType,
-        source_document_checksum: checksum || null,
-        review_status: 'in_review',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', templateId)
-      .eq('entity_id', entityId)
-      .eq('status', 'draft')
-      .select('*')
-      .single();
+    if (
+      input.fields !== undefined ||
+      input.fieldMapping !== undefined ||
+      input.aiSuggestions !== undefined ||
+      input.clauseSuggestions !== undefined
+    ) {
+      throw new Error(
+        'Document fields and mappings require the governed review workflow.',
+      );
+    }
+
+    const { data, error } = await client.rpc(
+      'update_lease_template_draft_metadata',
+      {
+        p_template_id: templateId,
+        p_entity_id: entityId,
+        p_template_name: input.templateName ?? null,
+        p_category: input.category ?? null,
+        p_property_ids: input.propertyIds ?? null,
+        p_applies_to_property_types:
+          input.appliesToPropertyTypes ?? null,
+      },
+    );
 
     if (error) throw error;
+    if (!data) {
+      throw new Error('Draft metadata update returned no template.');
+    }
 
     return data as LeaseTemplate;
   },
 
-  async approve(
-    templateId: string,
-    entityId: string,
-    reviewedBy: string,
-client: SupabaseClient
-  ): Promise<LeaseTemplate> {
-    const { data, error } = await client
-      .from('lease_templates')
-      .update({
-        status: 'active',
-        review_status: 'approved',
-        reviewed_by: reviewedBy,
-        reviewed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', templateId)
-      .eq('entity_id', entityId)
-      .eq('status', 'draft')
-      .eq('review_status', 'in_review')
-      .not('source_document_id', 'is', null)
-      .select('*')
-      .single();
-
-    if (error) throw error;
-
-    return data as LeaseTemplate;
-  },
+  // Source documents must be attached through the authenticated
+  // upload API. Approval must use the strict approval API.
 
   async archive(
     templateId: string,
     entityId: string,
-    archivedBy: string,
     client: SupabaseClient,
   ): Promise<void> {
-    const { error } = await client
-      .from('lease_templates')
-      .update({
-        status: 'archived',
-        archived_by: archivedBy,
-        archived_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', templateId)
-      .eq('entity_id', entityId)
-      .eq('status', 'active');
+    const { error } = await client.rpc(
+      'archive_lease_template',
+      {
+        p_template_id: templateId,
+        p_entity_id: entityId,
+      },
+    );
 
     if (error) throw error;
   },
+
   async getForReview(
   templateId: string,
   entityId: string,

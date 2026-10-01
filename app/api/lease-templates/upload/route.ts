@@ -48,6 +48,53 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Validate request metadata before accessing entity records.
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  if (
+    !(file instanceof File) ||
+    typeof entityId !== 'string' ||
+    typeof templateId !== 'string' ||
+    !uuidPattern.test(entityId) ||
+    !uuidPattern.test(templateId)
+  ) {
+    return NextResponse.json(
+      { error: 'Invalid lease-template upload request' },
+      { status: 400 },
+    );
+  }
+
+  const maxFileBytes = 10 * 1024 * 1024;
+  const allowedTypes = new Map([
+    ['.pdf', 'application/pdf'],
+    [
+      '.docx',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ],
+  ]);
+
+  const extension = file.name.toLowerCase().match(/\.[^.]+$/)?.[0];
+  const expectedMime = extension ? allowedTypes.get(extension) : undefined;
+
+  if (
+    !expectedMime ||
+    file.type !== expectedMime ||
+    file.name.length > 255
+  ) {
+    return NextResponse.json(
+      { error: 'Upload a valid PDF or DOCX lease template' },
+      { status: 415 },
+    );
+  }
+
+  if (file.size === 0 || file.size > maxFileBytes) {
+    return NextResponse.json(
+      { error: 'File must be between 1 byte and 10 MB' },
+      { status: 413 },
+    );
+  }
+
   const { data: access } = await serviceClient
     .from('user_entity_access')
     .select('entity_id')
@@ -59,12 +106,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
 
+  // A verified session and entity membership are both required,
+  // but neither independently grants permission to edit templates.
+  const { data: canEdit, error: permissionError } =
+    await serviceClient.rpc('has_entity_permission', {
+      p_user_id: user.id,
+      p_entity_id: entityId,
+      p_permission_key: 'leasing.template.edit',
+    });
+
+  if (permissionError) {
+    console.error('Lease-template permission check failed:', permissionError);
+    return NextResponse.json(
+      { error: 'Unable to verify lease-template permissions' },
+      { status: 503 },
+    );
+  }
+
+  if (canEdit !== true) {
+    return NextResponse.json(
+      { error: 'Lease-template editing permission required' },
+      { status: 403 },
+    );
+  }
+
   const { data: template, error: templateError } = await serviceClient
     .from('lease_templates')
     .select('*')
     .eq('id', templateId)
     .eq('entity_id', entityId)
     .eq('status', 'draft')
+    .eq('review_status', 'pending')
+    .is('source_document_id', null)
     .single();
 
   if (templateError || !template) {
@@ -76,135 +149,125 @@ export async function POST(request: NextRequest) {
 
     let documentId = '';
   let storageKey = '';
+  let attachmentAttempted = false;
+  let uploadAttemptId = '';
 
   try {
     const fileBuffer = Buffer.from(await file.arrayBuffer());
+
+    // Reject obvious content-type spoofing before storage or OCR.
+    const isPdf =
+      extension === '.pdf' &&
+      fileBuffer.subarray(0, 5).toString('ascii') === '%PDF-';
+
+    const isDocx =
+      extension === '.docx' &&
+      fileBuffer.length >= 4 &&
+      fileBuffer[0] === 0x50 &&
+      fileBuffer[1] === 0x4b &&
+      fileBuffer[2] === 0x03 &&
+      fileBuffer[3] === 0x04;
+
+    if (!isPdf && !isDocx) {
+      return NextResponse.json(
+        { error: 'File content does not match its declared format' },
+        { status: 415 },
+      );
+    }
 const checksum = createHash('sha256').update(fileBuffer).digest('hex');
 
 documentId = crypto.randomUUID();
 
     /*
-     * Prevent the exact same source document from being attached twice
-     * to this template family.
+     * Fail closed on duplicate checks. Never delete an existing document
+     * merely because no template currently references it: another upload
+     * may still be processing that document.
      */
-    const { data: duplicate } = await serviceClient
-  .from('documents')
-  .select(`
-    id,
-    document_type,
-    status,
-    file_name
-  `)
-  .eq('entity_id', entityId)
-  .eq('checksum', checksum)
-  .maybeSingle();
+    const { data: duplicates, error: duplicateError } =
+      await serviceClient
+        .from('documents')
+        .select('id')
+        .eq('entity_id', entityId)
+        .eq('checksum', checksum)
+        .limit(1);
 
-if (duplicate) {
-  /*
-   * A checksum match means the exact same source document has already
-   * been uploaded for this entity.
-   *
-   * A document attached to an existing lease template is NOT an
-   * incomplete upload merely because the template is still in review.
-   * "draft / in_review" is a legitimate production workflow state.
-   */
+    if (duplicateError) {
+      throw new Error('Unable to verify document uniqueness');
+    }
 
-  const { data: existingTemplate, error: existingTemplateError } =
-    await serviceClient
-      .from('lease_templates')
-      .select(`
-        id,
-        family_id,
-        status,
-        review_status,
-        source_document_id
-      `)
-      .eq('entity_id', entityId)
-      .eq('source_document_id', duplicate.id)
-      .maybeSingle();
-
-  if (existingTemplateError) {
-    console.error(
-      'Failed to check existing lease template:',
-      existingTemplateError
-    );
-
-    return NextResponse.json(
-      {
-        error: 'Unable to verify whether this document was already uploaded.',
-        retryable: true,
-      },
-      { status: 422 }
-    );
-  }
-
-  /*
-   * If the document is already attached to a lease template,
-   * it is a genuine duplicate regardless of whether that template
-   * is draft, in_review, approved, or archived.
-   */
-  if (existingTemplate) {
-    return NextResponse.json(
-      {
-        error:
-          'This lease document has already been uploaded to this lease template.',
-        documentId: duplicate.id,
-        templateId: existingTemplate.id,
-        duplicate: true,
-      },
-      { status: 409 }
-    );
-  }
-
-  /*
-   * No lease template references the document.
-   *
-   * This is an orphaned document from a previous failed attempt.
-   * Remove it so the user can retry the upload safely.
-   */
-  if (duplicate.document_type === 'lease_template_source') {
-    const { error: documentCleanupError } = await serviceClient
-      .from('documents')
-      .delete()
-      .eq('id', duplicate.id)
-      .eq('entity_id', entityId);
-
-    if (documentCleanupError) {
-      console.error(
-        'Failed to remove orphaned lease-template document:',
-        documentCleanupError
-      );
-
+    if (duplicates?.length) {
       return NextResponse.json(
         {
-          error:
-            'The previous failed upload could not be cleaned up. Please try again.',
-          retryable: true,
+          error: 'This document already exists for the selected entity',
+          duplicate: true,
         },
-        { status: 422 }
+        { status: 409 },
       );
     }
-  } else {
-    /*
-     * Same checksum belongs to another document type.
-     * Do not delete or reuse it.
-     */
-    return NextResponse.json(
-      {
-        error:
-          'This document has already been uploaded to AssetFlow.',
-        documentId: duplicate.id,
-      },
-      { status: 409 }
-    );
-  }
-}
+
+    // Reserve the source and target template before creating storage objects.
+    // Database uniqueness constraints arbitrate concurrent requests.
+    const { data: reservation, error: reservationError } =
+      await serviceClient
+        .from('lease_template_upload_attempts')
+        .insert({
+          entity_id: entityId,
+          template_id: templateId,
+          actor_id: user.id,
+          checksum,
+          status: 'reserved',
+          lease_expires_at: new Date(
+            Date.now() + 30 * 60 * 1000
+          ).toISOString(),
+        })
+        .select('id')
+        .single();
+
+    if (reservationError) {
+      if (reservationError.code === '23505') {
+        return NextResponse.json(
+          {
+            error: 'An upload of this document or template already exists.',
+            duplicate: true,
+            retryable: false,
+          },
+          { status: 409 },
+        );
+      }
+
+      throw new Error('Unable to reserve lease-template upload');
+    }
+
+    if (!reservation) {
+      throw new Error('Upload reservation was not returned');
+    }
+
+    uploadAttemptId = reservation.id;
 
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
 
     storageKey =
   `lease-templates/${entityId}/${template.family_id || templateId}` +
   `/${documentId}-${safeName}`;
+
+    // Record intended resource identifiers before creating either resource.
+    // Recovery can inspect these identifiers after an interrupted upload.
+    const { data: preparedAttempt, error: preparationError } =
+      await serviceClient
+        .from('lease_template_upload_attempts')
+        .update({
+          document_id: documentId,
+          storage_key: storageKey,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', uploadAttemptId)
+        .eq('status', 'reserved')
+        .select('id')
+        .single();
+
+    if (preparationError || !preparedAttempt) {
+      throw new Error('Unable to prepare upload recovery identifiers');
+    }
 
     const { error: uploadError } = await serviceClient.storage
       .from('documents')
@@ -250,6 +313,25 @@ if (duplicate) {
 
     if (documentError) {
       throw documentError;
+    }
+
+    // Persist the resources created by this upload before OCR begins.
+    const { data: processingAttempt, error: processingError } =
+      await serviceClient
+        .from('lease_template_upload_attempts')
+        .update({
+          document_id: documentId,
+          storage_key: storageKey,
+          status: 'processing',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', uploadAttemptId)
+        .eq('status', 'reserved')
+        .select('id')
+        .single();
+
+    if (processingError || !processingAttempt) {
+      throw new Error('Unable to record lease-template processing state');
     }
 
     /*
@@ -299,28 +381,37 @@ if (!templateAnalysis.validation.valid) {
   suggestions: aiSuggestions,
 } = buildLeaseTemplateMappings(templateAnalysis);
 
-    const { data: updatedTemplate, error: updateError } =
+    // Persist the attachment boundary before invoking the RPC.
+    const { data: attachingAttempt, error: attachingError } =
       await serviceClient
-        .from('lease_templates')
+        .from('lease_template_upload_attempts')
         .update({
-  source_document_id: documentId,
-  source_document_checksum: checksum,
-  source_file_name: file.name,
-  source_mime_type: file.type || 'application/octet-stream',
-  source_document_url: storageKey,
-  field_mapping: fieldMapping,
-  ai_suggestions: aiSuggestions,
-  clause_suggestions: [],
-  fields: templateAnalysis.fields,
-  review_status: 'in_review',
-  status: 'draft',
-  updated_at: new Date().toISOString(),
-})
-        .eq('id', templateId)
-        .eq('entity_id', entityId)
-        .eq('status', 'draft')
-        .select('*')
+          status: 'attaching',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', uploadAttemptId)
+        .eq('status', 'processing')
+        .select('id')
         .single();
+
+    if (attachingError || !attachingAttempt) {
+      throw new Error('Unable to record lease-template attachment state');
+    }
+
+    attachmentAttempted = true;
+
+    const { data: updatedTemplate, error: updateError } =
+      await serviceClient.rpc('attach_lease_template_source', {
+        p_template_id: templateId,
+        p_entity_id: entityId,
+        p_actor_id: user.id,
+        p_document_id: documentId,
+        p_checksum: checksum,
+        p_field_mapping: fieldMapping,
+        p_ai_suggestions: aiSuggestions,
+        p_fields: templateAnalysis.fields,
+          p_upload_attempt_id: uploadAttemptId,
+      });
 
     if (updateError) {
       throw updateError;
@@ -343,122 +434,56 @@ if (!templateAnalysis.validation.valid) {
 },
     });
     } catch (error: any) {
-  console.error('Lease template upload error:', error);
+    console.error('Lease template upload error:', error);
 
-  /*
-   * Failed uploads are transactional.
-   *
-   * A lease template only becomes visible as a usable draft/in-review
-   * template after document processing and validation succeed.
-   *
-   * If processing fails:
-   * - remove the uploaded storage object
-   * - remove the documents row
-   * - remove the incomplete lease template
-   * - remove its draft family
-   *
-   * This prevents dead drafts from remaining in the UI and allows
-   * the same source document to be uploaded again.
-   */
+    if (uploadAttemptId) {
+      // Do not delete resources or release the reservation here.
+      // The attachment may have committed despite a network error.
+      const { error: reconciliationError } = await serviceClient
+        .from('lease_template_upload_attempts')
+        .update({
+          status: 'reconciliation_required',
+          error_code: String(error?.code || 'UPLOAD_FAILED'),
+          error_message: 'Upload requires reconciliation',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', uploadAttemptId)
+        .in('status', ['reserved', 'processing', 'attaching']);
 
-  try {
-    // 1. Remove uploaded source document from storage.
-    if (storageKey) {
-      const { error: storageCleanupError } =
-        await serviceClient.storage
-          .from('documents')
-          .remove([storageKey]);
-
-      if (storageCleanupError) {
+      if (reconciliationError) {
         console.error(
-          'Lease template storage cleanup failed:',
-          storageCleanupError
+          'Unable to record upload reconciliation state:',
+          { uploadAttemptId, reconciliationError },
         );
       }
-    }
 
-    // 2. Remove canonical document record.
-    if (documentId) {
-      const { error: documentCleanupError } =
-        await serviceClient
-          .from('documents')
-          .delete()
-          .eq('id', documentId)
-          .eq('entity_id', entityId);
+      console.error('Upload resources retained for reconciliation:', {
+        uploadAttemptId,
+        entityId,
+        templateId,
+        documentId,
+        storageKey,
+        attachmentAttempted,
+      });
 
-      if (documentCleanupError) {
-        console.error(
-          'Lease template document cleanup failed:',
-          documentCleanupError
-        );
-      }
-    }
-
-    // 3. Find the incomplete draft template.
-    const { data: failedTemplate, error: templateLookupError } =
-      await serviceClient
-        .from('lease_templates')
-        .select('id, family_id')
-        .eq('id', templateId)
-        .eq('entity_id', entityId)
-        .eq('status', 'draft')
-        .maybeSingle();
-
-    if (templateLookupError) {
-      console.error(
-        'Lease template draft lookup failed:',
-        templateLookupError
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Upload requires reconciliation. Do not retry until its status is resolved.',
+          retryable: false,
+        },
+        { status: 503 },
       );
-    } else if (failedTemplate) {
-      // 4. Remove the incomplete draft template.
-      const { error: templateCleanupError } =
-        await serviceClient
-          .from('lease_templates')
-          .delete()
-          .eq('id', failedTemplate.id)
-          .eq('entity_id', entityId)
-          .eq('status', 'draft');
-
-      if (templateCleanupError) {
-        console.error(
-          'Lease template draft cleanup failed:',
-          templateCleanupError
-        );
-      }
-
-      // 5. Remove the associated draft family.
-      if (failedTemplate.family_id) {
-        const { error: familyCleanupError } =
-          await serviceClient
-            .from('lease_template_families')
-            .delete()
-            .eq('id', failedTemplate.family_id)
-            .eq('entity_id', entityId);
-
-        if (familyCleanupError) {
-          console.error(
-            'Lease template family cleanup failed:',
-            familyCleanupError
-          );
-        }
-      }
     }
-  } catch (cleanupError) {
-    console.error(
-      'Lease template upload cleanup failed:',
-      cleanupError
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to prepare lease-template upload.',
+        retryable: true,
+      },
+      { status: 422 },
     );
   }
-
-  return NextResponse.json(
-    {
-      success: false,
-      error:
-        error?.message ||
-        'Failed to process lease template. Please review the document and try again.',
-      retryable: true,
-    },
-    { status: 422 }
-  );
-}
 }

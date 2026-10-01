@@ -123,9 +123,6 @@ export async function processDocument(
   // Run OCR
     const ocrResult = await extractTextFromBuffer(fileBuffer, mimeType);
 
-    console.log("OCR TEXT:", ocrResult.text.slice(0, 800));
-        console.log("RAW TEXT has newlines:", ocrResult.rawText.includes('\n'));
-    console.log("RAW TEXT length:", ocrResult.rawText.length);
     const ocrText = ocrResult.text;
   // Classify
   const documentType = classifyDocument(fileName, mimeType, ocrText);
@@ -151,6 +148,21 @@ const fieldEvidence = buildFieldEvidence(
   extraction,
   ocrResult.evidence || []
 );
+
+  // Lease-template analysis is read-only. Reuse OCR, classification,
+  // extraction and evidence, but never create communications,
+  // start operational workflows or publish document events.
+  if (metadata?.channel === 'lease_template') {
+    return {
+      documentType,
+      extractedFields,
+      fieldEvidence,
+      message: 'Lease-template OCR completed; awaiting template review.',
+      ocrText: ocrResult.text,
+      rawOcrText: ocrResult.rawText,
+      ocrConfidence: ocrResult.confidence,
+    };
+  }
 
   // Log the document
   await supabase.from("communications").insert({
