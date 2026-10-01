@@ -13,6 +13,14 @@ export const PERMISSIONS = {
     BANK_STATEMENT_VERIFY_COVERAGE: 'finance.bank_statement.verify_coverage',
   },
 
+  LEASE_TEMPLATES: {
+    CREATE: 'leasing.template.create',
+    EDIT: 'leasing.template.edit',
+    REVIEW: 'leasing.template.review',
+    APPROVE: 'leasing.template.approve',
+    ARCHIVE: 'leasing.template.archive',
+  },
+
   LEASING: {
     OPPORTUNITY_CREATE: 'leasing.opportunity.create',
     OPPORTUNITY_EDIT: 'leasing.opportunity.edit',
@@ -41,8 +49,37 @@ export const PERMISSIONS = {
 
 export type PermissionKey =
   | (typeof PERMISSIONS.FINANCE)[keyof typeof PERMISSIONS.FINANCE]
+  | (typeof PERMISSIONS.LEASE_TEMPLATES)[keyof typeof PERMISSIONS.LEASE_TEMPLATES]
   | (typeof PERMISSIONS.LEASING)[keyof typeof PERMISSIONS.LEASING]
   | (typeof PERMISSIONS.PROPERTY)[keyof typeof PERMISSIONS.PROPERTY];
+
+export const LEASE_TEMPLATE_PERMISSIONS = [
+  {
+    key: PERMISSIONS.LEASE_TEMPLATES.CREATE,
+    label: 'Create lease templates',
+    description: 'Create new draft lease templates within an authorised entity.',
+  },
+  {
+    key: PERMISSIONS.LEASE_TEMPLATES.EDIT,
+    label: 'Edit lease templates',
+    description: 'Edit draft templates and attach source documents.',
+  },
+  {
+    key: PERMISSIONS.LEASE_TEMPLATES.REVIEW,
+    label: 'Review lease-template mappings',
+    description: 'Confirm, correct, reject and assign document field mappings.',
+  },
+  {
+    key: PERMISSIONS.LEASE_TEMPLATES.APPROVE,
+    label: 'Approve lease templates',
+    description: 'Approve reviewed templates for operational use.',
+  },
+  {
+    key: PERMISSIONS.LEASE_TEMPLATES.ARCHIVE,
+    label: 'Archive lease templates',
+    description: 'Retire approved templates while preserving their history.',
+  },
+] as const;
 
 export const LEASING_PERMISSIONS = [
   {
