@@ -148,6 +148,11 @@ BEGIN
             USING ERRCODE = '40001';
     END IF;
 
+    IF v_attempt.recovery_actor_id IS DISTINCT FROM p_actor_id THEN
+        RAISE EXCEPTION 'Lease-template upload recovery claimant has been superseded'
+            USING ERRCODE = '40001';
+    END IF;
+
     IF v_attempt.lease_expires_at IS NULL
        OR v_attempt.lease_expires_at <= now()
     THEN

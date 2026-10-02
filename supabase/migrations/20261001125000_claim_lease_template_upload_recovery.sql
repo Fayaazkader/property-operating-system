@@ -151,6 +151,7 @@ BEGIN
 
     UPDATE public.lease_template_upload_attempts
     SET lease_generation = lease_generation + 1,
+        recovery_actor_id = p_actor_id,
         lease_expires_at = now() + interval '30 minutes',
         updated_at = now()
     WHERE id = v_attempt.id

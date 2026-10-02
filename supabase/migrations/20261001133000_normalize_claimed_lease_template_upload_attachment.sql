@@ -48,8 +48,8 @@ BEGIN
     END IF;
 
     IF public.has_entity_permission(
-        p_entity_id,
         p_actor_id,
+        p_entity_id,
         'leasing.template.edit'
     ) IS DISTINCT FROM TRUE THEN
         RAISE EXCEPTION 'Actor cannot recover lease templates'
@@ -148,6 +148,11 @@ BEGIN
             USING ERRCODE = '40001';
     END IF;
 
+    IF v_attempt.recovery_actor_id IS DISTINCT FROM p_actor_id THEN
+        RAISE EXCEPTION 'Lease-template upload recovery claimant has been superseded'
+            USING ERRCODE = '40001';
+    END IF;
+
     IF v_attempt.lease_expires_at IS NULL
        OR v_attempt.lease_expires_at <= now()
     THEN
@@ -184,6 +189,7 @@ BEGIN
 
     UPDATE public.lease_template_upload_attempts
     SET status = 'attached',
+        recovery_actor_id = NULL,
         updated_at = now(),
         completed_at = now(),
         lease_expires_at = NULL,
@@ -192,6 +198,8 @@ BEGIN
     WHERE id = v_attempt.id
       AND entity_id = p_entity_id
       AND lease_generation = p_expected_generation
+      AND recovery_actor_id = p_actor_id
+      AND lease_expires_at > now()
       AND status IN (
           'reserved',
           'processing',

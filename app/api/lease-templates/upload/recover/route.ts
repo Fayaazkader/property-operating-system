@@ -542,39 +542,27 @@ export async function POST(request: NextRequest) {
       suggestions: aiSuggestions,
     } = buildLeaseTemplateMappings(templateAnalysis);
 
-    const { data: attaching, error: transitionError } =
-      await serviceClient.rpc('transition_lease_template_upload_attempt', {
-        p_attempt_id: attemptId,
-        p_entity_id: entityId,
-        p_actor_id: user.id,
-        p_expected_generation: generation,
-        p_expected_status: 'processing',
-        p_new_status: 'attaching',
-        p_error_code: null,
-        p_error_message: null,
-      });
-
-    if (transitionError) {
-      throw transitionError;
-    }
-
-    if (!attaching || attaching.status !== 'attaching') {
-      throw new Error('Recovery attachment transition failed');
-    }
-
+    /*
+     * Recovery completion has its own atomic DB boundary. The current recovery
+     * claimant is authorized through recovery_actor_id, while attempt.actor_id
+     * and document.uploaded_by remain immutable original-upload provenance.
+     */
     const { data: template, error: attachmentError } =
-      await serviceClient.rpc('attach_lease_template_source', {
-        p_template_id: inspection.template_id,
-        p_entity_id: entityId,
-        p_actor_id: user.id,
-        p_document_id: inspection.document_id,
-        p_checksum: inspection.checksum,
-        p_field_mapping: fieldMapping,
-        p_ai_suggestions: aiSuggestions,
-        p_fields: templateAnalysis.fields,
-        p_upload_attempt_id: attemptId,
-        p_expected_generation: generation,
-      });
+      await serviceClient.rpc(
+        'complete_claimed_lease_template_upload_recovery',
+        {
+          p_template_id: inspection.template_id,
+          p_entity_id: entityId,
+          p_actor_id: user.id,
+          p_document_id: inspection.document_id,
+          p_checksum: inspection.checksum,
+          p_field_mapping: fieldMapping,
+          p_ai_suggestions: aiSuggestions,
+          p_fields: templateAnalysis.fields,
+          p_upload_attempt_id: attemptId,
+          p_expected_generation: generation,
+        },
+      );
 
     if (attachmentError) {
       throw attachmentError;
