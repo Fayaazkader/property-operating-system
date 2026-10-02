@@ -22,6 +22,24 @@ export interface OCRResult {
   pageCount?: number;
   processedAt: string;
 }
+export type OCRProgressStage =
+  | 'starting'
+  | 'pdf_native_complete'
+  | 'pdf_render_complete'
+  | 'ocr_page_start'
+  | 'ocr_page_complete'
+  | 'complete';
+
+export interface OCRProgressEvent {
+  stage: OCRProgressStage;
+  page?: number;
+  pageCount?: number;
+}
+
+export type OCRProgressCallback = (
+  event: OCRProgressEvent
+) => void | Promise<void>;
+
 export interface DocumentEvidenceLocation {
   type: 'bbox' | 'text_range' | 'region';
 
@@ -184,7 +202,8 @@ async function extractDocxText(
 }
 
 async function extractScannedPdfText(
-  buffer: ArrayBuffer
+  buffer: ArrayBuffer,
+  onProgress?: OCRProgressCallback
 ): Promise<{
   text: string;
   rawText: string;
@@ -203,6 +222,11 @@ async function extractScannedPdfText(
   if (!pages.length) {
     throw new Error('Unable to render scanned PDF pages');
   }
+
+  await onProgress?.({
+    stage: 'pdf_render_complete',
+    pageCount: pages.length,
+  });
 
   const workerPath = path.join(
     process.cwd(),
@@ -223,10 +247,23 @@ async function extractScannedPdfText(
     const confidences: number[] = [];
     const evidence: DocumentEvidence[] = [];
 
-    for (const page of pages) {
+    for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+      const page = pages[pageIndex];
       if (!page.content) continue;
 
+      await onProgress?.({
+        stage: 'ocr_page_start',
+        page: pageIndex + 1,
+        pageCount: pages.length,
+      });
+
       const { data } = await worker.recognize(page.content);
+
+      await onProgress?.({
+        stage: 'ocr_page_complete',
+        page: pageIndex + 1,
+        pageCount: pages.length,
+      });
 
       if (data.text?.trim()) {
         pageTexts.push(data.text.trim());
@@ -332,8 +369,11 @@ async function extractLegacyDocText(
 
 export async function extractTextFromBuffer(
   buffer: ArrayBuffer,
-  fileType: string = 'image/png'
+  fileType: string = 'image/png',
+  onProgress?: OCRProgressCallback
 ): Promise<OCRResult> {
+    await onProgress?.({ stage: 'starting' });
+
     const normalizedFileType = fileType.toLowerCase();
     if (
   normalizedFileType === 'application/msword' ||
@@ -345,6 +385,8 @@ export async function extractTextFromBuffer(
   if (!text) {
     throw new Error('Unable to extract text from legacy Word document');
   }
+
+  await onProgress?.({ stage: 'complete' });
 
   return {
     text,
@@ -367,6 +409,8 @@ export async function extractTextFromBuffer(
       throw new Error('Unable to extract text from Word document');
     }
 
+    await onProgress?.({ stage: 'complete' });
+
     return {
       text,
       rawText,
@@ -385,7 +429,14 @@ export async function extractTextFromBuffer(
     const { text, rawText, evidence, pageCount } =
   await extractPdfNativeText(buffer);
 
+    await onProgress?.({
+      stage: 'pdf_native_complete',
+      pageCount,
+    });
+
     if (text.length > 20) {
+      await onProgress?.({ stage: 'complete' });
+
       return {
   text,
   rawText,
@@ -398,7 +449,9 @@ export async function extractTextFromBuffer(
 };
     }
 
-    const scanned = await extractScannedPdfText(buffer);
+    const scanned = await extractScannedPdfText(buffer, onProgress);
+
+    await onProgress?.({ stage: 'complete' });
 
     return {
   text: scanned.text,
@@ -475,6 +528,8 @@ if (Array.isArray(ocrPage.words)) {
 }
 
 await worker.terminate();
+
+await onProgress?.({ stage: 'complete' });
 
 return {
   text: data.text || '',

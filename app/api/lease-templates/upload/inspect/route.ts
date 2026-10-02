@@ -133,10 +133,7 @@ export async function GET(request: NextRequest) {
 
     if (!storageError) {
       storageExists = object !== null;
-    } else if (
-      storageError.message.toLowerCase().includes('not found') ||
-      storageError.message.toLowerCase().includes('not_found')
-    ) {
+    } else if (storageError.status === 404) {
       storageExists = false;
     } else {
       storageInspectionError = true;
@@ -145,7 +142,9 @@ export async function GET(request: NextRequest) {
         'Lease-template storage inspection failed:',
         {
           attemptId,
-          storageError,
+          status: storageError.status,
+          statusCode: storageError.statusCode,
+          message: storageError.message,
         },
       );
     }

@@ -3,7 +3,8 @@
 
 export type DocumentType =
   | 'lease_application' | 'signed_lease' | 'invoice' | 'purchase_order'
-  | 'bank_statement' | 'meter_reading' | 'inspection_report'
+  | 'bank_statement' | 'bank_statement_source' | 'statement'
+  | 'lease_template_source' | 'meter_reading' | 'inspection_report'
   | 'maintenance_photo' | 'quote' | 'id_document' | 'unknown';
 
 export type DocumentStatus =
@@ -33,6 +34,7 @@ export interface Document {
   status: DocumentStatus;
   ocr_provider?: OCRProvider;
   ocr_text?: string;
+  raw_ocr_text?: string;
   ocr_confidence?: number;
   extracted_fields: Record<string, any>;
   extraction_confidence?: number;

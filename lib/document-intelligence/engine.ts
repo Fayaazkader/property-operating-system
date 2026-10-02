@@ -7,6 +7,7 @@ import { publish } from "@/lib/platform/events/event-bus";
 import {
   extractTextFromBuffer,
   type DocumentEvidence,
+  type OCRProgressCallback,
 } from "./ocr-adapter";
 import { classifyDocument, DocumentType } from "./classifier";
 import { extractInvoiceFields, extractLeaseFields, ExtractionResult } from "./field-extractor";
@@ -117,11 +118,16 @@ export async function processDocument(
   mimeType: string,
   tenantId?: string,
   metadata?: any,
-  db: SupabaseClient = supabase
+  db: SupabaseClient = supabase,
+  onOcrProgress?: OCRProgressCallback
 ): Promise<DocumentResult> {
 
   // Run OCR
-    const ocrResult = await extractTextFromBuffer(fileBuffer, mimeType);
+    const ocrResult = await extractTextFromBuffer(
+      fileBuffer,
+      mimeType,
+      onOcrProgress
+    );
 
     const ocrText = ocrResult.text;
   // Classify

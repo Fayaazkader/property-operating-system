@@ -151,6 +151,8 @@ export async function POST(request: NextRequest) {
   let storageKey = '';
   let attachmentAttempted = false;
   let uploadAttemptId = '';
+  let uploadLeaseGeneration: number | null = null;
+  let uploadLeaseExpiresAt: number | null = null;
 
   try {
     const fileBuffer = Buffer.from(await file.arrayBuffer());
@@ -176,7 +178,6 @@ export async function POST(request: NextRequest) {
     }
 const checksum = createHash('sha256').update(fileBuffer).digest('hex');
 
-documentId = crypto.randomUUID();
 
     /*
      * Fail closed on duplicate checks. Never delete an existing document
@@ -205,23 +206,17 @@ documentId = crypto.randomUUID();
       );
     }
 
-    // Reserve the source and target template before creating storage objects.
-    // Database uniqueness constraints arbitrate concurrent requests.
+    // Reserve the upload before creating any external resource.
+    // PostgreSQL re-enforces membership, edit permission and template
+    // eligibility under lock and allocates durable recovery identifiers.
     const { data: reservation, error: reservationError } =
-      await serviceClient
-        .from('lease_template_upload_attempts')
-        .insert({
-          entity_id: entityId,
-          template_id: templateId,
-          actor_id: user.id,
-          checksum,
-          status: 'reserved',
-          lease_expires_at: new Date(
-            Date.now() + 30 * 60 * 1000
-          ).toISOString(),
-        })
-        .select('id')
-        .single();
+      await serviceClient.rpc('reserve_lease_template_upload', {
+        p_entity_id: entityId,
+        p_template_id: templateId,
+        p_actor_id: user.id,
+        p_checksum: checksum,
+        p_file_extension: extension.slice(1),
+      });
 
     if (reservationError) {
       if (reservationError.code === '23505') {
@@ -235,39 +230,33 @@ documentId = crypto.randomUUID();
         );
       }
 
+      if (reservationError.code === '42501') {
+        return NextResponse.json(
+          { error: 'Lease-template editing permission required' },
+          { status: 403 },
+        );
+      }
+
       throw new Error('Unable to reserve lease-template upload');
     }
 
-    if (!reservation) {
-      throw new Error('Upload reservation was not returned');
+    if (
+      !reservation ||
+      typeof reservation.id !== 'string' ||
+      typeof reservation.document_id !== 'string' ||
+      typeof reservation.storage_key !== 'string' ||
+      typeof reservation.lease_generation !== 'number' ||
+      !Number.isSafeInteger(reservation.lease_generation) ||
+      reservation.lease_generation <= 0 ||
+      reservation.status !== 'reserved'
+    ) {
+      throw new Error('Upload reservation was not returned correctly');
     }
 
     uploadAttemptId = reservation.id;
-
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-
-    storageKey =
-  `lease-templates/${entityId}/${template.family_id || templateId}` +
-  `/${documentId}-${safeName}`;
-
-    // Record intended resource identifiers before creating either resource.
-    // Recovery can inspect these identifiers after an interrupted upload.
-    const { data: preparedAttempt, error: preparationError } =
-      await serviceClient
-        .from('lease_template_upload_attempts')
-        .update({
-          document_id: documentId,
-          storage_key: storageKey,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', uploadAttemptId)
-        .eq('status', 'reserved')
-        .select('id')
-        .single();
-
-    if (preparationError || !preparedAttempt) {
-      throw new Error('Unable to prepare upload recovery identifiers');
-    }
+    documentId = reservation.document_id;
+    storageKey = reservation.storage_key;
+    uploadLeaseGeneration = reservation.lease_generation;
 
     const { error: uploadError } = await serviceClient.storage
       .from('documents')
@@ -315,24 +304,38 @@ documentId = crypto.randomUUID();
       throw documentError;
     }
 
-    // Persist the resources created by this upload before OCR begins.
+    // Storage and the canonical document row now exist. Advance the durable
+    // attempt through the database-controlled state machine before OCR.
     const { data: processingAttempt, error: processingError } =
-      await serviceClient
-        .from('lease_template_upload_attempts')
-        .update({
-          document_id: documentId,
-          storage_key: storageKey,
-          status: 'processing',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', uploadAttemptId)
-        .eq('status', 'reserved')
-        .select('id')
-        .single();
+      await serviceClient.rpc('transition_lease_template_upload_attempt', {
+        p_attempt_id: uploadAttemptId,
+        p_entity_id: entityId,
+        p_actor_id: user.id,
+        p_expected_generation: uploadLeaseGeneration,
+        p_expected_status: 'reserved',
+        p_new_status: 'processing',
+        p_error_code: null,
+        p_error_message: null,
+      });
 
-    if (processingError || !processingAttempt) {
+    if (
+      processingError ||
+      !processingAttempt ||
+      processingAttempt.status !== 'processing' ||
+      typeof processingAttempt.lease_expires_at !== 'string'
+    ) {
       throw new Error('Unable to record lease-template processing state');
     }
+
+    const processingLeaseExpiry = Date.parse(
+      processingAttempt.lease_expires_at
+    );
+
+    if (!Number.isFinite(processingLeaseExpiry)) {
+      throw new Error('Invalid lease-template processing lease expiry');
+    }
+
+    uploadLeaseExpiresAt = processingLeaseExpiry;
 
     /*
      * AssetFlow's document intelligence pipeline analyses the client's
@@ -352,13 +355,103 @@ documentId = crypto.randomUUID();
         templateId,
         entityId,
       },
-      serviceClient
+      serviceClient,
+      async () => {
+        if (
+          !uploadAttemptId ||
+          uploadLeaseGeneration === null ||
+          uploadLeaseExpiresAt === null
+        ) {
+          throw new Error('Lease-template upload lease is unavailable');
+        }
+
+        const renewalThresholdMs = 10 * 60 * 1000;
+
+        if (uploadLeaseExpiresAt - Date.now() > renewalThresholdMs) {
+          return;
+        }
+
+        const { data: renewedAttempt, error: renewalError } =
+          await serviceClient.rpc('renew_lease_template_upload_lease', {
+            p_attempt_id: uploadAttemptId,
+            p_entity_id: entityId,
+            p_actor_id: user.id,
+            p_expected_generation: uploadLeaseGeneration,
+            p_expected_status: 'processing',
+          });
+
+        if (
+          renewalError ||
+          !renewedAttempt ||
+          renewedAttempt.status !== 'processing' ||
+          renewedAttempt.lease_generation !== uploadLeaseGeneration ||
+          typeof renewedAttempt.lease_expires_at !== 'string'
+        ) {
+          throw new Error('Lease-template upload lease renewal failed');
+        }
+
+        const renewedLeaseExpiry = Date.parse(
+          renewedAttempt.lease_expires_at
+        );
+
+        if (!Number.isFinite(renewedLeaseExpiry)) {
+          throw new Error('Invalid renewed lease-template upload expiry');
+        }
+
+        uploadLeaseExpiresAt = renewedLeaseExpiry;
+      }
     );
 
+    /*
+     * Persist the document-intelligence checkpoint before template-specific
+     * analysis. If this request is interrupted after OCR, governed recovery
+     * can reproduce analysis from the same structural OCR representation
+     * rather than rerunning OCR against the source file.
+     */
+    const ocrConfidence =
+      typeof result.ocrConfidence === 'number'
+        ? result.ocrConfidence / 100
+        : 0;
+
+    const extractionConfidence =
+      typeof result.extractedFields?.confidence === 'number'
+        ? result.extractedFields.confidence / 100
+        : 0;
+
+    if (
+      !Number.isFinite(ocrConfidence) ||
+      ocrConfidence < 0 ||
+      ocrConfidence > 1 ||
+      !Number.isFinite(extractionConfidence) ||
+      extractionConfidence < 0 ||
+      extractionConfidence > 1
+    ) {
+      throw new Error('Invalid document-intelligence confidence values');
+    }
+
+    const { error: checkpointError } = await serviceClient.rpc(
+      'checkpoint_lease_template_document_intelligence',
+      {
+        p_attempt_id: uploadAttemptId,
+        p_entity_id: entityId,
+        p_actor_id: user.id,
+        p_expected_generation: uploadLeaseGeneration,
+        p_ocr_text: result.ocrText || '',
+        p_raw_ocr_text: result.rawOcrText || result.ocrText || '',
+        p_ocr_confidence: ocrConfidence,
+        p_extracted_fields: result.extractedFields || {},
+        p_extraction_confidence: extractionConfidence,
+      },
+    );
+
+    if (checkpointError) {
+      throw checkpointError;
+    }
+
     const templateAnalysis = analyseLeaseTemplate(
-  result.rawOcrText || result.ocrText || '',
-  'blank_template'
-);
+      result.rawOcrText || result.ocrText || '',
+      'blank_template'
+    );
 
 if (!templateAnalysis.validation.valid) {
   const reasons = templateAnalysis.validation.errors
@@ -381,23 +474,39 @@ if (!templateAnalysis.validation.valid) {
   suggestions: aiSuggestions,
 } = buildLeaseTemplateMappings(templateAnalysis);
 
-    // Persist the attachment boundary before invoking the RPC.
+    // Persist the attachment boundary through the governed state machine
+    // before invoking the atomic attachment RPC.
     const { data: attachingAttempt, error: attachingError } =
-      await serviceClient
-        .from('lease_template_upload_attempts')
-        .update({
-          status: 'attaching',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', uploadAttemptId)
-        .eq('status', 'processing')
-        .select('id')
-        .single();
+      await serviceClient.rpc('transition_lease_template_upload_attempt', {
+        p_attempt_id: uploadAttemptId,
+        p_entity_id: entityId,
+        p_actor_id: user.id,
+        p_expected_generation: uploadLeaseGeneration,
+        p_expected_status: 'processing',
+        p_new_status: 'attaching',
+        p_error_code: null,
+        p_error_message: null,
+      });
 
-    if (attachingError || !attachingAttempt) {
+    if (
+      attachingError ||
+      !attachingAttempt ||
+      attachingAttempt.status !== 'attaching' ||
+      attachingAttempt.lease_generation !== uploadLeaseGeneration ||
+      typeof attachingAttempt.lease_expires_at !== 'string'
+    ) {
       throw new Error('Unable to record lease-template attachment state');
     }
 
+    const attachingLeaseExpiry = Date.parse(
+      attachingAttempt.lease_expires_at
+    );
+
+    if (!Number.isFinite(attachingLeaseExpiry)) {
+      throw new Error('Invalid lease-template attachment lease expiry');
+    }
+
+    uploadLeaseExpiresAt = attachingLeaseExpiry;
     attachmentAttempted = true;
 
     const { data: updatedTemplate, error: updateError } =
@@ -410,7 +519,8 @@ if (!templateAnalysis.validation.valid) {
         p_field_mapping: fieldMapping,
         p_ai_suggestions: aiSuggestions,
         p_fields: templateAnalysis.fields,
-          p_upload_attempt_id: uploadAttemptId,
+        p_upload_attempt_id: uploadAttemptId,
+        p_expected_generation: uploadLeaseGeneration,
       });
 
     if (updateError) {
@@ -436,25 +546,53 @@ if (!templateAnalysis.validation.valid) {
     } catch (error: any) {
     console.error('Lease template upload error:', error);
 
-    if (uploadAttemptId) {
-      // Do not delete resources or release the reservation here.
-      // The attachment may have committed despite a network error.
-      const { error: reconciliationError } = await serviceClient
-        .from('lease_template_upload_attempts')
-        .update({
-          status: 'reconciliation_required',
-          error_code: String(error?.code || 'UPLOAD_FAILED'),
-          error_message: 'Upload requires reconciliation',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', uploadAttemptId)
-        .in('status', ['reserved', 'processing', 'attaching']);
+    if (uploadAttemptId && uploadLeaseGeneration !== null) {
+      // Never delete resources or release the reservation here. Attachment may
+      // already have committed even if the RPC/network response was lost.
+      const { data: reconciledAttempt, error: reconciliationError } =
+        await serviceClient.rpc(
+          'mark_lease_template_upload_for_reconciliation',
+          {
+            p_attempt_id: uploadAttemptId,
+            p_entity_id: entityId,
+            p_actor_id: user.id,
+            p_expected_generation: uploadLeaseGeneration,
+            p_error_code: String(error?.code || 'UPLOAD_FAILED'),
+            p_error_message: 'Upload requires reconciliation',
+          },
+        );
 
       if (reconciliationError) {
         console.error(
           'Unable to record upload reconciliation state:',
           { uploadAttemptId, reconciliationError },
         );
+
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'The upload state could not be confirmed. Do not retry until it has been inspected.',
+            retryable: false,
+            uploadAttemptId,
+          },
+          { status: 503 },
+        );
+      } else if (reconciledAttempt?.status === 'attached') {
+        console.info(
+          'Lease-template upload recovered as already attached:',
+          { uploadAttemptId },
+        );
+
+        return NextResponse.json({
+          success: true,
+          recovered: true,
+          uploadAttemptId,
+          documentId,
+          templateId,
+          message:
+            'The lease-template source was attached successfully before the request was interrupted.',
+        });
       }
 
       console.error('Upload resources retained for reconciliation:', {

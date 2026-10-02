@@ -40,7 +40,8 @@ AS $$
             AND d.checksum = a.checksum
             AND d.storage_key IS NOT DISTINCT FROM a.storage_key
             AND d.document_type = 'lease_template_source'
-            AND d.uploaded_by = a.actor_id,
+            AND d.uploaded_by = a.actor_id
+            AND d.status = 'received',
             FALSE
         ),
         (
