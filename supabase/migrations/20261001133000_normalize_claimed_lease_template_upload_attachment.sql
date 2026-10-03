@@ -39,7 +39,7 @@ BEGIN
 
     IF NOT EXISTS (
         SELECT 1
-        FROM public.entity_users AS eu
+        FROM public.user_entity_access AS eu
         WHERE eu.entity_id = p_entity_id
           AND eu.user_id = p_actor_id
     ) THEN
