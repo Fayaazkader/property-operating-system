@@ -4,7 +4,8 @@
 export type DocumentType =
   | 'lease_application' | 'signed_lease' | 'invoice' | 'purchase_order'
   | 'bank_statement' | 'bank_statement_source' | 'statement'
-  | 'lease_template_source' | 'meter_reading' | 'inspection_report'
+  | 'lease_template_source' | 'generated_lease'
+  | 'meter_reading' | 'inspection_report'
   | 'maintenance_photo' | 'quote' | 'id_document' | 'unknown';
 
 export type DocumentStatus =

@@ -304,4 +304,73 @@ function manifest(token = '{{tenant_name}}', fieldKey = 'tenant_name') {
   console.log('PASS repeated placeholder occurrences');
 }
 
+
+/*
+ * 6. Approved optional field with no value renders as an intentional blank.
+ *
+ * A missing optional commercial value must never leave a raw contractual
+ * placeholder in the generated agreement.
+ */
+{
+  const bytes = createDocx(
+    '<w:p><w:r><w:t>Lease fee: {{lease_fee}}</w:t></w:r></w:p>',
+  );
+
+  const src = source(bytes);
+  const optionalManifest = manifest();
+
+  optionalManifest.values = {
+    ...optionalManifest.values,
+    lease_fee: null,
+  };
+
+  optionalManifest.mappings = [
+    {
+      ...optionalManifest.mappings[0],
+      id: 'mapping-lease-fee',
+      fieldKey: 'lease_fee',
+      required: false,
+      target: {
+        ...optionalManifest.mappings[0].target,
+        targetId: 'placeholder-lease-fee',
+        token: '{{lease_fee}}',
+      },
+    },
+  ];
+
+  const plan = buildLeaseRenderPlan(optionalManifest, src);
+
+  assert(
+    plan.entries.length === 1,
+    'optional null mapping was omitted from render plan',
+  );
+
+  assert(
+    plan.entries[0].value === null,
+    'optional missing value was not normalised to null',
+  );
+
+  const rendered = renderLeaseDocx(src, plan);
+
+  assert(
+    rendered.fields.length === 1,
+    'optional blank render evidence was not preserved',
+  );
+
+  assert(
+    rendered.fields[0].renderedValue === '',
+    'optional null value did not render as blank',
+  );
+
+  const output = new PizZip(rendered.bytes);
+  const xml = output.file('word/document.xml')?.asText() ?? '';
+
+  assert(
+    !xml.includes('{{lease_fee}}'),
+    'optional placeholder remains after rendering',
+  );
+
+  console.log('PASS optional null placeholder rendered blank');
+}
+
 console.log('ALL DOCX RENDERER CHECKS PASSED');

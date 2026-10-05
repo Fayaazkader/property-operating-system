@@ -157,21 +157,23 @@ export function buildLeaseRenderPlan(
 
     const value = getCanonicalValue(manifest, mapping.fieldKey);
 
-    if (!hasValue(value)) {
-      if (mapping.required) {
-        throw new LeaseRendererError(
-          'missing_value',
-          `Required field ${mapping.fieldKey} has no render value.`,
-        );
-      }
-
-      continue;
+    if (!hasValue(value) && mapping.required) {
+      throw new LeaseRendererError(
+        'missing_value',
+        `Required field ${mapping.fieldKey} has no render value.`,
+      );
     }
 
+    /*
+     * Approved optional mappings remain part of the render plan even when
+     * their canonical value is absent. The format renderer must deliberately
+     * render them as blank rather than allowing a raw contractual placeholder
+     * to survive in the generated document.
+     */
     entries.push({
       mappingId: mapping.id,
       fieldKey: mapping.fieldKey,
-      value: value as LeaseGenerationValue,
+      value: hasValue(value) ? value! : null,
       target: mapping.target,
     });
   }

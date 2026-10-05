@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { PERMISSIONS } from '@/lib/rbac/permissions';
 import { leaseTemplateService } from '../templates/service';
+import type { LeaseTemplate } from '../templates/types';
 import { buildLeaseGenerationManifest } from './manifest';
 
 import type {
@@ -33,11 +34,16 @@ export class LeaseGenerationAuthorityError extends Error {
   }
 }
 
-interface PrepareLeaseGenerationInput {
+export interface PrepareLeaseGenerationInput {
   entityId: string;
   opportunityId: string;
   templateId: string;
   actorId: string;
+}
+
+export interface PreparedLeaseGeneration {
+  manifest: LeaseGenerationManifest;
+  template: LeaseTemplate;
 }
 
 interface OpportunityAuthorityRow {
@@ -69,10 +75,10 @@ function requireSnapshotString(
   return value;
 }
 
-export async function prepareLeaseGeneration(
+export async function prepareLeaseGenerationAuthority(
   input: PrepareLeaseGenerationInput,
   client: SupabaseClient,
-): Promise<LeaseGenerationManifest> {
+): Promise<PreparedLeaseGeneration> {
   const {
     entityId,
     opportunityId,
@@ -374,5 +380,16 @@ export async function prepareLeaseGeneration(
     );
   }
 
-  return manifest;
+  return {
+    manifest,
+    template,
+  };
+}
+
+export async function prepareLeaseGeneration(
+  input: PrepareLeaseGenerationInput,
+  client: SupabaseClient,
+): Promise<LeaseGenerationManifest> {
+  const prepared = await prepareLeaseGenerationAuthority(input, client);
+  return prepared.manifest;
 }
