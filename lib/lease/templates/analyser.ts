@@ -4,6 +4,7 @@ import type {
 } from './types';
 
 import {
+  getLeaseFieldDefinition,
   inferLeaseFieldType,
   labelFromLeaseFieldToken,
   normaliseLeaseFieldToken,
@@ -248,7 +249,17 @@ const FIELD_DEFINITIONS: FieldDefinition[] = [
   },
 ];
 
+function getCanonicalFieldDefinition(key: string) {
+  const definition = getLeaseFieldDefinition(key);
 
+  if (!definition) {
+    throw new Error(
+      `Lease analyser field "${key}" is not registered in the canonical lease field registry.`
+    );
+  }
+
+  return definition;
+}
 
 function cleanValue(value: string): string {
   return value
@@ -679,14 +690,14 @@ function validateLeaseTemplate(
     });
   }
 
-  const requiredKeys = [
-    'tenant_name',
-    'landlord_name',
-    'property_name',
-    'unit_number',
-    'lease_commencement_date',
-    'monthly_rental',
-  ];
+  const requiredKeys = FIELD_DEFINITIONS
+  .filter(definition => {
+    const canonicalDefinition =
+      getCanonicalFieldDefinition(definition.key);
+
+    return canonicalDefinition.required;
+  })
+  .map(definition => definition.key);
 
   /*
    * Blank customer templates are expected to contain unpopulated
@@ -1360,15 +1371,18 @@ for (const definition of explicitPatterns) {
 
     const startOffset = text.indexOf(extractedText);
 
-    fields.push({
-      key: definition.key,
-      label: definition.label,
-      type: definition.type,
-      required: definition.required,
-      value: extracted.value,
-      confidence: extracted.confidence,
-      source: 'ai',
-      approved: false,
+    const canonicalDefinition =
+  getCanonicalFieldDefinition(definition.key);
+
+fields.push({
+  key: canonicalDefinition.key,
+  label: canonicalDefinition.label,
+  type: canonicalDefinition.type,
+  required: canonicalDefinition.required,
+  value: extracted.value,
+  confidence: extracted.confidence,
+  source: 'ai',
+  approved: false,
       evidence: [
         {
           text: extractedText,
@@ -1443,23 +1457,24 @@ for (const placeholder of placeholders) {
     continue;
   }
 
-  fields.push({
-    key: suggestedKey,
-    label: placeholder.label,
-    type: inferLeaseFieldType(suggestedKey),
-    required: [
-      'tenant_name',
-      'landlord_name',
-      'property_name',
-      'unit_number',
-      'lease_commencement_date',
-      'monthly_rental',
-    ].includes(suggestedKey),
+  const canonicalDefinition =
+  getLeaseFieldDefinition(suggestedKey);
 
-    /*
-     * This confidence represents the placeholder's semantic
-     * suggestion only. It is not approval of the reusable mapping.
-     */
+fields.push({
+  key: suggestedKey,
+  label:
+    canonicalDefinition?.label ??
+    placeholder.label,
+  type:
+    canonicalDefinition?.type ??
+    inferLeaseFieldType(suggestedKey),
+  required:
+    canonicalDefinition?.required ?? false,
+
+  /*
+   * This confidence represents the placeholder's semantic
+   * suggestion only. It is not approval of the reusable mapping.
+   */
     confidence: placeholder.confidence,
 
     source: 'ai',
