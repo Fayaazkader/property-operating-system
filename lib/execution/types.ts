@@ -79,6 +79,7 @@ export type ParticipantType =
   | 'approver';
 
 export type SourceType = 
+  | 'leasing_opportunity'
   | 'lease'
   | 'lease_renewal'
   | 'lease_addendum'
