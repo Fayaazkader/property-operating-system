@@ -1,822 +1,672 @@
-'use client';
+'use client'
 
-import { useCallback, useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { useEntityContext } from '@/app/context/EntityContext';
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEntityContext } from '@/app/context/EntityContext'
+import {
+  getClientAdministrationForEntity,
+  setClientUserAccessProfiles,
+} from '@/lib/settings/access/client'
+import type {
+  ClientAdministration,
+  ClientAdministrationAccessProfile,
+  ClientAdministrationUser,
+} from '@/lib/settings/access/types'
 
-type EntityUser = {
-  id: string;
-  email: string;
-  display_name: string;
-  platform_role: string | null;
-  role_id: string | null;
-  role_name: string;
-  org_role: string;
-  created_at: string | null;
-  status: string;
-};
+function userLabel(user: ClientAdministrationUser) {
+  return user.displayName?.trim() || user.email || 'Unnamed user'
+}
 
-type Role = {
-  id: string;
-  name: string;
-};
+function initials(user: ClientAdministrationUser) {
+  const label = userLabel(user)
 
-type Permission = {
-  key: string;
-  category: string;
-  name: string;
-  description: string | null;
-};
+  return label
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('')
+}
 
-type Invitation = {
-  id: string;
-  email: string;
-  role: string;
-  status: string;
-  expires_at: string;
-};
+function roleName(
+  administration: ClientAdministration,
+  roleTypeId: string,
+) {
+  return (
+    administration.roleTypes.find((role) => role.id === roleTypeId)?.name ||
+    'No organisational role'
+  )
+}
+
+function entityNames(
+  administration: ClientAdministration,
+  entityIds: string[],
+) {
+  return administration.entities
+    .filter((entity) => entityIds.includes(entity.id))
+    .map((entity) => entity.name)
+}
+
+function profileNames(
+  administration: ClientAdministration,
+  profileIds: string[],
+) {
+  return administration.accessProfiles
+    .filter((profile) => profileIds.includes(profile.id))
+    .map((profile) => profile.name)
+}
 
 export default function UsersPage() {
-  const supabase = createClient();
-
   const {
     activeEntityId,
     availableEntities,
     loading: entityLoading,
-  } = useEntityContext();
+  } = useEntityContext()
 
-  const [users, setUsers] = useState<EntityUser[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const administrationEntityId =
+    activeEntityId ?? availableEntities[0]?.entity_id ?? null
 
-  const [loading, setLoading] = useState(false);
-  const [pageError, setPageError] = useState<string | null>(null);
+  const [administration, setAdministration] =
+    useState<ClientAdministration | null>(null)
 
-  const [editingUser, setEditingUser] = useState<string | null>(null);
-  const [selectedRoleId, setSelectedRoleId] = useState('');
-  const [userPermissions, setUserPermissions] = useState<
-    Record<string, boolean>
-  >({});
-  const [loadingPermissions, setLoadingPermissions] = useState(false);
-  const [savingPermissions, setSavingPermissions] = useState(false);
-  const [savingRole, setSavingRole] = useState(false);
+  const [selectedUserId, setSelectedUserId] =
+    useState<string | null>(null)
 
-  const [showInvite, setShowInvite] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('');
-  const [inviteExpiry, setInviteExpiry] = useState('7');
+  const [selectedAdditionalProfileIds, setSelectedAdditionalProfileIds] =
+    useState<string[]>([])
 
-  const activeEntity = availableEntities.find(
-    (entity) => entity.entity_id === activeEntityId,
-  );
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [pageError, setPageError] = useState<string | null>(null)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
-  const resetEditor = useCallback(() => {
-    setEditingUser(null);
-    setSelectedRoleId('');
-    setUserPermissions({});
-    setPermissions([]);
-  }, []);
-
-  const loadEntityData = useCallback(async () => {
-    if (!activeEntityId) {
-      setUsers([]);
-      setRoles([]);
-      setInvitations([]);
-      setPageError(null);
-      return;
+  const loadAdministration = useCallback(async () => {
+    if (!administrationEntityId) {
+      setAdministration(null)
+      setSelectedUserId(null)
+      setPageError(null)
+      return
     }
 
-    setLoading(true);
-    setPageError(null);
+    setLoading(true)
+    setPageError(null)
 
     try {
-      const { data: accessData, error: accessError } = await supabase
-        .from('user_entity_access')
-        .select('user_id, role_id, org_role, created_at')
-        .eq('entity_id', activeEntityId)
-        .order('created_at', { ascending: true });
+      const data =
+        await getClientAdministrationForEntity(
+          administrationEntityId,
+        )
 
-      if (accessError) {
-        throw accessError;
-      }
+      setAdministration(data)
 
-      const memberships = accessData || [];
-      const userIds = memberships.map((membership) => membership.user_id);
+      setSelectedUserId((current) => {
+        if (
+          current &&
+          data.users.some((user) => user.clientUserId === current)
+        ) {
+          return current
+        }
 
-      const [profilesResult, rolesResult, invitationsResult] =
-        await Promise.all([
-          userIds.length
-            ? supabase
-                .from('profiles')
-                .select(
-                  'id, email, display_name, platform_role, created_at',
-                )
-                .in('id', userIds)
-            : Promise.resolve({ data: [], error: null }),
-          supabase
-            .from('roles')
-            .select('id, name')
-            .eq('entity_id', activeEntityId)
-            .order('name'),
-          supabase
-            .from('invitations')
-            .select('id, email, role, status, expires_at')
-            .eq('entity_id', activeEntityId)
-            .order('created_at', { ascending: false }),
-        ]);
-
-      if (profilesResult.error) {
-        throw profilesResult.error;
-      }
-
-      if (rolesResult.error) {
-        throw rolesResult.error;
-      }
-
-      if (invitationsResult.error) {
-        throw invitationsResult.error;
-      }
-
-      const profileMap = new Map(
-        (profilesResult.data || []).map((profile) => [
-          profile.id,
-          profile,
-        ]),
-      );
-
-      const roleMap = new Map(
-        (rolesResult.data || []).map((role) => [role.id, role.name]),
-      );
-
-      setUsers(
-        memberships.map((membership) => {
-          const profile = profileMap.get(membership.user_id);
-
-          return {
-            id: membership.user_id,
-            email: profile?.email || '—',
-            display_name: profile?.display_name || 'Unknown User',
-            platform_role: profile?.platform_role || null,
-            role_id: membership.role_id,
-            role_name: membership.role_id
-              ? roleMap.get(membership.role_id) || membership.org_role
-              : membership.org_role || 'No role',
-            org_role: membership.org_role,
-            created_at: membership.created_at,
-            status: 'Active',
-          };
-        }),
-      );
-
-      setRoles(rolesResult.data || []);
-      setInvitations(invitationsResult.data || []);
+        return (
+          data.currentUser?.clientUserId ||
+          data.users[0]?.clientUserId ||
+          null
+        )
+      })
     } catch (error) {
-      console.error('Failed to load entity users:', error);
+      console.error(
+        'Failed to load canonical client administration:',
+        error,
+      )
+
+      setAdministration(null)
+      setSelectedUserId(null)
+
       setPageError(
         error instanceof Error
           ? error.message
-          : 'Failed to load users for this entity.',
-      );
+          : 'Failed to load Users & Access.',
+      )
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [activeEntityId, supabase]);
+  }, [administrationEntityId])
 
   useEffect(() => {
-    resetEditor();
-    void loadEntityData();
-  }, [activeEntityId, loadEntityData, resetEditor]);
+    void loadAdministration()
+  }, [loadAdministration])
 
-  async function loadUserPermissions(userId: string) {
-    if (!activeEntityId) return;
+  const selectedUser = useMemo(() => {
+    if (!administration || !selectedUserId) {
+      return null
+    }
 
-    setLoadingPermissions(true);
-    setPageError(null);
+    return (
+      administration.users.find(
+        (user) => user.clientUserId === selectedUserId,
+      ) || null
+    )
+  }, [administration, selectedUserId])
+
+  const systemProfiles = useMemo(() => {
+    return (
+      administration?.accessProfiles.filter(
+        (profile) => profile.isSystem,
+      ) || []
+    )
+  }, [administration])
+
+  const clientManagedProfiles = useMemo(() => {
+    return (
+      administration?.accessProfiles.filter(
+        (profile) => !profile.isSystem,
+      ) || []
+    )
+  }, [administration])
+
+  useEffect(() => {
+    if (!selectedUser || !administration) {
+      setSelectedAdditionalProfileIds([])
+      return
+    }
+
+    const clientManagedIds = new Set(
+      administration.accessProfiles
+        .filter((profile) => !profile.isSystem)
+        .map((profile) => profile.id),
+    )
+
+    setSelectedAdditionalProfileIds(
+      selectedUser.accessProfileIds.filter((id) =>
+        clientManagedIds.has(id),
+      ),
+    )
+
+    setSaveMessage(null)
+  }, [selectedUser, administration])
+
+  function selectUser(user: ClientAdministrationUser) {
+    setSelectedUserId(user.clientUserId)
+    setPageError(null)
+    setSaveMessage(null)
+  }
+
+  function toggleProfile(profile: ClientAdministrationAccessProfile) {
+    if (profile.isSystem || saving) {
+      return
+    }
+
+    setSelectedAdditionalProfileIds((current) =>
+      current.includes(profile.id)
+        ? current.filter((id) => id !== profile.id)
+        : [...current, profile.id],
+    )
+
+    setSaveMessage(null)
+  }
+
+  async function saveAccessProfiles() {
+    if (!administration || !selectedUser) {
+      return
+    }
+
+    setSaving(true)
+    setPageError(null)
+    setSaveMessage(null)
 
     try {
-      const [catalogueResult, assignedResult] = await Promise.all([
-        supabase
-          .from('permission_catalogue')
-          .select('key, category, name, description')
-          .order('category')
-          .order('name'),
-        supabase
-          .from('user_entity_permissions')
-          .select('permission_key, enabled')
-          .eq('user_id', userId)
-          .eq('entity_id', activeEntityId),
-      ]);
+      await setClientUserAccessProfiles({
+        clientAccountId: administration.clientAccount.id,
+        clientUserId: selectedUser.clientUserId,
+        accessProfileIds: selectedAdditionalProfileIds,
+      })
 
-      if (catalogueResult.error) {
-        throw catalogueResult.error;
+      const refreshed =
+        await getClientAdministrationForEntity(
+          administrationEntityId as string,
+        )
+
+      setAdministration(refreshed)
+
+      const refreshedUser = refreshed.users.find(
+        (user) =>
+          user.clientUserId === selectedUser.clientUserId,
+      )
+
+      if (!refreshedUser) {
+        throw new Error(
+          'The updated user could not be reloaded.',
+        )
       }
 
-      if (assignedResult.error) {
-        throw assignedResult.error;
+      const expected = [...selectedAdditionalProfileIds].sort()
+
+      const clientManagedIds = new Set(
+        refreshed.accessProfiles
+          .filter((profile) => !profile.isSystem)
+          .map((profile) => profile.id),
+      )
+
+      const persisted =
+        refreshedUser.accessProfileIds
+          .filter((id) => clientManagedIds.has(id))
+          .sort()
+
+      if (
+        expected.length !== persisted.length ||
+        expected.some((id, index) => id !== persisted[index])
+      ) {
+        throw new Error(
+          'Access profile update did not persist exactly as requested.',
+        )
       }
 
-      const catalogue = catalogueResult.data || [];
-      const map: Record<string, boolean> = {};
-
-      for (const permission of catalogue) {
-        map[permission.key] = false;
-      }
-
-      for (const permission of assignedResult.data || []) {
-        map[permission.permission_key] = permission.enabled;
-      }
-
-      setPermissions(catalogue);
-      setUserPermissions(map);
+      setSaveMessage('Access profiles updated.')
     } catch (error) {
-      console.error('Failed to load user permissions:', error);
+      console.error('Failed to update access profiles:', error)
+
       setPageError(
         error instanceof Error
           ? error.message
-          : 'Failed to load user permissions.',
-      );
+          : 'Failed to update access profiles.',
+      )
     } finally {
-      setLoadingPermissions(false);
-    }
-  }
-
-  async function beginEditing(user: EntityUser) {
-    if (!activeEntityId) return;
-
-    setEditingUser(user.id);
-    setSelectedRoleId(user.role_id || '');
-    await loadUserPermissions(user.id);
-  }
-
-  async function saveUserPermissions() {
-    if (!editingUser || !activeEntityId) return;
-
-    setSavingPermissions(true);
-    setPageError(null);
-
-    try {
-      const { error } = await supabase.rpc(
-        'set_entity_user_permissions',
-        {
-          p_entity_id: activeEntityId,
-          p_target_user_id: editingUser,
-          p_permissions: userPermissions,
-          p_user_agent:
-            typeof navigator !== 'undefined' ? navigator.userAgent : null,
-        },
-      );
-
-      if (error) {
-        throw error;
-      }
-
-      await loadUserPermissions(editingUser);
-    } catch (error) {
-      console.error('Failed to save permissions:', error);
-      setPageError(
-        error instanceof Error
-          ? error.message
-          : 'Failed to save permissions.',
-      );
-    } finally {
-      setSavingPermissions(false);
-    }
-  }
-
-  async function assignRole(userId: string) {
-    if (!selectedRoleId || !activeEntityId) return;
-
-    setSavingRole(true);
-    setPageError(null);
-
-    try {
-      const { error } = await supabase.rpc(
-        'assign_entity_user_role',
-        {
-          p_entity_id: activeEntityId,
-          p_target_user_id: userId,
-          p_role_id: selectedRoleId,
-          p_user_agent:
-            typeof navigator !== 'undefined' ? navigator.userAgent : null,
-        },
-      );
-
-      if (error) {
-        throw error;
-      }
-
-      await loadEntityData();
-      await loadUserPermissions(userId);
-
-      setEditingUser(userId);
-      setSelectedRoleId(selectedRoleId);
-    } catch (error) {
-      console.error('Failed to assign role:', error);
-      setPageError(
-        error instanceof Error
-          ? error.message
-          : 'Failed to assign role.',
-      );
-    } finally {
-      setSavingRole(false);
-    }
-  }
-
-  async function handleInvite() {
-    if (
-      !inviteEmail.trim() ||
-      !inviteRole ||
-      !activeEntityId
-    ) {
-      return;
-    }
-
-    setPageError(null);
-
-    try {
-      const days = parseInt(inviteExpiry, 10) || 7;
-
-      const { error } = await supabase
-        .from('invitations')
-        .insert({
-          entity_id: activeEntityId,
-          email: inviteEmail.trim(),
-          role: inviteRole,
-          token: crypto.randomUUID(),
-          status: 'pending',
-          expires_at: new Date(
-            Date.now() + days * 24 * 60 * 60 * 1000,
-          ).toISOString(),
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      setShowInvite(false);
-      setInviteEmail('');
-      setInviteRole('');
-
-      await loadEntityData();
-    } catch (error) {
-      console.error('Failed to create invitation:', error);
-      setPageError(
-        error instanceof Error
-          ? error.message
-          : 'Failed to create invitation.',
-      );
+      setSaving(false)
     }
   }
 
   if (entityLoading) {
     return (
-      <div className="max-w-4xl">
-        <p className="text-sm text-zinc-500">
-          Loading entity access...
-        </p>
+      <div className="p-8 text-sm text-neutral-500">
+        Loading portfolio context…
       </div>
-    );
+    )
   }
 
-  if (!activeEntityId) {
+  if (!administrationEntityId) {
     return (
-      <div className="space-y-6 max-w-4xl">
-        <div>
-          <h1 className="text-2xl font-light tracking-[-0.02em] text-white">
-            Users & Roles
-          </h1>
-          <p className="text-sm text-zinc-500 mt-1">
-            User administration is entity-specific.
-          </p>
-        </div>
+      <div className="p-8">
+        <h1 className="text-2xl font-semibold text-neutral-950">
+          Users & Access
+        </h1>
 
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
-          <p className="text-sm text-white">
-            Select an entity to manage its users.
-          </p>
-          <p className="mt-1 text-xs text-zinc-500">
-            Portfolio-wide scope cannot be used to grant roles or
-            permissions.
-          </p>
-        </div>
+        <p className="mt-2 text-sm text-neutral-500">
+          Select an entity to manage client access.
+        </p>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="space-y-8 max-w-4xl">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-[1500px] p-6 lg:p-8">
+      <div className="mb-8 flex items-start justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-light tracking-[-0.02em] text-white">
-            Users & Roles
+          <div className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-neutral-400">
+            Settings / Control Plane
+          </div>
+
+          <h1 className="text-2xl font-semibold tracking-tight text-neutral-950">
+            Users & Access
           </h1>
-          <p className="text-sm text-zinc-500 mt-1">
-            Manage user access for{' '}
-            <span className="text-zinc-300">
-              {activeEntity?.entity_name || 'selected entity'}
-            </span>
-            .
+
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-500">
+            Manage organisational roles, entity scope and application
+            authority for {administration?.clientAccount.name || 'this client'}.
           </p>
         </div>
 
-        <button
-          onClick={() => setShowInvite(true)}
-          className="rounded-lg bg-white px-4 py-2.5 text-xs font-medium text-black hover:bg-gray-100 transition-all"
-        >
-          + Invite User
-        </button>
+        {administration && (
+          <div className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600">
+            {administration.users.length}{' '}
+            {administration.users.length === 1 ? 'user' : 'users'}
+          </div>
+        )}
       </div>
 
       {pageError && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3">
-          <p className="text-xs text-red-300">{pageError}</p>
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {pageError}
         </div>
       )}
 
-      <div className="rounded-xl border border-white/[0.06] overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-white/[0.06] bg-white/[0.02]">
-              <th className="text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">
-                User
-              </th>
-              <th className="text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">
-                Email
-              </th>
-              <th className="text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">
-                Role
-              </th>
-              <th className="text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">
-                Status
-              </th>
-              <th className="text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">
-                Member Since
-              </th>
-              <th className="text-right py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">
-                Action
-              </th>
-            </tr>
-          </thead>
+      {saveMessage && (
+        <div className="mb-6 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm font-medium text-neutral-700">
+          {saveMessage}
+        </div>
+      )}
 
-          <tbody>
-            {loading ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="py-8 px-4 text-center text-sm text-zinc-500"
-                >
-                  Loading users...
-                </td>
-              </tr>
-            ) : users.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="py-8 px-4 text-center text-sm text-zinc-500"
-                >
-                  No users are assigned to this entity.
-                </td>
-              </tr>
-            ) : (
-              users.map((user) => (
-                <tr
-                  key={user.id}
-                  className="border-b border-white/[0.03]"
-                >
-                  <td className="py-2.5 px-4 text-white font-light">
-                    {user.display_name || '—'}
-                  </td>
-
-                  <td className="py-2.5 px-4 text-zinc-400 text-xs">
-                    {user.email}
-                  </td>
-
-                  <td className="py-2.5 px-4">
-                    {editingUser === user.id ? (
-                      <select
-                        value={selectedRoleId}
-                        onChange={(event) =>
-                          setSelectedRoleId(event.target.value)
-                        }
-                        className="rounded border border-white/[0.08] bg-[var(--bg-secondary)] px-2 py-1 text-xs text-white outline-none"
-                      >
-                        <option value="">Select...</option>
-                        {roles.map((role) => (
-                          <option key={role.id} value={role.id}>
-                            {role.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-xs text-zinc-400">
-                        {user.role_name}
-                      </span>
-                    )}
-                  </td>
-
-                  <td className="py-2.5 px-4">
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
-                      {user.status}
-                    </span>
-                  </td>
-
-                  <td className="py-2.5 px-4 text-xs text-zinc-500">
-                    {user.created_at
-                      ? new Date(user.created_at).toLocaleDateString()
-                      : '—'}
-                  </td>
-
-                  <td className="py-2.5 px-4 text-right">
-                    {editingUser === user.id ? (
-                      <button
-                        onClick={() => assignRole(user.id)}
-                        disabled={!selectedRoleId || savingRole}
-                        className="text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-40"
-                      >
-                        {savingRole ? 'Saving...' : 'Save Role'}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => void beginEditing(user)}
-                        className="text-xs text-zinc-500 hover:text-white"
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {editingUser && (
-        <div className="rounded-xl border border-white/[0.06] overflow-hidden">
-          <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-5 py-4">
-            <div>
-              <p className="text-sm font-medium text-white">
-                User Permissions
-              </p>
-              <p className="text-xs text-zinc-500 mt-1">
-                Permissions are denied by default. Enable only the access
-                this user requires.
-              </p>
+      {loading && !administration ? (
+        <div className="rounded-2xl border border-neutral-200 bg-white p-8 text-sm text-neutral-500">
+          Loading canonical access state…
+        </div>
+      ) : administration ? (
+        <div className="grid min-h-[620px] grid-cols-1 overflow-hidden rounded-2xl border border-neutral-200 bg-white lg:grid-cols-[340px_minmax(0,1fr)]">
+          <aside className="border-b border-neutral-200 bg-neutral-50/50 lg:border-b-0 lg:border-r">
+            <div className="border-b border-neutral-200 px-5 py-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-400">
+                People
+              </div>
             </div>
 
-            <button
-              onClick={resetEditor}
-              className="text-xs text-zinc-500 hover:text-white"
-            >
-              Close
-            </button>
-          </div>
+            <div className="divide-y divide-neutral-100">
+              {administration.users.map((user) => {
+                const selected =
+                  user.clientUserId === selectedUserId
 
-          {loadingPermissions ? (
-            <div className="p-6 text-sm text-zinc-500">
-              Loading permissions...
-            </div>
-          ) : (
-            <div className="p-5 space-y-6">
-              {['financial', 'leasing', 'operations', 'admin'].map(
-                (category) => {
-                  const categoryPermissions = permissions.filter(
-                    (permission) =>
-                      permission.category === category,
-                  );
+                return (
+                  <button
+                    key={user.clientUserId}
+                    type="button"
+                    onClick={() => selectUser(user)}
+                    className={`flex w-full items-center gap-3 px-5 py-4 text-left transition ${
+                      selected
+                        ? 'bg-white'
+                        : 'hover:bg-white/70'
+                    }`}
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
+                      {initials(user) || 'U'}
+                    </div>
 
-                  if (!categoryPermissions.length) return null;
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-medium text-neutral-900">
+                          {userLabel(user)}
+                        </span>
 
-                  return (
-                    <div key={category}>
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3">
-                        {category === 'admin'
-                          ? 'Administration'
-                          : category}
-                      </p>
+                        {user.isSuperUser && (
+                          <span className="shrink-0 rounded-full bg-neutral-900 px-2 py-0.5 text-[10px] font-semibold text-white">
+                            Super User
+                          </span>
+                        )}
+                      </div>
 
-                      <div className="divide-y divide-white/[0.04] rounded-lg border border-white/[0.06]">
-                        {categoryPermissions.map((permission) => {
-                          const enabled =
-                            userPermissions[permission.key] === true;
-
-                          return (
-                            <div
-                              key={permission.key}
-                              className="flex items-center justify-between gap-6 px-4 py-3"
-                            >
-                              <div>
-                                <p className="text-sm text-white">
-                                  {permission.name}
-                                </p>
-
-                                {permission.description && (
-                                  <p className="text-xs text-zinc-500 mt-0.5">
-                                    {permission.description}
-                                  </p>
-                                )}
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setUserPermissions((previous) => ({
-                                    ...previous,
-                                    [permission.key]: !enabled,
-                                  }))
-                                }
-                                className={`relative h-5 w-10 shrink-0 rounded-full transition-colors ${
-                                  enabled
-                                    ? 'bg-emerald-500'
-                                    : 'bg-zinc-700'
-                                }`}
-                                aria-label={`${permission.name}: ${
-                                  enabled ? 'enabled' : 'disabled'
-                                }`}
-                              >
-                                <span
-                                  className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
-                                    enabled
-                                      ? 'translate-x-5'
-                                      : 'translate-x-0'
-                                  }`}
-                                />
-                              </button>
-                            </div>
-                          );
-                        })}
+                      <div className="mt-1 truncate text-xs text-neutral-500">
+                        {roleName(
+                          administration,
+                          user.roleTypeId,
+                        )}
                       </div>
                     </div>
-                  );
-                },
-              )}
 
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={resetEditor}
-                  className="rounded-lg border border-white/[0.08] px-4 py-2 text-xs text-zinc-400 hover:text-white"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  onClick={saveUserPermissions}
-                  disabled={savingPermissions}
-                  className="rounded-lg bg-white px-4 py-2 text-xs font-medium text-black hover:bg-gray-100 disabled:opacity-50"
-                >
-                  {savingPermissions
-                    ? 'Saving...'
-                    : 'Save Permissions'}
-                </button>
-              </div>
+                    <div
+                      className={`h-2 w-2 shrink-0 rounded-full ${
+                        user.status === 'active'
+                          ? 'bg-emerald-500'
+                          : 'bg-neutral-300'
+                      }`}
+                    />
+                  </button>
+                )
+              })}
             </div>
-          )}
-        </div>
-      )}
+          </aside>
 
-      {invitations.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-xs text-zinc-400 uppercase tracking-wider">
-            Pending Invitations
-          </p>
+          <main className="min-w-0">
+            {selectedUser ? (
+              <>
+                <div className="border-b border-neutral-200 px-6 py-6 lg:px-8">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-xl font-semibold tracking-tight text-neutral-950">
+                          {userLabel(selectedUser)}
+                        </h2>
 
-          <div className="rounded-xl border border-white/[0.06] overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/[0.06] bg-white/[0.02]">
-                  <th className="text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">
-                    Email
-                  </th>
-                  <th className="text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">
-                    Role
-                  </th>
-                  <th className="text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">
-                    Status
-                  </th>
-                  <th className="text-left py-3 px-4 text-[11px] font-medium text-zinc-500 uppercase">
-                    Expires
-                  </th>
-                </tr>
-              </thead>
+                        {selectedUser.isSuperUser && (
+                          <span className="rounded-full border border-neutral-900 bg-neutral-900 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                            Super User
+                          </span>
+                        )}
+                      </div>
 
-              <tbody>
-                {invitations.map((invitation) => (
-                  <tr
-                    key={invitation.id}
-                    className="border-b border-white/[0.03]"
-                  >
-                    <td className="py-2.5 px-4 text-white font-light text-xs">
-                      {invitation.email}
-                    </td>
-                    <td className="py-2.5 px-4 text-zinc-400 text-xs">
-                      {invitation.role}
-                    </td>
-                    <td className="py-2.5 px-4">
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full ${
-                          invitation.status === 'pending'
-                            ? 'bg-amber-500/10 text-amber-400'
-                            : invitation.status === 'accepted'
-                              ? 'bg-emerald-500/10 text-emerald-400'
-                              : 'bg-zinc-800 text-zinc-500'
-                        }`}
-                      >
-                        {invitation.status}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-4 text-xs text-zinc-500">
-                      {new Date(
-                        invitation.expires_at,
-                      ).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+                      <p className="mt-1 text-sm text-neutral-500">
+                        {selectedUser.email || 'No email available'}
+                      </p>
+                    </div>
 
-      {showInvite && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowInvite(false)}
-          />
-
-          <div className="fixed inset-4 z-50 flex items-center justify-center p-4">
-            <div
-              className="bg-[var(--bg-primary)] border border-white/[0.08] rounded-2xl p-6 w-full max-w-md"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-4">
-                <p className="text-sm font-medium text-white">
-                  Invite User
-                </p>
-                <button
-                  onClick={() => setShowInvite(false)}
-                  className="text-zinc-500 hover:text-white"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <input
-                  value={inviteEmail}
-                  onChange={(event) =>
-                    setInviteEmail(event.target.value)
-                  }
-                  placeholder="Email address"
-                  className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none"
-                />
-
-                <select
-                  value={inviteRole}
-                  onChange={(event) =>
-                    setInviteRole(event.target.value)
-                  }
-                  className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none"
-                >
-                  <option value="">Select role...</option>
-                  {roles.map((role) => (
-                    <option key={role.id} value={role.name}>
-                      {role.name}
-                    </option>
-                  ))}
-                </select>
-
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider text-zinc-500 block mb-1">
-                    Expires In
-                  </label>
-                  <select
-                    value={inviteExpiry}
-                    onChange={(event) =>
-                      setInviteExpiry(event.target.value)
-                    }
-                    className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg-secondary)] px-3 py-2.5 text-sm text-white outline-none"
-                  >
-                    <option value="1">1 Day</option>
-                    <option value="3">3 Days</option>
-                    <option value="7">7 Days</option>
-                    <option value="14">14 Days</option>
-                    <option value="30">30 Days</option>
-                  </select>
+                    <span className="rounded-full border border-neutral-200 px-2.5 py-1 text-xs font-medium capitalize text-neutral-600">
+                      {selectedUser.status}
+                    </span>
+                  </div>
                 </div>
 
-                <button
-                  onClick={handleInvite}
-                  className="w-full rounded-lg bg-white py-2.5 text-sm font-medium text-black hover:bg-gray-100"
-                >
-                  Send Invitation
-                </button>
+                <div className="space-y-8 px-6 py-7 lg:px-8">
+                  <section>
+                    <div className="mb-4">
+                      <h3 className="text-sm font-semibold text-neutral-950">
+                        Organisation
+                      </h3>
+
+                      <p className="mt-1 text-xs leading-5 text-neutral-500">
+                        Organisational identity is separate from application authority.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="rounded-xl border border-neutral-200 p-4">
+                        <div className="text-xs font-medium text-neutral-400">
+                          Organisational role
+                        </div>
+
+                        <div className="mt-2 text-sm font-medium text-neutral-900">
+                          {roleName(
+                            administration,
+                            selectedUser.roleTypeId,
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-neutral-200 p-4">
+                        <div className="text-xs font-medium text-neutral-400">
+                          Entity access
+                        </div>
+
+                        <div className="mt-2 text-sm font-medium text-neutral-900">
+                          {entityNames(
+                            administration,
+                            selectedUser.entityIds,
+                          ).join(', ') || 'No entity access'}
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section>
+                    <div className="mb-4 flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-sm font-semibold text-neutral-950">
+                          Access profiles
+                        </h3>
+
+                        <p className="mt-1 max-w-2xl text-xs leading-5 text-neutral-500">
+                          Profiles grant bundled application authority.
+                          System-managed access is protected; client-managed
+                          profiles can be assigned here.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {systemProfiles.map((profile) => {
+                        const assigned =
+                          selectedUser.accessProfileIds.includes(
+                            profile.id,
+                          )
+
+                        return (
+                          <div
+                            key={profile.id}
+                            className="flex items-start justify-between gap-5 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-4"
+                          >
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-neutral-900">
+                                  {profile.name}
+                                </span>
+
+                                <span className="rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-neutral-500">
+                                  System managed
+                                </span>
+                              </div>
+
+                              <p className="mt-1 text-xs leading-5 text-neutral-500">
+                                {profile.description ||
+                                  'AssetFlow-managed baseline access.'}
+                              </p>
+                            </div>
+
+                            <div className="pt-1 text-xs font-medium text-neutral-500">
+                              {assigned ? 'Included' : 'Required'}
+                            </div>
+                          </div>
+                        )
+                      })}
+
+                      {clientManagedProfiles.map((profile) => {
+                        const checked =
+                          selectedAdditionalProfileIds.includes(
+                            profile.id,
+                          )
+
+                        return (
+                          <label
+                            key={profile.id}
+                            className="flex cursor-pointer items-start justify-between gap-5 rounded-xl border border-neutral-200 px-4 py-4 transition hover:border-neutral-300"
+                          >
+                            <div>
+                              <div className="text-sm font-medium text-neutral-900">
+                                {profile.name}
+                              </div>
+
+                              <p className="mt-1 text-xs leading-5 text-neutral-500">
+                                {profile.description ||
+                                  'Client-managed access profile.'}
+                              </p>
+
+                              {profile.permissions.length > 0 && (
+                                <div className="mt-3 flex flex-wrap gap-1.5">
+                                  {profile.permissions.map(
+                                    (permission) => (
+                                      <span
+                                        key={permission}
+                                        className="rounded-md bg-neutral-100 px-2 py-1 text-[10px] font-medium text-neutral-500"
+                                      >
+                                        {permission}
+                                      </span>
+                                    ),
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={saving}
+                              onChange={() =>
+                                toggleProfile(profile)
+                              }
+                              className="mt-1 h-4 w-4 rounded border-neutral-300"
+                            />
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </section>
+
+                  <section className="rounded-xl border border-neutral-200 p-4">
+                    <div className="text-xs font-medium text-neutral-400">
+                      Effective profile set
+                    </div>
+
+                    <div className="mt-2 text-sm text-neutral-700">
+                      {[
+                        ...profileNames(
+                          administration,
+                          selectedUser.accessProfileIds.filter(
+                            (id) =>
+                              systemProfiles.some(
+                                (profile) => profile.id === id,
+                              ),
+                          ),
+                        ),
+                        ...profileNames(
+                          administration,
+                          selectedAdditionalProfileIds,
+                        ),
+                      ].join(' · ') || 'No profiles'}
+                    </div>
+
+                    {Object.keys(
+                      selectedUser.permissionOverrides,
+                    ).length > 0 && (
+                      <div className="mt-3 text-xs text-neutral-500">
+                        This user also has{' '}
+                        {
+                          Object.keys(
+                            selectedUser.permissionOverrides,
+                          ).length
+                        }{' '}
+                        explicit permission override(s). Advanced
+                        overrides will be managed separately.
+                      </div>
+                    )}
+                  </section>
+
+                  <div className="flex items-center justify-end gap-3 border-t border-neutral-200 pt-6">
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => {
+                        if (!selectedUser) return
+
+                        const clientManagedIds = new Set(
+                          clientManagedProfiles.map(
+                            (profile) => profile.id,
+                          ),
+                        )
+
+                        setSelectedAdditionalProfileIds(
+                          selectedUser.accessProfileIds.filter(
+                            (id) => clientManagedIds.has(id),
+                          ),
+                        )
+
+                        setSaveMessage(null)
+                        setPageError(null)
+                      }}
+                      className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
+                    >
+                      Reset
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() =>
+                        void saveAccessProfiles()
+                      }
+                      className="rounded-lg bg-neutral-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {saving
+                        ? 'Saving…'
+                        : 'Save access'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex min-h-[500px] items-center justify-center p-8 text-sm text-neutral-500">
+                Select a user to manage access.
               </div>
-            </div>
-          </div>
-        </>
-      )}
+            )}
+          </main>
+        </div>
+      ) : !pageError ? (
+        <div className="rounded-2xl border border-neutral-200 bg-white p-8 text-sm text-neutral-500">
+          No administration state is available.
+        </div>
+      ) : null}
     </div>
-  );
+  )
 }

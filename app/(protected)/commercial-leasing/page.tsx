@@ -34,12 +34,29 @@ export default function CommercialLeasingPage() {
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
-    const { data: opps } = await supabase.from("leasing_opportunities").select("*, brokers(broker_name, agency_name)").order("created_at", { ascending: false });
-    const { data: brks } = await supabase.from("brokers").select("*").order("broker_name");
-    setOpportunities(opps || []);
-    setBrokers(brks || []);
-    setLoading(false);
+  setLoading(true)
+
+  const { data, error } = await supabase
+    .from('leasing_opportunities')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error(
+      'Failed to load commercial leasing opportunities:',
+      error,
+    )
+
+    setOpportunities([])
+    setBrokers([])
+    setLoading(false)
+    return
   }
+
+  setOpportunities(data || [])
+  setBrokers([])
+  setLoading(false)
+}
 
   const filters = [
     { key: "all", label: "All" },
@@ -130,7 +147,7 @@ export default function CommercialLeasingPage() {
                     <p className="text-[var(--text-primary)] font-medium">{o.prospect_name || "Unnamed"}</p>
                     <p className="text-xs text-[var(--text-muted)]">{o.opportunity_code}</p>
                   </td>
-                  <td className="py-2.5 px-4 text-[var(--text-secondary)] text-xs">{o.brokers?.broker_name || "—"}</td>
+                  <td className="py-2.5 px-4 text-[var(--text-secondary)] text-xs">—</td>
                   <td className="py-2.5 px-4 text-[var(--text-secondary)] text-xs">{o.unit_number || "—"}</td>
                   <td className="py-2.5 px-4 text-right tabular-nums text-[var(--text-primary)]">{formatRands(o.monthly_rental)}</td>
                   <td className="py-2.5 px-4 text-right tabular-nums text-xs">
