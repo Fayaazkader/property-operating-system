@@ -261,6 +261,43 @@ function getCanonicalFieldDefinition(key: string) {
   return definition;
 }
 
+/*
+ * Execution/signature areas contain visual blanks that are not
+ * document-generation data targets. Keep signature detection and
+ * anonymous-blank classification under the same policy so the
+ * analyser cannot disagree with itself.
+ */
+function containsSignatureContext(value: string): boolean {
+  return (
+    /\bsignatures?\b/i.test(value) ||
+    /\bsigned\s+(?:at|by|for|on)\b/i.test(value) ||
+    /\b(?:authorised|authorized)\s+signatory\b/i.test(value) ||
+    /\b(?:lessor|landlord|lessee|tenant)\s+signature\b/i.test(value) ||
+    /\bsignature\s+(?:of|for)\b/i.test(value)
+  );
+}
+
+function isSignatureBlank(
+  text: string,
+  startOffset: number,
+  endOffset: number
+): boolean {
+  /*
+   * Signature labels are normally immediately above or below the
+   * execution line. Use a bounded local window rather than treating
+   * every underscore after a SIGNATURES heading as execution content.
+   */
+  const contextStart = Math.max(0, startOffset - 240);
+  const contextEnd = Math.min(
+    text.length,
+    endOffset + 240
+  );
+
+  return containsSignatureContext(
+    text.slice(contextStart, contextEnd)
+  );
+}
+
 function cleanValue(value: string): string {
   return value
     .replace(/\s+/g, ' ')
@@ -1075,6 +1112,20 @@ for (const definition of explicitPatterns) {
 
     if (definition.kind === 'anonymous_blank') {
       /*
+       * Signature/execution lines are visual signing surfaces rather
+       * than AssetFlow data insertion targets.
+       */
+      if (
+        isSignatureBlank(
+          text,
+          startOffset,
+          endOffset
+        )
+      ) {
+        continue;
+      }
+
+      /*
        * An underscore blank proves that an insertion target exists,
        * but the underscores themselves contain no semantic meaning.
        *
@@ -1519,7 +1570,7 @@ fields.push({
     });
   }
 
-  if (!/\bsignature\b|\bsigned\b|\bsign\b/i.test(text)) {
+  if (!containsSignatureContext(text)) {
     suggestions.push({
       type: 'warning',
       title: 'Signature section not detected',

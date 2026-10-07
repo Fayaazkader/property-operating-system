@@ -29,6 +29,9 @@ export interface ApprovedCommercialSnapshot {
   depositAmount?: number | null;
   escalationPercent?: number | null;
   leaseTermMonths?: number | null;
+  leasedAreaSqm?: number | null;
+  rentalRatePerSqm?: number | null;
+  rentalVatTreatment?: 'exclusive' | 'inclusive' | 'not_applicable' | null;
 
   commencementDate?: string | null;
   expiryDate?: string | null;

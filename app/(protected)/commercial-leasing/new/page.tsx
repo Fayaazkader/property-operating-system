@@ -48,6 +48,9 @@ interface FormState {
   depositAmount: string;
   escalationPercent: string;
   leaseTermMonths: string;
+  leasedAreaSqm: string;
+  rentalRatePerSqm: string;
+  rentalVatTreatment: string;
 
   commencementDate: string;
   expiryDate: string;
@@ -74,6 +77,9 @@ const initialForm: FormState = {
   depositAmount: '',
   escalationPercent: '',
   leaseTermMonths: '',
+  leasedAreaSqm: '',
+  rentalRatePerSqm: '',
+  rentalVatTreatment: '',
 
   commencementDate: '',
   expiryDate: '',
@@ -257,6 +263,14 @@ export default function NewCommercialLeasingOpportunityPage() {
         depositAmount: optionalNumber(form.depositAmount),
         escalationPercent: optionalNumber(form.escalationPercent),
         leaseTermMonths: optionalNumber(form.leaseTermMonths),
+        leasedAreaSqm: optionalNumber(form.leasedAreaSqm),
+        rentalRatePerSqm: optionalNumber(form.rentalRatePerSqm),
+        rentalVatTreatment:
+          form.rentalVatTreatment === 'exclusive' ||
+          form.rentalVatTreatment === 'inclusive' ||
+          form.rentalVatTreatment === 'not_applicable'
+            ? form.rentalVatTreatment
+            : null,
 
         commencementDate: form.commencementDate || null,
         expiryDate: form.expiryDate || null,
@@ -546,6 +560,49 @@ export default function NewCommercialLeasingOpportunityPage() {
                 className={inputClass}
                 placeholder="Months"
               />
+            </Field>
+
+            <Field label="Leased Area">
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={form.leasedAreaSqm}
+                onChange={(event) =>
+                  setField('leasedAreaSqm', event.target.value)
+                }
+                className={inputClass}
+                placeholder="m²"
+              />
+            </Field>
+
+            <Field label="Rental Rate / m²">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.rentalRatePerSqm}
+                onChange={(event) =>
+                  setField('rentalRatePerSqm', event.target.value)
+                }
+                className={inputClass}
+                placeholder="R / m²"
+              />
+            </Field>
+
+            <Field label="Rental VAT Treatment">
+              <select
+                value={form.rentalVatTreatment}
+                onChange={(event) =>
+                  setField('rentalVatTreatment', event.target.value)
+                }
+                className={inputClass}
+              >
+                <option value="">Select treatment</option>
+                <option value="exclusive">VAT exclusive</option>
+                <option value="inclusive">VAT inclusive</option>
+                <option value="not_applicable">Not applicable</option>
+              </select>
             </Field>
 
             <Field label="Parking Bays">

@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Circle,
   FileCheck2,
+  FileText,
   Loader2,
   LockKeyhole,
   Save,
@@ -24,7 +25,10 @@ import {
   UserRound,
 } from 'lucide-react';
 
+import { useFeedback } from '@/components/ui/FeedbackProvider';
 import { supabase } from '@/lib/supabase';
+import { leaseTemplateService } from '@/lib/lease/templates/service';
+import type { LeaseTemplate } from '@/lib/lease/templates/types';
 import {
   approveLeasingCommercialTerms,
   submitLeasingCommercialTerms,
@@ -54,6 +58,13 @@ interface Opportunity {
   deposit_amount: number | null;
   escalation_percent: number | null;
   lease_term_months: number | null;
+  leased_area_sqm: number | null;
+  rental_rate_per_sqm: number | null;
+  rental_vat_treatment:
+    | 'exclusive'
+    | 'inclusive'
+    | 'not_applicable'
+    | null;
 
   commencement_date: string | null;
   expiry_date: string | null;
@@ -88,6 +99,13 @@ interface CommercialSnapshot {
   depositAmount?: number | null;
   escalationPercent?: number | null;
   leaseTermMonths?: number | null;
+  leasedAreaSqm?: number | null;
+  rentalRatePerSqm?: number | null;
+  rentalVatTreatment?:
+    | 'exclusive'
+    | 'inclusive'
+    | 'not_applicable'
+    | null;
 
   commencementDate?: string | null;
   expiryDate?: string | null;
@@ -116,6 +134,7 @@ interface CommercialVersion {
 interface PropertyOption {
   id: string;
   property_name: string;
+  property_type: string | null;
 }
 
 interface UnitOption {
@@ -124,6 +143,17 @@ interface UnitOption {
   unit_number: string;
   unit_name: string | null;
   gla_sqm: number | null;
+}
+
+interface GeneratedLeaseDocument {
+  documentId?: string;
+  document_id?: string;
+  fileName?: string;
+  file_name?: string;
+  checksum?: string;
+  storagePath?: string;
+  storage_path?: string;
+  [key: string]: unknown;
 }
 
 interface FormState {
@@ -142,6 +172,9 @@ interface FormState {
   depositAmount: string;
   escalationPercent: string;
   leaseTermMonths: string;
+  leasedAreaSqm: string;
+  rentalRatePerSqm: string;
+  rentalVatTreatment: string;
 
   commencementDate: string;
   expiryDate: string;
@@ -205,6 +238,9 @@ function toForm(opportunity: Opportunity): FormState {
     depositAmount: value(opportunity.deposit_amount),
     escalationPercent: value(opportunity.escalation_percent),
     leaseTermMonths: value(opportunity.lease_term_months),
+    leasedAreaSqm: value(opportunity.leased_area_sqm),
+    rentalRatePerSqm: value(opportunity.rental_rate_per_sqm),
+    rentalVatTreatment: opportunity.rental_vat_treatment || '',
 
     commencementDate: opportunity.commencement_date || '',
     expiryDate: opportunity.expiry_date || '',
@@ -249,6 +285,7 @@ function formatDate(date: unknown): string {
 
 export default function CommercialLeasingOpportunityPage() {
   const router = useRouter();
+  const feedback = useFeedback();
   const params = useParams<{ opportunityId: string }>();
   const opportunityId = params.opportunityId;
 
@@ -259,12 +296,18 @@ export default function CommercialLeasingOpportunityPage() {
   const [properties, setProperties] = useState<PropertyOption[]>([]);
   const [units, setUnits] = useState<UnitOption[]>([]);
 
+  const [leaseTemplates, setLeaseTemplates] = useState<LeaseTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [generatedLease, setGeneratedLease] =
+    useState<GeneratedLeaseDocument | null>(null);
+
   const [form, setForm] = useState<FormState | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [loadingPremises, setLoadingPremises] = useState(false);
   const [action, setAction] = useState<
-    'save' | 'submit' | 'approve' | null
+    'save' | 'submit' | 'approve' | 'generate' | null
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -297,6 +340,9 @@ export default function CommercialLeasingOpportunityPage() {
           'deposit_amount',
           'escalation_percent',
           'lease_term_months',
+          'leased_area_sqm',
+          'rental_rate_per_sqm',
+          'rental_vat_treatment',
           'commencement_date',
           'expiry_date',
           'beneficial_occupation_date',
@@ -383,7 +429,7 @@ export default function CommercialLeasingOpportunityPage() {
 
       const { data, error: propertyError } = await supabase
         .from('properties')
-        .select('id, property_name')
+        .select('id, property_name, property_type')
         .or(
           `entity_id.eq.${opportunity.entity_id},owner_entity_id.eq.${opportunity.entity_id},managing_entity_id.eq.${opportunity.entity_id}`,
         )
@@ -439,6 +485,94 @@ export default function CommercialLeasingOpportunityPage() {
       cancelled = true;
     };
   }, [form?.propertyId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLeaseTemplates() {
+      if (
+        !opportunity?.approved_terms_version_id ||
+        !opportunity.entity_id ||
+        !opportunity.property_id
+      ) {
+        setLeaseTemplates([]);
+        setSelectedTemplateId('');
+        return;
+      }
+
+      const property = properties.find(
+        (item) => item.id === opportunity.property_id,
+      );
+
+      if (!property) {
+        return;
+      }
+
+      if (!property.property_type?.trim()) {
+        setLeaseTemplates([]);
+        setSelectedTemplateId('');
+        setError(
+          'This property has no property type. Lease template applicability cannot be resolved.',
+        );
+        return;
+      }
+
+      setLoadingTemplates(true);
+
+      try {
+        const templates = await leaseTemplateService.getForProperty(
+          opportunity.entity_id,
+          opportunity.property_id,
+          property.property_type,
+          supabase,
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        setLeaseTemplates(templates);
+
+        setSelectedTemplateId((current) => {
+          if (
+            current &&
+            templates.some((template) => template.id === current)
+          ) {
+            return current;
+          }
+
+          return templates.length === 1 ? templates[0].id : '';
+        });
+      } catch (caught) {
+        if (cancelled) {
+          return;
+        }
+
+        setLeaseTemplates([]);
+        setSelectedTemplateId('');
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : 'Unable to resolve approved lease templates.',
+        );
+      } finally {
+        if (!cancelled) {
+          setLoadingTemplates(false);
+        }
+      }
+    }
+
+    void loadLeaseTemplates();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    opportunity?.approved_terms_version_id,
+    opportunity?.entity_id,
+    opportunity?.property_id,
+    properties,
+  ]);
 
   const editable = Boolean(
     opportunity && editableStatuses.has(opportunity.status),
@@ -512,6 +646,14 @@ export default function CommercialLeasingOpportunityPage() {
         depositAmount: optionalNumber(form.depositAmount),
         escalationPercent: optionalNumber(form.escalationPercent),
         leaseTermMonths: optionalNumber(form.leaseTermMonths),
+        leasedAreaSqm: optionalNumber(form.leasedAreaSqm),
+        rentalRatePerSqm: optionalNumber(form.rentalRatePerSqm),
+        rentalVatTreatment:
+          form.rentalVatTreatment === 'exclusive' ||
+          form.rentalVatTreatment === 'inclusive' ||
+          form.rentalVatTreatment === 'not_applicable'
+            ? form.rentalVatTreatment
+            : null,
 
         commencementDate: form.commencementDate || null,
         expiryDate: form.expiryDate || null,
@@ -563,6 +705,14 @@ export default function CommercialLeasingOpportunityPage() {
         depositAmount: optionalNumber(form.depositAmount),
         escalationPercent: optionalNumber(form.escalationPercent),
         leaseTermMonths: optionalNumber(form.leaseTermMonths),
+        leasedAreaSqm: optionalNumber(form.leasedAreaSqm),
+        rentalRatePerSqm: optionalNumber(form.rentalRatePerSqm),
+        rentalVatTreatment:
+          form.rentalVatTreatment === 'exclusive' ||
+          form.rentalVatTreatment === 'inclusive' ||
+          form.rentalVatTreatment === 'not_applicable'
+            ? form.rentalVatTreatment
+            : null,
 
         commencementDate: form.commencementDate || null,
         expiryDate: form.expiryDate || null,
@@ -627,6 +777,76 @@ export default function CommercialLeasingOpportunityPage() {
           ? caught.message
           : 'Unable to approve commercial terms.',
       );
+    } finally {
+      setAction(null);
+    }
+  }
+
+  async function generateLease() {
+    if (
+      !opportunity ||
+      !commerciallyApproved ||
+      !opportunity.entity_id ||
+      !selectedTemplateId
+    ) {
+      return;
+    }
+
+    clearMessages();
+    setAction('generate');
+
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session?.access_token) {
+        throw new Error('Your session has expired. Please sign in again.');
+      }
+
+      const response = await fetch(
+        `/api/leasing/opportunities/${opportunity.id}/generate-lease`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            entityId: opportunity.entity_id,
+            templateId: selectedTemplateId,
+          }),
+        },
+      );
+
+      const payload = (await response.json()) as {
+        success?: boolean;
+        document?: GeneratedLeaseDocument;
+        error?: string;
+        code?: string;
+      };
+
+      if (!response.ok || !payload.success || !payload.document) {
+        throw new Error(
+          payload.error || 'Unable to generate the lease document.',
+        );
+      }
+
+      setGeneratedLease(payload.document);
+      feedback.success({
+        title: 'Lease generated successfully',
+        message:
+          'The frozen lease document is ready for review before execution.',
+      });
+    } catch (caught) {
+      feedback.error({
+        title: 'Lease generation failed',
+        message:
+          caught instanceof Error
+            ? caught.message
+            : 'Unable to generate the lease document.',
+      });
     } finally {
       setAction(null);
     }
@@ -956,6 +1176,57 @@ export default function CommercialLeasingOpportunityPage() {
                 />
               </Field>
 
+              <Field label="Leased Area">
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={form.leasedAreaSqm}
+                  onChange={(event) =>
+                    setField('leasedAreaSqm', event.target.value)
+                  }
+                  className={inputClass}
+                  placeholder="m²"
+                  disabled={!editable}
+                />
+              </Field>
+
+              <Field label="Rental Rate / m²">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.rentalRatePerSqm}
+                  onChange={(event) =>
+                    setField('rentalRatePerSqm', event.target.value)
+                  }
+                  className={inputClass}
+                  placeholder="R / m²"
+                  disabled={!editable}
+                />
+              </Field>
+
+              <Field label="Rental VAT Treatment">
+                <select
+                  value={form.rentalVatTreatment}
+                  onChange={(event) =>
+                    setField(
+                      'rentalVatTreatment',
+                      event.target.value,
+                    )
+                  }
+                  className={inputClass}
+                  disabled={!editable}
+                >
+                  <option value="">Select treatment</option>
+                  <option value="exclusive">VAT exclusive</option>
+                  <option value="inclusive">VAT inclusive</option>
+                  <option value="not_applicable">
+                    Not applicable
+                  </option>
+                </select>
+              </Field>
+
               <Field label="Parking Bays">
                 <input
                   type="number"
@@ -1082,25 +1353,152 @@ export default function CommercialLeasingOpportunityPage() {
           )}
 
           {commerciallyApproved && (
-            <div className="flex items-start justify-between gap-5 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-5">
-              <div>
-                <div className="flex items-center gap-2">
-                  <FileCheck2 className="h-4 w-4 text-emerald-400" />
+            <section className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)]">
+              <div className="flex items-start gap-3 border-b border-[var(--border-default)] px-5 py-4">
+                <FileCheck2 className="mt-0.5 h-4 w-4 text-emerald-400" />
+                <div>
                   <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-                    Lease preparation
+                    Lease Preparation
                   </h2>
+                  <p className="mt-0.5 text-xs leading-5 text-[var(--text-muted)]">
+                    Generate the lease from an approved property template using
+                    Approved Commercial Version{' '}
+                    {currentVersion?.version_number ?? '—'}.
+                  </p>
                 </div>
-                <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--text-muted)]">
-                  Commercial authority is approved. The next governed action
-                  is generation from an approved property template using this
-                  immutable commercial version.
-                </p>
               </div>
 
-              <span className="shrink-0 rounded-full border border-[var(--border-default)] px-3 py-1 text-xs text-[var(--text-secondary)]">
-                Next checkpoint
-              </span>
-            </div>
+              <div className="space-y-5 p-5">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+                      Commercial authority
+                    </p>
+
+                    <div className="mt-2 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                      <p className="text-sm font-medium text-[var(--text-primary)]">
+                        Approved Version{' '}
+                        {currentVersion?.version_number ?? '—'}
+                      </p>
+                    </div>
+
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                      Locked · immutable
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)] p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+                      Property classification
+                    </p>
+
+                    <p className="mt-2 text-sm font-medium text-[var(--text-primary)]">
+                      {properties.find(
+                        (item) => item.id === opportunity.property_id,
+                      )?.property_type || 'Not configured'}
+                    </p>
+
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                      Used to resolve approved applicable templates
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
+                    Approved lease template
+                  </label>
+
+                  {loadingTemplates ? (
+                    <div className="flex items-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-primary)] px-3 py-2.5 text-sm text-[var(--text-muted)]">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Resolving approved templates...
+                    </div>
+                  ) : leaseTemplates.length === 0 ? (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-300">
+                      No active approved lease template is applicable to this
+                      property. Configure and approve the property template
+                      before generating a lease.
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedTemplateId}
+                      onChange={(event) =>
+                        setSelectedTemplateId(event.target.value)
+                      }
+                      className={inputClass}
+                      disabled={action !== null || generatedLease !== null}
+                    >
+                      {leaseTemplates.length > 1 && (
+                        <option value="">Select approved template</option>
+                      )}
+
+                      {leaseTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.template_name} · Version {template.version}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {!generatedLease ? (
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={generateLease}
+                      disabled={
+                        action !== null ||
+                        loadingTemplates ||
+                        !selectedTemplateId
+                      }
+                      className="flex items-center justify-center gap-2 rounded-xl bg-[var(--text-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--bg-primary)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {action === 'generate' ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <FileText className="h-4 w-4" />
+                      )}
+                      Generate Lease
+                    </button>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+                    <div className="flex items-start gap-3">
+                      <FileCheck2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+
+                      <div>
+                        <p className="text-sm font-medium text-[var(--text-primary)]">
+                          Generated lease ready for review
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+                          This is the frozen generated artifact checkpoint. It
+                          must be reviewed before being approved for execution.
+                        </p>
+
+                        {(generatedLease.fileName ||
+                          generatedLease.file_name) && (
+                          <p className="mt-3 text-xs text-[var(--text-secondary)]">
+                            {String(
+                              generatedLease.fileName ||
+                                generatedLease.file_name,
+                            )}
+                          </p>
+                        )}
+
+                        {generatedLease.checksum && (
+                          <p className="mt-1 break-all font-mono text-[10px] text-[var(--text-muted)]">
+                            SHA-256: {String(generatedLease.checksum)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
           )}
         </form>
       )}

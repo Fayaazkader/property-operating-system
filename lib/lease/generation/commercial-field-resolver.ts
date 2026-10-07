@@ -55,6 +55,11 @@ export function resolveLeaseCanonicalValues(params: {
     ),
     lease_expiry_date: valueOrNull(snapshot.expiryDate),
 
+    lease_term: valueOrNull(snapshot.leaseTermMonths),
+    leased_area: valueOrNull(snapshot.leasedAreaSqm),
+    rental_rate: valueOrNull(snapshot.rentalRatePerSqm),
+    vat_treatment: valueOrNull(snapshot.rentalVatTreatment),
+
     monthly_rental: valueOrNull(snapshot.monthlyRental),
     rental_escalation: valueOrNull(
       snapshot.escalationPercent,

@@ -15,7 +15,8 @@ type MappingReviewAction =
   | 'confirm'
   | 'correct'
   | 'reject'
-  | 'assign';
+  | 'assign'
+  | 'bulk_confirm';
 
 interface MappingReviewRequest {
   entityId?: string;
@@ -23,6 +24,7 @@ interface MappingReviewRequest {
   mappingId?: string;
   suggestionId?: string;
   fieldKey?: string;
+  mappingIds?: string[];
 }
 
 function isMappingReviewAction(
@@ -32,7 +34,8 @@ function isMappingReviewAction(
     value === 'confirm' ||
     value === 'correct' ||
     value === 'reject' ||
-    value === 'assign'
+    value === 'assign' ||
+    value === 'bulk_confirm'
   );
 }
 
@@ -149,6 +152,7 @@ export async function PATCH(
       mappingId,
       suggestionId,
       fieldKey,
+      mappingIds,
     } = body;
 
     if (
@@ -185,6 +189,39 @@ export async function PATCH(
           {
             error:
               'mappingId is required for this review action.',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (action === 'bulk_confirm') {
+      if (
+        !Array.isArray(mappingIds) ||
+        mappingIds.length === 0 ||
+        mappingIds.some(
+          mappingId =>
+            typeof mappingId !== 'string' ||
+            mappingId.trim().length === 0
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'mappingIds must contain at least one valid mapping id for bulk confirmation.',
+          },
+          { status: 400 }
+        );
+      }
+
+      if (
+        new Set(mappingIds).size !==
+        mappingIds.length
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'mappingIds must not contain duplicates.',
           },
           { status: 400 }
         );
@@ -256,30 +293,54 @@ export async function PATCH(
       }
     );
 
-    const { data, error } = await serviceClient.rpc(
-      'review_lease_template_mapping',
-      {
-        p_template_id: templateId,
-        p_entity_id: entityId,
-        p_user_id: user.id,
-        p_user_email: user.email ?? null,
-        p_action: action,
-        p_mapping_id:
-          typeof mappingId === 'string'
-            ? mappingId
-            : null,
-        p_suggestion_id:
-          typeof suggestionId === 'string'
-            ? suggestionId
-            : null,
-        p_field_key:
-          typeof fieldKey === 'string'
-            ? fieldKey
-            : null,
-        p_user_agent:
-          request.headers.get('user-agent'),
-      }
-    );
+    const rpcResult =
+      action === 'bulk_confirm'
+        ? await serviceClient.rpc(
+            'confirm_lease_template_mappings',
+            {
+              p_template_id: templateId,
+              p_entity_id: entityId,
+              p_user_id: user.id,
+              p_user_email:
+                user.email ?? null,
+              p_mapping_ids:
+                mappingIds ?? [],
+              p_user_agent:
+                request.headers.get(
+                  'user-agent'
+                ),
+            }
+          )
+        : await serviceClient.rpc(
+            'review_lease_template_mapping',
+            {
+              p_template_id: templateId,
+              p_entity_id: entityId,
+              p_user_id: user.id,
+              p_user_email:
+                user.email ?? null,
+              p_action: action,
+              p_mapping_id:
+                typeof mappingId === 'string'
+                  ? mappingId
+                  : null,
+              p_suggestion_id:
+                typeof suggestionId ===
+                'string'
+                  ? suggestionId
+                  : null,
+              p_field_key:
+                typeof fieldKey === 'string'
+                  ? fieldKey
+                  : null,
+              p_user_agent:
+                request.headers.get(
+                  'user-agent'
+                ),
+            }
+          );
+
+    const { data, error } = rpcResult;
 
     if (error) {
       console.error(

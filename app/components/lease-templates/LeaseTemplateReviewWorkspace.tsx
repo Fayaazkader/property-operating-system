@@ -15,6 +15,7 @@ import {
 } from 'react-pdf';
 
 import { createClient } from '@/lib/supabase/client';
+import { useFeedback } from '@/components/ui/FeedbackProvider';
 
 import {
   LEASE_FIELD_DEFINITIONS,
@@ -43,7 +44,8 @@ type MappingAction =
   | 'confirm'
   | 'correct'
   | 'reject'
-  | 'assign';
+  | 'assign'
+  | 'bulk_confirm';
 
 interface MappingReviewResponse {
   success?: boolean;
@@ -62,6 +64,8 @@ export default function LeaseTemplateReviewWorkspace({
   suggestions,
 }: LeaseTemplateReviewWorkspaceProps) {
   const router = useRouter();
+  const feedback = useFeedback();
+
   const [mappings, setMappings] =
     useState<LeaseTemplateFieldMapping[]>(
       fields
@@ -96,14 +100,13 @@ export default function LeaseTemplateReviewWorkspace({
   const [previewError, setPreviewError] =
     useState<string | null>(null);
 
-  const [actionError, setActionError] =
-    useState<string | null>(null);
-
-  const [actionNotice, setActionNotice] =
-    useState<string | null>(null);
-
   const [savingAction, setSavingAction] =
     useState<MappingAction | null>(null);
+
+  const [
+    selectedBulkMappingIds,
+    setSelectedBulkMappingIds,
+  ] = useState<string[]>([]);
 
   useEffect(() => {
     setMappings(fields);
@@ -112,6 +115,15 @@ export default function LeaseTemplateReviewWorkspace({
   useEffect(() => {
     setReviewSuggestions(suggestions);
   }, [suggestions]);
+
+  const suggestedMappings = useMemo(
+    () =>
+      mappings.filter(
+        mapping =>
+          mapping.status === 'suggested'
+      ),
+    [mappings]
+  );
 
   const selectedMapping = useMemo(
     () =>
@@ -273,13 +285,12 @@ async function loadPreview() {
     action: MappingAction,
     options?: {
       mappingId?: string;
+      mappingIds?: string[];
       suggestionId?: string;
       fieldKey?: string;
     }
   ) {
     setSavingAction(action);
-    setActionError(null);
-    setActionNotice(null);
 
     try {
       const supabase = createClient();
@@ -354,38 +365,47 @@ async function loadPreview() {
       router.refresh();
 
       if (action === 'confirm') {
-        setActionNotice(
-          'Mapping confirmed.'
-        );
+        feedback.success('Mapping confirmed.');
       }
 
       if (action === 'correct') {
-        setActionNotice(
+        feedback.success(
           'Mapping corrected and confirmed.'
         );
       }
 
       if (action === 'reject') {
-        setActionNotice(
-          'Mapping rejected.'
-        );
+        feedback.success('Mapping rejected.');
       }
 
       if (action === 'assign') {
-        setActionNotice(
+        feedback.success(
           'Target assigned and confirmed.'
         );
 
         setSelectedSuggestionId(null);
       }
 
+      if (action === 'bulk_confirm') {
+        const confirmedCount =
+          options?.mappingIds?.length ?? 0;
+
+        feedback.success(
+          `${confirmedCount} mappings confirmed.`
+        );
+
+        setSelectedBulkMappingIds([]);
+      }
+
       setSelectedFieldKey('');
     } catch (error) {
-      setActionError(
-        error instanceof Error
-          ? error.message
-          : 'Unable to save mapping review.'
-      );
+      feedback.error({
+        title: 'Mapping review failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Unable to save mapping review.',
+      });
     } finally {
       setSavingAction(null);
     }
@@ -415,6 +435,33 @@ async function loadPreview() {
     }
   }
 
+  function toggleBulkMapping(
+    mappingId: string
+  ) {
+    setSelectedBulkMappingIds(current =>
+      current.includes(mappingId)
+        ? current.filter(id => id !== mappingId)
+        : [...current, mappingId]
+    );
+  }
+
+  function toggleAllSuggestedMappings() {
+    setSelectedBulkMappingIds(current => {
+      const suggestedIds =
+        suggestedMappings.map(
+          mapping => mapping.id
+        );
+
+      const allSelected =
+        suggestedIds.length > 0 &&
+        suggestedIds.every(id =>
+          current.includes(id)
+        );
+
+      return allSelected ? [] : suggestedIds;
+    });
+  }
+
   function selectMapping(
     mapping: LeaseTemplateFieldMapping
   ) {
@@ -423,8 +470,6 @@ async function loadPreview() {
     setSelectedFieldKey(
       mapping.fieldKey
     );
-    setActionError(null);
-    setActionNotice(null);
   }
 
   function selectSuggestion(
@@ -439,8 +484,6 @@ async function loadPreview() {
     );
     setSelectedMappingId(null);
     setSelectedFieldKey('');
-    setActionError(null);
-    setActionNotice(null);
   }
 
   return (
@@ -458,18 +501,6 @@ async function loadPreview() {
           be assigned manually.
         </p>
       </div>
-
-      {actionError && (
-        <div className="border-b border-red-400/10 bg-red-400/[0.04] px-6 py-3 text-sm text-red-300">
-          {actionError}
-        </div>
-      )}
-
-      {actionNotice && (
-        <div className="border-b border-emerald-400/10 bg-emerald-400/[0.04] px-6 py-3 text-sm text-emerald-300">
-          {actionNotice}
-        </div>
-      )}
 
       <div className="grid min-h-[680px] grid-cols-1 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.75fr)]">
         {/* Source document */}
@@ -532,9 +563,64 @@ async function loadPreview() {
         {/* Mapping review */}
         <div className="min-w-0">
           <div className="border-b border-white/[0.06] px-5 py-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Reusable Mappings
-            </p>
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Reusable Mappings
+              </p>
+
+              {suggestedMappings.length > 0 && (
+                <button
+                  type="button"
+                  disabled={savingAction !== null}
+                  onClick={
+                    toggleAllSuggestedMappings
+                  }
+                  className="text-xs font-medium text-zinc-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {suggestedMappings.every(
+                    mapping =>
+                      selectedBulkMappingIds.includes(
+                        mapping.id
+                      )
+                  )
+                    ? 'Clear selection'
+                    : `Select all suggested (${suggestedMappings.length})`}
+                </button>
+              )}
+            </div>
+
+            {selectedBulkMappingIds.length > 0 && (
+              <div className="mt-3 flex items-center justify-between gap-4 rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 py-2">
+                <p className="text-xs text-zinc-400">
+                  {selectedBulkMappingIds.length}{' '}
+                  suggested mapping
+                  {selectedBulkMappingIds.length === 1
+                    ? ''
+                    : 's'}{' '}
+                  selected
+                </p>
+
+                <button
+                  type="button"
+                  disabled={savingAction !== null}
+                  onClick={() =>
+                    void reviewMapping(
+                      'bulk_confirm',
+                      {
+                        mappingIds:
+                          selectedBulkMappingIds,
+                      }
+                    )
+                  }
+                  className="rounded-md bg-white px-3 py-1.5 text-xs font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {savingAction ===
+                  'bulk_confirm'
+                    ? 'Confirming…'
+                    : `Confirm selected (${selectedBulkMappingIds.length})`}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="max-h-[320px] overflow-auto border-b border-white/[0.06]">
@@ -542,20 +628,43 @@ async function loadPreview() {
               <EmptyState text="No semantic mappings have been proposed yet." />
             ) : (
               mappings.map(mapping => (
-                <button
+                <div
                   key={mapping.id}
-                  type="button"
-                  onClick={() =>
-                    selectMapping(mapping)
-                  }
-                  className={`block w-full border-b border-white/[0.04] px-5 py-4 text-left transition ${
+                  className={`flex w-full items-start gap-3 border-b border-white/[0.04] px-5 py-4 transition ${
                     selectedMappingId ===
                     mapping.id
                       ? 'bg-white/[0.05]'
                       : 'hover:bg-white/[0.025]'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-4">
+                  {mapping.status ===
+                    'suggested' && (
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${mapping.label}`}
+                      checked={selectedBulkMappingIds.includes(
+                        mapping.id
+                      )}
+                      disabled={
+                        savingAction !== null
+                      }
+                      onChange={() =>
+                        toggleBulkMapping(
+                          mapping.id
+                        )
+                      }
+                      className="mt-1 h-4 w-4 shrink-0 accent-white"
+                    />
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      selectMapping(mapping)
+                    }
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <p className="truncate text-sm text-zinc-200">
                         {mapping.label}
@@ -573,12 +682,13 @@ async function loadPreview() {
                     />
                   </div>
 
-                  <p className="mt-2 truncate text-xs text-zinc-500">
-                    {formatTarget(
-                      mapping.target
-                    )}
-                  </p>
-                </button>
+                    <p className="mt-2 truncate text-xs text-zinc-500">
+                      {formatTarget(
+                        mapping.target
+                      )}
+                    </p>
+                  </button>
+                </div>
               ))
             )}
           </div>

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { trackEvent, AnalyticsEvents } from "@/lib/analytics/tracker";
 // In app/layout.tsx, near the top with other imports
 import "@/lib/events";
+import { FeedbackProvider } from "@/components/ui/FeedbackProvider";
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -122,5 +123,9 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     );
   }
 
-  return <>{children}</>;
+  return (
+    <FeedbackProvider>
+      {children}
+    </FeedbackProvider>
+  );
 }

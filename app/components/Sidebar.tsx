@@ -52,7 +52,7 @@ export default function Sidebar() {
     { label: "Cash Book", href: "/financials/cash-book", icon: Landmark, desc: "Banking · Reconciliation · Allocation", count: counts.cashbook },
     { label: 'Payment Hub', href: '/treasury', icon: Landmark, desc: 'Treasury · Batches' },
     { label: 'Imports', href: '/financials/imports', icon: Landmark, desc: 'Bank Import · Presets' },
-    { label: "Commercial Leasing", href: "/leasing", icon: FileText, desc: "Opportunities · Brokers · Deals" },
+    { label: "Commercial Leasing", href: "/commercial-leasing", icon: FileText, desc: "Opportunities · Approvals · Execution" },
     { label: "Communications", href: "/communications", icon: MessageSquare, desc: "Email · WhatsApp · Statements", count: counts.communications },
     { label: "Tasks", href: "/tasks", icon: CheckSquare, desc: "Workflows · Approvals · Follow Ups", count: counts.tasks },
     { label: "Maintenance", href: "/maintenance", icon: Wrench, desc: "Issues · Work Orders · Suppliers" },

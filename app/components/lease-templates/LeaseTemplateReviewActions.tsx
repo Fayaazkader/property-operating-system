@@ -20,10 +20,72 @@ export default function LeaseTemplateReviewActions({
   const router = useRouter();
 
   const [loading, setLoading] =
-    useState<'approve' | null>(null);
+    useState<'approve' | 'reanalyze' | null>(null);
 
   const [error, setError] =
     useState<string | null>(null);
+
+  async function reanalyzeTemplate() {
+    if (loading !== null) {
+      return;
+    }
+
+    try {
+      setLoading('reanalyze');
+      setError(null);
+
+      const supabase = createClient();
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error(
+          'Your session has expired. Please sign in again.'
+        );
+      }
+
+      const response = await fetch(
+        `/api/lease-templates/${templateId}/reanalyze`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization:
+              `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            entityId,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result?.error ||
+            'Unable to re-analyse lease template.'
+        );
+      }
+
+      router.refresh();
+    } catch (error) {
+      console.error(
+        '[LEASE TEMPLATE REVIEW] Re-analysis failed:',
+        error
+      );
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to re-analyse lease template.'
+      );
+    } finally {
+      setLoading(null);
+    }
+  }
 
   async function approveTemplate() {
     if (!canApprove || loading !== null) {
@@ -112,16 +174,29 @@ export default function LeaseTemplateReviewActions({
           </p>
         )}
 
-        <button
-          type="button"
-          onClick={approveTemplate}
-          disabled={!canApprove || loading !== null}
-          className="rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {loading === 'approve'
-            ? 'Approving…'
-            : 'Approve Template'}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={reanalyzeTemplate}
+            disabled={loading !== null}
+            className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm text-zinc-300 transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {loading === 'reanalyze'
+              ? 'Re-analysing…'
+              : 'Re-analyse Template'}
+          </button>
+
+          <button
+            type="button"
+            onClick={approveTemplate}
+            disabled={!canApprove || loading !== null}
+            className="rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {loading === 'approve'
+              ? 'Approving…'
+              : 'Approve Template'}
+          </button>
+        </div>
       </div>
     </div>
   );

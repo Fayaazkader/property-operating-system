@@ -85,17 +85,22 @@ export function renderLeaseDocx(
     }
 
     /*
-     * The approved mapping remains authoritative. A token that names a
-     * different canonical field is contradictory and must never be rendered
-     * silently.
+     * The approved mapping is the semantic authority between the document's
+     * target vocabulary and AssetFlow's canonical field vocabulary.
+     *
+     * The placeholder key identifies WHERE the approved canonical value must
+     * be rendered; it is not itself required to equal the canonical field
+     * key. This deliberately supports reviewed aliases such as:
+     *
+     *   {{unit_name}}       -> unit_number
+     *   {{base_rent}}       -> monthly_rental
+     *   {{escalation_rate}} -> rental_escalation
+     *
+     * Mapping approval and render capability are validated when the render
+     * plan is built. This renderer therefore preserves the exact approved
+     * target token while retaining the canonical field key in render
+     * evidence.
      */
-    if (placeholderKey !== entry.fieldKey) {
-      throw new LeaseRendererError(
-        'invalid_mapping',
-        `Placeholder ${entry.target.token} does not match approved field ${entry.fieldKey}.`,
-      );
-    }
-
     const renderedValue = formatLeaseValue(entry.value);
 
     if (

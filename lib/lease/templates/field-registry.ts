@@ -100,6 +100,12 @@ export const LEASE_FIELD_DEFINITIONS: readonly LeaseFieldDefinition[] = [
     required: true,
   },
   {
+    key: 'lease_term',
+    label: 'Lease Term (Months)',
+    type: 'number',
+    required: false,
+  },
+  {
     key: 'monthly_rental',
     label: 'Monthly Rental',
     type: 'currency',
@@ -121,6 +127,24 @@ export const LEASE_FIELD_DEFINITIONS: readonly LeaseFieldDefinition[] = [
     key: 'lease_fee',
     label: 'Lease / Administration Fee',
     type: 'currency',
+    required: false,
+  },
+  {
+    key: 'leased_area',
+    label: 'Leased Area (m²)',
+    type: 'number',
+    required: false,
+  },
+  {
+    key: 'rental_rate',
+    label: 'Rental Rate per m²',
+    type: 'currency',
+    required: false,
+  },
+  {
+    key: 'vat_treatment',
+    label: 'Rental VAT Treatment',
+    type: 'text',
     required: false,
   },
 ];
@@ -164,6 +188,7 @@ const LEASE_FIELD_ALIASES: Readonly<Record<string, string>> = {
   shop_number: 'unit_number',
   shop_no: 'unit_number',
   unit_no: 'unit_number',
+  unit_name: 'unit_number',
 
   commencement_date: 'lease_commencement_date',
   lease_start_date: 'lease_commencement_date',
@@ -174,16 +199,30 @@ const LEASE_FIELD_ALIASES: Readonly<Record<string, string>> = {
   lease_end_date: 'lease_expiry_date',
   end_date: 'lease_expiry_date',
 
+  lease_term_months: 'lease_term',
+
   rent: 'monthly_rental',
   monthly_rent: 'monthly_rental',
+  base_rent: 'monthly_rental',
 
   escalation: 'rental_escalation',
   escalation_percentage: 'rental_escalation',
+  escalation_rate: 'rental_escalation',
 
   deposit: 'deposit_amount',
 
   administration_fee: 'lease_fee',
   admin_fee: 'lease_fee',
+
+  leased_area_sqm: 'leased_area',
+  gla: 'leased_area',
+  gla_sqm: 'leased_area',
+
+  rental_rate_per_sqm: 'rental_rate',
+  rate_per_sqm: 'rental_rate',
+
+  rental_vat_treatment: 'vat_treatment',
+
 };
 
 export function normaliseLeaseFieldToken(

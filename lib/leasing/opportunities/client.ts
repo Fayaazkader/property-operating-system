@@ -19,6 +19,9 @@ export interface CreateLeasingOpportunityInput {
   depositAmount?: number | null;
   escalationPercent?: number | null;
   leaseTermMonths?: number | null;
+  leasedAreaSqm?: number | null;
+  rentalRatePerSqm?: number | null;
+  rentalVatTreatment?: 'exclusive' | 'inclusive' | 'not_applicable' | null;
 
   commencementDate?: string | null;
   expiryDate?: string | null;
@@ -89,6 +92,9 @@ export async function createLeasingOpportunity(
     p_deposit_amount: nullableNumber(input.depositAmount),
     p_escalation_percent: nullableNumber(input.escalationPercent),
     p_lease_term_months: nullableNumber(input.leaseTermMonths),
+    p_leased_area_sqm: nullableNumber(input.leasedAreaSqm),
+    p_rental_rate_per_sqm: nullableNumber(input.rentalRatePerSqm),
+    p_rental_vat_treatment: input.rentalVatTreatment ?? null,
 
     p_commencement_date: input.commencementDate || null,
     p_expiry_date: input.expiryDate || null,
@@ -195,6 +201,9 @@ export async function updateLeasingOpportunity(
     p_deposit_amount: nullableNumber(input.depositAmount),
     p_escalation_percent: nullableNumber(input.escalationPercent),
     p_lease_term_months: nullableNumber(input.leaseTermMonths),
+    p_leased_area_sqm: nullableNumber(input.leasedAreaSqm),
+    p_rental_rate_per_sqm: nullableNumber(input.rentalRatePerSqm),
+    p_rental_vat_treatment: input.rentalVatTreatment ?? null,
 
     p_commencement_date: input.commencementDate || null,
     p_expiry_date: input.expiryDate || null,
