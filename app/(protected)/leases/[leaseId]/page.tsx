@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from "@/lib/supabase";
-import { createExecutionEngine } from "@/lib/execution";
 import { 
   ArrowLeft, 
   Save, 
@@ -60,26 +59,29 @@ export default function LeaseIntakeWorkspace() {
   }
 
   async function loadExecution() {
-    if (!intake?.lease_id) return;
-    
+    if (!intake?.id) return;
+
     setExecutionLoading(true);
     try {
-      const engine = createExecutionEngine(supabase);
-      
-      const active = await engine.getActiveExecution('lease', intake.lease_id);
-      if (active) {
-        setExecution(active);
-        const participants = await engine.getParticipants(active.id);
-        setExecutionParticipants(participants);
-        const score = await engine.getReadyScore(active.id);
-        setExecutionReadyScore(score);
-      } else {
-        setExecution(null);
-        setExecutionParticipants([]);
-        setExecutionReadyScore(null);
-      }
-    } catch (err) {
-      console.error('Error loading execution:', err);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+      const response = await fetch(`/api/execution/lease/${intake.id}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        cache: 'no-store',
+      });
+
+      if (!response.ok) throw new Error('Execution access denied');
+
+      const data = await response.json();
+      setExecution(data.execution);
+      setExecutionParticipants(data.participants ?? []);
+      setExecutionReadyScore(null);
+    } catch (error) {
+      console.error('Execution loading failed:', error);
+      setExecution(null);
+      setExecutionParticipants([]);
+      setExecutionReadyScore(null);
     } finally {
       setExecutionLoading(false);
     }
@@ -170,117 +172,19 @@ export default function LeaseIntakeWorkspace() {
   }
 
   async function createExecution() {
-  if (!intake?.lease_id) return;
-  
-  try {
-    const engine = createExecutionEngine(supabase);
-    
-    const result = await engine.create({
-      source_type: 'lease',
-      source_id: intake.lease_id,
-      effective_date: intake.commencement_date,
-      metadata: {
-        intake_id: intake.id,
-        applicant_name: intake.applicant_name,
-      },
-    });
-    
-    if (result.success) {
-      // ⭐ ADD DEFAULT PARTICIPANTS ⭐
-      const defaultParticipants = [
-        { 
-          participant_type: 'tenant', 
-          name: intake.applicant_name || 'Tenant', 
-          email: intake.contact_email || '',
-          phone: intake.contact_phone || '',
-          company: intake.company_registration || '',
-        },
-        { 
-          participant_type: 'landlord', 
-          name: 'Landlord', 
-          email: '',
-          phone: '',
-          company: '',
-        },
-      ];
-      
-      for (const p of defaultParticipants) {
-        await engine.addParticipant({
-          execution_id: result.execution_id,
-          participant_type: p.participant_type,
-          name: p.name,
-          email: p.email,
-          phone: p.phone,
-          company: p.company,
-          signing_order: defaultParticipants.indexOf(p) + 1,
-        });
-      }
-      
-      await loadExecution();
-      setNotification({
-        type: 'success',
-        message: '✅ Execution draft created',
-        details: 'Default participants added. You can now send for execution.'
-      });
-    } else {
-      throw new Error(result.errors?.[0] || 'Failed to create execution');
-    }
-  } catch (err) {
-    console.error('Error creating execution:', err);
     setNotification({
       type: 'error',
-      message: err instanceof Error ? err.message : 'Failed to create execution',
-      details: 'Please try again'
+      message: 'Secure lease execution is being upgraded.',
+      details: 'Signing actions will be available after server-side verification is complete.',
     });
   }
-}
 
   async function sendExecution() {
-    if (!execution) return;
-    
-    try {
-      const engine = createExecutionEngine(supabase);
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      const participants = executionParticipants.length > 0 ? executionParticipants : [
-        { participant_type: 'tenant', name: intake.applicant_name || 'Tenant', email: intake.contact_email },
-        { participant_type: 'landlord', name: 'Landlord' },
-      ];
-      
-      const result = await engine.send({
-        execution_id: execution.id,
-        participants: participants.map((p: any) => ({
-          participant_type: p.participant_type,
-          name: p.name,
-          email: p.email,
-          phone: p.phone,
-          company: p.company,
-        })),
-        message: 'Please review and sign the lease agreement.',
-        send_whatsapp: true,
-        send_email: true,
-      });
-      
-      if (result.success) {
-        await loadExecution();
-        setShowSendModal(false);
-        setNotification({
-          type: 'success',
-          message: '✅ Execution sent!',
-          details: 'Participants have been notified to sign.'
-        });
-      } else {
-        throw new Error(result.errors?.[0] || 'Failed to send execution');
-      }
-    } catch (err) {
-      console.error('Error sending execution:', err);
-      setNotification({
-        type: 'error',
-        message: err instanceof Error ? err.message : 'Failed to send execution',
-        details: 'Please check the validation errors and try again.'
-      });
-    }
+    setNotification({
+      type: 'error',
+      message: 'Secure lease execution is being upgraded.',
+      details: 'Signing actions will be available after server-side verification is complete.',
+    });
   }
 
   const statusFlow = [

@@ -30,6 +30,7 @@ export const PERMISSIONS = {
     COMMERCIAL_REJECT: 'leasing.commercial.reject',
 
     DOCUMENT_GENERATE: 'leasing.document.generate',
+    EXECUTION_VIEW: 'leasing.execution.view',
     EXECUTION_SEND: 'leasing.execution.send',
     ACTIVATION_EXECUTE: 'leasing.activation.execute',
   },
