@@ -564,3 +564,45 @@ Prefer evidence-based closure over exhaustive file inspection.
 Pilot-critical workflow blockers are fixed before non-critical polish.
 
 Production quality is mandatory, but unnecessary refactors and speculative hardening should not delay pilot delivery.
+
+## Phase 1 Audit — Lease Execution Checkpoint (2026-10-09)
+
+### Audit position
+- Phase 1 architecture and production-readiness audit remains IN PROGRESS.
+- Lease execution and native digital signing are an active remediation workstream.
+- Completing this workstream does not constitute completion of Phase 1.
+- After execution and signing verification, reconcile existing functionality against the 221-item audit checklist.
+
+### Verified source-control checkpoint
+- Branch: main.
+- Latest confirmed commit: 26e3f55.
+- Sixteen execution-related Supabase migrations pending deployment.
+- Latest confirmed remote migration: 20261007161000.
+- Existing production project remains the deployment target.
+- Public signing and execution email OTP remain disabled.
+
+### Implemented but not yet database-verified
+- Governed execution bridge and frozen approved document reference.
+- Hashed, expiring and revocable signing invitations.
+- Participant-linked email OTP challenges.
+- OTP delivery, verification and rate-limiting infrastructure.
+- RPC authority corrections and legacy OTP retirement.
+
+### Required completion sequence
+1. Confirm production recovery arrangements.
+2. Deploy execution migrations under controlled conditions.
+3. Verify RPC privileges, tenant isolation, invitation lifecycle, OTP security and concurrency.
+4. Complete landlord and tenant signatory nomination and authority declarations.
+5. Complete configurable witness requirements and signature capture.
+6. Enforce verification and document integrity at signature commit.
+7. Produce genuine signed PDF artifacts and audit certificates.
+8. Verify countersigning, document distribution and atomic lease activation.
+9. Verify tenant/unit assignment, deposit and rental billing, and exception recovery.
+10. Record end-to-end test evidence and close the execution audit findings.
+11. Resume the 221-item checklist in dependency order.
+
+### Release controls
+- Do not enable public signing before complete end-to-end verification.
+- Do not enable email OTP merely because migrations have deployed.
+- Do not treat migration dry-runs as successful database execution.
+- Do not declare the leasing domain or Phase 1 audit complete without evidence.
