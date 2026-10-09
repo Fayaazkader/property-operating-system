@@ -24,44 +24,62 @@ export async function flattenSignatures(
 
   for (const field of fields) {
     if (!field.value) continue;
-    const pageIndex = field.page - 1;
-    if (pageIndex < 0 || pageIndex >= pages.length) continue;
-    const page = pages[pageIndex];
-    console.log("field.page:", field.page, "pageRects pages:", pageRects.map(r => r.page));
-    const rect = pageRects.find(r => r.page === field.page);
-    if (!rect) { console.warn("No rect for field page", field.page, "available:", pageRects.map(r => r.page)); continue; }
 
+    const pageIndex = field.page - 1;
+    const rect = pageRects.find(r => r.page === field.page);
+
+    if (
+      !Number.isInteger(field.page) ||
+      pageIndex < 0 ||
+      pageIndex >= pages.length ||
+      !rect ||
+      !Number.isFinite(rect.width) ||
+      !Number.isFinite(rect.height) ||
+      rect.width <= 0 ||
+      rect.height <= 0 ||
+      ![field.x, field.y, field.width, field.height].every(Number.isFinite) ||
+      field.x < 0 ||
+      field.y < 0 ||
+      field.width <= 0 ||
+      field.height <= 0 ||
+      field.x + field.width > 1 ||
+      field.y + field.height > 1
+    ) {
+      throw new Error(`Invalid signing field placement: ${field.id}`);
+    }
+
+    const page = pages[pageIndex];
     const x = field.x * rect.width;
-    const clampedY = Math.min(field.y, 1 - field.height);
-    const y = rect.height * (1 - clampedY) - (field.height * rect.height);
-    const finalY = Math.max(0, y);
+    const y = rect.height * (1 - field.y - field.height);
     const w = field.width * rect.width;
     const h = field.height * rect.height;
 
     try {
       if (field.type === "signature" || field.type === "initial" || field.type === "witness") {
-        const base64 = field.value.split(",")[1];
-        if (base64) {
-          const imageBytes = base64ToBytes(base64);
-          const mimeType = field.value.split(";")[0].split(":")[1] || "image/png";
-          console.log("Image bytes length:", imageBytes.length, "mime:", mimeType);
-          const image = mimeType === "image/jpeg" || mimeType === "image/jpg"
+        const match = /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/.exec(field.value);
+        if (!match) {
+          throw new Error(`Invalid signature image: ${field.id}`);
+        }
+        {
+          const imageBytes = base64ToBytes(match[2]);
+          const image = match[1] === "jpeg"
             ? await pdfDoc.embedJpg(imageBytes)
             : await pdfDoc.embedPng(imageBytes);
-          if (isNaN(x) || isNaN(finalY)) { console.warn("Skipping field with NaN coords"); continue; }
-          console.log("field.y:", field.y, "field.height:", field.height, "rect.height:", rect.height);
-          console.log("drawImage page", pageIndex, "x", x, "y", finalY, "w", w, "h", h);
-          page.drawImage(image, { x, y: finalY, width: w, height: h, opacity: 0.9 });
+          page.drawImage(image, { x, y, width: w, height: h, opacity: 1 });
         }
       } else if (field.type === "date" || field.type === "text") {
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-        page.drawText(field.value, { x, y: finalY + h - 12, size: 10, font, color: rgb(0, 0, 0) });
+        page.drawText(field.value, { x, y: y + h - 12, size: 10, font, color: rgb(0, 0, 0) });
       } else if (field.type === "checkbox") {
         const font = await pdfDoc.embedFont(StandardFonts.ZapfDingbats);
-        page.drawText("\u2713", { x, y: finalY, size: 14, font, color: rgb(0, 0, 0) });
+        page.drawText("\u2713", { x, y, size: 14, font, color: rgb(0, 0, 0) });
       }
     } catch (err) {
-      console.error("Embed failed", field.id, err);
+      throw new Error(
+        `Failed to embed signing field ${field.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
     }
   }
 
@@ -101,7 +119,7 @@ export async function generateCertificatePage(
 
   page.drawText('Certificate of Completion', { x: 50, y, size: 18, font: boldFont, color: rgb(0, 0, 0) });
   y -= 30;
-  page.drawText(`Certificate ID: ${crypto.randomUUID().split('-')[0].toUpperCase()}`, { x: 50, y, size: 9, font: monoFont, color: rgb(0.4, 0.4, 0.4) });
+  page.drawText(`Certificate ID: ${(certificateId ?? requestId)}`, { x: 50, y, size: 9, font: monoFont, color: rgb(0.4, 0.4, 0.4) });
   y -= 25;
   page.drawLine({ start: { x: 50, y }, end: { x: width - 50, y }, thickness: 1, color: rgb(0.8, 0.8, 0.8) });
   y -= 25;
