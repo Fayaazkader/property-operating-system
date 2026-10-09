@@ -34,6 +34,7 @@ TESTS = [
     "signing-documents-negative.sql",
     "signing-documents-positive.sql",
     "signing-pdf-gate-negative.sql",
+    "execution-snapshot-compatibility.sql",
 ]
 
 
