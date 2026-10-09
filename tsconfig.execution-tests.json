@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "tests/execution/document-conversion.test.ts",
+    "lib/execution/server/document-conversion-core.ts"
+  ]
+}
