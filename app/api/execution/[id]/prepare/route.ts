@@ -7,6 +7,7 @@ import { storeAndCommitSigningDocument } from "@/lib/execution/server/signing-do
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
 export const runtime = "nodejs";
+export const maxDuration = 90;
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
