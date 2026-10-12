@@ -606,3 +606,93 @@ Production quality is mandatory, but unnecessary refactors and speculative harde
 - Do not enable email OTP merely because migrations have deployed.
 - Do not treat migration dry-runs as successful database execution.
 - Do not declare the leasing domain or Phase 1 audit complete without evidence.
+
+---
+
+## Production Execution Verification — 2026-10-12
+
+### Scope
+Production verification of the governed lease approval-to-signing-document preparation workflow.
+
+This checkpoint supersedes the 2026-10-09 execution checkpoint only where newer production evidence is explicitly recorded below. It does not close the full digital-signing lifecycle or Phase 1 audit.
+
+### Verified production workflow
+1. Approved generated lease DOCX was linked to a governed execution.
+2. Execution approval succeeded under the authorized owner account.
+3. Preparation locked the approved execution and verified the source document and SHA-256 checksum.
+4. Production DOCX-to-PDF conversion completed through the Vercel → Railway → Gotenberg integration.
+5. The converted PDF passed application-level PDF validation and storage read-back integrity checks.
+6. The signing-document record was committed.
+7. Independent SQL inspection confirmed the committed record and corresponding object in a private Supabase Storage bucket.
+
+### Production evidence
+- Environment: https://www.assetflow.africa
+- Execution ID: cb1552ab-9d7f-4cc8-b1b7-3a978b2626cf
+- Signing document ID: 9ae3839a-5820-43db-8535-83c4e7446960
+- Document version ID: e5e09e58-3b7b-47d3-944f-21aac58163bb
+- Source document ID: ce7215ee-2c56-4ef0-a1f6-8ab6ebe7ca46
+- Source SHA-256: 62855884c957480adeaa8f2bf9c97ce4b98a34c27528b93031b02f9bba9b6beb
+- PDF SHA-256: 8663de86dc4fbee5583fb88e1b4a6dcb112a58bc84bc37e63065e2bd01dcb345
+- PDF pages: 2
+- PDF size: 57095 bytes
+- Conversion provider: gotenberg
+- Signing-document database status: committed
+- Storage bucket: execution-documents
+- Storage bucket public flag: false
+- Production preparation response: HTTP 200, status prepared
+- Commit containing UUID validation correction: cab3def
+
+### Canonical preparation implementation
+- Approval API: app/api/leasing/opportunities/[opportunityId]/approve-for-execution/route.ts
+- Preparation API: app/api/execution/[id]/prepare/route.ts
+- Authority: lib/execution/server/authority.ts
+- Source verification: lib/execution/server/document-source.ts
+- Conversion: lib/execution/server/document-conversion-core.ts
+- Signing PDF storage and commitment: lib/execution/server/signing-document-storage.ts
+
+### Defect resolved
+Production preparation initially failed because signing-document storage validation rejected the existing PostgreSQL entity UUID due to its version/variant bits.
+
+Commit cab3def corrected UUID format validation without removing execution authorization, source provenance or checksum controls.
+
+The same execution subsequently prepared successfully in production.
+
+### Verified boundaries and limitations
+- Governed approval through committed private signing PDF: VERIFIED IN PRODUCTION.
+- The preparation service performed PDF upload read-back and SHA-256 verification.
+- The storage object and private bucket were independently confirmed through SQL.
+- Independent external download and rehash of the stored PDF: NOT PERFORMED.
+- Repeated preparation/idempotency: NOT YET VERIFIED IN PRODUCTION.
+- Public invitation access and signer identity verification: NOT YET VERIFIED END TO END.
+- Tenant signing, witness handling and landlord countersigning: NOT YET VERIFIED END TO END.
+- Final executed PDF, execution certificate and delivery: NOT YET VERIFIED END TO END.
+- Lease activation, tenant/unit assignment and billing handoff: NOT YET VERIFIED END TO END.
+- Public signing remains disabled pending security and end-to-end verification.
+
+### Production-readiness assessment
+Implemented and verified:
+- Governed execution approval and document preparation.
+- Source checksum enforcement.
+- Production DOCX-to-PDF conversion.
+- Private signing-document storage and database commitment.
+
+Implemented but requiring inspection and verification:
+- Invitation generation and revocation.
+- Email OTP challenge and verification.
+- Signer access and signature submission.
+- Signature evidence storage.
+
+Not established by this checkpoint:
+- Complete countersigning lifecycle.
+- Final signed PDF and certificate.
+- Distribution and downstream lease activation.
+
+### Next verification sequence
+1. Inspect canonical invitation, OTP and signature APIs and their supporting services.
+2. Confirm authorization, entity isolation, invitation expiry/revocation and replay protection.
+3. Verify signing-document access and signature commitment against the frozen PDF.
+4. Execute controlled tenant and landlord signing tests.
+5. Verify final artifacts, evidence, delivery and activation handoff.
+6. Reconcile findings against the remaining Phase 1 audit checklist.
+
+Do not enable public signing solely on the basis of successful PDF preparation.
