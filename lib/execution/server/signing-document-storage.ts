@@ -13,9 +13,8 @@ function sha256(bytes: Uint8Array): string {
 
 function assertUuid(value: string, label: string): void {
   if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value,
-    )
+    typeof value !== 'string' ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
   ) {
     throw new Error(`Invalid ${label}`);
   }
