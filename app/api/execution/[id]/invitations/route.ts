@@ -5,7 +5,7 @@ import {
   requireExecutionAuthority,
 } from '@/lib/execution/server/authority';
 import { PERMISSIONS } from '@/lib/rbac/permissions';
-import { issueSigningInvitation } from '@/lib/execution/server/invitations';
+import { dispatchSigningInvitation } from '@/lib/execution/server/invitation-delivery';
 
 export const runtime = 'nodejs';
 
@@ -105,18 +105,28 @@ export async function POST(
       PERMISSIONS.LEASING.EXECUTION_SEND,
     );
 
-    const issued = await issueSigningInvitation(serviceClient, {
-      executionId,
-      participantId: body.participantId,
-      documentVersionId: document.id,
-      actorId: authority.actorId,
-    });
+    if (process.env.EXECUTION_INVITATION_EMAIL_ENABLED !== 'true') {
+      return NextResponse.json(
+        { error: 'Invitation email delivery is not enabled.' },
+        { status: 503, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+
+    const dispatched = await dispatchSigningInvitation(
+      serviceClient,
+      {
+        executionId,
+        participantId: body.participantId,
+        documentVersionId: document.id,
+        actorId: authority.actorId,
+      },
+    );
 
     return NextResponse.json(
       {
-        invitationId: issued.invitationId,
-        expiresAt: issued.expiresAt,
-        signingUrl: issued.signingUrl,
+        invitationId: dispatched.invitationId,
+        expiresAt: dispatched.expiresAt,
+        deliveryStatus: dispatched.deliveryStatus,
       },
       { status: 201, headers: { 'Cache-Control': 'no-store' } },
     );

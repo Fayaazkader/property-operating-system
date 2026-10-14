@@ -27,6 +27,7 @@ import {
 
 import { useFeedback } from '@/components/ui/FeedbackProvider';
 import { supabase } from '@/lib/supabase';
+import ExecutionWorkspace from '@/components/leasing/ExecutionWorkspace';
 import { leaseTemplateService } from '@/lib/lease/templates/service';
 import type { LeaseTemplate } from '@/lib/lease/templates/types';
 import {
@@ -884,6 +885,8 @@ export default function CommercialLeasingOpportunityPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-6 pb-12 pt-8">
+      <ExecutionWorkspace opportunityId={opportunity.id} entityId={opportunity.entity_id} />
+
       <header>
         <button
           type="button"
@@ -1680,6 +1683,7 @@ function AuthorityRail({
 
   return (
     <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-5 py-4">
+
       <div className="grid gap-4 sm:grid-cols-4">
         {steps.map((step, index) => (
           <div key={step.label} className="flex items-center gap-3">

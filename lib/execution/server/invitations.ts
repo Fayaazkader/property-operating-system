@@ -14,6 +14,7 @@ export interface IssueSigningInvitationInput {
 
 export interface IssuedSigningInvitation {
   invitationId: string;
+  deliveryAttemptId: string;
   signingUrl: string;
   expiresAt: string;
 }
@@ -52,7 +53,7 @@ export async function issueSigningInvitation(
   ).toISOString();
 
   const { data, error } = await serviceClient.rpc(
-    'issue_execution_signing_invitation',
+    'issue_execution_signing_invitation_with_delivery',
     {
       p_execution_id: input.executionId,
       p_participant_id: input.participantId,
@@ -63,12 +64,20 @@ export async function issueSigningInvitation(
     },
   );
 
-  if (error || typeof data !== 'string') {
-    throw new Error('Unable to issue signing invitation');
+  const result = Array.isArray(data) ? data[0] : null;
+
+  if (
+    error ||
+    !result ||
+    typeof result.invitation_id !== 'string' ||
+    typeof result.delivery_attempt_id !== 'string'
+  ) {
+    throw new Error('Unable to issue and reserve signing invitation');
   }
 
   return {
-    invitationId: data,
+    invitationId: result.invitation_id,
+    deliveryAttemptId: result.delivery_attempt_id,
     signingUrl,
     expiresAt,
   };
