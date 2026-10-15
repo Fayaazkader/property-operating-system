@@ -984,3 +984,76 @@ whitespace checks passed. Tests use PGlite selected real DDL and fixture authori
 not deployed Supabase/JWT/RLS or independent database sessions. No build or
 production migration was run. Phase 1, beta and production readiness remain open.
 No GitHub publishing retry or main merge was attempted (existing HTTP 403 blocker).
+
+## 2026-10-15 commencement invoice and shared financial posting checkpoint
+
+### Canonical ownership and records
+
+`InitialBillingService` now prepares/reviews charges, approves them using the
+existing RPC and issues the invoice through `issue_lease_commencement_invoice`.
+The initial billing modal selects explicit payment terms from the existing
+`payment_terms` catalogue (zero days is valid). No new payment policy is invented.
+The lease workspace reports success only after invoice issuance. A failed issuance
+leaves the approved charges recoverable, with no partial financial records.
+
+Migrations `20261016000000_atomic_commencement_invoice.sql` and
+`20261016010000_govern_financial_posting.sql` extend existing tables and primitive:
+
+- Private `atomic_post_journal_internal` is the renamed existing journal/GL
+  primitive. The canonical public `atomic_post_journal` delegates to it with
+  capability, entity, source, amount, dimension, balance, replay and period checks.
+- Commencement issuance locks the lease and exact statement/financial periods,
+  consumes the immutable approved source charges, checks classifications/amounts,
+  creates invoice/lines and calls that same journal primitive. Rent credits income,
+  refundable deposit credits liability, VAT credits configured output VAT, and
+  gross due debits configured AR. It never creates cash or confirms held funds.
+- Database `post_journal_tenant_ledger` is the atomic tenant projection of the
+  existing SubLedgerEngine, not a second ledger. Only configured AR lines affect
+  tenant balances, serialized by tenant advisory lock. Browser code no longer
+  projects both sides of journals into the tenant ledger. Supplier/broker/bank
+  projections remain in the existing SubLedgerEngine and need further verification.
+- Invoice, lines, journal, GL, tenant ledger, statement, workflow completion and
+  durable audit commit together. Unique lease/charge identities prevent duplicates.
+  Exact committed recovery works after period closure; changed terms/source lines
+  fail safely. Financial records cannot be forged around the command through the
+  former browser table grants. Existing non-governed invoice CRUD is preserved.
+- Shared posting now requires explicit `finance.journal.post`, registered without
+  automatic grants. An administrator must assign it through canonical RBAC before
+  rollout; test fixtures grant it explicitly. No deployed permission was changed.
+- Shared rules resolve configured account roles and entity VAT instead of assuming
+  15%. Posting amounts round to cents; zero-value template lines are skipped.
+- Billing assembly scopes periods/properties to the entity, uses approved
+  commencement lines without adding recurring rent/deposit again, and honors
+  once-only/effective-to rule scheduling. The freezer delegates commencement
+  issuance to the same RPC and rejects using it for a different recurring period.
+
+### Verification and boundaries
+
+Selected actual repository DDL, invoice immutability trigger, canonical signing,
+PDF finalisation, activation, billing RPCs, TypeScript InitialBillingService,
+PostingEngine, FinancialRulesEngine, FormulaEngine, SubLedgerEngine and tenant
+report provider are exercised locally. Supabase transport, auth/permission context,
+provider dispatch and storage are fixture adapters; date values are serialized as
+PostgREST dates. Actual TypeScript posting is tested with a configured 12% VAT
+rate, proving the old 15% assumption is gone. Failure injection proves audit
+failure rolls invoice/journal/ledger creation back and retry succeeds.
+
+Still required: full deployed migration chain/JWT/RLS, independent-session lock
+contention/deadlocks, real provider invitation/OTP/delivery and browser workflows.
+No browser executable is installed; the separate cloud browser previously could
+not reach localhost. Executable UI tests/fixture remain under `tests/ui` and are
+not reported passed. No build, deployment, main merge or live-data operation ran.
+
+This closes the local commencement invoice integration gap; it is not Phase 1
+certification. Recurring governed invoice issuance is a distinct remaining gate.
+The legacy deposit-register engine still confuses obligation with held funds and
+is deliberately not invoked by this path. Existing affected records require
+reconciliation before repair. Supplier multi-line source identity, credit notes
+and reversals require separate coherent financial verification; they are not
+certified by this checkpoint. Historical tenant projections are not rewritten.
+
+Actual financial checkpoint checks: 143 execution/integration tests passed,
+including 75 database/service cases; `npx tsc --noEmit` and `git diff --check`
+passed. No browser/provider/deployed-Supabase pass is claimed. Full-list recovery
+artifacts include complete diffs and logs. Beta and production readiness remain
+unestablished; local commencement integration is implemented and tested.

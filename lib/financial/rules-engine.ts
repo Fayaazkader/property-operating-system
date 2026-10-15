@@ -23,11 +23,16 @@ export class FinancialRulesEngine {
   }
 
   async resolveAccountId(entityId: string, resolver: string): Promise<string | null> {
+    const {data:config,error:configError}=await supabase.from('accounting_config')
+      .select('account_id').eq('entity_id',entityId).eq('business_role',resolver).eq('is_active',true).maybeSingle();
+    if(configError)throw new Error('Account role configuration is ambiguous or unavailable');
+    if(config){const {data:account,error}=await supabase.from('chart_of_accounts').select('id').eq('id',config.account_id).eq('entity_id',entityId).eq('is_active',true).single();if(error||!account)throw new Error('Configured account is unavailable in this entity');return account.id;}
     const { data: byGlCode } = await supabase
       .from('chart_of_accounts')
       .select('id')
       .eq('entity_id', entityId)
       .eq('gl_code', resolver)
+      .eq('is_active', true)
       .single();
 
     if (byGlCode) return byGlCode.id;
@@ -36,6 +41,7 @@ export class FinancialRulesEngine {
       .from('chart_of_accounts')
       .select('id')
       .eq('entity_id', entityId)
+      .eq('is_active',true)
       .ilike('account_name', resolver.replace(/_/g, ' '))
       .single();
 
@@ -47,6 +53,7 @@ export class FinancialRulesEngine {
       .from('chart_of_accounts')
       .select('vat_category')
       .eq('id', accountId)
+      .eq('entity_id',entityId)
       .single();
 
     return (data?.vat_category as VatCategory) || 'non_vatable';
@@ -99,9 +106,10 @@ export class FinancialRulesEngine {
     return data || null;
   }
 
-  calculateVat(amount: number, vatTreatment: VatCategory): { vatAmount: number; vatRate: number } {
+  async calculateVat(entityId:string,amount: number, vatTreatment: VatCategory): Promise<{ vatAmount: number; vatRate: number }> {
     if (vatTreatment === 'standard') {
-      const vatRate = 15;
+      const {data,error}=await supabase.from('tax_config').select('tax_rate').eq('entity_id',entityId).eq('tax_code','VAT_STANDARD').eq('is_active',true).single();
+      const vatRate=Number(data?.tax_rate);if(error||!data||!Number.isFinite(vatRate)||vatRate<0||vatRate>100)throw new Error('Explicit entity VAT configuration required');
       return { vatAmount: Math.round(amount * (vatRate / 100) * 100) / 100, vatRate };
     }
     return { vatAmount: 0, vatRate: 0 };

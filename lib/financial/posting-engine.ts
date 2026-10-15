@@ -64,8 +64,8 @@ export class PostingEngine {
       throw new Error(`No posting template for: ${event.business_event}`);
 
     const vatTreatment: VatCategory = event.vat_treatment || "standard";
-    const { vatAmount, vatRate } = financialRulesEngine.calculateVat(
-      event.amount,
+    const { vatAmount, vatRate } = await financialRulesEngine.calculateVat(
+      event.entity_id, event.amount,
       vatTreatment,
     );
     const context = financialRulesEngine.buildFormulaContext(
@@ -113,7 +113,8 @@ export class PostingEngine {
       if (!accountId)
         throw new Error(`Cannot resolve account: ${tl.account_resolver}`);
 
-      const lineAmount = formulaEngine.evaluate(tl.amount_formula, context);
+      const lineAmount = Math.round(formulaEngine.evaluate(tl.amount_formula, context) * 100) / 100;
+      if(lineAmount===0)continue;
       const lineVat = tl.vat_treatment === "standard" ? vatAmount : 0;
 
       const { data: account } = await supabase

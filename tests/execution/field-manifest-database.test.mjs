@@ -62,9 +62,9 @@ test.before(async () => {
   await db.exec(migration('20261015200000_execution_field_completion'));
   await db.exec(migration('20261015210000_harden_execution_finalisation'));
   await db.exec(migration('20261013120000_restrict_execution_participant_writes'));
-  for (const name of ['properties','units','tenants','tenant_contacts','leases','billing_rules','charges','chart_of_accounts','accounting_config','tax_config','billing_policies','financial_periods','statement_periods','financial_timeline','document_relationships','workflow_states']) {
+  for (const name of ['properties','units','tenants','tenant_contacts','leases','billing_rules','charges','chart_of_accounts','accounting_config','tax_config','billing_policies','financial_periods','statement_periods','financial_timeline','document_relationships','workflow_states','invoices','invoice_line_items','journals','journal_lines','general_ledger','sub_ledger_entries','statements_generated','payment_terms','permission_catalogue','suppliers','bank_accounts','posting_templates','posting_template_lines']) {
     await db.exec(table(name));
-    if (['properties','units','tenants','leases','chart_of_accounts','financial_periods'].includes(name)) await db.exec(`ALTER TABLE ${name} ADD PRIMARY KEY(id)`);
+    if (['properties','units','tenants','leases','chart_of_accounts','financial_periods','charges','invoices','journal_lines','journals','payment_terms'].includes(name)) await db.exec(`ALTER TABLE ${name} ADD PRIMARY KEY(id)`);
   }
   await db.exec(`ALTER TABLE leasing_opportunities ADD COLUMN status text DEFAULT 'drafting',ADD COLUMN approved_terms_version_id uuid,
     ADD COLUMN activated_lease_id uuid,ADD COLUMN activated_tenant_id uuid,ADD COLUMN updated_at timestamptz;
@@ -78,8 +78,20 @@ test.before(async () => {
     GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated,service_role;
     GRANT USAGE ON SCHEMA auth TO authenticated;
   `);
+  await db.exec(migration('20260916120000_add_bank_account_dimension_to_journal_lines').split('CREATE OR REPLACE FUNCTION')[1] ? 'CREATE OR REPLACE FUNCTION'+migration('20260916120000_add_bank_account_dimension_to_journal_lines').split('CREATE OR REPLACE FUNCTION')[1] : '');
+  await db.exec('ALTER TABLE journal_lines ADD COLUMN bank_account_id uuid');
+  await db.exec(migration('20260916123000_enforce_subledger_idempotency'));
   await db.exec(migration('20261015220000_govern_execution_activation'));
   await db.exec(migration('20261015230000_atomic_commencement_billing'));
+  await db.exec(schema.match(/CREATE FUNCTION "public"\."prevent_invoice_edit_closed_period"\(\)[\s\S]*?\$\$;/)[0]);
+  await db.exec('CREATE TRIGGER enforce_invoice_immutability BEFORE UPDATE ON invoices FOR EACH ROW EXECUTE FUNCTION prevent_invoice_edit_closed_period()');
+  await db.exec(`ALTER TABLE permission_catalogue ADD PRIMARY KEY(key);CREATE TABLE brokers(id uuid,entity_id uuid);
+    CREATE POLICY fixture_ledger_read ON sub_ledger_entries FOR SELECT TO authenticated USING(EXISTS(SELECT 1 FROM test_permissions WHERE actor=auth.uid() AND entity=entity_id));
+    GRANT SELECT ON test_permissions TO authenticated;
+    CREATE POLICY fixture_ledger_write ON sub_ledger_entries FOR ALL TO authenticated USING(true) WITH CHECK(true);
+    GRANT INSERT,UPDATE,DELETE ON journals,journal_lines,general_ledger,sub_ledger_entries TO authenticated;`);
+  await db.exec(migration('20261016000000_atomic_commencement_invoice'));
+  await db.exec(migration('20261016010000_govern_financial_posting'));
   await db.exec('CREATE TRIGGER enforce_charge_period BEFORE INSERT ON charges FOR EACH ROW EXECUTE FUNCTION prevent_charge_into_closed_period()');
 
 });
@@ -279,15 +291,19 @@ function localClient(objects, options = {}) {
   const counts = {uploads:0,completions:0};
   const client = {
     from(table) {
-      const predicates=[],order=[];let columns='*';
+      const predicates=[],order=[];let columns='*',limit=null;
       const query={
         select(value){columns=value;return query;},
-        eq(key,value){predicates.push([key,value]);return query;},
-        order(key){order.push(key);return query;},
+        eq(key,value){predicates.push([key,value,'=']);return query;},
+        lte(key,value){predicates.push([key,value,'<=']);return query;},gte(key,value){predicates.push([key,value,'>=']);return query;},
+        limit(value){limit=value;return query;},
+        async single(){return query.maybeSingle();},
+        order(key,options){order.push(key+(options?.ascending===false?' DESC':''));return query;},
         async maybeSingle(){const result=await query;return {...result,data:result.data?.[0]??null};},
         then(resolve,reject){
-          const sql=`SELECT ${columns} FROM ${table} WHERE ${predicates.map(([key],i)=>`${key}=$${i+1}`).join(' AND ')} ${order.length?'ORDER BY '+order.join(','):''}`;
-          return db.query(sql,predicates.map(([,value])=>value)).then(result=>resolve({data:result.rows,error:null}),reject);
+          if(table==='posting_templates'&&columns.includes('lines:'))columns="*,(SELECT coalesce(jsonb_agg(t),'[]') FROM posting_template_lines t WHERE t.template_id=posting_templates.id) AS lines";
+          const sql=`SELECT ${columns} FROM ${table} WHERE ${predicates.map(([key,,op],i)=>`${key}${op}$${i+1}`).join(' AND ')} ${order.length?'ORDER BY '+order.join(','):''} ${limit===null?'':'LIMIT '+limit}`;
+          return db.query(sql,predicates.map(([,value])=>value)).then(result=>resolve({data:JSON.parse(JSON.stringify(result.rows.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>[key,value instanceof Date&&(key==='period_start'||key==='period_end'||key.endsWith('_date'))?value.toISOString().slice(0,10):value]))))),error:null}),reject);
         },
       };return query;
     },
@@ -570,4 +586,107 @@ test('reopening a committed review recovers its selected authority after configu
  await db.exec('RESET ROLE');await db.query("UPDATE tax_config SET tax_rate=20 WHERE entity_id=$1 AND tax_code='VAT_STANDARD'",[ids.entity]);await db.exec('SET ROLE authenticated');
  const reopened=await preview(result.lease_id);assert.equal(reopened.status,'posted');assert.equal(reopened.planSha256,plan.planSha256);
  assert.deepEqual(reopened.charges.filter(c=>c.selected).map(c=>c.charge_type),['rent']);assert.equal(await postInitial(result.lease_id,reopened,['rent']),0);
+});
+
+async function invoiceFixture(overrides={},approve=true) {
+ const fixture=await activationFixture(overrides);const result=await activate();await billingSession(fixture);const plan=await preview(result.lease_id);if(approve)await postInitial(result.lease_id,plan);
+ await db.exec('RESET ROLE');
+ for(const [role,type] of [['ar_control','asset'],['vat_output','liability']]){
+  const account=randomUUID();await db.query('INSERT INTO chart_of_accounts(id,entity_id,gl_code,account_name,account_type,category) VALUES($1,$2,$3,$3,$4,$3)',[account,ids.entity,role,type]);await db.query('INSERT INTO accounting_config(entity_id,business_role,account_id) VALUES($1,$2,$3)',[ids.entity,role,account]);
+ }
+ const term=randomUUID();await db.query('INSERT INTO payment_terms(id,term_name,days) VALUES($1,$2,0)',[term,'Due on commencement '+term]);await db.exec('SET ROLE authenticated');
+ return {fixture,result,plan,term};
+}
+async function issueInvoice(f,entity=ids.entity,term=f.term){return (await db.query('SELECT issue_lease_commencement_invoice($1,$2,$3,$4) result',[entity,f.result.lease_id,f.plan.planSha256,term])).rows[0].result;}
+
+test('full local lease lifecycle reaches issued invoice, liability, output VAT and tenant receivable atomically',async()=>{
+ const f=await invoiceFixture();const issued=await issueInvoice(f);const retry=await issueInvoice(f);assert.equal(retry.invoiceId,issued.invoiceId);assert.equal(retry.replayed,true);
+ await db.exec('RESET ROLE');const inv=(await db.query('SELECT * FROM invoices WHERE id=$1',[issued.invoiceId])).rows[0];assert.equal(inv.invoice_status,'issued');assert.equal(Number(inv.total_amount),31500);assert.equal(Number(inv.vat_amount),1500);assert.deepEqual(inv.due_date,inv.invoice_date);
+ const postings=await db.query('SELECT a.gl_code,sum(g.debit_amount)::numeric debit,sum(g.credit_amount)::numeric credit FROM general_ledger g JOIN chart_of_accounts a ON a.id=g.account_id JOIN journal_lines jl ON jl.id=g.journal_line_id JOIN journals j ON j.id=jl.journal_id WHERE j.source_id=$1 GROUP BY a.gl_code',[issued.invoiceId]);
+ const map=Object.fromEntries(postings.rows.map(r=>[r.gl_code,r]));assert.equal(Number(map.deposit_liability.credit),20000);assert.equal(Number(map.rental_income_commercial.credit),10000);assert.equal(Number(map.vat_output.credit),1500);assert.equal(Number(map.ar_control.debit),31500);
+ const led=(await db.query("SELECT * FROM sub_ledger_entries WHERE entity_id=$1 AND ledger_type='tenant' AND tenant_id=$2",[ids.entity,f.result.tenant_id])).rows;assert.equal(led.length,1);assert.equal(Number(led[0].running_balance),31500);
+ assert.equal((await db.query('SELECT count(*)::int n FROM invoice_line_items WHERE invoice_id=$1',[issued.invoiceId])).rows[0].n,2);
+ assert.equal((await db.query("SELECT status FROM workflow_states WHERE reference_id=$1 AND workflow_type='lease_activation'",[f.result.lease_id])).rows[0].status,'completed');
+});
+test('invoice rejects absent terms and unauthorized entity without partial documents',async()=>{
+ const f=await invoiceFixture();await assert.rejects(issueInvoice(f,ids.otherEntity),/permission denied/);await assert.rejects(issueInvoice(f,ids.entity,randomUUID()),/payment terms/);await db.exec('RESET ROLE');assert.equal((await db.query('SELECT count(*)::int n FROM invoices WHERE lease_id=$1',[f.result.lease_id])).rows[0].n,0);
+});
+test('missing output VAT configuration rolls back invoice and all financial records',async()=>{
+ const f=await invoiceFixture();await db.exec('RESET ROLE');await db.query("DELETE FROM accounting_config WHERE entity_id=$1 AND business_role='vat_output'",[ids.entity]);await db.exec('SET ROLE authenticated');await assert.rejects(issueInvoice(f),/output VAT/);await db.exec('RESET ROLE');assert.equal((await db.query('SELECT count(*)::int n FROM invoices WHERE lease_id=$1',[f.result.lease_id])).rows[0].n,0);
+});
+test('invoice audit failure rolls back invoice, journal, GL and tenant ledger; retry recovers',async()=>{
+ const f=await invoiceFixture();await db.exec('RESET ROLE');await db.exec("CREATE FUNCTION reject_invoice_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.event_type='invoice_issued' THEN RAISE EXCEPTION 'Invoice audit unavailable'; END IF;RETURN NEW;END $$; CREATE TRIGGER reject_invoice_audit BEFORE INSERT ON financial_timeline FOR EACH ROW EXECUTE FUNCTION reject_invoice_audit()");
+ await db.exec('SET ROLE authenticated');await assert.rejects(issueInvoice(f),/audit unavailable/);await db.exec('RESET ROLE');for(const [table,column,value] of [['invoices','lease_id',f.result.lease_id],['journal_lines','lease_id',f.result.lease_id],['sub_ledger_entries','lease_id',f.result.lease_id]])assert.equal((await db.query(`SELECT count(*)::int n FROM ${table} WHERE ${column}=$1`,[value])).rows[0].n,0);
+ await db.exec('DROP TRIGGER reject_invoice_audit ON financial_timeline;DROP FUNCTION reject_invoice_audit();SET ROLE authenticated');assert.ok((await issueInvoice(f)).invoiceId);
+});
+test('period closure blocks new issuance but allows exact committed recovery',async()=>{
+ const f=await invoiceFixture();await db.exec('RESET ROLE');await db.query("UPDATE financial_periods SET status='closed',workflow_phase='closed' WHERE entity_id=$1",[ids.entity]);await db.exec('SET ROLE authenticated');await assert.rejects(issueInvoice(f),/do not permit issuance/);
+ await db.exec('RESET ROLE');await db.query("UPDATE financial_periods SET status='open',workflow_phase='open' WHERE entity_id=$1",[ids.entity]);await db.exec('SET ROLE authenticated');const done=await issueInvoice(f);await db.exec('RESET ROLE');await db.query("UPDATE financial_periods SET status='closed',workflow_phase='closed' WHERE entity_id=$1",[ids.entity]);await db.exec('SET ROLE authenticated');assert.equal((await issueInvoice(f)).invoiceId,done.invoiceId);
+});
+test('inclusive rent and tax-free contracts issue exact totals without taxing deposit',async()=>{
+ const f=await invoiceFixture({monthlyRental:11500,rentalVatTreatment:'inclusive'});const done=await issueInvoice(f);const invoice=(await db.query('SELECT total_amount,vat_amount FROM invoices WHERE id=$1',[done.invoiceId])).rows[0];assert.equal(Number(invoice.total_amount),31500);assert.equal(Number(invoice.vat_amount),1500);
+});
+test('approved commencement charges cannot be edited or deleted',async()=>{
+ const f=await invoiceFixture();await db.exec('RESET ROLE');await assert.rejects(db.query('UPDATE charges SET amount_excl_vat=1 WHERE lease_id=$1',[f.result.lease_id]),/governed reversal/);await assert.rejects(db.query('DELETE FROM charges WHERE lease_id=$1',[f.result.lease_id]),/governed reversal/);
+});
+test('public generic journal RPC cannot forge a governed invoice posting',async()=>{await assert.rejects(db.query("SELECT atomic_post_journal('{\"source_event\":\"lease_commencement_invoice\"}','[]')"),/governed invoice/);});
+
+test('canonical TypeScript billing and tenant report run through real RPC transactions after signing and PDF finalisation',async()=>{
+ const f=await invoiceFixture({},false);const {client}=localClient(f.fixture.objects);
+ const {InitialBillingService}=loadTypeScript('lib/revenue/initial-billing-service.ts',{'@/lib/supabase':{supabase:client}});const service=new InitialBillingService();
+ const calculated=await service.calculate(f.result.lease_id,ids.entity);const approved=await service.approve(calculated);
+ assert.equal(await service.postCharges(f.result.lease_id,approved.charges,{entityId:ids.entity,planSha256:approved.planSha256}),2);
+ const terms=await service.getInvoiceTerms(f.result.lease_id,ids.entity);assert.ok(terms.options.some(t=>t.id===f.term&&t.days===0));
+ const issued=await service.issueInvoice(f.result.lease_id,{entityId:ids.entity,planSha256:approved.planSha256,paymentTermId:f.term});
+ assert.equal((await service.issueInvoice(f.result.lease_id,{entityId:ids.entity,planSha256:approved.planSha256,paymentTermId:f.term})).invoiceId,issued.invoiceId);
+ const {getTenantLedgerData}=loadTypeScript('lib/reporting/providers/tenant-ledger.ts',{'@/lib/supabase':{supabase:client}});const report=await getTenantLedgerData(ids.entity,f.result.tenant_id);
+ assert.equal(report.rows.length,1);assert.equal(report.rows[0][1],issued.invoiceId);assert.match(report.rows[0][6],/31.?500/);
+});
+
+async function sharedJournalFixture(){
+ const f=await invoiceFixture();await db.exec('RESET ROLE');await db.query("UPDATE test_permissions SET permissions=permissions||ARRAY['finance.journal.post'] WHERE actor=$1 AND entity=$2",[ids.actor,ids.entity]);
+ const accounts=(await db.query("SELECT business_role,account_id FROM accounting_config WHERE entity_id=$1",[ids.entity])).rows;const roles=Object.fromEntries(accounts.map(r=>[r.business_role,r.account_id]));
+ const period=(await db.query("SELECT id FROM financial_periods WHERE entity_id=$1 AND period_type='financial'",[ids.entity])).rows[0].id;
+ await db.exec('SET ROLE authenticated');
+ const journal={id:randomUUID(),entity_id:ids.entity,journal_number:randomUUID(),journal_type:'general_journal',period_id:period,source_event:'tenant_adjustment',source_id:randomUUID(),created_by:'forged'};
+ const lines=[{id:randomUUID(),account_id:roles.ar_control,debit_amount:100,credit_amount:0,entity_id:ids.entity,tenant_id:f.result.tenant_id,lease_id:f.result.lease_id,property_id:f.fixture.property},{id:randomUUID(),account_id:roles.rental_income_commercial,debit_amount:0,credit_amount:100,entity_id:ids.entity,tenant_id:f.result.tenant_id,lease_id:f.result.lease_id,property_id:f.fixture.property}];return {f,journal,lines};
+}
+async function postShared(f){return (await db.query('SELECT atomic_post_journal($1,$2) id',[JSON.stringify(f.journal),JSON.stringify(f.lines)])).rows[0].id;}
+test('shared posting commits only AR tenant movement and recovers exact replay once',async()=>{
+ const f=await sharedJournalFixture();const id=await postShared(f);assert.equal(await postShared({...f,journal:{...f.journal,id:randomUUID()},lines:[...f.lines].reverse().map(l=>({...l,id:randomUUID()}))}),id);
+ const ledger=(await db.query('SELECT running_balance FROM sub_ledger_entries WHERE tenant_id=$1',[f.f.result.tenant_id])).rows;assert.equal(ledger.length,1);assert.equal(Number(ledger[0].running_balance),100);
+ await db.exec('RESET ROLE');assert.equal((await db.query('SELECT created_by FROM journals WHERE id=$1',[id])).rows[0].created_by,ids.actor);
+});
+test('shared posting rejects missing capability, foreign dimensions and unbalanced cents',async()=>{
+ const f=await sharedJournalFixture();await db.query("SELECT set_config('test.actor',$1,false)",[ids.otherActor]);await assert.rejects(postShared(f),/permission denied/);await db.query("SELECT set_config('test.actor',$1,false)",[ids.actor]);
+ f.lines[1].credit_amount=99;await assert.rejects(postShared(f),/not balanced/);f.lines[1].credit_amount=100;f.lines[0].tenant_id=randomUUID();await assert.rejects(postShared(f),/tenant entity/);
+ f.lines[0].tenant_id=f.f.result.tenant_id;f.lines[0].account_id=randomUUID();await assert.rejects(postShared(f),/account entity/);
+});
+test('shared posting rejects changed replay and closed periods without adding journals',async()=>{
+ const f=await sharedJournalFixture();await postShared(f);f.lines[0].debit_amount=200;f.lines[1].credit_amount=200;await assert.rejects(postShared(f),/replay differs/);
+ await db.exec('RESET ROLE');await db.query("UPDATE financial_periods SET status='closed',workflow_phase='closed' WHERE id=$1",[f.journal.period_id]);await db.exec('SET ROLE authenticated');
+ f.journal.source_id=randomUUID();f.journal.id=randomUUID();await assert.rejects(postShared(f),/Open entity financial period/);
+});
+test('browser roles cannot write around canonical journal or tenant ledger commands',async()=>{
+ const f=await sharedJournalFixture();for(const table of ['journals','journal_lines','general_ledger'])await assert.rejects(db.query(`DELETE FROM ${table} WHERE false`),/permission denied/);
+ await assert.rejects(db.query("INSERT INTO sub_ledger_entries(entity_id,ledger_type,tenant_id,debit_amount) VALUES($1,'tenant',$2,999)",[ids.entity,f.f.result.tenant_id]),/row-level security/);
+});
+test('actual PostingEngine, configured rules and atomic RPC integrate tenant balance without duplicate projections',async()=>{
+ const f=await sharedJournalFixture();await db.exec('RESET ROLE');const template=randomUUID();
+ await db.query('INSERT INTO posting_templates(id,entity_id,business_event) VALUES($1,$2,$3)',[template,ids.entity,'test_rental']);
+ for(const [direction,role,formula,vat] of [['debit','ar_control','{{amount_plus_vat}}','non_vatable'],['credit','rental_income_commercial','{{amount}}','non_vatable'],['credit','vat_output','{{vat}}','standard']])await db.query('INSERT INTO posting_template_lines(template_id,sequence,direction,account_resolver,amount_formula,vat_treatment) VALUES($1,1,$2,$3,$4,$5)',[template,direction,role,formula,vat]);
+ await db.query("UPDATE tax_config SET tax_rate=12 WHERE entity_id=$1 AND tax_code='VAT_STANDARD'",[ids.entity]);await db.exec('SET ROLE authenticated');
+ const {client}=localClient(f.f.fixture.objects);const logger={debug(){},info(){},warn(){},error(){}};
+ const {PostingEngine}=loadTypeScript('lib/financial/posting-engine.ts',{'@/lib/supabase':{supabase:client},'../platform/events/event-bus':{publish:async()=>{}},'../platform/events/logger.service':{logger},'./timeline-engine':{financialTimelineEngine:{recordJournalLifecycle:async()=>{}}}});
+ const event={business_event:'test_rental',entity_id:ids.entity,source_engine:'integration-test',amount:100,vat_treatment:'standard',effective_date:f.f.fixture.start,occurred_at:f.f.fixture.start,dimensions:{tenant_id:f.f.result.tenant_id,property_id:f.f.fixture.property,lease_id:f.f.result.lease_id},metadata:{source_id:randomUUID()}};
+ const engine=new PostingEngine();const result=await engine.post(event);assert.equal((await engine.post(event)).journal.id,result.journal.id);
+ const ledger=(await db.query("SELECT debit_amount,running_balance FROM sub_ledger_entries WHERE tenant_id=$1 AND ledger_type='tenant'",[f.f.result.tenant_id])).rows;
+ assert.equal(ledger.length,1);assert.equal(Number(ledger[0].running_balance),112);
+});
+test('governed invoice evidence cannot be rewritten or augmented through browser CRUD grants',async()=>{
+ const f=await invoiceFixture();const done=await issueInvoice(f);await db.exec('RESET ROLE');await db.exec('GRANT INSERT,UPDATE,DELETE ON invoices,invoice_line_items,charges TO authenticated');await db.exec('SET ROLE authenticated');
+ await assert.rejects(db.query('DELETE FROM invoices WHERE id=$1',[done.invoiceId]),/governed invoice/);
+ await assert.rejects(db.query('UPDATE invoice_line_items SET amount=1 WHERE invoice_id=$1',[done.invoiceId]),/immutable/);
+ await assert.rejects(db.query("INSERT INTO invoice_line_items(invoice_id,description,amount) VALUES($1,'forged line',999)",[done.invoiceId]),/immutable/);
+ await assert.rejects(db.query("INSERT INTO charges(entity_id,source_type) VALUES($1,'lease_commencement')",[ids.entity]),/governed commencement/);
 });

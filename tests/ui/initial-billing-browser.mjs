@@ -24,7 +24,7 @@ try{
  await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
  assert.equal(await page.getByRole('button',{name:'Open initial charges',exact:true}).evaluate(node=>node===document.activeElement),true);
  await page.getByRole('button',{name:'Open initial charges',exact:true}).click();await dialog.waitFor();
- await page.getByRole('button',{name:'Approve and post charges',exact:true}).click();await page.getByRole('alert').waitFor();
+ await page.getByRole('button',{name:'Approve charges and issue invoice',exact:true}).click();await page.getByRole('alert').waitFor();
  assert.match(await page.getByRole('alert').textContent(),/Reload before approval/);
  await page.getByRole('button',{name:'Reload review',exact:true}).click();await page.getByRole('checkbox',{name:'Include Tenant Deposit',exact:true}).waitFor();
  assert.equal((await page.locator('output').textContent()).replace(/\D/g,''),'3150000');
@@ -36,7 +36,7 @@ try{
  await page.screenshot({path:artifacts+'/initial-billing-mobile.png',fullPage:true});
  await page.evaluate(()=>{document.documentElement.classList.remove('dark');document.documentElement.classList.add('theme-light');});
  await page.screenshot({path:artifacts+'/initial-billing-light-mobile.png',fullPage:true});
- await page.getByRole('button',{name:'Approve and post charges',exact:true}).click();
+ await page.getByRole('button',{name:'Approve charges and issue invoice',exact:true}).click();
  await page.getByRole('status').filter({hasText:'Charges approved'}).waitFor();
  assert.equal(await page.locator('dialog[open]').count(),0);
  const ownErrors=errors.filter(message=>!message.includes('fetch failed')&&!message.includes('Failed to fetch'));

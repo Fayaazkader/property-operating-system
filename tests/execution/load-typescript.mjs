@@ -14,8 +14,8 @@ export function loadTypeScript(filename, overrides = {}, cache = new Map()) {
   new Function('require','module','exports',compiled)(name => {
     if (name === 'server-only') return {};
     if (Object.hasOwn(overrides,name)) return overrides[name];
-    if (name.startsWith('@/')) return loadTypeScript(resolve(name.slice(2)+'.ts'),overrides,cache);
-    if (name.startsWith('.')) return loadTypeScript(resolve(dirname(path),name+'.ts'),overrides,cache);
+    if (name.startsWith('@/')) return loadTypeScript(resolve(name.slice(2)+(name.endsWith('.ts')?'':'.ts')),overrides,cache);
+    if (name.startsWith('.')) return loadTypeScript(resolve(dirname(path),name+(name.endsWith('.ts')?'':'.ts')),overrides,cache);
     return require(name);
   },module,module.exports);
   return module.exports;

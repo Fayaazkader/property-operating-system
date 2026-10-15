@@ -2,6 +2,7 @@
 // Billing Assembly — Assembles worksheet for a specific statement period
 
 import { supabase } from '@/lib/supabase';
+import { initialBillingService } from './initial-billing-service';
 
 export interface BillingCharge {
   type: string;
@@ -58,11 +59,13 @@ export interface BillingSnapshot {
   generated_at: string;
 }
 
-function isRuleDueForPeriod(rule: any, periodStart: string, periodEnd: string): boolean {
-  if (!rule.effective_from) return true;
+export function isRuleDueForPeriod(rule: any, periodStart: string, periodEnd: string): boolean {
+  if (rule.effective_to && rule.effective_to < periodStart) return false;
+  if (!rule.effective_from) return rule.frequency !== 'once';
   if (rule.effective_from > periodEnd) return false;
   
   const frequency = rule.frequency || 'monthly';
+  if (frequency === 'once') return rule.effective_from >= periodStart && rule.effective_from <= periodEnd;
   if (frequency === 'monthly') return true;
   
   // For non-monthly frequencies, check if this period aligns
@@ -96,6 +99,7 @@ export const billingAssembly = {
     const { data: period } = await supabase.from('financial_periods')
       .select('id, period_name, status, period_start, period_end')
       .eq('id', periodId)
+      .eq('entity_id', entityId)
       .eq('period_type', 'statement')
       .single();
 
@@ -110,9 +114,9 @@ export const billingAssembly = {
 
     // Fetch active leases
     let query = supabase.from('leases')
-      .select('id, tenant_id, lease_id, property_id, monthly_rental, escalation_percent, commencement_date, lease_start_date, tenants!inner(tenant_name), properties!inner(property_name)')
+      .select('id, tenant_id, lease_id, property_id, monthly_rental, escalation_percent, commencement_date, lease_start_date, active_execution_id, tenants!inner(tenant_name), properties!inner(property_name, entity_id)')
       .eq('lease_status', 'Active')
-      .eq('owner_entity_id', entityId);
+      .eq('properties.entity_id', entityId);
     if (propertyId) query = query.eq('property_id', propertyId);
     
     const { data: leaseList } = await query;
@@ -129,6 +133,16 @@ export const billingAssembly = {
     for (const lease of leaseList) {
       const charges: BillingCharge[] = [];
       const warnings: string[] = [];
+
+      if (lease.active_execution_id && lease.lease_start_date >= periodStart && lease.lease_start_date <= periodEnd) {
+        try {
+          const review=await initialBillingService.calculate(lease.id,entityId);
+          if(review.status!=='posted')warnings.push('Commencement charges require approval in the lease execution workspace');
+          else for(const c of review.charges.filter(c=>c.selected))charges.push({type:c.charge_type,description:c.description,amount:Number(c.amount_excl_vat),vatAmount:Number(c.vat_amount),total:Number(c.amount_incl_vat),source:'lease',status:'posted',glCode:c.gl_code});
+        } catch { warnings.push('Commencement review unavailable; reconcile before billing'); }
+        tenants.push({tenantId:lease.tenant_id,tenantName:(lease as any).tenants?.tenant_name||'Unknown',property_name:(lease as any).properties?.property_name||'Unknown',leaseId:lease.id,leaseRef:lease.lease_id,charges,documents:[],warnings,total:charges.reduce((s,c)=>s+c.total,0),ready:warnings.length===0});
+        continue;
+      }
 
       // 1. Lease billing rules — filtered by period
       const { data: rules } = await supabase.from('billing_rules')
@@ -220,15 +234,13 @@ export const billingAssembly = {
 
       // Documents
       const docs: BillingDocument[] = [];
-      const { data: tenantDocs } = await supabase.from('documents')
-        .select('file_name, file_url').eq('tenant_id', lease.tenant_id).limit(3);
-      (tenantDocs || []).forEach(d => docs.push({ name: d.file_name, level: 'tenant', url: d.file_url, type: 'tenant_document' }));
-
-      const { data: propertyDocs } = await supabase.from('documents')
-        .select('file_name, file_url')
-        .eq('related_entity_type', 'property')
-        .eq('related_entity_id', lease.property_id).limit(3);
-      (propertyDocs || []).forEach(d => docs.push({ name: d.file_name, level: 'property', url: d.file_url, type: 'property_document' }));
+      const {data:relatedDocs}=await supabase.from('document_relationships')
+        .select('related_entity_type, documents!inner(file_name, document_type, entity_id)')
+        .in('related_entity_id',[lease.tenant_id,lease.property_id]).eq('documents.entity_id',entityId).limit(6);
+      for(const relationship of relatedDocs??[]) {
+        const document=(relationship as any).documents;
+        if(document)docs.push({name:document.file_name,level:relationship.related_entity_type==='tenant'?'tenant':'property',type:document.document_type});
+      }
 
       const total = charges.reduce((s, c) => s + c.total, 0);
       tenants.push({

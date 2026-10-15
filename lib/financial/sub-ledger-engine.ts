@@ -9,11 +9,9 @@ export class SubLedgerEngine {
     for (const line of journal.lines || []) {
       const entries: Partial<SubLedgerEntry>[] = [];
 
-      if (line.tenant_id) {
-        entries.push(
-          await this.buildEntry(journal, line, "tenant", line.tenant_id),
-        );
-      }
+      // Tenant movements are committed by the canonical SQL posting command,
+      // restricted to AR control lines. Posting both sides here cancels receivables
+      // and leaves an invoice committed without its tenant ledger on failure.
 
       if (line.supplier_id) {
         entries.push(

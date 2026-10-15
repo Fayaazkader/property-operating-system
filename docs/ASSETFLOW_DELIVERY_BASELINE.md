@@ -1,5 +1,10 @@
 # AssetFlow delivery baseline — 2026-10-15
 
+Historical baseline at dd0bbab. The later commencement-invoice/shared-financial
+checkpoint in ASSETFLOW_SYSTEM_MAP.md supersedes its blocked invoice notes;
+remaining recurring, deposit receipt, provider and deployed-environment gates
+remain open.
+
 This is an evidence index supporting the single requirement register in
 `docs/ASSETFLOW_REQUIREMENTS.md`, not another requirement inventory. The recovered
 221 original requirements, 32 additions and 58 source follow-ups remain intact.

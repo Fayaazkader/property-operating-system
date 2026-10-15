@@ -2,6 +2,7 @@
 // Billing Freeze — Creates authoritative invoice, accounting and statement records
 
 import { supabase } from '@/lib/supabase';
+import { initialBillingService } from '@/lib/revenue/initial-billing-service';
 import { postingEngine } from '@/lib/financial/posting-engine';
 import {
   calculateDueDate,
@@ -91,7 +92,7 @@ export async function freezeBilling(params: {
        */
       const { data: lease, error: leaseError } = await supabase
         .from('leases')
-        .select('id, property_id, lease_id, tenant_id, active_execution_id, properties!inner(entity_id)')
+        .select('id, property_id, lease_id, tenant_id, active_execution_id, lease_start_date, properties!inner(entity_id)')
         .eq('id', tenant.leaseId)
         .eq('tenant_id', tenant.tenantId)
         .eq('properties.entity_id', params.entityId)
@@ -104,11 +105,17 @@ export async function freezeBilling(params: {
         );
       }
 
-      // This legacy freezer rebuilds lines from a client worksheet and routes
-      // non-utility lines as rental revenue. It must not issue a governed lease's
-      // deposit obligation as income or bypass its approved commencement plan.
       if (lease.active_execution_id) {
-        throw new Error('Governed commencement invoice issuance requires deposit-aware ledger integration; approved charges and signatures are preserved');
+        if(lease.lease_start_date<statementPeriod.period_start||lease.lease_start_date>statementPeriod.period_end)throw new Error('This command issues commencement invoices only; recurring governed billing requires its approved period workflow');
+        const review=await initialBillingService.calculate(tenant.leaseId,params.entityId);
+        const {data:commencement}=await supabase.from('invoices').select('commencement_payment_term_id')
+          .eq('commencement_lease_id',tenant.leaseId).eq('entity_id',params.entityId).maybeSingle();
+        const terms=await initialBillingService.getInvoiceTerms(tenant.leaseId,params.entityId);
+        const paymentTermId=commencement?.commencement_payment_term_id??terms.selectedId;
+        if(!paymentTermId)throw new Error('Review and select the agreed invoice payment terms in the lease execution workspace');
+        const issued=await initialBillingService.issueInvoice(tenant.leaseId,{entityId:params.entityId,planSha256:review.planSha256,paymentTermId});
+        invoiceIds.push(issued.invoiceId);results.push({tenant_id:tenant.tenantId,tenant_name:tenant.tenantName,posted:true,invoice_id:issued.invoiceId,statement_id:issued.statementId});
+        continue;
       }
 
       if (!lease.property_id) {

@@ -1,5 +1,5 @@
 // lib/revenue/initial-billing-service.ts
-// Calculates initial charges. Does NOT post. Posting is handled by the workflow engine.
+// Canonical review, approval and issuance adapter. PostgreSQL owns financial writes.
 // Resolves accounts via entity accounting config — no hardcoded GL/VAT
 
 import { supabase } from '@/lib/supabase';
@@ -36,7 +36,17 @@ export interface InitialBillingResult {
   status: 'calculated' | 'approved' | 'posted';
 }
 
+export interface CommencementInvoiceTerms {selectedId:string|null;options:Array<{id:string;name:string;days:number}>}
 export class InitialBillingService {
+  async getInvoiceTerms(leaseId:string,entityId:string):Promise<CommencementInvoiceTerms> {
+    const {data,error}=await supabase.rpc('get_lease_commencement_invoice_terms',{p_entity_id:entityId,p_lease_id:leaseId});
+    if(error)throw new Error(error.message);if(!data||!Array.isArray(data.options))throw new Error('Payment terms review unavailable');return data;
+  }
+  async issueInvoice(leaseId:string,authority:{entityId:string;planSha256:string;paymentTermId:string}):Promise<{invoiceId:string;statementId:string}> {
+    const {data,error}=await supabase.rpc('issue_lease_commencement_invoice',{p_entity_id:authority.entityId,p_lease_id:leaseId,p_plan_sha256:authority.planSha256,p_payment_term_id:authority.paymentTermId});
+    if(error)throw new Error(error.message);if(!data?.invoiceId||!data?.statementId)throw new Error('Invoice issuance requires reconciliation');return data;
+  }
+
   async calculate(leaseId: string, entityId: string): Promise<InitialBillingResult> {
     const {data,error}=await supabase.rpc('prepare_lease_commencement_billing',{p_entity_id:entityId,p_lease_id:leaseId});
     if(error)throw new Error(error.message);

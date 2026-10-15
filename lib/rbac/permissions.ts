@@ -10,6 +10,7 @@
 
 export const PERMISSIONS = {
   FINANCE: {
+    JOURNAL_POST: 'finance.journal.post',
     BANK_STATEMENT_VERIFY_COVERAGE: 'finance.bank_statement.verify_coverage',
   },
 

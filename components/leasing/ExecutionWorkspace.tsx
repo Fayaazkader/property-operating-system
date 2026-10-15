@@ -353,7 +353,7 @@ export default function ExecutionWorkspace({
           </div>}
           {billingOpen && activation && <InitialBillingModal leaseId={activation.leaseId} entityId={entityId}
             onClose={()=>setBillingOpen(false)} onSkip={()=>setBillingOpen(false)}
-            onApprove={()=>{setBillingOpen(false);setNotice('Approved commencement charges posted. Invoice issuance remains in the billing workflow.');}}/>}
+            onApprove={()=>{setBillingOpen(false);setNotice('Commencement invoice issued and tenant ledger posted. Deposit funds remain unreceived.');}}/>}
 
           {version && ['executed','activated'].includes(execution.status) && (
             <div className="flex gap-3">{(['signed_pdf','execution_certificate'] as const).map(kind => <button key={kind} type="button" disabled={busy} className={inputClass}
