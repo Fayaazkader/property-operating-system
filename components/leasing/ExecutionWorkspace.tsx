@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import dynamic from 'next/dynamic';
+import { InitialBillingModal } from '@/app/(protected)/tenants/components/InitialBillingModal';
+import Link from 'next/link';
 const ExecutionFieldEditor = dynamic(() => import('./ExecutionFieldEditor'), { ssr: false });
 
 type Participant = {
@@ -42,6 +44,8 @@ export default function ExecutionWorkspace({
   const [execution, setExecution] = useState<Execution | null>(null);
   const [version, setVersion] = useState<Version | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [activation,setActivation]=useState<{leaseId:string;tenantId:string}|null>(null);
+  const [billingOpen,setBillingOpen]=useState(false);
   const [prepared, setPrepared] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -85,6 +89,7 @@ export default function ExecutionWorkspace({
       }
 
       setExecution(result.execution ?? null);
+      setActivation(result.activation ?? null);
       setVersion(result.version ?? null);
       setParticipants(result.participants ?? []);
       setPrepared(result.prepared === true);
@@ -330,6 +335,25 @@ export default function ExecutionWorkspace({
               return 'Executed agreement and certificate verified and committed.';
             })}>Recover final executed documents</button>
           )}
+
+          {version && execution.status==='executed' && <div className="space-y-3 rounded-xl border border-[var(--border-default)] p-4">
+            <h3 className="font-semibold">Ready for operational activation</h3>
+            <p className="text-sm text-[var(--text-secondary)]">Create the tenant, assign the unit and prepare billing rules from the executed agreement. Initial charges remain subject to review and approval.</p>
+            <button type="button" className="af-control" disabled={busy} onClick={()=>void run(async()=>{
+              const result=await post(`/api/execution/${execution.id}/activate`,{entityId,documentVersionId:version.id});
+              setActivation({leaseId:result.lease_id,tenantId:result.tenant_id});setBillingOpen(true);
+              return 'Lease activated. Review the initial charges before posting.';
+            })}>Activate executed lease</button>
+          </div>}
+          {activation && execution.status==='activated' && <div className="space-y-3 rounded-xl border border-[var(--border-default)] p-4">
+            <h3 className="font-semibold">Operational lease</h3>
+            <div className="flex flex-wrap gap-3"><Link className="af-control" href={`/leases/${activation.leaseId}`}>Open lease</Link>
+              <Link className="af-control" href={`/tenants/${activation.tenantId}`}>Open tenant</Link>
+              <button type="button" className="af-control" onClick={()=>setBillingOpen(true)}>Review initial charges</button></div>
+          </div>}
+          {billingOpen && activation && <InitialBillingModal leaseId={activation.leaseId} entityId={entityId}
+            onClose={()=>setBillingOpen(false)} onSkip={()=>setBillingOpen(false)}
+            onApprove={()=>{setBillingOpen(false);setNotice('Approved commencement charges posted. Invoice issuance remains in the billing workflow.');}}/>}
 
           {version && ['executed','activated'].includes(execution.status) && (
             <div className="flex gap-3">{(['signed_pdf','execution_certificate'] as const).map(kind => <button key={kind} type="button" disabled={busy} className={inputClass}

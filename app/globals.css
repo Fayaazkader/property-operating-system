@@ -176,3 +176,22 @@ table {
     transition-duration: 0.01ms !important;
   }
 }
+/* Workflow controls: restrained theme tokens, measurable keyboard/target states. */
+.af-control {
+  min-height: 44px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.af-control:hover:not(:disabled) { border-color: var(--border-hover); }
+.af-control:focus-visible, dialog input:focus-visible, dialog [tabindex]:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 3px;
+}
+.af-control:disabled { opacity: 0.5; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) {
+  .af-control { transition: none; }
+}

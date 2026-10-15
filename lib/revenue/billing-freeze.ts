@@ -91,8 +91,10 @@ export async function freezeBilling(params: {
        */
       const { data: lease, error: leaseError } = await supabase
         .from('leases')
-        .select('id, property_id, lease_ref')
+        .select('id, property_id, lease_id, tenant_id, active_execution_id, properties!inner(entity_id)')
         .eq('id', tenant.leaseId)
+        .eq('tenant_id', tenant.tenantId)
+        .eq('properties.entity_id', params.entityId)
         .single();
 
       if (leaseError || !lease) {
@@ -100,6 +102,13 @@ export async function freezeBilling(params: {
           leaseError?.message ||
             `Lease ${tenant.leaseId} could not be located`,
         );
+      }
+
+      // This legacy freezer rebuilds lines from a client worksheet and routes
+      // non-utility lines as rental revenue. It must not issue a governed lease's
+      // deposit obligation as income or bypass its approved commencement plan.
+      if (lease.active_execution_id) {
+        throw new Error('Governed commencement invoice issuance requires deposit-aware ledger integration; approved charges and signatures are preserved');
       }
 
       if (!lease.property_id) {

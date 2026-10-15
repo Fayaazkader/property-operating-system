@@ -57,7 +57,7 @@ export async function GET(
     const { data: opportunity, error: opportunityError } =
       await service
         .from('leasing_opportunities')
-        .select('id, entity_id')
+        .select('id, entity_id, activated_lease_id, activated_tenant_id')
         .eq('id', opportunityId)
         .maybeSingle();
 
@@ -153,6 +153,7 @@ export async function GET(
     return NextResponse.json(
       {
         execution,
+        activation: opportunity.activated_lease_id ? {leaseId:opportunity.activated_lease_id,tenantId:opportunity.activated_tenant_id} : null,
         version,
         participants: participantResult.data ?? [],
         prepared,

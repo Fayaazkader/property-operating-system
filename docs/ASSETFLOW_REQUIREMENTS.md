@@ -22,6 +22,12 @@ Tests use embedded PostgreSQL, actual selected repository schema/migrations and
 canonical TypeScript services, fixture permission/auth functions, and in-memory
 storage transport. They are neither deployed Supabase nor full-application E2E.
 
+Evidence `E2`: `docs/ASSETFLOW_DELIVERY_BASELINE.md`, activation migrations
+20261015220000/20261015230000 and execution activation/commencement tests.
+Local activation and approval are tested; invoice/ledger, deposit receipt, real
+providers, rendered UI, deployed RLS and full E2E remain open. The baseline also
+indexes all application domains without treating discovery as verification.
+
 Unreviewed originals default to Not yet verified, never Missing. Their dependency
 and remaining-work entries deliberately require canonical discovery before code
 changes. No requirement below has been explicitly deferred or waived.
@@ -222,7 +228,7 @@ changes. No requirement below has been explicitly deferred or waived.
 | 190 | Platform Maturity | Public Roadmap — Under Review→Planned→Building→Released | New | Not yet verified | Reconcile actual canonical implementation, migrations and tests; identify domain dependencies before changes. |
 | 191 | Platform Maturity | Feature Voting | New | Not yet verified | Reconcile actual canonical implementation, migrations and tests; identify domain dependencies before changes. |
 | 192 | Platform Maturity | Multi-Currency support | New | Not yet verified | Reconcile actual canonical implementation, migrations and tests; identify domain dependencies before changes. |
-| 193 | Testing & Validation | End-to-End Workflow Testing | New | Partially implemented | E1 — Local signing-to-private-artifact integration only; lease activation and full financial workflow still pending. |
+| 193 | Testing & Validation | End-to-End Workflow Testing | New | Partially implemented | E1/E2 — Local signing-to-private-artifact, activation and commencement charges tested; issued invoices, GL, real providers/RLS and full financial workflow pending. |
 | 194 | Testing & Validation | Happy Path Testing | New | Partially implemented | E1 — Local execution happy paths exercised; application-wide happy paths unverified. |
 | 195 | Testing & Validation | Missing Document Path | New | Partially implemented | E1 — Local missing manifest/evidence/artifact cases tested; application-wide coverage unverified. |
 | 196 | Testing & Validation | Permission Failures | New | Partially implemented | E1 — Manifest actor/entity and RPC privileges tested on fixture permissions; production JWT/RLS and application-wide permission failures pending. |
@@ -258,8 +264,8 @@ changes. No requirement below has been explicitly deferred or waived.
 | --- | --- | --- | --- | --- |
 | AF-ADD-001 | Single canonical system across web, WhatsApp, future email/mobile/portals/AI; shared identity, entity/RBAC, records, workflows, audit, events, adapters and governed AI. | 73, 87, 92, 93, 125, 167, 210 | Not yet verified | Cross-cutting architecture; inspect existing adapters/services before extension. |
 | AF-ADD-002 | Smart leases and client-specific templates. | 47, 113, 120, 121 | Not yet verified | Preserve template governance; complete approved-template-to-executed-agreement E2E. |
-| AF-ADD-003 | Complete lease execution, precise placement, configurable witnesses, signing, activation and initial billing. | 131–139 | Partially implemented | E1; placement/signing/final artifacts locally integrated; witnesses, provider/live UI and activation/billing remain open. |
-| AF-ADD-004 | Tenant deposit engine. | 63–65 | Not yet verified | Canonical ledger and activation; deposit liability, interest, allocations and refunds require reconciliation. |
+| AF-ADD-003 | Complete lease execution, precise placement, configurable witnesses, signing, activation and initial billing. | 131–139 | Partially implemented | E1/E2; placement, final artifacts, activation and atomic commencement charge approval locally integrated; invoice/ledger, deposit funds, witnesses, providers and rendered UI remain open. |
+| AF-ADD-004 | Tenant deposit engine. | 63–65 | Implemented but defective | E2 — lib/financial/deposit-engine.ts onObligationCreated sets held balance without receipt. New activation avoids this path; canonical obligation/receipt/allocation, interest and refunds need correction and verification. |
 | AF-ADD-005 | Dedicated tenant ledgers and manual allocations. | 2, 4, 62, 64 | Not yet verified | Financial posting authority, allocation correctness and reconciliation. |
 | AF-ADD-006 | Bank import completeness verification. | 3, 162, 212 | Not yet verified | Statement source completeness, duplicates, totals and posting proof. |
 | AF-ADD-007 | Payment gateway and settlement reconciliation; receipts never imply verified bank payment. | 51, 161, 221 | Not yet verified | Provider adapters, fees/settlements, tenant allocation and bank reconciliation. |

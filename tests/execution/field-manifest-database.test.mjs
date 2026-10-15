@@ -35,9 +35,9 @@ test.before(async () => {
     CREATE TABLE storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
     CREATE TABLE public.documents(id uuid primary key, entity_id uuid, checksum text);
     CREATE TABLE public.leasing_opportunities(id uuid primary key, entity_id uuid);
-    CREATE TABLE public.test_permissions(actor uuid, entity uuid);
+    CREATE TABLE public.test_permissions(actor uuid, entity uuid, permissions text[] NOT NULL DEFAULT ARRAY['leasing.execution.send']);
     CREATE FUNCTION public.has_entity_permission(uuid,uuid,text) RETURNS boolean LANGUAGE sql AS $$
-      SELECT $3='leasing.execution.send' AND EXISTS(SELECT 1 FROM public.test_permissions WHERE actor=$1 AND entity=$2) $$;
+      SELECT EXISTS(SELECT 1 FROM public.test_permissions WHERE actor=$1 AND entity=$2 AND $3=ANY(permissions)) $$;
     ${table('executions')} ALTER TABLE executions ADD PRIMARY KEY(id);
     ${table('execution_document_versions')} ALTER TABLE execution_document_versions ADD PRIMARY KEY(id);
     ALTER TABLE execution_document_versions ADD COLUMN entity_id uuid, ADD COLUMN document_id uuid, ADD COLUMN document_checksum text;
@@ -62,17 +62,37 @@ test.before(async () => {
   await db.exec(migration('20261015200000_execution_field_completion'));
   await db.exec(migration('20261015210000_harden_execution_finalisation'));
   await db.exec(migration('20261013120000_restrict_execution_participant_writes'));
+  for (const name of ['properties','units','tenants','tenant_contacts','leases','billing_rules','charges','chart_of_accounts','accounting_config','tax_config','billing_policies','financial_periods','statement_periods','financial_timeline','document_relationships','workflow_states']) {
+    await db.exec(table(name));
+    if (['properties','units','tenants','leases','chart_of_accounts','financial_periods'].includes(name)) await db.exec(`ALTER TABLE ${name} ADD PRIMARY KEY(id)`);
+  }
+  await db.exec(`ALTER TABLE leasing_opportunities ADD COLUMN status text DEFAULT 'drafting',ADD COLUMN approved_terms_version_id uuid,
+    ADD COLUMN activated_lease_id uuid,ADD COLUMN activated_tenant_id uuid,ADD COLUMN updated_at timestamptz;
+    ${table('leasing_opportunity_versions')}
+    ALTER TABLE leasing_opportunity_versions ADD PRIMARY KEY(id),ADD COLUMN entity_id uuid,ADD COLUMN snapshot jsonb;
+    CREATE TABLE lease_generated_document_provenance(id uuid primary key,entity_id uuid,document_id uuid,opportunity_id uuid,commercial_version_id uuid,generated_checksum text);
+    ALTER TABLE execution_document_versions ADD COLUMN generated_lease_provenance_id uuid;
+    ALTER TABLE documents ALTER COLUMN id SET DEFAULT gen_random_uuid();
+    ALTER TABLE documents ADD COLUMN file_name text,ADD COLUMN mime_type text,ADD COLUMN file_size_bytes integer,ADD COLUMN storage_bucket text,ADD COLUMN storage_key text,
+      ADD COLUMN document_type text,ADD COLUMN status text,ADD COLUMN requires_review boolean,ADD COLUMN uploaded_by uuid;
+    GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated,service_role;
+    GRANT USAGE ON SCHEMA auth TO authenticated;
+  `);
+  await db.exec(migration('20261015220000_govern_execution_activation'));
+  await db.exec(migration('20261015230000_atomic_commencement_billing'));
+  await db.exec('CREATE TRIGGER enforce_charge_period BEFORE INSERT ON charges FOR EACH ROW EXECUTE FUNCTION prevent_charge_into_closed_period()');
+
 });
 test.beforeEach(async () => {
   ids = Object.fromEntries(['entity','otherEntity','actor','otherActor','opportunity','execution','version','document','pdf','tenant','landlord'].map(k => [k, randomUUID()]));
   fields = [ids.tenant, ids.landlord].map((participantId,i) => ({id:randomUUID(),participantId,type:'signature',page:1,x:.1,y:.1+i*.3,width:.3,height:.1}));
   await db.query('RESET ROLE');
   await db.query("SELECT set_config('test.actor','',false)");
-  await db.query('INSERT INTO test_permissions VALUES($1,$2)', [ids.actor,ids.entity]);
+  await db.query('INSERT INTO test_permissions(actor,entity) VALUES($1,$2)', [ids.actor,ids.entity]);
   await db.query('INSERT INTO leasing_opportunities VALUES($1,$2)', [ids.opportunity,ids.entity]);
   await db.query("INSERT INTO executions(id,source_type,source_id,status,is_locked,sha_hash) VALUES($1,'leasing_opportunity',$2,'under_review',true,$3)", [ids.execution,ids.opportunity,sourceChecksum]);
   await db.query("INSERT INTO execution_document_versions(id,execution_id,version,document_url,snapshot,entity_id,document_id,document_checksum) VALUES($1,$2,1,'private','{}',$3,$4,$5)",[ids.version,ids.execution,ids.entity,ids.document,sourceChecksum]);
-  await db.query('INSERT INTO documents VALUES($1,$2,$3)',[ids.document,ids.entity,sourceChecksum]);
+  await db.query('INSERT INTO documents(id,entity_id,checksum) VALUES($1,$2,$3)',[ids.document,ids.entity,sourceChecksum]);
   await db.exec("SELECT set_config('assetflow.execution_document_write','stage',false)");
   await db.query(`INSERT INTO execution_signing_documents(id,execution_id,document_version_id,entity_id,source_document_id,source_checksum,pdf_checksum,storage_path,page_count,content_length,conversion_provider)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,2,${originalPdf.length},'original-pdf')`,[ids.pdf,ids.execution,ids.version,ids.entity,ids.document,sourceChecksum,checksum,`${ids.execution}/source.pdf`]);
@@ -434,4 +454,120 @@ test('lease manifest rollout preserves existing non-lease signature transaction 
   const {loadSigningFields}=loadTypeScript('lib/execution/server/signing-fields.ts');
   const result=await loadSigningFields(localClient(new Map()).client,{execution_id:ids.execution,participant_id:ids.landlord,document_version_id:ids.version});
   assert.deepEqual(result.fields,[]);assert.equal(result.manifestSha256,null);
+});
+
+async function activationFixture(overrides={}) {
+ const property=randomUUID(),unit=randomUUID(),commercial=randomUUID(),provenance=randomUUID();
+ const now=new Date();const start=`${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}-01`;
+ const end=`${now.getUTCFullYear()+1}-${String(now.getUTCMonth()+1).padStart(2,'0')}-01`;
+ const terms={opportunityId:ids.opportunity,prospectName:'Canonical Tenant',propertyId:property,unitId:unit,monthlyRental:10000,depositAmount:20000,
+  commencementDate:start,expiryDate:end,escalationPercent:8,parkingBays:0,rentalVatTreatment:'exclusive',...overrides};
+ await db.exec('RESET ROLE');
+ await db.query('UPDATE test_permissions SET permissions=permissions||ARRAY[$1,$2] WHERE actor=$3 AND entity=$4',['leasing.activation.execute','leases.approve',ids.actor,ids.entity]);
+ await db.query("INSERT INTO properties(id,property_name,property_code,entity_id,owner_entity_id) VALUES($1,'Canonical Property','ACT',$2,$2)",[property,ids.entity]);
+ await db.query("INSERT INTO units(id,property_id,unit_number,occupancy_status,operational_status) VALUES($1,$2,'A1','Vacant','Active')",[unit,property]);
+ await db.query('INSERT INTO leasing_opportunity_versions(id,opportunity_id,version_number,entity_id,snapshot) VALUES($1,$2,1,$3,$4)',[commercial,ids.opportunity,ids.entity,JSON.stringify(terms)]);
+ await db.query('INSERT INTO lease_generated_document_provenance VALUES($1,$2,$3,$4,$5,$6)',[provenance,ids.entity,ids.document,ids.opportunity,commercial,sourceChecksum]);
+ await db.query('UPDATE leasing_opportunities SET approved_terms_version_id=$1 WHERE id=$2',[commercial,ids.opportunity]);
+ await db.query('UPDATE executions SET snapshot=$1 WHERE id=$2',[JSON.stringify({commercial_version_id:commercial}),ids.execution]);
+ await db.query('UPDATE execution_document_versions SET snapshot=$1,generated_lease_provenance_id=$2 WHERE id=$3',[JSON.stringify({commercial_version_id:commercial}),provenance,ids.version]);
+ for(const [role,type] of [['rental_income_commercial','income'],['deposit_liability','liability'],['recovery_utilities','income'],['fee_income','income']]){
+  const account=randomUUID();await db.query('INSERT INTO chart_of_accounts(id,entity_id,gl_code,account_name,account_type,category) VALUES($1,$2,$3,$3,$4,$3)',[account,ids.entity,role,type]);
+  await db.query('INSERT INTO accounting_config(entity_id,business_role,account_id) VALUES($1,$2,$3)',[ids.entity,role,account]);
+ }
+ for(const [code,rate] of [['VAT_STANDARD',15],['NO_VAT',0]])await db.query('INSERT INTO tax_config(entity_id,tax_code,tax_name,tax_rate) VALUES($1,$2,$2,$3)',[ids.entity,code,rate]);
+ await db.exec('SET ROLE service_role');
+ await fullySign();const objects=await finalisationObjects();await finaliseExecution(localClient(objects).client,ids.execution,ids.version);
+ return {property,unit,commercial,provenance,terms,objects,start};
+}
+async function activate(actor=ids.actor,entity=ids.entity) {
+ return (await db.query('SELECT activate_executed_lease($1,$2,$3,$4) AS result',[entity,ids.execution,ids.version,actor])).rows[0].result;
+}
+async function billingSession(fixture) {
+ await db.exec('RESET ROLE');
+ for(const type of ['statement','financial'])await db.query(`INSERT INTO financial_periods(entity_id,period_name,period_start,period_end,period_type) VALUES($1,$2,$3,$4,$5)`,
+  [ids.entity,type+' '+fixture.start,fixture.start,fixture.terms.expiryDate,type]);
+ await db.query("SELECT set_config('test.actor',$1,false)",[ids.actor]);await db.exec('SET ROLE authenticated');
+}
+async function preview(lease,entity=ids.entity){return (await db.query('SELECT prepare_lease_commencement_billing($1,$2) AS result',[entity,lease])).rows[0].result;}
+async function postInitial(lease,plan,selected=plan.charges.map(c=>c.charge_type)){
+ return (await db.query('SELECT post_lease_commencement_billing($1,$2,$3,$4) AS result',[ids.entity,lease,plan.planSha256,selected])).rows[0].result;
+}
+test('executed authority activates tenant, unit, rules, private document and pending billing atomically',async()=>{
+ const fixture=await activationFixture();const result=await activate();const retry=await activate();
+ assert.equal(result.lease_id,retry.lease_id);assert.equal(result.tenant_id,retry.tenant_id);
+ const tenant=await db.query('SELECT kyc_status FROM tenants WHERE id=$1',[result.tenant_id]);assert.equal(tenant.rows[0].kyc_status,'Pending');
+ const unit=await db.query('SELECT current_lease_id,occupancy_status FROM units WHERE id=$1',[fixture.unit]);assert.equal(unit.rows[0].current_lease_id,result.lease_id);assert.equal(unit.rows[0].occupancy_status,'Occupied');
+ const rules=await db.query('SELECT rule_type,base_amount,vat_rate FROM billing_rules WHERE lease_id=$1 ORDER BY rule_type',[result.lease_id]);assert.equal(rules.rows.length,2);
+ const deposits=await db.query('SELECT count(*)::int AS count FROM charges WHERE lease_id=$1',[result.lease_id]);assert.equal(deposits.rows[0].count,0);
+ const events=await db.query("SELECT count(*)::int AS count FROM execution_events WHERE execution_id=$1 AND event_type='lease_activated'",[ids.execution]);assert.equal(events.rows[0].count,1);
+});
+test('activation requires exact entity and explicit capability',async()=>{
+ await activationFixture();await assert.rejects(activate(ids.otherActor),/permission denied/);await assert.rejects(activate(ids.actor,ids.otherEntity),/permission denied/);
+});
+test('activation rejects changed commercial authority',async()=>{
+ await activationFixture();await db.exec('RESET ROLE');await db.query('UPDATE leasing_opportunities SET approved_terms_version_id=$1 WHERE id=$2',[randomUUID(),ids.opportunity]);await db.exec('SET ROLE service_role');
+ await assert.rejects(activate(),/commercial authority mismatch/);
+});
+test('missing entity accounting configuration rolls back activation',async()=>{
+ await activationFixture();await db.exec('RESET ROLE');await db.query("DELETE FROM accounting_config WHERE entity_id=$1 AND business_role='deposit_liability'",[ids.entity]);await db.exec('SET ROLE service_role');
+ await assert.rejects(activate(),/account mapping/);const count=await db.query('SELECT count(*)::int AS count FROM leases WHERE active_execution_id=$1',[ids.execution]);assert.equal(count.rows[0].count,0);
+});
+test('parking without a signed price fails safely instead of inventing a rate',async()=>{
+ await activationFixture({parkingBays:2});await assert.rejects(activate(),/explicit parking price/);
+});
+test('activated contractual terms cannot be edited outside governed amendment',async()=>{
+ await activationFixture();const result=await activate();await db.exec('RESET ROLE');await assert.rejects(db.query('UPDATE leases SET monthly_rental=1 WHERE id=$1',[result.lease_id]),/governed amendment/);
+});
+test('commencement review preserves explicit inclusive VAT and zero fees; approval posts exactly once',async()=>{
+ const fixture=await activationFixture({monthlyRental:11500,rentalVatTreatment:'inclusive'});const result=await activate();await billingSession(fixture);
+ const plan=await preview(result.lease_id);assert.equal(plan.charges.length,2);const rent=plan.charges.find(c=>c.charge_type==='rent');
+ assert.equal(rent.amount_excl_vat,10000);assert.equal(rent.vat_amount,1500);assert.equal(rent.amount_incl_vat,11500);assert.equal(plan.policy.lease_fee_amount,0);
+ assert.equal(await postInitial(result.lease_id,plan),2);assert.equal(await postInitial(result.lease_id,plan),0);
+ const charges=await db.query('SELECT amount_incl_vat,vat_amount FROM charges WHERE lease_id=$1',[result.lease_id]);assert.equal(charges.rows.length,2);
+});
+test('tax-free lease and deposit remain tax-free',async()=>{
+ const fixture=await activationFixture({rentalVatTreatment:'not_applicable'});const result=await activate();await billingSession(fixture);
+ const plan=await preview(result.lease_id);assert.equal(plan.charges.every(c=>c.vat_amount===0),true);
+});
+test('changed review hash cannot post any charges',async()=>{
+ const fixture=await activationFixture();const result=await activate();await billingSession(fixture);const plan=await preview(result.lease_id);
+ await assert.rejects(postInitial(result.lease_id,{...plan,planSha256:'f'.repeat(64)}),/stale/);
+ const count=await db.query('SELECT count(*)::int AS count FROM charges WHERE lease_id=$1',[result.lease_id]);assert.equal(count.rows[0].count,0);
+});
+test('closed period prevents commencement posting without partial writes',async()=>{
+ const fixture=await activationFixture();const result=await activate();await billingSession(fixture);const plan=await preview(result.lease_id);
+ await db.exec('RESET ROLE');await db.query("UPDATE financial_periods SET status='closed',workflow_phase='closed' WHERE entity_id=$1 AND period_type='financial'",[ids.entity]);await db.exec('SET ROLE authenticated');
+ await assert.rejects(postInitial(result.lease_id,plan),/do not permit billing/);
+});
+test('duplicate or foreign charge selections are rejected',async()=>{
+ const fixture=await activationFixture();const result=await activate();await billingSession(fixture);const plan=await preview(result.lease_id);
+ await assert.rejects(postInitial(result.lease_id,plan,['rent','rent']),/unique/);await assert.rejects(postInitial(result.lease_id,plan,['injected']),/Unknown/);
+});
+test('commencement posting permission and entity are enforced',async()=>{
+ const fixture=await activationFixture();const result=await activate();await billingSession(fixture);
+ await assert.rejects(preview(result.lease_id,ids.otherEntity),/permission denied/);
+ await db.query("SELECT set_config('test.actor',$1,false)",[ids.otherActor]);await assert.rejects(preview(result.lease_id),/permission denied/);
+});
+
+ test('legacy closed period is entity scoped and still blocks its own entity',async()=>{
+ const fixture=await activationFixture();const result=await activate();await billingSession(fixture);const plan=await preview(result.lease_id);
+ await db.exec('RESET ROLE');
+ await db.query("INSERT INTO statement_periods(entity_id,period_name,period_start,period_end,status) SELECT $1,period_name,period_start,period_end,'closed' FROM financial_periods WHERE entity_id=$2 AND period_type='statement'",[ids.otherEntity,ids.entity]);
+ await db.exec('SET ROLE authenticated');assert.equal(await postInitial(result.lease_id,plan),2);
+ });
+ test('own legacy closed period rolls back all commencement charges',async()=>{
+ const fixture=await activationFixture();const result=await activate();await billingSession(fixture);const plan=await preview(result.lease_id);
+ await db.exec('RESET ROLE');
+ await db.query("INSERT INTO statement_periods(entity_id,period_name,period_start,period_end,status) SELECT entity_id,period_name,period_start,period_end,'locked' FROM financial_periods WHERE entity_id=$1 AND period_type='statement'",[ids.entity]);
+ await db.exec('SET ROLE authenticated');await assert.rejects(postInitial(result.lease_id,plan),/closed statement/);
+ await db.exec('RESET ROLE');assert.equal((await db.query('SELECT count(*)::int n FROM charges WHERE lease_id=$1',[result.lease_id])).rows[0].n,0);
+ });
+
+test('reopening a committed review recovers its selected authority after configuration changes',async()=>{
+ const fixture=await activationFixture();const result=await activate();await billingSession(fixture);const plan=await preview(result.lease_id);
+ assert.equal(await postInitial(result.lease_id,plan,['rent']),1);
+ await db.exec('RESET ROLE');await db.query("UPDATE tax_config SET tax_rate=20 WHERE entity_id=$1 AND tax_code='VAT_STANDARD'",[ids.entity]);await db.exec('SET ROLE authenticated');
+ const reopened=await preview(result.lease_id);assert.equal(reopened.status,'posted');assert.equal(reopened.planSha256,plan.planSha256);
+ assert.deepEqual(reopened.charges.filter(c=>c.selected).map(c=>c.charge_type),['rent']);assert.equal(await postInitial(result.lease_id,reopened,['rent']),0);
 });

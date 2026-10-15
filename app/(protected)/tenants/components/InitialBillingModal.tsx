@@ -1,142 +1,62 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { initialBillingService, type InitialCharge, type InitialBillingResult } from '@/lib/revenue/initial-billing-service';
+import { useEffect, useState } from 'react';
+import WorkflowDialog from '@/app/components/ui/WorkflowDialog';
+import { initialBillingService, type InitialCharge, type InitialBillingResult, type InitialBillingService } from '@/lib/revenue/initial-billing-service';
 
 interface Props {
-  leaseId: string;
-  entityId: string;
-  onApprove: (result: InitialBillingResult) => void;
-  onSkip: () => void;
-  onClose: () => void;
+ leaseId:string;entityId:string;onApprove:(result:InitialBillingResult)=>void;onSkip:()=>void;onClose:()=>void;
+ service?:Pick<InitialBillingService,'calculate'|'approve'|'postCharges'>;
 }
-
-export function InitialBillingModal({ leaseId, entityId, onApprove, onSkip, onClose }: Props) {
-  const [phase, setPhase] = useState<'loading' | 'review' | 'approving'>('loading');
-  const [billing, setBilling] = useState<InitialBillingResult | null>(null);
-  const [charges, setCharges] = useState<InitialCharge[]>([]);
-
-  useEffect(() => {
-    async function load() {
-      const result = await initialBillingService.calculate(leaseId, entityId);
-      setBilling(result);
-      setCharges(result.charges);
-      setPhase('review');
-    }
-    load();
-  }, [leaseId, entityId]);
-
-  function toggleCharge(id: string) {
-    setCharges(prev => prev.map(c => c.id === id ? { ...c, selected: !c.selected } : c));
-  }
-
-  async function handleApprove() {
-    if (!billing) return;
-    setPhase('approving');
-    const approved = await initialBillingService.approve({ ...billing, charges }, billing.entityId);
-    const posted = await initialBillingService.postCharges(leaseId, approved.charges);
-    onApprove(approved);
-  }
-
-  const selectedCharges = charges.filter(c => c.selected);
-  const totalExclVat = selectedCharges.reduce((s, c) => s + c.amount_excl_vat, 0);
-  const totalVat = selectedCharges.reduce((s, c) => s + c.vat_amount, 0);
-  const totalInclVat = selectedCharges.reduce((s, c) => s + c.amount_incl_vat, 0);
-
-  return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-zinc-950 border border-white/[0.08] rounded-2xl p-8 w-full max-w-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-
-          {phase === 'loading' && (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-8 h-8 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-            </div>
-          )}
-
-          {phase === 'review' && billing && (
-            <div className="space-y-6">
-              <div>
-                <p className="text-sm font-medium text-white">Initial Billing</p>
-                <p className="text-xs text-zinc-500 mt-1">{billing.tenantName} — {billing.leaseRef}</p>
-                <p className="text-xs text-zinc-600">{billing.propertyName}</p>
-              </div>
-
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4 text-xs text-zinc-400 font-light">
-                Policy: {billing.policy.source} · Billing Day: {billing.policy.billing_day}th · Deposit: {billing.policy.deposit_months} month(s)
-              </div>
-
-              {/* Charges table */}
-              <div className="rounded-xl border border-white/[0.06] overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-white/[0.06] bg-white/[0.02]">
-                      <th className="text-left py-2.5 px-3 text-[10px] font-medium text-zinc-500 uppercase w-8"></th>
-                      <th className="text-left py-2.5 px-3 text-[10px] font-medium text-zinc-500 uppercase">Description</th>
-                      <th className="text-left py-2.5 px-3 text-[10px] font-medium text-zinc-500 uppercase">GL</th>
-                      <th className="text-right py-2.5 px-3 text-[10px] font-medium text-zinc-500 uppercase">Excl VAT</th>
-                      <th className="text-right py-2.5 px-3 text-[10px] font-medium text-zinc-500 uppercase">VAT</th>
-                      <th className="text-right py-2.5 px-3 text-[10px] font-medium text-zinc-500 uppercase">Incl VAT</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {charges.map(charge => (
-                      <tr key={charge.id} className={`border-b border-white/[0.03] transition-all ${charge.selected ? '' : 'opacity-40'}`}>
-                        <td className="py-2.5 px-3">
-                          <input type="checkbox" checked={charge.selected} onChange={() => toggleCharge(charge.id)} className="rounded" />
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <p className="text-white font-light">{charge.description}</p>
-                          <p className="text-[10px] text-zinc-500 mt-0.5">{charge.source_detail}</p>
-                        </td>
-                        <td className="py-2.5 px-3 text-zinc-500 font-light">{charge.gl_code?.length > 10 ? charge.gl_code.slice(0, 8) + '...' : charge.gl_code}</td>
-                        <td className="py-2.5 px-3 text-right text-white font-light tabular-nums">R{charge.amount_excl_vat.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right text-zinc-400 font-light tabular-nums">{charge.vat_rate > 0 ? `R${charge.vat_amount.toLocaleString()}` : '—'}</td>
-                        <td className="py-2.5 px-3 text-right text-white font-light tabular-nums">R{charge.amount_incl_vat.toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Totals */}
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
-                <div className="flex justify-between px-5 py-2.5 border-b border-white/[0.04] text-xs">
-                  <span className="text-zinc-400 font-light">Subtotal (Excl VAT)</span>
-                  <span className="text-white font-light tabular-nums">R{totalExclVat.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between px-5 py-2.5 border-b border-white/[0.04] text-xs">
-                  <span className="text-zinc-400 font-light">VAT</span>
-                  <span className="text-zinc-400 font-light tabular-nums">R{totalVat.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between px-5 py-3 text-sm">
-                  <span className="text-white font-medium">Total (Incl VAT)</span>
-                  <span className="text-white font-medium tabular-nums">R{totalInclVat.toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button onClick={handleApprove} className="flex-1 rounded-xl bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 transition-all">
-                  Approve Initial Billing
-                </button>
-                <button onClick={onSkip} className="rounded-xl border border-white/[0.08] px-6 py-3 text-sm text-zinc-400 hover:text-white transition-all">
-                  Skip
-                </button>
-              </div>
-            </div>
-          )}
-
-          {phase === 'approving' && (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center space-y-3">
-                <div className="w-8 h-8 rounded-full border-2 border-white/30 border-t-white animate-spin mx-auto" />
-                <p className="text-sm text-zinc-400 font-light">Approving billing package...</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </>
-  );
+const money=(amount:number)=>new Intl.NumberFormat('en-ZA',{style:'currency',currency:'ZAR',minimumFractionDigits:2}).format(amount);
+export function InitialBillingModal({leaseId,entityId,onApprove,onSkip,onClose,service=initialBillingService}:Props) {
+ const [phase,setPhase]=useState<'loading'|'review'|'approving'>('loading');
+ const [billing,setBilling]=useState<InitialBillingResult|null>(null);const [charges,setCharges]=useState<InitialCharge[]>([]);
+ const [error,setError]=useState('');const [generation,setGeneration]=useState(0);
+ useEffect(()=>{let active=true;setPhase('loading');setError('');
+  void service.calculate(leaseId,entityId).then(result=>{if(active){setBilling(result);setCharges(result.charges);setPhase('review');}})
+   .catch(caught=>{if(active){setError(caught instanceof Error?caught.message:'Unable to prepare initial charges.');setPhase('review');}});
+  return()=>{active=false;};
+ },[leaseId,entityId,service,generation]);
+ const selected=charges.filter(c=>c.selected);const total=selected.reduce((sum,c)=>sum+Number(c.amount_incl_vat),0);
+ async function approve(){
+  if(!billing||!selected.length||phase==='approving')return;setPhase('approving');setError('');
+  try{
+   const review=await service.approve({...billing,charges});
+   await service.postCharges(leaseId,review.charges,{entityId,planSha256:billing.planSha256});
+   onApprove({...review,status:'posted'});
+  }catch(caught){setError(caught instanceof Error?caught.message:'Approval requires recovery. Reload to check the current charges.');setPhase('review');}
+ }
+ return <WorkflowDialog title="Review initial charges" busy={phase==='approving'} onClose={onClose}>
+  <div className="space-y-5">
+   {error&&<div role="alert" className="rounded-lg border border-[var(--danger)] p-3 text-sm"><p>{error}</p><button type="button" className="af-control mt-2" onClick={()=>setGeneration(n=>n+1)}>Reload review</button></div>}
+   {phase==='loading'&&<p role="status" className="py-8 text-center">Preparing contractual charges…</p>}
+   {billing&&phase!=='loading'&&<>
+    <div><p className="font-medium">{billing.tenantName}</p><p className="text-sm text-[var(--text-secondary)]">{billing.propertyName} · {billing.leaseRef}</p></div>
+    <p className="rounded-lg bg-[var(--bg-elevated)] p-3 text-sm">Review the first rental, deposit and any configured fees before posting. A deposit charge records an amount due; it does not confirm funds received.</p>
+    <div className="overflow-x-auto rounded-lg border border-[var(--border-default)]" tabIndex={0} role="region" aria-label="Initial charges table">
+     <table className="w-full text-sm"><caption className="sr-only">Initial charges for {billing.tenantName}</caption>
+      <thead className="bg-[var(--bg-elevated)] text-[var(--text-secondary)]"><tr>
+       <th scope="col" className="px-3 py-3 text-left">Include</th><th scope="col" className="px-3 py-3 text-left">Charge</th>
+       <th scope="col" className="px-3 py-3 text-right">Excl. VAT</th><th scope="col" className="px-3 py-3 text-right">VAT</th><th scope="col" className="px-3 py-3 text-right">Total</th>
+      </tr></thead><tbody>{charges.map(charge=><tr key={charge.id} className="border-t border-[var(--border-default)]">
+       <td className="px-3 py-3"><input type="checkbox" className="h-5 w-5" disabled={phase==='approving'||billing.status==='posted'} aria-label={`Include ${charge.description}`} checked={charge.selected}
+        onChange={()=>setCharges(previous=>previous.map(c=>c.id===charge.id?{...c,selected:!c.selected}:c))}/></td>
+       <th scope="row" className="px-3 py-3 text-left font-normal"><p>{charge.description}</p><p className="text-xs text-[var(--text-secondary)]">Account {charge.gl_code}</p></th>
+       <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(charge.amount_excl_vat)}</td>
+       <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(charge.vat_amount)}</td>
+       <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(charge.amount_incl_vat)}</td>
+      </tr>)}</tbody>
+     </table>
+    </div>
+    <div className="flex items-center justify-between gap-4 border-t border-[var(--border-default)] pt-4"><span>Selected total</span><output aria-live="polite" className="text-lg font-semibold tabular-nums">{money(total)}</output></div>
+    <p className="text-xs text-[var(--text-secondary)]">{billing.policy.source}</p>
+    {billing.status==='posted'&&<p role="status">These commencement charges have already been approved and posted.</p>}
+    <div className="flex flex-wrap gap-3">
+     <button type="button" disabled={phase==='approving'||!selected.length||billing.status==='posted'} onClick={()=>void approve()} className="af-control bg-[var(--text-primary)] text-[var(--bg-primary)]">{phase==='approving'?'Posting approved charges…':'Approve and post charges'}</button>
+     <button type="button" disabled={phase==='approving'} onClick={onSkip} className="af-control">Review later</button>
+    </div>
+   </>}
+  </div>
+ </WorkflowDialog>;
 }

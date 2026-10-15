@@ -948,3 +948,39 @@ is pending Phase 1 closure. FLO's original definition remains unresolved.
 - GitHub publishing remains blocked by missing runtime push credentials and prior
   integration HTTP 403. No repeat push attempt was made. Commits and complete
   recovery bundle/patch are the delivery mechanism for this checkpoint.
+
+
+## 2026-10-15 governed activation and commencement checkpoint
+
+See `docs/ASSETFLOW_DELIVERY_BASELINE.md` for the whole-platform evidence index,
+measurable UX standards, detailed verification limits and open financial gates.
+The single master requirement register remains `docs/ASSETFLOW_REQUIREMENTS.md`.
+
+- `20261015220000_govern_execution_activation.sql`: shared private transactional
+  activation core; existing manual `activate_lease` permission wrapper; new
+  service-only `activate_executed_lease` bound to current executed document and
+  approved commercial provenance. Creates tenant/contact/lease/unit/rules/private
+  document link/workflow/audit together. KYC remains Pending. Unit overlap and
+  ambiguous accounting configuration fail safely. Executed terms are protected.
+- `app/api/execution/[id]/activate/route.ts`: explicit entity capability, bounded
+  request, active version scope, rehash of signed PDF and certificate before RPC.
+  `components/leasing/ExecutionWorkspace.tsx` exposes activation and billing review.
+- `20261015230000_atomic_commencement_billing.sql`: authenticated, permission-
+  checked server review/hash; lease and period locks; unique immutable approval;
+  atomic selected charge insertion/audit. Explicit inclusive/zero VAT and no
+  invented fee policy. Legacy charge period guard is now entity scoped.
+- `lib/revenue/initial-billing-service.ts` calls these RPCs; old handler no longer
+  posts a second time. Manual activation no longer creates rules/workflow through
+  separate client requests. No receipt or held funds are created by activation.
+- `WorkflowDialog.tsx` and initial billing modal provide shared native dialog,
+  keyboard semantics, error/retry and review selection. Browser tests are supplied
+  but unexecuted: no local browser binary; cloud localhost connection refused.
+- `billing-freeze.ts` fixes lease column/entity/tenant lookup and blocks governed
+  leases before unsafe legacy invoice/ledger writes. The deposit-aware atomic
+  invoice integration remains unfinished; this is an explicit operational gate.
+
+128 execution tests and 10 financial date/period tests passed; TypeScript and
+whitespace checks passed. Tests use PGlite selected real DDL and fixture authority,
+not deployed Supabase/JWT/RLS or independent database sessions. No build or
+production migration was run. Phase 1, beta and production readiness remain open.
+No GitHub publishing retry or main merge was attempted (existing HTTP 403 blocker).

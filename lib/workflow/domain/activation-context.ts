@@ -57,6 +57,7 @@ export interface ActivateLeaseRpcResult {
   lease_id: string;
   tenant_code: string;
   lease_ref: string;
+  rules_created: number;
   documents_attached: number;
   contacts_created: number;
   duration_ms: number;
