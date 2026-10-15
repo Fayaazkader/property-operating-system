@@ -696,3 +696,71 @@ Not established by this checkpoint:
 6. Reconcile findings against the remaining Phase 1 audit checklist.
 
 Do not enable public signing solely on the basis of successful PDF preparation.
+
+## Execution finalisation component checkpoint — 2026-10-15 (Work)
+
+### Source and preservation
+- Started from clean `handoff/assetflow-signing-20261015` at `a2b850c`.
+- Working branch: `work/assetflow-execution-20261015`.
+- Both handoff WIP files were present. Existing preparation, invitations,
+  verification, signature submission and activation services remain unchanged.
+
+### Confirmed defect corrected
+`lib/execution/server/finalisation-pdf.ts` previously appended signature records
+without signing the original pages. It now requires an explicit manifest bound to
+execution ID, document-version ID and original PDF SHA-256. It places signature,
+separately captured initials and UTC signing date on original pages, preserving
+page count, crop boxes and page rotation. Coordinates follow the existing signing
+convention: normalized top-left display coordinates, one-based page numbers.
+Images preserve aspect ratio and are centered in their designated rectangles.
+
+The renderer rejects tampered source/evidence, duplicate participants/field IDs,
+unknown participants, unsupported fields/images, invalid page/rectangle geometry,
+missing initials and participants without signature fields. Dates derive from
+recorded signing timestamps; fields too small for legible dates fail closed.
+Encrypted PDFs are not loaded with encryption bypass enabled.
+
+### Canonical authority boundary
+The renderer is a server-only component, not an authority service. Its caller must
+supply a database-frozen manifest and committed participant evidence. It must not
+accept signer-controlled placements. Matching IDs/hashes inside the renderer do
+not establish manifest authenticity. No operational caller currently exists.
+The manifest interface added here does not constitute database manifest storage,
+lessor placement UI, readiness enforcement or per-field signature commitment.
+There is no silent fallback to the parallel `lib/signing` execution lifecycle.
+
+### Verification
+- `npx tsc --noEmit`: passed.
+- `node --test tests/execution/finalisation-pdf.test.mjs`: 30/30 passed.
+- Existing conversion and invitation-delivery suites: 15/15 passed.
+- Geometry tested through decoded PDF operators and independently rasterized
+  through Python/PyMuPDF at rotations 0/90/180/270 with a nonzero crop origin.
+  Rendered signature pixel bounds matched assigned fields within one pixel.
+- Geometry tests explicitly require Python/PyMuPDF; missing renderer fails the
+  test rather than silently skipping the independent verification gate.
+
+### Unclosed workflow and migration risks
+`20261015180000_execution_final_artifacts.sql` remains handoff WIP, unchanged and
+not approved for deployment. Inspection identifies missing staging idempotency,
+weak stage-time eligibility (no locked/current-active-version checks), incomplete
+storage-path validation, and lack of binding to a frozen placement manifest.
+These are open defects, not accepted production behavior. They require remediation
+and executable database tests together with the manifest integration.
+
+No local PostgreSQL server/client, Docker or configured test database was available
+in this checkout. No database migration, SQL concurrency test, external invitation,
+production storage mutation or live activation/billing test was executed.
+
+Next coherent implementation: governed manifest persistence and authorized lessor
+placement, readiness enforcement against the committed PDF and nominated
+participants, then field-specific signing evidence, finalisation orchestration,
+certificate/private artifact delivery and activation-to-initial-billing E2E tests.
+The original 221-item inventory was not found in the system map or handover docs;
+repository references there mention it but do not contain its itemized contents.
+Full inventory/artifact search and reconciliation remain pending Phase 1 closure.
+
+### Readiness assessment
+PDF placement component: implemented and locally verified for the stated cases.
+Lease execution domain / Phase 1: incomplete, neither beta-ready nor
+production-ready on this evidence. Full-application readiness percentages are not
+recalculated from this component checkpoint. Public signing must remain disabled.
