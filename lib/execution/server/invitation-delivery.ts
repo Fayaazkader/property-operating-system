@@ -69,27 +69,63 @@ export async function dispatchSigningInvitation(
 
   const attemptId = issued.deliveryAttemptId;
 
-  let deliveryStatus:
-    'provider_accepted' | 'delivery_unknown' =
-    'delivery_unknown';
-
-  let providerMessageId: string | null = null;
-
-  try {
-    const sent = await sendSigningInvitationEmail({
+  const deliveryStatus = await deliverReservedSigningInvitation(
+    client,
+    {
+      deliveryAttemptId: attemptId,
       destination: participant.email,
       signerName: participant.name,
       signingUrl: issued.signingUrl,
       expiresAt: issued.expiresAt,
-      idempotencyKey: attemptId,
+    },
+  );
+
+  return {
+    invitationId: issued.invitationId,
+    expiresAt: issued.expiresAt,
+    deliveryStatus,
+  };
+}
+
+export async function deliverReservedSigningInvitation(
+  client: SupabaseClient,
+  input: {
+    deliveryAttemptId: string;
+    destination: string;
+    signerName: string;
+    signingUrl: string;
+    expiresAt: string;
+  },
+): Promise<'provider_accepted' | 'delivery_unknown'> {
+  const { data: claimed, error: claimError } = await client.rpc(
+    'claim_execution_invitation_email_dispatch',
+    { p_delivery_attempt_id: input.deliveryAttemptId },
+  );
+
+  if (claimError || claimed !== true) {
+    throw new Error(
+      'Delivery attempt could not be claimed. Manual reconciliation required.',
+    );
+  }
+
+  let deliveryStatus: 'provider_accepted' | 'delivery_unknown' =
+    'delivery_unknown';
+  let providerMessageId: string | null = null;
+
+  try {
+    const sent = await sendSigningInvitationEmail({
+      destination: input.destination,
+      signerName: input.signerName,
+      signingUrl: input.signingUrl,
+      expiresAt: input.expiresAt,
+      idempotencyKey: input.deliveryAttemptId,
     });
 
     providerMessageId = sent.providerMessageId;
     deliveryStatus = 'provider_accepted';
   } catch {
-    // A timeout may happen after provider acceptance.
-    // Never retry automatically.
-    deliveryStatus = 'delivery_unknown';
+    // Provider acceptance may precede a timeout.
+    // An uncertain delivery must never be automatically retried.
   }
 
   const { data: updated, error: updateError } = await client
@@ -102,8 +138,8 @@ export async function dispatchSigningInvitation(
           ? new Date().toISOString()
           : null,
     })
-    .eq('id', attemptId)
-    .eq('status', 'pending')
+    .eq('id', input.deliveryAttemptId)
+    .eq('status', 'sending')
     .select('id')
     .maybeSingle();
 
@@ -113,9 +149,5 @@ export async function dispatchSigningInvitation(
     );
   }
 
-  return {
-    invitationId: issued.invitationId,
-    expiresAt: issued.expiresAt,
-    deliveryStatus,
-  };
+  return deliveryStatus;
 }

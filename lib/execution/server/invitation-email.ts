@@ -66,7 +66,7 @@ export async function sendSigningInvitationEmail(
         'You will be asked to verify your email before signing.',
         '',
         'AssetFlow Secure Signing',
-      ].join('\\n'),
+      ].join('\n'),
     }),
     cache: 'no-store',
     signal: AbortSignal.timeout(10000),
