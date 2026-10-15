@@ -105,7 +105,7 @@ export async function freezeBilling(params: {
         );
       }
 
-      if (lease.active_execution_id) {
+      if (lease.active_execution_id || (lease.lease_start_date>=statementPeriod.period_start&&lease.lease_start_date<=statementPeriod.period_end)) {
         if(lease.lease_start_date<statementPeriod.period_start||lease.lease_start_date>statementPeriod.period_end)throw new Error('This command issues commencement invoices only; recurring governed billing requires its approved period workflow');
         const review=await initialBillingService.calculate(tenant.leaseId,params.entityId);
         const {data:commencement}=await supabase.from('invoices').select('commencement_payment_term_id')

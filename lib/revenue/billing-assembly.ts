@@ -61,11 +61,12 @@ export interface BillingSnapshot {
 
 export function isRuleDueForPeriod(rule: any, periodStart: string, periodEnd: string): boolean {
   if (rule.effective_to && rule.effective_to < periodStart) return false;
-  if (!rule.effective_from) return rule.frequency !== 'once';
+  if (!['monthly','quarterly','annually','once','once_off'].includes(rule.frequency||'monthly')) return false;
+  if (!rule.effective_from) return !rule.frequency||rule.frequency==='monthly';
   if (rule.effective_from > periodEnd) return false;
   
   const frequency = rule.frequency || 'monthly';
-  if (frequency === 'once') return rule.effective_from >= periodStart && rule.effective_from <= periodEnd;
+  if (frequency === 'once'||frequency==='once_off') return rule.effective_from >= periodStart && rule.effective_from <= periodEnd;
   if (frequency === 'monthly') return true;
   
   // For non-monthly frequencies, check if this period aligns
@@ -73,13 +74,13 @@ export function isRuleDueForPeriod(rule: any, periodStart: string, periodEnd: st
   const periodStartDate = new Date(periodStart);
   
   if (frequency === 'quarterly') {
-    const monthsDiff = (periodStartDate.getFullYear() - effectiveDate.getFullYear()) * 12 + 
-                       (periodStartDate.getMonth() - effectiveDate.getMonth());
+    const monthsDiff = (periodStartDate.getUTCFullYear() - effectiveDate.getUTCFullYear()) * 12 + 
+                       (periodStartDate.getUTCMonth() - effectiveDate.getUTCMonth());
     return monthsDiff % 3 === 0;
   }
   
   if (frequency === 'annually') {
-    return periodStartDate.getMonth() === effectiveDate.getMonth();
+    return periodStartDate.getUTCMonth() === effectiveDate.getUTCMonth();
   }
   
   return true;
@@ -134,7 +135,7 @@ export const billingAssembly = {
       const charges: BillingCharge[] = [];
       const warnings: string[] = [];
 
-      if (lease.active_execution_id && lease.lease_start_date >= periodStart && lease.lease_start_date <= periodEnd) {
+      if (lease.lease_start_date >= periodStart && lease.lease_start_date <= periodEnd) {
         try {
           const review=await initialBillingService.calculate(lease.id,entityId);
           if(review.status!=='posted')warnings.push('Commencement charges require approval in the lease execution workspace');
@@ -151,6 +152,7 @@ export const billingAssembly = {
         .eq('status', 'active');
 
       for (const r of (rules || [])) {
+        if(!['monthly','quarterly','annually','once','once_off'].includes(r.frequency||'monthly'))warnings.push('Unknown billing frequency requires reconciliation');
         if (!isRuleDueForPeriod(r, periodStart, periodEnd)) continue;
         const vat = Math.round(r.base_amount * (r.vat_rate / 100) * 100) / 100;
         charges.push({
@@ -210,8 +212,8 @@ export const billingAssembly = {
       if (lease.escalation_percent && lease.escalation_percent > 0) {
         const effectiveDate = new Date(lease.commencement_date || lease.lease_start_date);
         const periodDate = new Date(periodStart);
-        const monthsSinceStart = (periodDate.getFullYear() - effectiveDate.getFullYear()) * 12 + 
-                                  (periodDate.getMonth() - effectiveDate.getMonth());
+        const monthsSinceStart = (periodDate.getUTCFullYear() - effectiveDate.getUTCFullYear()) * 12 + 
+                                  (periodDate.getUTCMonth() - effectiveDate.getUTCMonth());
         
         if (monthsSinceStart > 0 && monthsSinceStart % 12 === 0) {
   const yearsOfEscalation = Math.floor(monthsSinceStart / 12);

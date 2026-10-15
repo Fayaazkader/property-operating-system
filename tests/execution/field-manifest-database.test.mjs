@@ -62,7 +62,7 @@ test.before(async () => {
   await db.exec(migration('20261015200000_execution_field_completion'));
   await db.exec(migration('20261015210000_harden_execution_finalisation'));
   await db.exec(migration('20261013120000_restrict_execution_participant_writes'));
-  for (const name of ['properties','units','tenants','tenant_contacts','leases','billing_rules','charges','chart_of_accounts','accounting_config','tax_config','billing_policies','financial_periods','statement_periods','financial_timeline','document_relationships','workflow_states','invoices','invoice_line_items','journals','journal_lines','general_ledger','sub_ledger_entries','statements_generated','payment_terms','permission_catalogue','suppliers','bank_accounts','posting_templates','posting_template_lines']) {
+  for (const name of ['properties','units','tenants','tenant_contacts','leases','billing_rules','charges','chart_of_accounts','accounting_config','tax_config','billing_policies','financial_periods','statement_periods','financial_timeline','document_relationships','workflow_states','invoices','invoice_line_items','journals','journal_lines','general_ledger','sub_ledger_entries','statements_generated','payment_terms','permission_catalogue','suppliers','bank_accounts','posting_templates','posting_template_lines','deposit_register','deposit_transactions']) {
     await db.exec(table(name));
     if (['properties','units','tenants','leases','chart_of_accounts','financial_periods','charges','invoices','journal_lines','journals','payment_terms'].includes(name)) await db.exec(`ALTER TABLE ${name} ADD PRIMARY KEY(id)`);
   }
@@ -603,7 +603,7 @@ test('full local lease lifecycle reaches issued invoice, liability, output VAT a
  const f=await invoiceFixture();const issued=await issueInvoice(f);const retry=await issueInvoice(f);assert.equal(retry.invoiceId,issued.invoiceId);assert.equal(retry.replayed,true);
  await db.exec('RESET ROLE');const inv=(await db.query('SELECT * FROM invoices WHERE id=$1',[issued.invoiceId])).rows[0];assert.equal(inv.invoice_status,'issued');assert.equal(Number(inv.total_amount),31500);assert.equal(Number(inv.vat_amount),1500);assert.deepEqual(inv.due_date,inv.invoice_date);
  const postings=await db.query('SELECT a.gl_code,sum(g.debit_amount)::numeric debit,sum(g.credit_amount)::numeric credit FROM general_ledger g JOIN chart_of_accounts a ON a.id=g.account_id JOIN journal_lines jl ON jl.id=g.journal_line_id JOIN journals j ON j.id=jl.journal_id WHERE j.source_id=$1 GROUP BY a.gl_code',[issued.invoiceId]);
- const map=Object.fromEntries(postings.rows.map(r=>[r.gl_code,r]));assert.equal(Number(map.deposit_liability.credit),20000);assert.equal(Number(map.rental_income_commercial.credit),10000);assert.equal(Number(map.vat_output.credit),1500);assert.equal(Number(map.ar_control.debit),31500);
+ const map=Object.fromEntries(postings.rows.map(r=>[r.gl_code,r]));assert.equal(Number(map.deposit_liability.credit),20000);assert.equal(Number(map.rental_income_commercial.credit),10000);assert.equal(Number(map.vat_output.credit),1500);assert.equal(Number(map.ar_control.debit),31500);assert.equal((await db.query('SELECT count(*)::int n FROM deposit_register WHERE entity_id=$1',[ids.entity])).rows[0].n,0);
  const led=(await db.query("SELECT * FROM sub_ledger_entries WHERE entity_id=$1 AND ledger_type='tenant' AND tenant_id=$2",[ids.entity,f.result.tenant_id])).rows;assert.equal(led.length,1);assert.equal(Number(led[0].running_balance),31500);
  assert.equal((await db.query('SELECT count(*)::int n FROM invoice_line_items WHERE invoice_id=$1',[issued.invoiceId])).rows[0].n,2);
  assert.equal((await db.query("SELECT status FROM workflow_states WHERE reference_id=$1 AND workflow_type='lease_activation'",[f.result.lease_id])).rows[0].status,'completed');
@@ -689,4 +689,14 @@ test('governed invoice evidence cannot be rewritten or augmented through browser
  await assert.rejects(db.query('UPDATE invoice_line_items SET amount=1 WHERE invoice_id=$1',[done.invoiceId]),/immutable/);
  await assert.rejects(db.query("INSERT INTO invoice_line_items(invoice_id,description,amount) VALUES($1,'forged line',999)",[done.invoiceId]),/immutable/);
  await assert.rejects(db.query("INSERT INTO charges(entity_id,source_type) VALUES($1,'lease_commencement')",[ids.entity]),/governed commencement/);
+});
+
+test('invoice recovery restores original payment-term selection and detects missing tenant evidence',async()=>{
+ const f=await invoiceFixture();const done=await issueInvoice(f);
+ const terms=(await db.query('SELECT get_lease_commencement_invoice_terms($1,$2) result',[ids.entity,f.result.lease_id])).rows[0].result;assert.equal(terms.selectedId,f.term);
+ await db.exec('RESET ROLE');await db.query('DELETE FROM sub_ledger_entries WHERE reference_id=$1',[done.invoiceId]);await db.exec('SET ROLE authenticated');await assert.rejects(issueInvoice(f),/tenant ledger requires reconciliation/);
+});
+
+test('tax-free commencement needs no output VAT account and leaves deposit funds unreceived',async()=>{
+ const f=await invoiceFixture({rentalVatTreatment:'not_applicable'});await db.exec('RESET ROLE');await db.query("DELETE FROM accounting_config WHERE entity_id=$1 AND business_role='vat_output'",[ids.entity]);await db.exec('SET ROLE authenticated');const done=await issueInvoice(f);const invoice=(await db.query('SELECT total_amount,vat_amount FROM invoices WHERE id=$1',[done.invoiceId])).rows[0];assert.equal(Number(invoice.total_amount),30000);assert.equal(Number(invoice.vat_amount),0);
 });

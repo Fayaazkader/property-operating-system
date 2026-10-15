@@ -76,6 +76,7 @@ BEGIN
    IF i.entity_id IS DISTINCT FROM p_entity_id OR i.invoice_status NOT IN ('issued','paid') OR
       NOT EXISTS(SELECT 1 FROM public.journals WHERE source_event='lease_commencement_invoice' AND source_id=i.id::text AND entity_id=p_entity_id AND is_posted) THEN RAISE EXCEPTION 'Invoice requires reconciliation'; END IF;
    SELECT id INTO v_statement FROM public.statements_generated WHERE entity_id=p_entity_id AND tenant_id=l.tenant_id AND statement_data->>'invoice_id'=i.id::text;
+   IF NOT EXISTS(SELECT 1 FROM public.sub_ledger_entries e JOIN public.journal_lines jl ON jl.id=e.journal_line_id JOIN public.journals j ON j.id=jl.journal_id WHERE e.entity_id=p_entity_id AND e.tenant_id=l.tenant_id AND e.ledger_type='tenant' AND e.reference_id=i.id::text AND e.debit_amount=i.total_amount AND e.credit_amount=0 AND j.source_event='lease_commencement_invoice' AND j.source_id=i.id::text) THEN RAISE EXCEPTION 'Invoice tenant ledger requires reconciliation'; END IF;
    IF v_statement IS NULL THEN RAISE EXCEPTION 'Invoice statement requires reconciliation'; END IF;
    RETURN jsonb_build_object('invoiceId',i.id,'statementId',v_statement,'replayed',true);
  END IF;
@@ -152,7 +153,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $function$
 DECLARE v_selected uuid;v_options jsonb;
 BEGIN
  IF auth.uid() IS NULL OR NOT COALESCE(public.has_entity_permission(auth.uid(),p_entity_id,'leases.approve'),false) THEN RAISE EXCEPTION 'Invoice review permission denied'; END IF;
- SELECT t.payment_term_id INTO v_selected FROM public.leases l JOIN public.properties p ON p.id=l.property_id JOIN public.tenants t ON t.id=l.tenant_id
+ SELECT COALESCE(inv.commencement_payment_term_id,t.payment_term_id) INTO v_selected FROM public.leases l JOIN public.properties p ON p.id=l.property_id JOIN public.tenants t ON t.id=l.tenant_id LEFT JOIN public.invoices inv ON inv.commencement_lease_id=l.id AND inv.entity_id=p_entity_id
  WHERE l.id=p_lease_id AND p.entity_id=p_entity_id AND t.entity_id=p_entity_id;
  IF NOT FOUND THEN RAISE EXCEPTION 'Invoice review entity mismatch'; END IF;
  SELECT COALESCE(jsonb_agg(jsonb_build_object('id',id,'name',term_name,'days',days) ORDER BY days,term_name),'[]') INTO v_options FROM public.payment_terms WHERE days BETWEEN 0 AND 3650;

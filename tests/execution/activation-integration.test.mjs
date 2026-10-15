@@ -35,3 +35,10 @@ test('legacy invoice freezer delegates governed issuance without trusting worksh
  const result=await freezeBilling({entityId:entity,periodId:version,periodName:'2026-10',periodStart:'2026-10-01',tenants:[{tenantId:entity,tenantName:'Test',leaseId:execution,charges:[]}]});
  assert.equal(result.results[0].posted,true);assert.equal(result.results[0].invoice_id,version);assert.ok(calls.some(c=>c[0]==='properties.entity_id'&&c[1]===entity));
 });
+
+test('billing schedules never repeat one-off deposits or bill rules after their end date',()=>{
+ const {isRuleDueForPeriod}=loadTypeScript('lib/revenue/billing-assembly.ts',{'@/lib/supabase':{supabase:{}},'./initial-billing-service':{initialBillingService:{}}});
+ for(const frequency of ['once','once_off']){assert.equal(isRuleDueForPeriod({frequency,effective_from:'2026-10-15'},'2026-10-01','2026-10-31'),true);assert.equal(isRuleDueForPeriod({frequency,effective_from:'2026-10-15'},'2026-11-01','2026-11-30'),false);}
+ assert.equal(isRuleDueForPeriod({frequency:'monthly',effective_from:'2026-01-01',effective_to:'2026-09-30'},'2026-10-01','2026-10-31'),false);
+ assert.equal(isRuleDueForPeriod({frequency:'unknown',effective_from:'2026-01-01'},'2026-10-01','2026-10-31'),false);
+});
