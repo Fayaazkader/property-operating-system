@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createHash } from 'node:crypto';
 import { PDFDocument, StandardFonts, degrees } from 'pdf-lib';
+import { executionFieldGeometry, executionDateFontSize } from '../pdf-field-geometry';
 
 export interface FinalisationImage {
   bytes: Uint8Array;
@@ -20,24 +21,8 @@ export interface FinalisationSigner {
   initials?: FinalisationImage;
 }
 
-/** One-based page; normalized top-left coordinates on the displayed crop box. */
-export interface FinalisationField {
-  id: string;
-  participantId: string;
-  type: 'signature' | 'initial' | 'date';
-  page: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface FinalisationManifest {
-  executionId: string;
-  documentVersionId: string;
-  originalSha256: string;
-  fields: FinalisationField[];
-}
+export type { ExecutionField as FinalisationField, ExecutionFieldManifest as FinalisationManifest } from '../field-manifest';
+import type { ExecutionFieldManifest as FinalisationManifest } from '../field-manifest';
 
 export interface FinalisationPdfResult {
   bytes: Uint8Array;
@@ -84,7 +69,7 @@ export async function assembleExecutedPdf(args: {
     }
     signers.set(signer.participantId, signer);
   }
-  const pdf = await PDFDocument.load(args.originalPdf, { ignoreEncryption: false });
+  const pdf = await PDFDocument.load(args.originalPdf, { ignoreEncryption: false, updateMetadata: false });
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const ids = new Set<string>();
   const signedParticipants = new Set<string>();
@@ -100,32 +85,10 @@ export async function assembleExecutedPdf(args: {
     }
     ids.add(field.id);
     const page = pdf.getPage(field.page - 1);
-    const crop = page.getCropBox();
-    const media = page.getMediaBox();
-    const angle = ((page.getRotation().angle % 360) + 360) % 360;
-    if (![0, 90, 180, 270].includes(angle) ||
-        ![crop.x, crop.y, crop.width, crop.height].every(Number.isFinite) ||
-        crop.width <= 0 || crop.height <= 0 || crop.x < media.x || crop.y < media.y ||
-        crop.x + crop.width > media.x + media.width || crop.y + crop.height > media.y + media.height) {
-      throw new Error('Unsupported PDF page geometry');
-    }
-    const displayWidth = angle % 180 ? crop.height : crop.width;
-    const displayHeight = angle % 180 ? crop.width : crop.height;
-    const width = field.width * displayWidth;
-    const height = field.height * displayHeight;
-    const u = field.x * displayWidth;
-    const v = (1 - field.y - field.height) * displayHeight;
-    // Map displayed bottom-left to native PDF coordinates, retaining /Rotate.
-    const point = (du: number, dv: number) => {
-      const a = u + du, b = v + dv;
-      const [x, y] = angle === 0 ? [a, b] : angle === 90 ? [crop.width - b, a]
-        : angle === 180 ? [crop.width - a, crop.height - b] : [b, crop.height - a];
-      return { x: crop.x + x, y: crop.y + y };
-    };
+    const { width, height, angle, point } = executionFieldGeometry(page, field);
     if (field.type === 'date') {
       const text = new Date(signer.signedAt).toISOString().slice(0, 10);
-      const size = Math.min(12, height / 1.3, width / font.widthOfTextAtSize(text, 1));
-      if (size < 6) throw new Error('Date field is too small to render legibly');
+      const size = executionDateFontSize(font,text,width,height);
       page.drawText(text, { ...point(0, (height - size) / 2), size, font, rotate: degrees(angle) });
     } else {
       const evidence = field.type === 'initial' ? signer.initials : {

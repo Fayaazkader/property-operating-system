@@ -1,6 +1,9 @@
+import { readExecutionJson } from '@/lib/execution/server/request-body';
 import { NextRequest, NextResponse } from 'next/server';
 import { executionServiceClient } from '@/lib/execution/server/verification-api';
 import { validateSigningInvitation } from '@/lib/execution/server/invitation-validation';
+
+import { loadSigningFields } from '@/lib/execution/server/signing-fields';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,7 +17,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body: unknown = await request.json();
+    const body = await readExecutionJson(request,2048);
     const token = body && typeof body === 'object' && 'token' in body
       ? body.token : null;
 
@@ -40,7 +43,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invitation unavailable' }, { status: 404 });
     }
 
+    const manifest = await loadSigningFields(client, invitation);
     return NextResponse.json({
+      fields: manifest.fields,
+      manifestSha256: manifest.manifestSha256,
       participantName: participant.name,
       participantType: participant.participant_type,
       signingOrder: participant.signing_order,

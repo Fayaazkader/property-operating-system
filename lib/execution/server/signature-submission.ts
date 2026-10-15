@@ -2,6 +2,9 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { validateSigningInvitation } from './invitation-validation';
+import { loadSigningFields, requireCompletedSigningFields } from './signing-fields';
+
 import { hashSigningInvitationToken } from './invitation-tokens';
 import { stageSignatureEvidence } from './signature-evidence-registry';
 import type { SignatureMethod } from './signature-evidence-storage';
@@ -12,6 +15,9 @@ export interface SignatureSubmissionInput {
   signingToken: string;
   verificationId: string;
   signatureDataUrl: string;
+  initialsDataUrl?: string;
+  manifestSha256?: string | null;
+  completedFieldIds?: string[];
   signatureMethod: SignatureMethod;
   consentAccepted: boolean;
   authorityDeclaration?: string | null;
@@ -24,6 +30,8 @@ export interface SignatureSubmissionResult {
   executionId: string;
   participantId: string;
   signedAt: string;
+  documentVersionId: string;
+  governedFields: boolean;
   remainingParticipants: number;
 }
 
@@ -77,10 +85,19 @@ export async function submitVerifiedSignature(
   const userAgent = optionalText(input.userAgent, 1024);
   const timezone = optionalText(input.timezone, 100);
 
+  const invitation = await validateSigningInvitation(serviceClient, input.signingToken);
+  if (!invitation) throw new Error('Signing invitation unavailable');
+  const manifest = await loadSigningFields(serviceClient, invitation);
+  if (manifest.manifestSha256 && input.manifestSha256 !== manifest.manifestSha256) throw new Error('Signing manifest mismatch');
+  const completedIds = manifest.manifestSha256 ? requireCompletedSigningFields(manifest.fields, input.completedFieldIds) : null;
+  if (manifest.fields.some(f => f.type === 'initial') && !input.initialsDataUrl) {
+    throw new Error('Initials are required');
+  }
   const staged = await stageSignatureEvidence(serviceClient, {
     signingToken: input.signingToken,
     verificationId: input.verificationId,
     dataUrl: input.signatureDataUrl,
+    initialsDataUrl: input.initialsDataUrl,
   });
 
   const { data, error } = await serviceClient.rpc(
@@ -95,6 +112,8 @@ export async function submitVerifiedSignature(
       p_ip_address: ipAddress,
       p_user_agent: userAgent,
       p_timezone: timezone,
+      p_manifest_sha256: manifest.manifestSha256,
+      p_completed_field_ids: completedIds,
     },
   );
 
@@ -123,6 +142,8 @@ export async function submitVerifiedSignature(
     executionId: result.recorded_execution_id,
     participantId: result.recorded_participant_id,
     signedAt: result.recorded_signed_at,
+    documentVersionId: staged.documentVersionId,
+    governedFields: manifest.manifestSha256 !== null,
     remainingParticipants: result.remaining_participants,
   };
 }

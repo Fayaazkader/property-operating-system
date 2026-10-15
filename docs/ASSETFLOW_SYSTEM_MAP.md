@@ -771,3 +771,180 @@ this runtime has no GitHub username/credential helper. Connected GitHub branch
 creation also returned HTTP 403 `Resource not accessible by integration` for the
 authorized dedicated branch. No remote branch or implementation commit was
 published. A local Git bundle and patch accompany this checkpoint for recovery.
+
+## 2026-10-15 governed field signing batch (Work)
+
+This checkpoint extends `e2eeb21` and `30a95e7`; it supersedes their recorded
+manifest/finalisation gaps only where implementation and local evidence below
+explicitly establish progress. Phase 1 remains open.
+
+### Existing canonical behavior preserved
+
+- `lib/execution` remains lifecycle authority. No parallel signing engine added.
+- Existing governed preparation, committed private PDF provenance, signatory
+  nomination, invitation validation/recovery and email OTP infrastructure remain.
+- The latest signature RPC's document/OTP/invitation/evidence/sequence checks are
+  preserved in its replacement. Non-lease signature defaults remain usable and
+  have a dedicated regression test; the lease-only manifest rollout is not forced
+  into generic documents.
+- The original-page renderer from `e2eeb21` is reused. Shared geometry was
+  extracted so preparation rejects unsupported geometry/illegible date fields
+  before an immutable manifest can be frozen.
+- No activation, financial posting or communication-channel business rules were
+  duplicated. WhatsApp/email must dispatch canonical commands with the same
+  authority and evidence when their workstream is reached.
+
+### Implemented contracts and entry points
+
+- `lib/execution/field-manifest.ts`: canonical placement contract. One-based
+  page number, normalized top-left coordinates on displayed crop box. All listed
+  fields are mandatory. Signature, initial and date fields bind participant IDs.
+- `lib/execution/pdf-field-geometry.ts`: canonical crop/rotation transforms and
+  legible date sizing shared by preparation and original-page rendering.
+- `components/leasing/ExecutionFieldEditor.tsx`: authenticated PDF canvas overlay,
+  participant/type selection, click placement, exact rectangle adjustments,
+  removal, save/reload and read-only frozen review. Added to existing workspace.
+  Worker served from own origin at `/api/execution/pdf-worker`; route asset
+  tracing includes the installed worker. No external worker CDN is added here.
+- `/api/execution/[id]/fields`: bearer-authorized entity/source/version checks,
+  actual stored PDF SHA-256/length/page-count verification, canonical placement
+  validation and optimistic-revision RPC save. Private preview uses the same
+  authority. Readiness remains governed by the existing readiness RPC.
+- `execution_field_manifests`: one manifest per document version; binds execution,
+  entity, committed signing PDF ID/hash, full fields, revision, actors and hash.
+  Save requires `leasing.execution.send` and locks execution before dependencies.
+  Exact lost-response retries return the saved revision; stale edits fail.
+- Readiness trigger freezes the draft manifest atomically when moving from
+  `under_review` to `ready`; later signing/executed states require bound immutable
+  source/manifest. Executed state additionally requires both committed artifacts
+  and matching hash/private pointers. No readiness-only frontend bypass exists.
+- `signing-fields.ts`, signer session and signature submission now expose only the
+  invited participant's assigned fields and require the exact frozen hash and
+  every mandatory field ID. The public client captures separate typed initials
+  and explicit per-field confirmation. Dates derive from the database signing
+  timestamp. Typed signing remains the current public method.
+- `execution_signature_evidence` has separate initials path/hash/type/length.
+  Its immutability trigger includes all identity columns. Signature storage now
+  decodes actual PNG/JPEG bytes before upload and checks decoded dimensions.
+  Ambiguous registration errors retain evidence objects for reconciliation rather
+  than risking deletion of an upload that the database may have registered.
+- The canonical signature RPC atomically binds manifest/field completions and
+  initials hash into participant evidence and signing audit. Its old callable
+  nine-argument overload is removed; defaults on the extended function preserve
+  non-lease callers. Governed lease calls without fields fail closed.
+- `finalisation.ts`: trusted server orchestration loads frozen manifest and
+  committed evidence, verifies all downloaded bytes, renders original-page PDF,
+  produces detached certificate, stages content-addressed private objects,
+  verifies storage read-back, commits artifacts, then completes execution.
+- `finalisation-certificate.ts`: actual PDF certificate with execution/version,
+  source/signing/final hashes, manifest hash, participant identity, timestamp,
+  consent/method and retained signature evidence. It is detached so the hash covers
+  the entire executed PDF without circular certificate hashing. Unicode unsupported
+  by the standard font is escaped reversibly; evidence is wrapped/paginated.
+- Finalisation invokes after the last governed signature. Its failure does not
+  report the already-committed signature as failed. The workspace exposes governed
+  recovery through `/api/execution/[id]/finalise`.
+- `/api/execution/[id]/artifacts` uses `leasing.execution.view` plus entity-scoped
+  version lookup. `/api/execution/completed-document` requires an unexpired,
+  consumed, non-revoked signer invitation, its verified email challenge and its
+  committed signature evidence. Both resolve only committed artifact paths,
+  rehash downloaded bytes and return private/no-store responses. Workspace and
+  signer client have download actions. No public storage URL is created.
+- `request-body.ts`: bounded streaming JSON reads, even without Content-Length,
+  used by the new/changed signing preparation, session, submit and recovery APIs.
+
+### Database migrations and rollout controls
+
+Preserved handoff WIP migration `20261015180000_execution_final_artifacts.sql` is
+unchanged. Follow-on migrations correct its known gaps:
+
+1. `20261015190000_execution_field_manifests.sql`: authorized revisioned manifests,
+   immutable freeze/readiness and executed-artifact guards. Rollout explicitly
+   rejects pre-existing advanced governed executions requiring manifest
+   reconciliation; it does not invent retrospective signature positions.
+2. `20261015200000_execution_field_completion.sql`: initials envelope, evidence
+   immutability and canonical signature RPC replacement with mandatory fields.
+3. `20261015210000_harden_execution_finalisation.sql`: common integrity gate,
+   execution-first locks, manifest-bound artifacts, content-hash storage paths,
+   idempotent stage/commit/completion and no direct application artifact writes.
+   Existing duplicate WIP attempts block rollout for explicit reconciliation;
+   none are silently deleted. Conflicting retry bytes fail for recovery.
+
+Execution `sha_hash` transitions from frozen source hash to executed PDF hash at
+completion, as the handoff finalisation intended. The manifest guard recognizes
+only the exact committed final artifact for that transition. Source provenance
+remains in document versions/signing documents/manifest and certificate.
+
+All three new migrations, the unchanged final-artifact migration and the selected
+actual prerequisite DDL/functions are executed in local embedded PostgreSQL tests.
+The full historical Supabase migration chain has NOT been replayed in this batch.
+No production migration or live-data operation was executed. Deployment, including
+all live-schema dependencies, existing records/triggers/grants and migration
+preflight outcomes, requires established-environment review and explicit approval.
+Public signing/OTP flags were not enabled.
+
+### Actual verification and limits
+
+Run: `node --test tests/execution/*.test.mjs`.
+- 107 tests passed, 0 failed, 0 skipped.
+- 45 database/service/API integration tests use actual selected repository schema,
+  actual migrations/RPCs and actual TypeScript signing/finalisation/retrieval
+  services. Supabase transport/storage are local query/byte-map adapters.
+- Fixture permission/auth functions model allowed/denied actors/entities; API
+  authority tests replace JWT transport. These do NOT prove real JWT, deployed
+  `has_entity_permission`, complete production RLS or provider behavior.
+- Tests cover manifest authority and identity, readiness failure/freeze,
+  stale-edit rejection, exact retries, mandatory field completion, sequential
+  signing, replay rejection, distinct initials, immutable evidence/artifacts,
+  path scoping, finalisation outage/recovery, source/storage tampering, private
+  retrieval, expired/foreign verification and executed-state bypass rejection.
+- Injected executed-audit failure rolls back execution completion while preserving
+  committed artifacts for recovery.
+- Interleaved finalisation callers converge on one artifact pair and one completion
+  event. Embedded PostgreSQL uses one connection: real independent-session lock
+  contention, deadlocks and process-crash recovery are NOT proven by that test.
+- Original-page geometry independently rasterized at rotations 0/90/180/270 and
+  nonzero crop origin; PDF operator and field/date rejection tests remain passing.
+- Stream limits, actual image decode/read-back, ambiguous registration preservation
+  and original requirement-ID/title preservation have dedicated tests.
+- `npx tsc --noEmit` and `git diff --check`: passed. No build was run.
+- New UI interactions, PDF worker bundling in a deployment, mobile/accessibility,
+  real invitation/OTP delivery, real Supabase Storage and full lease activation /
+  deposit / rental invoice flows are NOT verified here.
+
+### Master inventory recovered
+
+The original 221 items were found in **To do.docx**, dated 2026-09-30, and read in
+full. Exact extracted source is `docs/requirements/source-20260930.md`.
+`docs/ASSETFLOW_REQUIREMENTS.md` is the single master tracking register: all 221
+original IDs/titles, 32 additional directives and 58 historical unnumbered source
+follow-ups. Original IDs are unchanged; additions use separate namespaces.
+A test checks all 221 imported IDs and exact titles. Historical checkmarks are
+not evidence of current completion. Full reconciliation against implementation
+is pending Phase 1 closure. FLO's original definition remains unresolved.
+
+### Open defects/dependencies and readiness
+
+- Full approval/preparation/provider signing/private distribution/activation/
+  tenant+unit/deposit+initial-rental billing E2E still requires completion and
+  established-environment proof. This checkpoint is NOT Phase 1 closure.
+- Current nomination policy remains two signatories. Configurable witnesses and
+  public drawn/uploaded capture require canonical integration; original items
+  132/134/138/139 stay partial.
+- Draw/upload server capabilities are preserved but not newly exposed as tested
+  public flows. Automatic email/WhatsApp final-document notifications and durable
+  delivery tracking are not established by download endpoints.
+- Existing staged evidence after ambiguous failures is intentionally retained;
+  governed reconciliation/retention tooling remains to be completed. Do not
+  perform ad-hoc storage deletion or rewrite immutable records.
+- Public endpoint rate-limit rollout, POPIA/retention review, real permission/RLS
+  tests, independent-session concurrency, browser and provider tests remain gates
+  before enabling public signing. Existing OTP/invitation limits are preserved.
+- The tested native path uses simple typed signature images and detached evidence;
+  no claim of a cryptographic PAdES/digital-certificate signature is made.
+- Beta: controlled-pilot readiness for this execution domain is not established.
+  Production: not ready. Whole-app percentages are not recalculated from a local
+  signing batch. No unrelated domain or inventory item is declared closed.
+- GitHub publishing remains blocked by missing runtime push credentials and prior
+  integration HTTP 403. No repeat push attempt was made. Commits and complete
+  recovery bundle/patch are the delivery mechanism for this checkpoint.

@@ -24,6 +24,7 @@ export async function stageSignatureEvidence(
     signingToken: string;
     verificationId: string;
     dataUrl: string;
+    initialsDataUrl?: string;
   },
 ): Promise<StagedSignatureEvidence> {
   const invitation = await validateSigningInvitation(
@@ -71,6 +72,17 @@ export async function stageSignatureEvidence(
     dataUrl: args.dataUrl,
   });
 
+  let initials: StoredSignatureEvidence | undefined;
+  try {
+    if (args.initialsDataUrl) initials = await storeSignatureEvidence(serviceClient, {
+      executionId: invitation.execution_id, participantId: invitation.participant_id,
+      invitationId: invitation.invitation_id, dataUrl: args.initialsDataUrl,
+    });
+  } catch (error) {
+    // No registration has been attempted, so these bytes cannot be referenced.
+    await serviceClient.storage.from(storage.bucket).remove([storage.path]).catch(() => undefined);
+    throw error;
+  }
   const evidenceId = randomUUID();
 
   const { error: insertError } = await serviceClient
@@ -88,14 +100,15 @@ export async function stageSignatureEvidence(
       content_type: storage.contentType,
       content_length: storage.contentLength,
       status: 'staged',
+      initials_storage_path: initials?.path ?? null,
+      initials_sha256: initials?.sha256 ?? null,
+      initials_content_type: initials?.contentType ?? null,
+      initials_content_length: initials?.contentLength ?? null,
     });
 
   if (insertError) {
-    await serviceClient.storage
-      .from(storage.bucket)
-      .remove([storage.path])
-      .catch(() => undefined);
-
+    // An insert error may be a lost response after a successful registration.
+    // Preserve both objects for reconciliation; deleting them could erase evidence.
     throw new Error('Unable to register signature evidence');
   }
 

@@ -1,11 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { ExecutionField } from '@/lib/execution/field-manifest';
 
 type Session = {
   participantName: string;
   participantType: string;
   expiresAt: string;
+  manifestSha256: string | null;
+  fields: ExecutionField[];
 };
 
 export default function SigningClient({ token }: { token: string }) {
@@ -15,6 +18,8 @@ export default function SigningClient({ token }: { token: string }) {
   const [code, setCode] = useState('');
   const [verified, setVerified] = useState(false);
   const [signature, setSignature] = useState('');
+  const [initials, setInitials] = useState('');
+  const [completedFields, setCompletedFields] = useState<string[]>([]);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -106,12 +111,14 @@ export default function SigningClient({ token }: { token: string }) {
   }
 
   async function sign() {
-    if (!verified || !consent || !signature.trim()) return;
+    if (!verified || !consent || !signature.trim() || !session || completedFields.length !== session.fields.length ||
+        (session.fields.some(f => f.type === 'initial') && !initials.trim())) return;
 
     setBusy(true);
     setMessage('');
 
     try {
+      function typedImage(value: string) {
       const canvas = document.createElement('canvas');
       canvas.width = 800;
       canvas.height = 180;
@@ -128,7 +135,7 @@ export default function SigningClient({ token }: { token: string }) {
       context.font = '48px cursive';
       context.textBaseline = 'middle';
 
-      const fullName = signature.trim();
+      const fullName = value.trim();
 
       if (context.measureText(fullName).width > 740) {
         throw new Error('Signature is too long');
@@ -136,12 +143,17 @@ export default function SigningClient({ token }: { token: string }) {
 
       context.fillText(fullName, 30, 90);
 
-      const dataUrl = canvas.toDataURL('image/png');
+      return canvas.toDataURL('image/png');
+      }
+      const dataUrl = typedImage(signature);
 
       await post('/api/execution/signing-submit', {
         token,
         verificationId,
         signatureDataUrl: dataUrl,
+        initialsDataUrl: session.fields.some(f => f.type === 'initial') ? typedImage(initials) : undefined,
+        manifestSha256: session.manifestSha256,
+        completedFieldIds: completedFields,
         signatureMethod: 'typed',
         consentAccepted: true,
         authorityDeclaration: 'I confirm that I am authorised to sign this agreement.',
@@ -157,12 +169,28 @@ export default function SigningClient({ token }: { token: string }) {
     }
   }
 
+  async function downloadCompleted(artifactType: 'signed_pdf' | 'execution_certificate') {
+    setBusy(true);
+    try {
+      const response=await fetch('/api/execution/completed-document',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({token,verificationId,artifactType}),cache:'no-store'});
+      if(!response.ok)throw new Error('The completed documents are not yet available. Your signature remains recorded.');
+      const url=URL.createObjectURL(await response.blob());const link=document.createElement('a');link.href=url;link.download=`${artifactType}.pdf`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    } catch(error){setMessage(error instanceof Error?error.message:'Document unavailable.');}
+    finally{setBusy(false);}
+  }
+
   return (
     <main className="mx-auto max-w-5xl p-6 space-y-6">
       <h1 className="text-2xl font-semibold">AssetFlow Secure Signing</h1>
 
       {complete ? (
-        <p role="status">{message}</p>
+        <section className="space-y-3">
+          <p role="status">{message}</p>
+          <p>Completed documents become available after all signatories have signed.</p>
+          <button disabled={busy} onClick={() => void downloadCompleted('signed_pdf')} className="border rounded px-3 py-2">Download executed agreement</button>
+          <button disabled={busy} onClick={() => void downloadCompleted('execution_certificate')} className="border rounded px-3 py-2">Download certificate</button>
+        </section>
       ) : (
         <>
           {session && <p>Signing as {session.participantName}</p>}
@@ -211,13 +239,26 @@ export default function SigningClient({ token }: { token: string }) {
                 className="w-full border rounded px-3 py-2"
               />
 
+              {session?.fields.some(f => f.type === 'initial') && <input
+                aria-label="Type your initials" value={initials} onChange={e => setInitials(e.target.value)}
+                maxLength={20} placeholder="Your initials" className="w-full border rounded px-3 py-2" />}
+              <fieldset className="space-y-2">
+                <legend className="font-semibold">Confirm each required field</legend>
+                {session?.fields.map((field, index) => <label key={field.id} className="flex items-start gap-2">
+                  <input type="checkbox" checked={completedFields.includes(field.id)}
+                    onChange={e => setCompletedFields(previous => e.target.checked ? [...previous, field.id] : previous.filter(id => id !== field.id))} />
+                  <span>{index + 1}. Page {field.page}: {field.type === 'date' ? 'Record my signing date (UTC)' : `Apply my ${field.type === 'initial' ? 'initials' : 'signature'}`}</span>
+                </label>)}
+              </fieldset>
+
               <label className="flex items-start gap-2">
                 <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} />
                 <span>I have reviewed the agreement and consent to sign it electronically. I confirm that I am authorised to sign.</span>
               </label>
 
               <button
-                disabled={busy || !consent || !signature.trim()}
+                disabled={busy || !consent || !signature.trim() || !session || completedFields.length !== session.fields.length ||
+                  (session.fields.some(f => f.type === 'initial') && !initials.trim())}
                 onClick={sign}
                 className="border rounded px-5 py-3 font-semibold"
               >

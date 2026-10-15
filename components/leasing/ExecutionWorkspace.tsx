@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import dynamic from 'next/dynamic';
+const ExecutionFieldEditor = dynamic(() => import('./ExecutionFieldEditor'), { ssr: false });
 
 type Participant = {
   id: string;
@@ -256,6 +258,11 @@ export default function ExecutionWorkspace({
             </div>
           )}
 
+          {prepared && tenant && landlord && (
+            <ExecutionFieldEditor key={`${execution.id}:${execution.status}`} executionId={execution.id} entityId={entityId}
+              participants={participants} editable={execution.status === 'under_review'} onSaved={() => setNotice('Field placements saved.')} />
+          )}
+
           {execution.status === 'under_review' && prepared &&
             tenant && landlord && (
               <button
@@ -316,6 +323,25 @@ export default function ExecutionWorkspace({
             )}
 
 
+
+          {version && execution.status === 'partially_signed' && participants.length > 0 && participants.every(p => p.signed_at) && (
+            <button type="button" disabled={busy} className={inputClass} onClick={() => void run(async () => {
+              await post(`/api/execution/${execution.id}/finalise`, { entityId, documentVersionId: version.id });
+              return 'Executed agreement and certificate verified and committed.';
+            })}>Recover final executed documents</button>
+          )}
+
+          {version && ['executed','activated'].includes(execution.status) && (
+            <div className="flex gap-3">{(['signed_pdf','execution_certificate'] as const).map(kind => <button key={kind} type="button" disabled={busy} className={inputClass}
+              onClick={() => void run(async () => {
+                const {data:{session}}=await supabase.auth.getSession();
+                if(!session)throw new Error('Your session has expired.');
+                const response=await fetch(`/api/execution/${execution.id}/artifacts?entityId=${entityId}&documentVersionId=${version.id}&artifactType=${kind}`,{headers:{Authorization:`Bearer ${session.access_token}`},cache:'no-store'});
+                if(!response.ok)throw new Error('Executed document unavailable.');
+                const url=URL.createObjectURL(await response.blob());const link=document.createElement('a');link.href=url;link.download=`${kind}.pdf`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+                return 'Executed document downloaded.';
+              })}>{kind==='signed_pdf'?'Download executed agreement':'Download certificate'}</button>)}</div>
+          )}
 
           <button
             type="button"

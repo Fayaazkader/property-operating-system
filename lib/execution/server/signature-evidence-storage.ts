@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createHash, randomUUID } from 'node:crypto';
+import { PDFDocument } from 'pdf-lib';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const BUCKET = 'execution-evidence';
@@ -117,6 +118,13 @@ export async function storeSignatureEvidence(
     args.dataUrl,
   );
 
+  // Decode the actual image before committing a signing event. Magic bytes alone
+  // cannot establish usable evidence, especially truncated JPEG/PNG uploads.
+  const imageDocument = await PDFDocument.create();
+  const image = contentType === 'image/png' ? await imageDocument.embedPng(bytes) : await imageDocument.embedJpg(bytes);
+  if (image.width < 1 || image.height < 1 || image.width > 4096 || image.height > 4096) {
+    throw new Error('Signature image dimensions exceed limit');
+  }
   const extension = contentType === 'image/png' ? 'png' : 'jpg';
 
   const path = [

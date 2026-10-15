@@ -1,20 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { createRequire } from 'node:module';
+import { loadTypeScript } from './load-typescript.mjs';
 import { createHash } from 'node:crypto';
 import { PDFDocument, degrees, PDFRawStream, decodePDFRawStream } from 'pdf-lib';
-const require = createRequire(import.meta.url);
-const ts = require('typescript');
-const output = ts.transpileModule(readFileSync('lib/execution/server/finalisation-pdf.ts', 'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-}).outputText;
-const module = { exports: {} };
-new Function('require', 'module', 'exports', output)(name => name === 'server-only' ? {} : require(name), module, module.exports);
-const { assembleExecutedPdf } = module.exports;
+const { assembleExecutedPdf } = loadTypeScript('lib/execution/server/finalisation-pdf.ts');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==', 'base64');
 async function fixture(angle = 0) {
