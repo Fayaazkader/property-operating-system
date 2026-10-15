@@ -915,7 +915,7 @@ Run: `node --test tests/execution/*.test.mjs`.
 ### Master inventory recovered
 
 The original 221 items were found in **To do.docx**, dated 2026-09-30, and read in
-full. Exact extracted source is `docs/requirements/source-20260930.md`.
+full. Extracted source (trailing whitespace normalized) is `docs/requirements/source-20260930.md`.
 `docs/ASSETFLOW_REQUIREMENTS.md` is the single master tracking register: all 221
 original IDs/titles, 32 additional directives and 58 historical unnumbered source
 follow-ups. Original IDs are unchanged; additions use separate namespaces.

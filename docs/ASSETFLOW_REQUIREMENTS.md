@@ -6,7 +6,7 @@ code exists. Original numbered IDs are preserved verbatim; new requirements use
 
 Source: **To do.docx**, 2026-09-30, Library identity
 `libfile_7f7bba85f6a481919819846fc3311aa2`, read in full (16 pages).
-The exact extracted source is archived in `docs/requirements/source-20260930.md`.
+The extracted source (trailing whitespace normalized) is archived in `docs/requirements/source-20260930.md`.
 Historical source checkmarks and descriptions are not current verification.
 The 221-item source has been recovered and imported, **not fully reconciled**.
 FLO's original intended definition is not established by this source or the
