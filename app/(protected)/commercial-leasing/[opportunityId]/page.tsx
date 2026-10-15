@@ -1,5 +1,6 @@
 'use client';
 
+import { ParkingTermsFields } from '@/components/leasing/ParkingTermsFields';
 import {
   FormEvent,
   ReactNode,
@@ -72,6 +73,7 @@ interface Opportunity {
   beneficial_occupation_date: string | null;
 
   parking_bays: number | null;
+  parking_rate:number|null;parking_vat_treatment:string|null;parking_tax_code:string|null;
   storage_allocation: string | null;
   negotiation_notes: string | null;
 
@@ -113,6 +115,7 @@ interface CommercialSnapshot {
   beneficialOccupationDate?: string | null;
 
   parkingBays?: number | null;
+  parkingRate?:number|null;parkingVatTreatment?:string|null;parkingTaxCode?:string|null;
   storageAllocation?: string | null;
   negotiationNotes?: string | null;
 
@@ -182,6 +185,7 @@ interface FormState {
   beneficialOccupationDate: string;
 
   parkingBays: string;
+  parkingRate:string;parkingVatTreatment:string;parkingTaxCode:string;
   storageAllocation: string;
   negotiationNotes: string;
 }
@@ -249,6 +253,7 @@ function toForm(opportunity: Opportunity): FormState {
       opportunity.beneficial_occupation_date || '',
 
     parkingBays: value(opportunity.parking_bays ?? 0),
+    parkingRate:value(opportunity.parking_rate),parkingVatTreatment:opportunity.parking_vat_treatment||'',parkingTaxCode:opportunity.parking_tax_code||'',
     storageAllocation: opportunity.storage_allocation || '',
     negotiationNotes: opportunity.negotiation_notes || '',
   };
@@ -662,6 +667,7 @@ export default function CommercialLeasingOpportunityPage() {
           form.beneficialOccupationDate || null,
 
         parkingBays: optionalNumber(form.parkingBays),
+        parkingRate:optionalNumber(form.parkingRate),parkingVatTreatment:form.parkingVatTreatment?(form.parkingVatTreatment as 'exclusive'|'inclusive'|'not_applicable'):null,parkingTaxCode:form.parkingTaxCode||null,
         storageAllocation: form.storageAllocation,
         brokerId: opportunity.broker_id,
         negotiationNotes: form.negotiationNotes,
@@ -721,6 +727,7 @@ export default function CommercialLeasingOpportunityPage() {
           form.beneficialOccupationDate || null,
 
         parkingBays: optionalNumber(form.parkingBays),
+        parkingRate:optionalNumber(form.parkingRate),parkingVatTreatment:form.parkingVatTreatment?(form.parkingVatTreatment as 'exclusive'|'inclusive'|'not_applicable'):null,parkingTaxCode:form.parkingTaxCode||null,
         storageAllocation: form.storageAllocation,
         brokerId: opportunity.broker_id,
         negotiationNotes: form.negotiationNotes,
@@ -1244,7 +1251,8 @@ export default function CommercialLeasingOpportunityPage() {
                 />
               </Field>
 
-              <Field label="Storage">
+              <div className="sm:col-span-2"><ParkingTermsFields entityId={opportunity.entity_id} rate={form.parkingRate} vatTreatment={form.parkingVatTreatment} taxCode={form.parkingTaxCode} disabled={!editable} onRate={v=>setField('parkingRate',v)} onVatTreatment={v=>setField('parkingVatTreatment',v)} onTaxCode={v=>setField('parkingTaxCode',v)}/></div>
+<Field label="Storage">
                 <input
                   value={form.storageAllocation}
                   onChange={(event) =>
@@ -1547,6 +1555,9 @@ function ApprovalWorkspace({
       ? '—'
       : String(snapshot.parkingBays),
   ],
+  ['Parking price per bay',formatMoney(snapshot.parkingRate)],
+  ['Parking VAT treatment',snapshot.parkingVatTreatment||'—'],
+  ['Parking tax classification',snapshot.parkingTaxCode||'—'],
   ['Storage', snapshot.storageAllocation || '—'],
 ];
 

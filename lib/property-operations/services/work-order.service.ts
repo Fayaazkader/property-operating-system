@@ -1,6 +1,7 @@
 // lib/property-operations/services/work-order.service.ts
 // Work Order Service — Business Logic Layer
 
+import { supabase } from '@/lib/supabase';
 import { ServiceResult } from "@/lib/platform/types";
 import { workOrderRepository } from '../repositories/work-order.repository';
 import { CreateWorkOrderParams, UpdateWorkOrderParams, WorkOrder, WorkOrderStatus } from '../work-orders/work-order.types';
@@ -10,6 +11,12 @@ import { slaEngine } from '@/lib/platform/policies/sla.engine';
 
 export class WorkOrderService {
   private repository = workOrderRepository;
+
+  async prepareFromIssue(issueId:string,entityId:string,propertyId:string):Promise<ServiceResult<WorkOrder & {entity_id:string;issue_id:string;tenant_chargeable:boolean}>> {
+    const {data,error}=await supabase.rpc('prepare_maintenance_work_order',{p_entity_id:entityId,p_issue_id:issueId,p_property_id:propertyId});
+    if(error||!data?.id||data.entity_id!==entityId||data.issue_id!==issueId||data.property_id!==propertyId||typeof data.tenant_chargeable!=='boolean')return {error:{code:'WORK_ORDER_PREPARATION_FAILED',message:error?.message||'Work order preparation requires recovery'}};
+    return {data:data as WorkOrder & {entity_id:string;issue_id:string;tenant_chargeable:boolean}};
+  }
 
   async create(params: CreateWorkOrderParams, entityId: string): Promise<ServiceResult<WorkOrder>> {
     const slaDeadline = slaEngine.calculateResponseDeadline(

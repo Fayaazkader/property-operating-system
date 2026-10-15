@@ -1057,3 +1057,150 @@ including 75 database/service cases; `npx tsc --noEmit` and `git diff --check`
 passed. No browser/provider/deployed-Supabase pass is claimed. Full-list recovery
 artifacts include complete diffs and logs. Beta and production readiness remain
 unestablished; local commencement integration is implemented and tested.
+
+## 2026-10-15 canonical maintenance preparation checkpoint
+
+### Existing implementation and defects
+
+Both `lib/maintenance/engine.ts` and the property operations service used the
+same `work_orders` table with different creation logic and status vocabularies.
+The issue-based creator inserted a nonexistent `category` column, omitted issue
+unit/tenant context, advanced issue state before verified work and relied on
+non-durable events. The issue workspace's Create Work Order control had no
+handler. Unit defaults `vacant`/`active` also violated the existing CHECK values.
+
+### Implemented path
+
+`MaintenanceEngine.createWorkOrder` now delegates to
+`WorkOrderService.prepareFromIssue`, which calls `prepare_maintenance_work_order`.
+Existing property operations records, `work_order_events`, `property_timeline`,
+maintenance issues and entity SLA configuration remain canonical. No separate
+maintenance product, approval engine or channel-specific business logic was added.
+
+Migration `20261016020000_prepare_maintenance_work_order.sql`:
+- Explicit `maintenance.work_order.create`, with no automatic role grants.
+- Locks the issue, validates entity/property/unit/tenant/lease/asset context,
+  detects conflicting historical duplicates and recovers exactly one existing
+  order. Does not delete or overwrite those duplicates.
+- Maps existing issue priorities to the existing property work-order vocabulary.
+  Requires exactly one active configured SLA, preserving deadline origin at the
+  original report time. A response breach already reached is flagged immediately.
+- Creates one **reported** preparation record, original issue link, actor evidence,
+  work-order event and property timeline in one transaction. It does not advance
+  issue progress, approve expenditure, assign a supplier, create an invoice or
+  claim the job is completed. Original channel remains on the linked issue.
+- Protects issue-bound context from browser insertion/rebinding, prevents deleting
+  the prepared work order and makes work-order audit history immutable.
+- Corrects unit defaults only; no operational data backfill is performed.
+
+The issue workspace uses `PrepareWorkOrderAction` with an actual command,
+recoverable errors, busy/committed states and 44px actions. It now handles loading
+failures/retry, uses theme tokens and stacks the timeline/details on smaller
+screens. Unwired quote/assignment controls are explicitly unavailable. The UI
+fixture/browser runner includes the same actual action component and a synthetic
+failure/retry adapter; it is executable but not browser-verified here.
+
+### Actual verification and remaining gates
+
+Nine maintenance integration tests pass against selected actual PostgreSQL DDL,
+with actual maintenance and property service entry points. Tests cover permission
+and context denial, missing SLA rollback, original SLA origin/breach, retained
+asset, terminal/duplicate issue rejection, audit failure/atomic retry, single
+canonical event and prevention of browser rebinding/deleting audit evidence.
+The source fixture includes a WhatsApp-origin issue; this does **not** verify
+WhatsApp ingestion, sender identity, provider delivery or the whole channel flow.
+
+Flagship maintenance remains partial: quotation requests, delegated approval
+limits, emergency authority, contractor assignment/acceptance, visit evidence,
+verified completion, supplier invoice/budget/cost allocation and notification
+recovery still need integration. Other work-order transition/assignment paths
+remain competing mutation boundaries and are not certified by this preparation
+command. Tenant-charge approval and emergency bypass are not invented here.
+
+### Final batch checks and readiness
+
+- 165 tests passed using `node --test tests/execution/*.test.mjs tests/maintenance/*.test.mjs`.
+- 10 financial date/period tests passed using native TypeScript execution.
+- 8 native document-conversion tests passed (overlapping domain coverage, not
+  eight additional certified workflow legs).
+- `npx tsc --noEmit` and `git diff --check` passed. No build was run.
+- Financial recovery now restores the originally issued payment-term selection
+  and rejects missing tenant ledger evidence. Manual and executed lease first
+  periods use the same approved commencement authority. Both `once` and legacy
+  `once_off` schedules cannot repeat; expired/unknown rules cannot silently bill.
+- Five new migrations were exercised locally with selected real DDL and fixture
+  authority/RLS; none deployed. Full Supabase migration/JWT/RLS, independent DB
+  sessions, browser and provider verification remain mandatory environment gates.
+- Local browser dependency: Playwright is present but its browser binaries are
+  absent. The separate cloud browser previously returned ERR_CONNECTION_REFUSED
+  for localhost; it cannot certify this isolated UI. No screenshot/AA/mobile pass
+  is claimed. Real invitation/OTP, Storage and document delivery need configured
+  controlled providers and the established Supabase test environment.
+- Beta: complete controlled-pilot workflow readiness not established. Production:
+  not ready. Confidence is high for the listed local results and limited for
+  deployed/channel/UI behavior. Phase 1 is not certified complete.
+
+Next coherent operational priority: integrate maintenance quotation/approval and
+contractor assignment through the canonical work-order command boundary, then
+visit/completion and supplier financial processing. In parallel preparation for
+independent review, validate full migration order and explicit new capabilities
+in the established non-production environment. Shared supplier posting/reversal
+and historical deposit/tenant projections remain financial gates; see the master
+register's defect evidence. No production data, deployment, main merge or repeated
+GitHub push attempt occurred. Publishing remains blocked by prior HTTP 403.
+
+
+### Explicit commercial tax authority and lease-specific tenant policy
+
+Checkpoint extends 810b60f without replacing the canonical workflow. Migrations
+`20261016030000_explicit_commencement_tax_classification.sql` and
+`20261016040000_govern_commercial_parking_terms.sql` are locally exercised,
+**not deployed**. They replace existing canonical functions in place; the changed
+create/update/manual-activation signatures remove the former overloads explicitly.
+Full dependency/migration-order validation in isolated Supabase remains required.
+
+- Positive parking charges require an agreed rate, explicit inclusive/exclusive/
+  not-applicable treatment and an unambiguous active entity tax mapping. Parking
+  uses the configured `parking_income` role, not utility recovery income.
+- Actual opportunity create/update RPCs and forms carry these terms. Commercial
+  submission freezes them in the version snapshot, rejects incomplete parking
+  and prohibits resubmission from later lifecycle states. Generation resolves
+  only that snapshot and requires approved document mappings for all four parking
+  fields when bays are allocated. Existing templates need governed mapping review;
+  no silent omission or automatic template approval is introduced.
+- Positive lease fees require explicit billing-policy tax treatment/code.
+  Inclusive amounts split into rounded net and VAT; refundable deposits remain
+  NO_VAT. Tax is configured per entity. Unapproved review hashes become stale on
+  tax changes; approved charge evidence is not recomputed at invoice issuance.
+- Billing policy UI exposes entity-scoped classification, loading/error/retry
+  and permission-aware controls. The database enforces the new explicit
+  `finance.billing_policy.manage` capability; it is **not auto-granted**.
+  `maintenance.work_order.create` and `finance.journal.post` similarly require
+  deliberate role setup in the non-production validation environment.
+- Each new lease creates its own tenant account, including identical legal names
+  and VAT numbers. No automatic merge or VAT uniqueness blocker. Manual guided
+  capture requires explicit contractual VAT/deposit/escalation, selected context
+  and fresh validation. Server transaction rejects inactive/foreign property,
+  inactive/foreign unit and overlapping operational lease dates.
+- The legacy tenant-upload UI had mock OCR and public storage URLs. It now directs
+  document preparation/execution to `/commercial-leasing`; the legacy intake
+  activation API returns `410 GOVERNED_ACTIVATION_REQUIRED` with that workspace.
+  It cannot guess rent/deposit/parking/tax and activate an ungoverned intake.
+  This is a deliberate fail-closed behavior change, not completed imported-lease
+  OCR. Controlled historical executed-lease import, document registration and
+  recoverable manual activation still require a dedicated verified workflow.
+
+Additional local tests cover real create/update/submission-to-generation values,
+required parking mappings, stale submission/edit rejection, incomplete parking,
+inclusive fee/parking, explicit non-VAT parking, changed and ambiguous tax maps,
+policy permission denial, separate lease tenant identities, manual explicit terms,
+inactive property and the retired legacy endpoint. Actual signing/PDF-finalisation
+and invoice/GL/tenant report tests remain preserved. The end-to-end scope is local
+canonical services with selected real DDL, fixture auth and storage transport;
+it is not a deployed full-application/provider journey.
+
+The original 221 + 32 additional + 58 source follow-up requirements remain in the
+single register. Whole-platform reconciliation is still incomplete. Deposit
+receipts/reconciliation/refunds/reversals, recurring issuance, supplier atomic
+posting, maintenance quote/authority/contractor/completion and WhatsApp provider
+integration remain explicit open gates. No beta or production certification.

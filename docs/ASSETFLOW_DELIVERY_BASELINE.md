@@ -1,7 +1,7 @@
 # AssetFlow delivery baseline — 2026-10-15
 
-Historical baseline at dd0bbab. The later commencement-invoice/shared-financial
-checkpoint in ASSETFLOW_SYSTEM_MAP.md supersedes its blocked invoice notes;
+Historical baseline at dd0bbab. The later commencement-invoice/shared-financial and maintenance
+checkpoints in ASSETFLOW_SYSTEM_MAP.md supersede its blocked invoice notes;
 remaining recurring, deposit receipt, provider and deployed-environment gates
 remain open.
 

@@ -75,6 +75,7 @@ export async function getBusinessRoles(): Promise<string[]> {
     'recovery_operating',
     'penalty_income',
     'fee_income',
+    'parking_income',
     'interest_income',
     'deposit_liability',
     'vat_output',

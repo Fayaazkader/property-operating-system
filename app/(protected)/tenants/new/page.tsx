@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { leaseActivationService } from '@/lib/workflow/services/lease-activation-service';
-import { documentExtractionProvider } from '@/lib/workflow/services/document-extraction-provider';
-import { duplicateDetectionService } from '@/lib/workflow/services/duplicate-detection-service';
+import { ParkingTermsFields } from '@/components/leasing/ParkingTermsFields';
 import { validationService } from '@/lib/workflow/services/validation-service';
 import Link from 'next/link';
 import { Upload, Camera, Edit3, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
@@ -38,7 +37,8 @@ export default function LeaseActivationPage() {
   const [entityId, setEntityId] = useState('');
   const [extractedFields, setExtractedFields] = useState<Record<string, { value: string; confidence: number }>>({});
   const [exceptions, setExceptions] = useState<Array<{ field: string; message: string; severity: string }>>([]);
-  const [duplicates, setDuplicates] = useState<any>(null);
+  const [rentalVatTreatment,setRentalVatTreatment]=useState('');const [parkingVatTreatment,setParkingVatTreatment]=useState('');const [parkingTaxCode,setParkingTaxCode]=useState('');
+  const [reviewPropertyId,setReviewPropertyId]=useState('');const [reviewUnitId,setReviewUnitId]=useState('');
   const [validationResult, setValidationResult] = useState<any>(null);
   const [billableItems, setBillableItems] = useState<Array<{ id: string; description: string; amount: number; selected: boolean }>>([]);
   const [result, setResult] = useState<any>(null);
@@ -60,8 +60,7 @@ export default function LeaseActivationPage() {
   useEffect(() => {
   async function init() {
     const { data: entities } = await supabase.rpc('auth_entities');
-    console.log('AUTH USER:', (await supabase.auth.getUser()).data.user);
-console.log('AUTH ENTITIES:', entities);
+
 
     if (entities?.length) {
       setEntityId(entities[0]);
@@ -83,69 +82,15 @@ console.log('AUTH ENTITIES:', entities);
     setUnits(data || []);
   }
 
-  // Real file upload to Supabase Storage
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    setStep('extraction');
-
-    // Upload to Supabase Storage
-    const filePath = `leases/${entityId}/${Date.now()}-${file.name}`;
-    const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file);
-    
-    if (uploadError) {
-      alert('Upload failed: ' + uploadError.message);
-      setStep('choose');
-      setUploading(false);
-      return;
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath);
-    const fileUrl = urlData?.publicUrl || '';
-
-    // Extract (mock OCR for now)
-    const result = await documentExtractionProvider.extract(Buffer.from([]), file.name);
-    setExtractedFields(result.fields);
-    setExceptions(result.exceptions);
-
-    // Store file reference for later attachment
-    setExtractedFields(prev => ({
-      ...prev,
-      _document_name: { value: file.name, confidence: 100 },
-      _document_url: { value: fileUrl, confidence: 100 },
-    }));
-
-    setBillableItems([
-      { id: 'rent', description: 'Base Rent', amount: parseFloat(result.fields.monthly_rental?.value || '0'), selected: true },
-      { id: 'parking', description: 'Parking', amount: (parseInt(result.fields.parking_bays?.value || '0') * parseFloat(result.fields.parking_rate?.value || '0')), selected: true },
-      { id: 'deposit', description: 'Deposit', amount: parseFloat(result.fields.deposit_amount?.value || '0'), selected: true },
-    ]);
-
-    const dup = await duplicateDetectionService.check(result.fields.tenant_name?.value || '', result.fields.vat_number?.value || '');
-    setDuplicates(dup);
-
-    const val = await validationService.validate({
-      tenantName: result.fields.tenant_name?.value || '',
-      vatNumber: result.fields.vat_number?.value || '',
-      unitId: units[0]?.id || '',
-      propertyId: properties[0]?.id || '',
-      leaseStart: result.fields.lease_start_date?.value || '',
-      leaseEnd: result.fields.lease_end_date?.value || '',
-      entityId,
-    });
-    setValidationResult(val);
-    setBlocked(val.isBlocking || dup.isBlocking);
-    setStep('review');
-    setUploading(false);
-  }
-
   async function handleActivate(data: any, isManual: boolean) {
-    if (blocked && !isManual) return;
-    setStep('processing');
+    if(!rentalVatTreatment)return alert('Select the agreed rental VAT treatment before activation.');
+    if(!isManual&&(!reviewPropertyId||!reviewUnitId))return alert('Select the actual property and unit before activation.');
     try {
+      const value=(key:string)=>isManual?data[key]:data[key]?.value;
+      const validation=await validationService.validate({tenantName:value('tenant_name')??'',vatNumber:value('vat_number')??'',unitId:isManual?data.unit_id:reviewUnitId,propertyId:isManual?data.property_id:reviewPropertyId,leaseStart:value('lease_start_date')??'',leaseEnd:value('lease_end_date')??'',entityId});
+      setValidationResult(validation);setBlocked(validation.isBlocking);
+      if(validation.isBlocking)throw new Error(validation.checks.filter(c=>!c.passed&&c.blocking).map(c=>c.message).join('. '));
+      setStep('processing');
       const res = await leaseActivationService.execute({
         entityId,
         tenantName: isManual ? data.tenant_name : data.tenant_name?.value,
@@ -153,15 +98,16 @@ console.log('AUTH ENTITIES:', entities);
         vatNumber: isManual ? data.vat_number : data.vat_number?.value,
         email: isManual ? data.email : data.email?.value,
         phone: isManual ? data.phone : data.phone?.value,
-        propertyId: isManual ? data.property_id : (data.property_id || properties[0]?.id),
-        unitId: isManual ? data.unit_id : (data.unit_id || units[0]?.id),
+        propertyId: isManual ? data.property_id : reviewPropertyId,
+        unitId: isManual ? data.unit_id : reviewUnitId,
         monthlyRental: parseFloat(isManual ? data.monthly_rental : (data.monthly_rental?.value || '0')),
         leaseStartDate: isManual ? data.lease_start_date : data.lease_start_date?.value,
         leaseEndDate: isManual ? data.lease_end_date : data.lease_end_date?.value,
-        escalationPercent: parseFloat(isManual ? data.escalation_percent : (data.escalation_percent?.value || '8')),
-        depositAmount: parseFloat(isManual ? data.deposit_amount : (data.deposit_amount?.value || data.monthly_rental?.value || '0')),
+        escalationPercent: parseFloat(isManual ? data.escalation_percent : (data.escalation_percent?.value || '')),
+        depositAmount: parseFloat(isManual ? data.deposit_amount : (data.deposit_amount?.value || '')),
         parkingBays: parseInt(isManual ? data.parking_bays : (data.parking_bays?.value || '0')),
-        parkingRate: parseFloat(isManual ? data.parking_rate : (data.parking_rate?.value || '850')),
+        parkingRate: parseFloat(isManual ? data.parking_rate : (data.parking_rate?.value || '')),
+        rentalVatTreatment:rentalVatTreatment as 'exclusive'|'inclusive'|'not_applicable',parkingVatTreatment:parkingVatTreatment?(parkingVatTreatment as 'exclusive'|'inclusive'|'not_applicable'):null,parkingTaxCode:parkingTaxCode||null,
         documentFile: isManual ? undefined : { name: data._document_name?.value, url: data._document_url?.value },
       });
       setResult(res);
@@ -188,27 +134,10 @@ console.log('AUTH ENTITIES:', entities);
           <div className="space-y-4">
             <p className="text-sm text-zinc-400 font-light mb-6">How would you like to create this tenant?</p>
             
-            <label className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.03] p-6 text-left hover:border-emerald-500/30 transition-all block cursor-pointer">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center"><Upload className="w-5 h-5 text-emerald-400" /></div>
-                <div>
-                  <p className="text-sm font-medium text-white">Upload Executed Lease <span className="text-[10px] text-emerald-400 ml-2">Recommended</span></p>
-                  <p className="text-xs text-zinc-500 mt-1">Upload a PDF. AssetFlow extracts tenant, lease terms, and billing rules.</p>
-                </div>
-              </div>
-              <input type="file" accept=".pdf,.doc,.docx,image/*" onChange={handleFileUpload} className="hidden" />
-            </label>
-
-            <label className="w-full rounded-2xl border border-white/[0.06] bg-white/[0.01] p-6 text-left hover:border-white/[0.1] transition-all block cursor-pointer">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center"><Camera className="w-5 h-5 text-blue-400" /></div>
-                <div>
-                  <p className="text-sm font-medium text-white">Scan Document</p>
-                  <p className="text-xs text-zinc-500 mt-1">Use your camera to scan a paper lease. Same extraction pipeline.</p>
-                </div>
-              </div>
-              <input type="file" accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" />
-            </label>
+            <Link href="/commercial-leasing" className="block rounded-2xl border border-[var(--border-subtle)] p-6 focus-visible:outline focus-visible:outline-2">
+              <p className="text-sm font-medium text-[var(--text-primary)]">Governed lease preparation and execution</p>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">Prepare documents, review commercial terms and complete signing in the leasing workspace.</p>
+            </Link>
 
             <button onClick={() => setStep('manual')} className="w-full rounded-2xl border border-white/[0.06] bg-white/[0.01] p-6 text-left hover:border-white/[0.1] transition-all">
               <div className="flex items-start gap-4">
@@ -240,7 +169,7 @@ console.log('AUTH ENTITIES:', entities);
             {blocked && (
               <div className="rounded-xl border border-red-500/20 bg-red-500/[0.03] p-4">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-red-400 mb-2 font-medium flex items-center gap-2"><XCircle className="w-3 h-3" /> Cannot proceed</p>
-                {duplicates?.isBlocking && <p className="text-xs text-red-300/80 font-light">VAT number already exists in the system.</p>}
+                <p className="text-xs text-[var(--text-secondary)]">Every lease creates its own tenant account, including leases for the same legal company.</p>
                 {validationResult?.checks?.filter((c: any) => !c.passed && c.blocking).map((c: any, i: number) => <p key={i} className="text-xs text-red-300/80 font-light">{c.message}</p>)}
               </div>
             )}
@@ -272,6 +201,11 @@ console.log('AUTH ENTITIES:', entities);
               ))}
             </div>
 
+            <div className="space-y-3">
+              <label className="block text-sm">Property<select className="af-control block w-full bg-[var(--bg-secondary)]" value={reviewPropertyId} onChange={e=>{setReviewPropertyId(e.target.value);setReviewUnitId('');void loadUnits(e.target.value);}}><option value="">Select the property</option>{properties.map(p=><option key={p.id} value={p.id}>{p.property_name}</option>)}</select></label>
+              <label className="block text-sm">Unit<select className="af-control block w-full bg-[var(--bg-secondary)]" value={reviewUnitId} onChange={e=>setReviewUnitId(e.target.value)}><option value="">Select the unit</option>{units.map(u=><option key={u.id} value={u.id}>{u.unit_number} · {u.occupancy_status}</option>)}</select></label>
+              <ParkingTermsFields entityId={entityId} rate={extractedFields.parking_rate?.value??''} vatTreatment={parkingVatTreatment} taxCode={parkingTaxCode} onRate={value=>setExtractedFields(p=>({...p,parking_rate:{value,confidence:100}}))} onVatTreatment={setParkingVatTreatment} onTaxCode={setParkingTaxCode}/>
+            </div>
             {billableItems.length > 0 && (
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-5">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-3 font-medium">Billable Items</p>
@@ -297,7 +231,7 @@ console.log('AUTH ENTITIES:', entities);
             )}
 
             <div className="flex gap-3">
-              <button onClick={() => handleActivate(extractedFields, false)} disabled={blocked} className="flex-1 rounded-xl bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed">
+              <button onClick={() => handleActivate(extractedFields, false)} disabled={!reviewPropertyId||!reviewUnitId||!rentalVatTreatment} className="flex-1 rounded-xl bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed">
                 {blocked ? 'Resolve issues above' : 'Confirm & Activate'}
               </button>
               <button onClick={() => setStep('manual')} className="rounded-xl border border-white/[0.08] px-6 py-3 text-sm text-zinc-400 hover:text-white">Edit Manually</button>
@@ -306,6 +240,7 @@ console.log('AUTH ENTITIES:', entities);
         )}
 
         {/* MANUAL ENTRY */}
+        {['manual','review'].includes(step)&&<label className="block text-sm">Agreed rental VAT treatment<select className="af-control mt-2 block w-full bg-[var(--bg-secondary)]" value={rentalVatTreatment} onChange={e=>setRentalVatTreatment(e.target.value)}><option value="">Select explicit treatment</option><option value="exclusive">Excludes VAT</option><option value="inclusive">Includes VAT</option><option value="not_applicable">Not applicable</option></select></label>}
         {step === 'manual' && (
           <form onSubmit={(e) => { e.preventDefault(); handleActivate(manual, true); }} className="space-y-6">
             <div className="space-y-4">
@@ -354,7 +289,7 @@ console.log('AUTH ENTITIES:', entities);
                 <input type="number" placeholder="Deposit (R)" value={manual.deposit_amount} onChange={(e) => setManual({ ...manual, deposit_amount: e.target.value })} className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
                 <input type="number" placeholder="Parking Bays" value={manual.parking_bays} onChange={(e) => setManual({ ...manual, parking_bays: e.target.value })} className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
               </div>
-              <input type="number" placeholder="Rate per Bay (R)" value={manual.parking_rate} onChange={(e) => setManual({ ...manual, parking_rate: e.target.value })} className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white outline-none focus:border-white/20" />
+              <ParkingTermsFields entityId={entityId} rate={manual.parking_rate} vatTreatment={parkingVatTreatment} taxCode={parkingTaxCode} onRate={value=>setManual(p=>({...p,parking_rate:value}))} onVatTreatment={setParkingVatTreatment} onTaxCode={setParkingTaxCode}/>
             </div>
 
             <button type="submit" className="w-full rounded-xl bg-white py-3 text-sm font-medium text-black hover:bg-gray-100">Create Tenant & Lease</button>

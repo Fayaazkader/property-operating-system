@@ -39,8 +39,11 @@ try{
  await page.getByRole('button',{name:'Approve charges and issue invoice',exact:true}).click();
  await page.getByRole('status').filter({hasText:'Charges approved'}).waitFor();
  assert.equal(await page.locator('dialog[open]').count(),0);
+ await page.getByRole('button',{name:'Prepare work order',exact:true}).click();await page.getByRole('alert').filter({hasText:'SLA configuration unavailable'}).waitFor();
+ await page.getByRole('button',{name:'Prepare work order',exact:true}).click();await page.getByRole('button',{name:'Work order prepared',exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'Work order prepared',exact:true}).getAttribute('disabled')!==null,true);
  const ownErrors=errors.filter(message=>!message.includes('fetch failed')&&!message.includes('Failed to fetch'));
  assert.deepEqual(ownErrors,[]);
- const result={passed:true,checks:['native focus containment','Escape and focus restoration','selection totals','recoverable approval failure','reload review','no mobile document overflow','44px action targets','dark/light rendered evidence','successful completion'],viewportEvidence:[{width:1440,height:1000},{width:390,height:844}],backend:'synthetic component adapter; no live backend',screenshots:['initial-billing-desktop.png','initial-billing-mobile.png','initial-billing-light-mobile.png']};
+ const result={passed:true,checks:['native focus containment','Escape and focus restoration','selection totals','recoverable approval failure','reload review','no mobile document overflow','44px action targets','dark/light rendered evidence','successful completion','maintenance failure/retry and committed preparation'],viewportEvidence:[{width:1440,height:1000},{width:390,height:844}],backend:'synthetic component adapter; no live backend',screenshots:['initial-billing-desktop.png','initial-billing-mobile.png','initial-billing-light-mobile.png']};
  await writeFile(artifacts+'/browser-results.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));
 }finally{await browser?.close();await rm(mount,{recursive:true,force:true});}

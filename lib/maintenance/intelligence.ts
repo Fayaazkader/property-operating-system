@@ -39,7 +39,7 @@ export class MaintenanceIntelligence {
       .from('work_orders')
       .select('id, title, status')
       .eq('entity_id', entityId)
-      .in('status', ['pending', 'assigned'])
+      .in('status', ['reported','pending', 'assigned'])
       .lt('scheduled_date', new Date().toISOString().split('T')[0]);
 
     for (const wo of (overdue || [])) {
@@ -64,7 +64,7 @@ export class MaintenanceIntelligence {
       .from('maintenance_quotes')
       .select('id')
       .eq('entity_id', entityId)
-      .eq('status', 'pending');
+      .in('status', ['reported','pending']);
 
     if (quotes && quotes.length > 0) {
       publishSignal({

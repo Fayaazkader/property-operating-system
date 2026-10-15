@@ -65,6 +65,7 @@ export function resolveLeaseCanonicalValues(params: {
       snapshot.escalationPercent,
     ),
     deposit_amount: valueOrNull(snapshot.depositAmount),
+    parking_bays:valueOrNull(snapshot.parkingBays),parking_rate:valueOrNull(snapshot.parkingRate),parking_vat_treatment:valueOrNull(snapshot.parkingVatTreatment),parking_tax_code:valueOrNull(snapshot.parkingTaxCode),
 
     // No approved commercial authority for this value has yet been
     // established. It must remain absent rather than being inferred.

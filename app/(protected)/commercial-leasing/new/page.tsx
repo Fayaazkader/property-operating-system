@@ -1,5 +1,6 @@
 'use client';
 
+import { ParkingTermsFields } from '@/components/leasing/ParkingTermsFields';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -57,6 +58,7 @@ interface FormState {
   beneficialOccupationDate: string;
 
   parkingBays: string;
+  parkingRate:string;parkingVatTreatment:string;parkingTaxCode:string;
   storageAllocation: string;
   negotiationNotes: string;
 }
@@ -86,6 +88,7 @@ const initialForm: FormState = {
   beneficialOccupationDate: '',
 
   parkingBays: '0',
+  parkingRate:'',parkingVatTreatment:'',parkingTaxCode:'',
   storageAllocation: '',
   negotiationNotes: '',
 };
@@ -278,6 +281,7 @@ export default function NewCommercialLeasingOpportunityPage() {
           form.beneficialOccupationDate || null,
 
         parkingBays: optionalNumber(form.parkingBays),
+        parkingRate:optionalNumber(form.parkingRate),parkingVatTreatment:form.parkingVatTreatment?(form.parkingVatTreatment as 'exclusive'|'inclusive'|'not_applicable'):null,parkingTaxCode:form.parkingTaxCode||null,
         storageAllocation: form.storageAllocation,
         negotiationNotes: form.negotiationNotes,
       });
@@ -618,7 +622,8 @@ export default function NewCommercialLeasingOpportunityPage() {
               />
             </Field>
 
-            <Field label="Storage">
+            <div className="sm:col-span-2"><ParkingTermsFields entityId={entityId} rate={form.parkingRate} vatTreatment={form.parkingVatTreatment} taxCode={form.parkingTaxCode} onRate={v=>setField('parkingRate',v)} onVatTreatment={v=>setField('parkingVatTreatment',v)} onTaxCode={v=>setField('parkingTaxCode',v)}/></div>
+<Field label="Storage">
               <input
                 value={form.storageAllocation}
                 onChange={(event) =>

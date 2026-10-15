@@ -17,6 +17,7 @@ export interface ActivationInput {
   depositAmount: number;
   parkingBays: number;
   parkingRate: number;
+  rentalVatTreatment?:'exclusive'|'inclusive'|'not_applicable'|null;parkingVatTreatment?:'exclusive'|'inclusive'|'not_applicable'|null;parkingTaxCode?:string|null;
   selectedBillableItems?: string[];
   documentFile?: { name: string; url: string };
 }
@@ -42,6 +43,7 @@ export class LeaseActivationService {
       p_lease_start_date: parseDate(input.leaseStartDate), p_lease_end_date: parseDate(input.leaseEndDate),
       p_escalation_percent: input.escalationPercent, p_deposit_amount: input.depositAmount,
       p_parking_bays: input.parkingBays, p_parking_rate: input.parkingRate,
+      p_rental_vat_treatment:input.rentalVatTreatment??null,p_parking_vat_treatment:input.parkingVatTreatment??null,p_parking_tax_code:input.parkingTaxCode??null,
       p_document_name: input.documentFile?.name || null,
       p_document_url: input.documentFile?.url || null,
     });

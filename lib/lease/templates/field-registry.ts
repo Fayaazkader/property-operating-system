@@ -141,6 +141,10 @@ export const LEASE_FIELD_DEFINITIONS: readonly LeaseFieldDefinition[] = [
     type: 'currency',
     required: false,
   },
+  {key:'parking_bays',label:'Parking Bays',type:'number',required:false},
+  {key:'parking_rate',label:'Parking Price per Bay',type:'currency',required:false},
+  {key:'parking_vat_treatment',label:'Parking VAT Treatment',type:'text',required:false},
+  {key:'parking_tax_code',label:'Parking Tax Classification',type:'text',required:false},
   {
     key: 'vat_treatment',
     label: 'Rental VAT Treatment',

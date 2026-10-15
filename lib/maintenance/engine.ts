@@ -1,3 +1,4 @@
+import { workOrderService } from '@/lib/property-operations/services/work-order.service';
 import { supabase } from '@/lib/supabase';
 import { publish } from '@/lib/platform/events/event-bus';
 import { supplierMatchingEngine } from './supplier-matching';
@@ -54,22 +55,9 @@ export class MaintenanceEngine {
   }
 
   async createWorkOrder(issueId: string, entityId: string, propertyId: string): Promise<WorkOrder> {
-    const { data: issue } = await supabase.from('maintenance_issues').select('*').eq('id', issueId).single();
-    const { data, error } = await supabase.from('work_orders').insert({
-      entity_id: entityId, issue_id: issueId, property_id: propertyId,
-      title: issue?.title || 'Work Order', description: issue?.description,
-      category: issue?.category, priority: issue?.priority || 'routine', status: 'pending',
-    }).select('*').single();
-
-    if (error) throw error;
-    await supabase.from('maintenance_issues').update({ status: 'in_progress' }).eq('id', issueId);
-
-    await publish('maintenance.work_order.created', {
-      correlationId: crypto.randomUUID(), source: 'maintenance-engine', version: '1.0',
-      payload: { workOrder: data },
-    });
-
-    return data as WorkOrder;
+    const result=await workOrderService.prepareFromIssue(issueId,entityId,propertyId);
+    if(result.error||!result.data)throw new Error(result.error?.message||'Work order preparation unavailable');
+    return result.data;
   }
 
   async matchSupplier(workOrderId: string, entityId: string): Promise<string | null> {

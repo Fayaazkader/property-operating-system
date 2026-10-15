@@ -1,7 +1,7 @@
 // lib/maintenance/types.ts
 
 export type IssueStatus = 'reported' | 'classified' | 'approved' | 'rejected' | 'duplicate' | 'in_progress' | 'resolved' | 'closed';
-export type WorkOrderStatus = 'pending' | 'assigned' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+export type WorkOrderStatus = import('@/lib/property-operations/work-orders/work-order.types').WorkOrderStatus | 'pending';
 export type VisitStatus = 'scheduled' | 'en_route' | 'on_site' | 'completed' | 'no_show';
 export type IssuePriority = 'emergency' | 'urgent' | 'routine' | 'scheduled';
 export type IssueCategory = 'plumbing' | 'electrical' | 'hvac' | 'structural' | 'waterproofing' | 'fire' | 'lifts' | 'generator' | 'cleaning' | 'pest_control' | 'landscaping' | 'security' | 'other';
@@ -32,13 +32,13 @@ export interface MaintenanceIssue {
 export interface WorkOrder {
   id: string;
   entity_id: string;
-  issue_id: string;
+  issue_id?: string;
   property_id: string;
   supplier_id?: string;
   title: string;
   description?: string;
   category?: string;
-  priority: IssuePriority;
+  priority: import('@/lib/property-operations/work-orders/work-order.types').WorkOrderPriority;
   status: WorkOrderStatus;
   scheduled_date?: string;
   completed_date?: string;

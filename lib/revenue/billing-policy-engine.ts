@@ -16,66 +16,13 @@ export interface BillingPolicy {
 
 export class BillingPolicyEngine {
   async resolve(leaseId: string): Promise<BillingPolicy> {
-    // Get lease → property → entity chain
-    const { data: lease } = await supabase
-      .from('leases')
-      .select('property_id, monthly_rental, deposit_amount, parking_bays, parking_rate')
-      .eq('id', leaseId)
-      .single();
-
-    if (!lease) return this.getDefaults();
-
-    const { data: property } = await supabase
-      .from('properties')
-      .select('entity_id')
-      .eq('id', lease.property_id)
-      .single();
-
-    const entityId = property?.entity_id || null;
-
-    // Hierarchy: Platform → Entity → Property
-    const { data: leaseData } = await supabase.from('leases').select('lease_type').eq('id', leaseId).single();
-    const leaseType = leaseData?.lease_type || 'commercial';
-
-    const { data: policies } = await supabase
-      .from('billing_policies')
-      .select('*')
-      .eq('entity_id', entityId)
-      .eq('policy_type', leaseType)
-      .eq('is_active', true)
-      .limit(1); // platform first, then entity, then property
-
-    if (!policies?.length) return this.getDefaults();
-
-    // Start with platform defaults, override with entity, then property
-    const policy = policies?.[0] || {};
-
-    const resolved: BillingPolicy = {
-      lease_fee_amount: policy.lease_fee_amount || 1500,
-      lease_fee_description: policy.lease_fee_description || 'Standard Commercial Lease Fee',
-      late_payment_fee_pct: policy.late_payment_value || 10,
-      late_payment_fee_description: policy.late_payment_description || 'Late Payment Fee',
-      deposit_months: policy.deposit_months || 1,
-      billing_day: policy.billing_day || 25,
-      auto_approve_below: 0,
-      source: policy.policy_name || 'Default Policy',
-    };
-
-    return resolved;
-  }
-
-  private getDefaults(): BillingPolicy {
-    return {
-      lease_fee_amount: 1500,
-      lease_fee_description: 'Standard Commercial Lease Fee',
-      late_payment_fee_pct: 10,
-      late_payment_fee_description: 'Late Payment Fee',
-      deposit_months: 1,
-      billing_day: 25,
-      auto_approve_below: 0,
-      source: 'Platform Default',
-    };
+    const {data:lease,error:leaseError}=await supabase.from('leases').select('property_id').eq('id',leaseId).single();
+    if(leaseError||!lease)throw new Error('Lease unavailable for policy review');
+    const {data:property,error:propertyError}=await supabase.from('properties').select('entity_id').eq('id',lease.property_id).single();
+    if(propertyError||!property?.entity_id)throw new Error('Policy entity unavailable');
+    const {data,error}=await supabase.rpc('prepare_lease_commencement_billing',{p_entity_id:property.entity_id,p_lease_id:leaseId});
+    if(error||!data?.policy)throw new Error(error?.message||'Canonical policy review unavailable');
+    return data.policy as BillingPolicy;
   }
 }
-
 export const billingPolicyEngine = new BillingPolicyEngine();

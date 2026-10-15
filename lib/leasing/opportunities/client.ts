@@ -28,6 +28,9 @@ export interface CreateLeasingOpportunityInput {
   beneficialOccupationDate?: string | null;
 
   parkingBays?: number | null;
+  parkingRate?: number | null;
+  parkingVatTreatment?: 'exclusive'|'inclusive'|'not_applicable'|null;
+  parkingTaxCode?: string|null;
   storageAllocation?: string | null;
 
   brokerId?: string | null;
@@ -102,6 +105,7 @@ export async function createLeasingOpportunity(
       input.beneficialOccupationDate || null,
 
     p_parking_bays: nullableNumber(input.parkingBays),
+    p_parking_rate:nullableNumber(input.parkingRate),p_parking_vat_treatment:input.parkingVatTreatment??null,p_parking_tax_code:nullableText(input.parkingTaxCode),
     p_storage_allocation: nullableText(input.storageAllocation),
 
     p_broker_id: input.brokerId ?? null,
@@ -211,6 +215,7 @@ export async function updateLeasingOpportunity(
       input.beneficialOccupationDate || null,
 
     p_parking_bays: nullableNumber(input.parkingBays),
+    p_parking_rate:nullableNumber(input.parkingRate),p_parking_vat_treatment:input.parkingVatTreatment??null,p_parking_tax_code:nullableText(input.parkingTaxCode),
     p_storage_allocation: nullableText(input.storageAllocation),
 
     p_broker_id: input.brokerId ?? null,

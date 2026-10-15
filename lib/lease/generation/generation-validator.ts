@@ -58,10 +58,11 @@ export function validateLeaseGeneration(params: {
   const warnings: LeaseGenerationValidationIssue[] = [];
 
   const mappings = template.field_mapping ?? [];
+  const required=(definition:{key:string;required:boolean})=>definition.required||(Number(values.parking_bays)>0&&['parking_bays','parking_rate','parking_vat_treatment','parking_tax_code'].includes(definition.key));
 
   for (const definition of LEASE_FIELD_DEFINITIONS) {
     if (
-      definition.required &&
+      required(definition) &&
       !hasValue(values[definition.key])
     ) {
       errors.push({
@@ -122,7 +123,7 @@ export function validateLeaseGeneration(params: {
   }
 
   for (const definition of LEASE_FIELD_DEFINITIONS) {
-    if (!definition.required) {
+    if (!required(definition)) {
       continue;
     }
 
@@ -154,7 +155,7 @@ export function validateLeaseGeneration(params: {
 
     if (
       definition &&
-      !definition.required &&
+      !required(definition) &&
       !hasValue(values[mapping.fieldKey])
     ) {
       warnings.push({

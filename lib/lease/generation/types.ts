@@ -38,6 +38,7 @@ export interface ApprovedCommercialSnapshot {
   beneficialOccupationDate?: string | null;
 
   parkingBays?: number | null;
+  parkingRate?:number|null;parkingVatTreatment?:'exclusive'|'inclusive'|'not_applicable'|null;parkingTaxCode?:string|null;
   storageAllocation?: string | null;
 
   brokerId?: string | null;

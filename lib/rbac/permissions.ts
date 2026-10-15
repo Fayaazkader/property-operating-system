@@ -10,6 +10,7 @@
 
 export const PERMISSIONS = {
   FINANCE: {
+    BILLING_POLICY_MANAGE: 'finance.billing_policy.manage',
     JOURNAL_POST: 'finance.journal.post',
     BANK_STATEMENT_VERIFY_COVERAGE: 'finance.bank_statement.verify_coverage',
   },
@@ -36,6 +37,8 @@ export const PERMISSIONS = {
     ACTIVATION_EXECUTE: 'leasing.activation.execute',
   },
 
+  MAINTENANCE: { WORK_ORDER_CREATE: 'maintenance.work_order.create' },
+
   PROPERTY: {
     PROPERTY_CREATE: 'property.create',
     PROPERTY_EDIT: 'property.edit',
@@ -53,6 +56,7 @@ export type PermissionKey =
   | (typeof PERMISSIONS.FINANCE)[keyof typeof PERMISSIONS.FINANCE]
   | (typeof PERMISSIONS.LEASE_TEMPLATES)[keyof typeof PERMISSIONS.LEASE_TEMPLATES]
   | (typeof PERMISSIONS.LEASING)[keyof typeof PERMISSIONS.LEASING]
+  | (typeof PERMISSIONS.MAINTENANCE)[keyof typeof PERMISSIONS.MAINTENANCE]
   | (typeof PERMISSIONS.PROPERTY)[keyof typeof PERMISSIONS.PROPERTY];
 
 export const LEASE_TEMPLATE_PERMISSIONS = [

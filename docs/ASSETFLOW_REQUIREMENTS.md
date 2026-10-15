@@ -22,6 +22,18 @@ Tests use embedded PostgreSQL, actual selected repository schema/migrations and
 canonical TypeScript services, fixture permission/auth functions, and in-memory
 storage transport. They are neither deployed Supabase nor full-application E2E.
 
+Evidence `E5`: system map **explicit commercial tax authority and lease-specific
+tenant policy** checkpoint; migrations 20261016030000/20261016040000,
+canonical opportunity create/update/submission and generation/activation tests.
+Explicit parking and fee VAT, snapshot/template continuity, no tenant merging,
+inactive-context rejection and fail-closed legacy intake. Local tests only;
+controlled import, actual browser and deployed integration remain open.
+
+Evidence `E4`: system map **canonical maintenance preparation** checkpoint;
+20261016020000, tests/maintenance/work-order-integration.test.mjs and the real
+PrepareWorkOrderAction component. Nine local integration tests; no provider or
+rendered browser certification.
+
 Evidence `E3`: system map **commencement invoice and shared financial posting**
 checkpoint; migrations 20261016000000/20261016010000; actual billing/posting/tenant
 report service integration in tests/execution/field-manifest-database.test.mjs.
@@ -188,7 +200,7 @@ changes. No requirement below has been explicitly deferred or waived.
 | 145 | Property Operations | Asset Health Score | New | Not yet verified | Reconcile actual canonical implementation, migrations and tests; identify domain dependencies before changes. |
 | 146 | Property Operations | CAPEX vs OPEX classification | New | Not yet verified | Reconcile actual canonical implementation, migrations and tests; identify domain dependencies before changes. |
 | 147 | Property Operations | Property Timeline — every event | New | Not yet verified | Reconcile actual canonical implementation, migrations and tests; identify domain dependencies before changes. |
-| 148 | Property Operations | Maintenance engine | New | Conflicting or duplicated | lib/maintenance/engine.ts and lib/property-operations/services/work-order.service.ts share work_orders but have different mutation paths/status contracts. Issue workspace actions are unwired; consolidate actual commands before lifecycle extension. |
+| 148 | Property Operations | Maintenance engine | New | Conflicting or duplicated | lib/maintenance/engine.ts and lib/property-operations/services/work-order.service.ts share work_orders but have different mutation paths/status contracts. E4 consolidates preparation with real issue workspace action and local integration proof. Other transition/assignment commands still conflict and need governed integration. |
 | 149 | Property Operations | Compliance — certificates, insurance, licenses, expiry | New | Not yet verified | Reconcile actual canonical implementation, migrations and tests; identify domain dependencies before changes. |
 | 150 | Brokerage Operations | Broker Companies management | New | Not yet verified | Reconcile actual canonical implementation, migrations and tests; identify domain dependencies before changes. |
 | 151 | Brokerage Operations | Broker Profiles | New | Not yet verified | Reconcile actual canonical implementation, migrations and tests; identify domain dependencies before changes. |
@@ -269,17 +281,17 @@ changes. No requirement below has been explicitly deferred or waived.
 | --- | --- | --- | --- | --- |
 | AF-ADD-001 | Single canonical system across web, WhatsApp, future email/mobile/portals/AI; shared identity, entity/RBAC, records, workflows, audit, events, adapters and governed AI. | 73, 87, 92, 93, 125, 167, 210 | Not yet verified | Cross-cutting architecture; inspect existing adapters/services before extension. |
 | AF-ADD-002 | Smart leases and client-specific templates. | 47, 113, 120, 121 | Not yet verified | Preserve template governance; complete approved-template-to-executed-agreement E2E. |
-| AF-ADD-003 | Complete lease execution, precise placement, configurable witnesses, signing, activation and initial billing. | 131–139 | Partially implemented | E1/E2; placement, final artifacts, activation and atomic commencement charge approval locally integrated; E3 adds locally tested commencement invoice/GL/tenant-ledger integration. Recurring issuance, deposit receipt, witnesses, real providers/RLS and rendered UI remain open. |
+| AF-ADD-003 | Complete lease execution, precise placement, configurable witnesses, signing, activation and initial billing. | 131–139 | Partially implemented | E1/E2/E5; explicit commercial parking price/VAT through snapshot and template; placement, final artifacts, activation and atomic commencement charge approval locally integrated; E3 adds locally tested commencement invoice/GL/tenant-ledger integration. Recurring issuance, deposit receipt, witnesses, real providers/RLS and rendered UI remain open. |
 | AF-ADD-004 | Tenant deposit engine. | 63–65 | Implemented but defective | E2 — lib/financial/deposit-engine.ts onObligationCreated sets held balance without receipt. New activation avoids this path; canonical obligation/receipt/allocation, interest and refunds need correction and verification. |
-| AF-ADD-005 | Dedicated tenant ledgers and manual allocations. | 2, 4, 62, 64 | Not yet verified | Financial posting authority, allocation correctness and reconciliation. |
+| AF-ADD-005 | Dedicated tenant ledgers and manual allocations. | 2, 4, 62, 64 | Partially implemented | E3 — Actual PostingEngine and invoice RPC integrate AR-only tenant ledger atomically with exact replay and configured VAT. Historical projections, receipts, allocations/reconciliation remain open. |
 | AF-ADD-006 | Bank import completeness verification. | 3, 162, 212 | Not yet verified | Statement source completeness, duplicates, totals and posting proof. |
 | AF-ADD-007 | Payment gateway and settlement reconciliation; receipts never imply verified bank payment. | 51, 161, 221 | Not yet verified | Provider adapters, fees/settlements, tenant allocation and bank reconciliation. |
 | AF-ADD-008 | Recurring supplier invoices and missing-invoice alerts. | 9, 141 | Not yet verified | Supplier automation, expectations, OCR/matching, notifications and period controls. |
 | AF-ADD-009 | Side-by-side OCR invoice capture. | 10, 11, 19, 20 | Not yet verified | Shared document intelligence and supplier/accounting draft approval. |
-| AF-ADD-010 | VAT, tax, trial balances, rent rolls and entity reporting. | 23–28, 95–112, 128 | Not yet verified | Deterministic ledger/tax calculations, source trace and export. |
+| AF-ADD-010 | VAT, tax, trial balances, rent rolls and entity reporting. | 23–28, 95–112, 128 | Partially implemented | E3/E5: configured commencement VAT, inclusive/exclusive/no-VAT classification and frozen approved tax tested locally. Returns, credits, broader ledger reports, source trace and deployed verification remain open. |
 | AF-ADD-011 | Rates and taxes escalation engine. | 46, 53, 207 | Not yet verified | Governed tariffs, effective dates, budgets and tenant recovery rules. |
 | AF-ADD-012 | Acquisitions, disposals and financial adjustments. | 178 | Not yet verified | Deal governance, asset/ledger postings and approvals. |
-| AF-ADD-013 | Flagship maintenance and contractor lifecycle: requests, urgency, SLAs, emergencies, planned work, statutory inspections, contractor records, quotations, approval authority, work orders, communications, photos/documents, budgets, invoices, cost allocation, closure, reporting/intelligence. | 82, 140–149 | Not yet verified | Use canonical tenant/unit/property/supplier/document/financial records; inspect existing operations services first. |
+| AF-ADD-013 | Flagship maintenance and contractor lifecycle: requests, urgency, SLAs, emergencies, planned work, statutory inspections, contractor records, quotations, approval authority, work orders, communications, photos/documents, budgets, invoices, cost allocation, closure, reporting/intelligence. | 82, 140–149 | Partially implemented | E4 — Canonical issue-to-reported-order preparation, scoped context, configured SLA, audit and real UI command implemented/tested locally. Approval/quotations, contractor, completion and supplier finance remain open. |
 | AF-ADD-014 | Preventative and compliance maintenance. | 140–142, 149 | Not yet verified | Asset schedules, statutory obligations, inspections, work orders and escalation. |
 | AF-ADD-015 | Insurance and investor portals. | 21, 52, 149, 176 | Not yet verified | Entity-scoped access, claims/compliance and canonical reporting. |
 | AF-ADD-016 | WhatsApp tenant, staff and support experiences as direct operational entry points. | 67–84 | Not yet verified | Shared identity/authorization, durable ingestion, idempotency, canonical commands, role escalation and delivery. |
@@ -297,7 +309,7 @@ changes. No requirement below has been explicitly deferred or waived.
 | AF-ADD-028 | WhatsApp offer-to-approved-lease-to-signing-to-activation-to-deposit/invoices canonical journey. | 19, 47, 50, 63–84, 131–139 | Not yet verified | Depends on complete Phase 1 then channel identity/intents/governance and financial integration. |
 | AF-ADD-029 | WhatsApp burst-pipe-to-maintenance-to-contractor/invoice/cost-allocation journey. | 19, 82, 140–149 | Not yet verified | Depends on flagship maintenance, communications, supplier finance and approvals. |
 | AF-ADD-030 | Authorized WhatsApp balance, statement and receipt operations, preserving payment verification/reconciliation. | 62, 68, 69, 79, 83, 161, 162 | Not yet verified | Depends on canonical financial query/posting services and explicit consequential-action confirmations. |
-| AF-ADD-031 | Durable processing, retries, idempotency, recovery and observability across interfaces. | 125, 129, 130, 180, 181, 193–204 | Not yet verified | Signing-specific local proof E1; app-wide guarantees require domain verification. |
+| AF-ADD-031 | Durable processing, retries, idempotency, recovery and observability across interfaces. | 125, 129, 130, 180, 181, 193–204 | Not yet verified | Signing E1, atomic finance E3 and preparation E4 local proof; app-wide dispatch, provider, independent-session and recovery guarantees require domain verification. |
 | AF-ADD-032 | No production mutations/migration deployment/main merge/public signing enablement without approval; no npm build; commit/export isolated checkpoints. | Delivery control | Not yet verified | Operational rule, continuously enforced; publishing remains blocked by GitHub 403. |
 
 ## Unnumbered follow-ups in the recovered source
@@ -354,7 +366,7 @@ cleanup entries do not override approval controls.
 | AF-SOURCE-043 | Tenant Management | Tenant document inheritance (property docs visible on tenant) | no | Not yet verified — reconcile with numbered register and actual canonical evidence. |
 | AF-SOURCE-044 | Payment Processing | Debit order integration | no | Not yet verified — reconcile with numbered register and actual canonical evidence. |
 | AF-SOURCE-045 | Payment Processing | Payment gateway (PayFast/Ozow) | no | Not yet verified — reconcile with numbered register and actual canonical evidence. |
-| AF-SOURCE-046 | Security & Hardening | Remove all permissive RLS policies (`USING (true)`) | no | Not yet verified — reconcile with numbered register and actual canonical evidence. |
+| AF-SOURCE-046 | Security & Hardening | Remove all permissive RLS policies (`USING (true)`) | no | Partially implemented — E3 revokes browser journal/GL writes and restricts tenant ledger mutations; full RLS catalogue and deployed tests pending. |
 | AF-SOURCE-047 | Security & Hardening | Standardize error handling across all API routes | no | Not yet verified — reconcile with numbered register and actual canonical evidence. |
 | AF-SOURCE-048 | Security & Hardening | Add loading skeletons to all pages | no | Not yet verified — reconcile with numbered register and actual canonical evidence. |
 | AF-SOURCE-049 | Security & Hardening | Rate limiting on public endpoints | no | Not yet verified — reconcile with numbered register and actual canonical evidence. |
@@ -377,6 +389,18 @@ cleanup entries do not override approval controls.
 5. Executed agreement -> canonical activation -> tenant/unit -> deposit and initial rental billing -> invoices/balances, with rollback/idempotency proofs.
 6. Only after Phase 1 closure, reconcile all original items against implementation evidence and select coherent financial/maintenance/communications batches.
 
-No new work in maintenance, WhatsApp or financial posting is declared implemented
-by adding its row here. This register captures scope and protects original IDs;
-full reconciliation is still an explicit outstanding task.
+Rows alone never prove implementation. E3/E4/E5 identify the tested scope of the
+new financial, maintenance and commercial changes. WhatsApp provider integration
+and full reconciliation remain explicit outstanding tasks.
+
+## Open defect evidence tied to existing requirements
+
+These are newly evidenced defects/dependencies, not invented original audit items.
+They remain open; code presence is not completion.
+
+| Defect | Related requirements | Evidence | Remaining work |
+| --- | --- | --- | --- |
+| AF-DEF-001 | AF-ADD-004; original 63–65 | lib/financial/deposit-engine.ts onObligationCreated records held funds before a verified receipt; new commencement path never invokes it or creates deposit_register funds. | Reconcile legacy records and integrate verified receipt/allocation, interest, application and refund authority atomically. |
+| AF-DEF-002 | AF-ADD-008/010; supplier ledger dependencies | lib/accounts-payable/engine.ts postInvoice uses the same invoice source ID for every line; the new shared replay guard rejects differing lines rather than silently omitting them. Source inspection, not a certified supplier E2E. | Replace partial client orchestration with complete canonical atomic supplier posting and verify legacy partial/source records before rollout. |
+| AF-DEF-003 | AF-ADD-012; financial adjustments | lib/financial/reversal-engine.ts sends amount 0 to PostingEngine, whose governance rejects nonpositive amounts. | Govern reversal of exact persisted lines/dimensions/VAT into an open period with source uniqueness and downstream ledger proof; no historical rewrites. |
+| AF-DEF-004 | AF-ADD-013/029; original 148 | Competing work-order status/assignment mutations remain outside the E4 preparation boundary; approval/quote buttons had no integration. | Integrate quotations/approval authority, contractor acceptance, visits/completion, budgets and supplier invoices; validate channel identity and delivery. |
