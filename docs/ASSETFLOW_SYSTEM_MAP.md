@@ -764,3 +764,10 @@ PDF placement component: implemented and locally verified for the stated cases.
 Lease execution domain / Phase 1: incomplete, neither beta-ready nor
 production-ready on this evidence. Full-application readiness percentages are not
 recalculated from this component checkpoint. Public signing must remain disabled.
+
+### Publication blocker
+Local verified implementation commit: `e2eeb21`. Git HTTPS push failed because
+this runtime has no GitHub username/credential helper. Connected GitHub branch
+creation also returned HTTP 403 `Resource not accessible by integration` for the
+authorized dedicated branch. No remote branch or implementation commit was
+published. A local Git bundle and patch accompany this checkpoint for recovery.
