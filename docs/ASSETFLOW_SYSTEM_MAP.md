@@ -1247,3 +1247,21 @@ identity and unsigned inbound processing are unsafe; secure provider/identity
 ingress is the next dependency. Existing inspection engine completion ignores
 update errors and lacks demonstrated atomic evidence/defect integration. Neither
 is certified. No public signing/WhatsApp enablement or production change occurred.
+
+## 2026-10-16 verified-account WhatsApp maintenance ingress
+
+Base 90922f1 security/PDF/spreadsheet remediation retained. See
+`docs/WHATSAPP_INTAKE_20261016.md` for exact boundary and preserved-checkout comparison.
+Entry: maintenance workspace → `/maintenance/whatsapp` → authenticated pairing API
+→ signed provider webhook → `lib/communications/server/whatsapp-intake.ts` → durable
+receipt RPC → transactional processing → private shared preparation body. Migration
+20261016120000 adds transport binding/inbox tables with RLS and no direct client
+access; it extends, not replaces, canonical issue/work-order/audit records.
+
+Caller identity is authenticated account plus one-time number pairing, with current
+entity permission on every mutation. Phone-only lookup and legacy tasks-based intake
+are removed from the provider endpoint. Scope is authorized-account text requests;
+tenant self-service, media, routing, live provider/browser and full conversation
+quality remain open. No deployment or new capability auto-grant. Provider replay
+returns committed outcomes; failed preparation retains inbox and rolls back issue,
+order and audit. Existing finance/deposit and security dependency work is preserved.

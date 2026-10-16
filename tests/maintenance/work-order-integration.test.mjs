@@ -27,12 +27,13 @@ test.before(async()=>{
  await db.exec('CREATE POLICY fixture_supplier_read ON sub_ledger_entries FOR SELECT TO authenticated USING(true);CREATE POLICY fixture_supplier_write ON sub_ledger_entries FOR ALL TO authenticated USING(true) WITH CHECK(true)');
  await db.exec(readFileSync('supabase/migrations/20261016060000_maintenance_invoice_accounting.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261016070000_maintenance_payment_reconciliation.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261016120000_verified_whatsapp_maintenance.sql','utf8'));
 
  // Simulate broad legacy policies: the restrictive scope and command guards must still hold.
  for(const table of ['work_orders','maintenance_quotes','work_order_events','supplier_visits','expected_supplier_invoices','supplier_invoices_new','supplier_invoice_lines'])await db.exec(`CREATE POLICY legacy_fixture_crud ON ${table} FOR ALL TO authenticated USING(true) WITH CHECK(true)`);
 });
 test.beforeEach(async()=>{
- ids=Object.fromEntries(['actor','otherActor','entity','otherEntity','property','otherProperty','issue','unit'].map(k=>[k,randomUUID()]));await db.exec('RESET ROLE');
+ ids=Object.fromEntries(['actor','otherActor','entity','otherEntity','property','otherProperty','issue','unit'].map(k=>[k,randomUUID()]));await db.exec('RESET ROLE');ids.phone='+27'+String(BigInt('0x'+ids.actor.replaceAll('-',''))%1000000000n).padStart(9,'0');
  await db.query("SELECT set_config('test.actor',$1,false)",[ids.actor]);await db.query("INSERT INTO test_permissions VALUES($1,$2,'maintenance.work_order.create')",[ids.actor,ids.entity]);
  await db.query("INSERT INTO properties(id,property_name,entity_id) VALUES($1,'Canonical Property',$2),($3,'Foreign Property',$4)",[ids.property,ids.entity,ids.otherProperty,ids.otherEntity]);
  await db.query("INSERT INTO units(id,property_id,unit_number) VALUES($1,$2,'A1')",[ids.unit,ids.property]);
@@ -201,4 +202,58 @@ test('actual AP service captures approves posts lists and reconciles canonical m
  const {apApi}=loadTypeScript('lib/accounts-payable/api.ts',{'@/lib/supabase':{supabase:client},'@/lib/financial/posting-engine':{PostingEngine:{}},'@/lib/platform/events/event-bus':{publish:async()=>{throw new Error('Unexpected nontransactional side effect');}}});
  const input={...f.input,entityId:ids.entity,workOrderId:f.order.id,supplierId:f.supplier};const i=await apApi.captureInvoice(input);assert.equal((await apApi.captureInvoice(input)).id,i.id);await actor(f.approver);await apApi.approveInvoice(i.id,'untrusted-actor',ids.entity);await apApi.postInvoice(i.id,'untrusted-actor',ids.entity);const payment=await paymentFixture(f);assert.equal((await apApi.listMaintenancePaymentAllocations(ids.entity,i.id))[0].id,payment.allocation);assert.equal(await apApi.reconcileMaintenancePayment(ids.entity,i.id,payment.allocation),112);assert.equal((await closeOrder(f)).status,'closed');
  await assert.rejects(db.query("UPDATE sub_ledger_entries SET credit_amount=0 WHERE supplier_id=$1",[f.supplier]),/atomic supplier/);await actor(ids.otherActor);assert.equal((await db.query('SELECT * FROM supplier_invoices_new WHERE id=$1',[i.id])).rows.length,0);assert.equal((await db.query('SELECT * FROM supplier_invoice_lines WHERE invoice_id=$1',[i.id])).rows.length,0);await assert.rejects(apApi.listMaintenancePaymentAllocations(ids.entity,i.id),/permission denied/);
+});
+
+const {createHash,randomBytes}=await import('node:crypto');
+async function bindPhone(property=ids.property,entity=ids.entity){
+ await db.exec('SET ROLE authenticated');const code=randomBytes(32).toString('hex'),hash=createHash('sha256').update(code).digest('hex');
+ const id=(await db.query('SELECT start_whatsapp_pairing($1,$2,$3,$4) id',[entity,property,ids.phone,hash])).rows[0].id;
+ await db.exec('SET ROLE service_role');return {id,code,hash};
+}
+async function incoming(payload,provider=randomUUID()){
+ const id=(await db.query('SELECT receive_whatsapp_maintenance($1,$2) id',[provider,JSON.stringify({phone:ids.phone,...payload})])).rows[0].id;
+ return {id,result:(await db.query('SELECT process_whatsapp_maintenance($1) result',[id])).rows[0].result};
+}
+async function paired(){const b=await bindPhone();assert.equal((await incoming({pairingHash:b.hash,body:'[redacted]'})).result.status,'paired');return b;}
+test('verified WhatsApp requester creates exactly one canonical work order and preserves retry result',async()=>{
+ await paired();const key=randomUUID(),payload={kind:'maintenance',body:'Roof leak in the office',priority:'routine'};
+ await db.exec('RESET ROLE');await db.query("INSERT INTO maintenance_slas(entity_id,priority,response_hours,arrival_hours,resolution_hours) VALUES($1,'routine',4,8,24)",[ids.entity]);await db.exec('SET ROLE service_role');
+ const a=await incoming(payload,key),b=await incoming(payload,key);assert.equal(a.result.status,'created');assert.deepEqual(a,b);
+ await db.exec('RESET ROLE');const w=(await db.query('SELECT * FROM work_orders WHERE id=$1',[a.result.workOrderId])).rows[0];assert.equal(w.entity_id,ids.entity);assert.equal(w.property_id,ids.property);assert.equal(w.created_by,ids.actor);assert.equal(w.status,'reported');assert.equal(w.assigned_to,null);
+});
+test('unsigned database callers cannot enter trusted ingress; unknown sender receives no property data',async()=>{
+ await assert.rejects(incoming({kind:'maintenance',body:'leak'}),/permission denied/);await db.exec('SET ROLE service_role');const r=(await incoming({kind:'maintenance',body:'leak'})).result;assert.equal(r.status,'verification_required');assert.equal(r.choices,undefined);
+});
+test('pairing requires entity authority, rejects foreign property and is single use',async()=>{
+ await assert.rejects(bindPhone(ids.otherProperty),/scope mismatch/);await assert.rejects(bindPhone(ids.otherProperty,ids.otherEntity),/permission denied/);const b=await paired();assert.equal((await incoming({pairingHash:b.hash,body:'[redacted]'})).result.status,'verification_required');
+});
+test('ambiguous property needs authorized selection and cannot cross into an unbound entity',async()=>{
+ const first=await paired();await db.exec('RESET ROLE');const secondProperty=randomUUID();await db.query("INSERT INTO properties(id,entity_id,property_name) VALUES($1,$2,'Second property')",[secondProperty,ids.entity]);await db.query("INSERT INTO maintenance_slas(entity_id,priority,response_hours,arrival_hours,resolution_hours) VALUES($1,'routine',4,8,24)",[ids.entity]);const second=await bindPhone(secondProperty);await incoming({pairingHash:second.hash,body:'[redacted]'});
+ const pending=await incoming({kind:'maintenance',body:'Water leak',priority:'routine'});assert.equal(pending.result.status,'select_property');assert.equal(pending.result.choices.length,2);
+ await assert.rejects(incoming({kind:'selection',bindingId:randomUUID(),pendingId:pending.id}),/Unauthorized property/);
+ const done=await incoming({kind:'selection',bindingId:second.id,pendingId:pending.id});assert.equal(done.result.status,'created');assert.equal(done.result.propertyId,secondProperty);
+});
+test('failed canonical preparation retains inbox for recovery without a partial issue or false success',async()=>{
+ await paired();const key=randomUUID(),payload={kind:'maintenance',body:'Broken door',priority:'routine'};await assert.rejects(incoming(payload,key),/configured entity maintenance SLA/);
+ await db.exec('RESET ROLE');assert.equal((await db.query("SELECT count(*)::int n FROM maintenance_issues WHERE entity_id=$1 AND reported_via='whatsapp' AND title='Broken door'",[ids.entity])).rows[0].n,0);await db.query("INSERT INTO maintenance_slas(entity_id,priority,response_hours,arrival_hours,resolution_hours) VALUES($1,'routine',4,8,24)",[ids.entity]);await db.exec('SET ROLE service_role');assert.equal((await incoming(payload,key)).result.status,'created');await assert.rejects(incoming({...payload,body:'Changed'},key),/replay payload differs/);
+});
+test('revoked requester cannot create work after pairing',async()=>{
+ const b=await paired();await db.exec('SET ROLE authenticated');await db.query('SELECT revoke_whatsapp_pairing($1)',[b.id]);await db.exec('SET ROLE service_role');assert.equal((await incoming({kind:'maintenance',body:'leak'})).result.status,'verification_required');
+});
+test('actual inbound application service calls durable receipt and canonical transaction',async()=>{
+ await paired();await db.exec('RESET ROLE');await db.query("INSERT INTO maintenance_slas(entity_id,priority,response_hours,arrival_hours,resolution_hours) VALUES($1,'routine',4,8,24)",[ids.entity]);await db.exec('SET ROLE service_role');
+ const {processInbound,twiml}=loadTypeScript('lib/communications/server/whatsapp-intake.ts');
+ const client={async rpc(name,args){try{const sql=name==='receive_whatsapp_maintenance'?'SELECT receive_whatsapp_maintenance($1,$2) result':'SELECT process_whatsapp_maintenance($1) result';const params=name==='receive_whatsapp_maintenance'?[args.p_provider_id,JSON.stringify(args.p_payload)]:[args.p_id];return {data:(await db.query(sql,params)).rows[0].result};}catch(error){return {error};}}};
+ const params={From:'whatsapp:'+ids.phone,Body:'Roof leak',NumMedia:'0',AccountSid:'fixture',MessageSid:randomUUID()};const result=await processInbound(client,params);assert.equal(result.status,'created');assert.match(twiml(result),new RegExp(result.workOrderId));assert.deepEqual(await processInbound(client,params),result);
+});
+
+test('expired challenge, expired binding and removed capability fail closed',async()=>{
+ const b=await bindPhone();await db.exec('RESET ROLE');await db.query("UPDATE whatsapp_requester_bindings SET challenge_expires_at=now()-interval '1 minute' WHERE id=$1",[b.id]);await db.exec('SET ROLE service_role');assert.equal((await incoming({pairingHash:b.hash})).result.status,'verification_required');
+ await paired();await db.exec('RESET ROLE');await db.query('DELETE FROM test_permissions WHERE actor=$1 AND entity=$2',[ids.actor,ids.entity]);await db.exec('SET ROLE service_role');assert.equal((await incoming({kind:'maintenance',body:'leak'})).result.status,'verification_required');
+});
+test('numbered selection uses persisted choices and audit failure rolls back the entire intake',async()=>{
+ await paired();await db.exec('RESET ROLE');const property=randomUUID();await db.query("INSERT INTO properties(id,property_name,entity_id) VALUES($1,'Another site',$2)",[property,ids.entity]);await db.query("INSERT INTO maintenance_slas(entity_id,priority,response_hours,arrival_hours,resolution_hours) VALUES($1,'routine',4,8,24)",[ids.entity]);const b=await bindPhone(property);await incoming({pairingHash:b.hash});await incoming({kind:'maintenance',body:'Leaking roof',priority:'routine'});
+ await db.exec("RESET ROLE;CREATE FUNCTION fail_inbound_audit() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'Inbound audit outage';END$$;CREATE TRIGGER fail_inbound_audit BEFORE INSERT ON property_timeline FOR EACH ROW EXECUTE FUNCTION fail_inbound_audit();SET ROLE service_role");
+ const key=randomUUID();await assert.rejects(incoming({kind:'selection',selection:1},key),/Inbound audit outage/);
+ await db.exec('RESET ROLE;DROP TRIGGER fail_inbound_audit ON property_timeline;DROP FUNCTION fail_inbound_audit();SET ROLE service_role');const first=await incoming({kind:'selection',selection:1},key);assert.equal(first.result.status,'created');assert.deepEqual(await incoming({kind:'selection',selection:1},key),first);
 });

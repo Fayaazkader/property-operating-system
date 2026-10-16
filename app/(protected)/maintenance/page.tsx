@@ -121,6 +121,7 @@ export default function MaintenanceCommand() {
               <h1 className="text-lg font-light tracking-[-0.02em] text-white">
                 {stats.emergency > 0 ? `${stats.emergency} emergenc${stats.emergency === 1 ? 'y' : 'ies'}` : `${stats.active} active`}
               </h1>
+              <Link href="/maintenance/whatsapp" className="text-xs underline">Connect WhatsApp</Link>
               <Link href="/maintenance/new" className="flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-black hover:bg-gray-100">
                 <Plus className="w-3 h-3" /> New
               </Link>
