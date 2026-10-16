@@ -1,254 +1,130 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { codeGenerator } from "@/lib/platform/shared/code-generator";
-import Link from "next/link";
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import { provisionInitialWorkspace, type WorkspaceDetails } from '@/lib/onboarding/service';
+
+const emptyDetails: WorkspaceDetails = { fullName: '', clientName: '', entityName: '', entityCode: '', roleName: '' };
 
 export default function SignupPage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [provisioning, setProvisioning] = useState(false);
-  const [provisionStep, setProvisionStep] = useState("");
+  const [details, setDetails] = useState(emptyDetails);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authenticated, setAuthenticated] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [checkFailed, setCheckFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const submitting = useRef(false);
 
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [mobile, setMobile] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [password, setPassword] = useState("");
-
-  async function handleCreateWorkspace(e: React.FormEvent) {
-    e.preventDefault();
-    if (!fullName || !email || !companyName || !password) {
-      setError("Please fill in all required fields");
-      return;
+  useEffect(() => {
+    let active = true;
+    setChecking(true);
+    setCheckFailed(false);
+    setAuthenticated(false);
+    setError('');
+    async function load() {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!session) return;
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) throw new Error('Your session could not be verified. Sign in again.');
+        if (!active) return;
+        setAuthenticated(true);
+        setEmail(user.email ?? '');
+        // Metadata is only a form draft, never an authorization decision.
+        const draft = user.user_metadata?.workspace_draft ?? {};
+        setDetails(current => Object.fromEntries(Object.entries(current).map(([key, value]) =>
+          [key, value || (typeof draft[key] === 'string' ? draft[key] : '')])) as WorkspaceDetails);
+      } catch {
+        if (active) { setCheckFailed(true); setError('We could not check your account. Retry or sign in again before continuing.'); }
+      } finally {
+        if (active) setChecking(false);
+      }
     }
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
-      return;
-    }
+    void load();
+    return () => { active = false; };
+  }, [attempt]);
 
-    setLoading(true);
-    setError("");
-    setProvisioning(true);
-
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
+    setBusy(true); setError(''); setNotice('');
     try {
-      // Step 1: Create auth user
-      setProvisionStep("Creating your account...");
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName, company_name: companyName } },
-      });
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Signup failed");
-
-      // Step 2: Create workspace entity
-      setProvisionStep("Creating your workspace...");
-      const entityCode = await codeGenerator.generate("ENT");
-
-      const { data: entity, error: entityError } = await supabase
-        .from("entities")
-        .insert({
-          name: companyName,
-          entity_name: companyName,
-          entity_code: entityCode,
-        })
-        .select("id")
-        .single();
-      if (entityError) throw entityError;
-
-      // Step 5: Provision workspace defaults atomically
-      setProvisionStep("Configuring financial operations...");
-
-      const { data: provisioningResult, error: provisioningError } =
-        await supabase.rpc("provision_workspace", {
-          p_entity_id: entity.id,
-          p_full_name: fullName,
-          p_email: email,
-          p_mobile: mobile || null,
+      if (!authenticated) {
+        const { data, error: signupError } = await supabase.auth.signUp({
+          email: email.trim(), password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=/signup`,
+            data: { full_name: details.fullName.trim(), workspace_draft: details },
+          },
         });
-
-      if (provisioningError) {
-        throw new Error(
-          `Workspace provisioning failed: ${provisioningError.message}`,
-        );
+        if (signupError) throw signupError;
+        if (!data.session) {
+          setPassword('');
+          setNotice('Check your email to confirm your account, then sign in to finish workspace setup. If you already have an account, sign in instead. No workspace has been created by this request.');
+          return;
+        }
+        setAuthenticated(true); setPassword('');
       }
-
-      if (!provisioningResult) {
-        throw new Error("Workspace provisioning returned no result");
-      }
-
-      // Step 6: Sign in and redirect
-      setProvisionStep("Welcome to AssetFlow...");
-      setTimeout(
-        () => router.push(`/welcome?entity=${encodeURIComponent(entity.id)}`),
-        1000,
-      );
-    } catch (err: any) {
-      setProvisioning(false);
-      setError(
-        err.message ||
-          "Something went wrong. Please try again or contact support.",
-      );
+      await provisionInitialWorkspace(supabase, details);
+      // Reload canonical providers after membership creation; no stale empty scope.
+      window.location.assign('/app');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Setup could not be confirmed. Please retry.');
+    } finally {
+      submitting.current = false; setBusy(false);
     }
-    setLoading(false);
   }
 
-  if (provisioning) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black px-4">
-        <div className="text-center space-y-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/[0.04]">
-            <svg
-              className="animate-spin h-8 w-8 text-white"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              ></path>
-            </svg>
-          </div>
-          <p className="text-lg font-light text-white">
-            Creating your workspace
-          </p>
-          <p className="text-sm text-zinc-500 font-light">{provisionStep}</p>
-        </div>
-      </div>
-    );
-  }
-
+  const inputClass = 'w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/70';
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black px-4">
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white/[0.02] rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-
-      <div className="relative w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link
-            href="/"
-            className="text-2xl font-bold tracking-tight text-white"
-          >
-            AssetFlow
-          </Link>
-          <p className="text-sm text-zinc-500 mt-2 font-light">
-            The operating system for commercial property.
-          </p>
+    <main className="min-h-screen bg-black px-4 py-10 sm:py-16 text-white">
+      <div className="mx-auto w-full max-w-xl">
+        <Link href="/landing" className="text-2xl font-semibold tracking-tight focus-visible:outline focus-visible:outline-2">AssetFlow</Link>
+        <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-8">
+          <h1 className="text-2xl font-semibold">{authenticated ? 'Finish your workspace setup' : 'Create your AssetFlow workspace'}</h1>
+          <p className="mt-3 text-sm leading-6 text-zinc-300">Set up a new client account and its first legal entity. You will be its initial Super User. Joining an existing organisation? Ask its administrator for access instead.</p>
+          {checking ? <p role="status" className="mt-6">Checking your account…</p> : checkFailed ? null : (
+            <form onSubmit={submit} className="mt-6 space-y-4" aria-busy={busy}>
+              <fieldset disabled={busy} className="space-y-4 disabled:opacity-60">
+                {([
+                  ['fullName', 'Your full name', 'name'],
+                  ['clientName', 'Client / organisation name', 'organization'],
+                  ['entityName', 'First legal entity name', 'off'],
+                  ['entityCode', 'Legal entity code (unique reference)', 'off'],
+                  ['roleName', 'Your organisational role', 'organization-title'],
+                ] as const).map(([key, label, autoComplete]) => <div key={key}>
+                  <label htmlFor={key} className="mb-1.5 block text-sm text-zinc-200">{label}</label>
+                  <input id={key} autoComplete={autoComplete} required maxLength={200} value={details[key]} onChange={e => setDetails({ ...details, [key]: e.target.value })} className={inputClass} />
+                </div>)}
+                <div>
+                  <label htmlFor="email" className="mb-1.5 block text-sm text-zinc-200">Work email</label>
+                  <input id="email" type="email" autoComplete="email" required readOnly={authenticated} value={email} onChange={e => setEmail(e.target.value)} className={inputClass} />
+                </div>
+                {!authenticated && <div>
+                  <label htmlFor="password" className="mb-1.5 block text-sm text-zinc-200">Password</label>
+                  <input id="password" type="password" autoComplete="new-password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} className={inputClass} aria-describedby="password-help" />
+                  <p id="password-help" className="mt-1 text-xs text-zinc-400">At least 8 characters.</p>
+                </div>}
+                <button type="submit" className="w-full rounded-xl bg-white px-4 py-3 font-medium text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 disabled:opacity-50">{busy ? 'Confirming workspace setup…' : authenticated ? 'Complete workspace setup' : 'Create account and continue'}</button>
+              </fieldset>
+            </form>
+          )}
+          {error && <div role="alert" className="mt-4 rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-200"><p>{error}</p><button type="button" disabled={busy} onClick={() => setAttempt(a => a + 1)} className="mt-3 underline">Recheck account</button></div>}
+          {notice && <p role="status" className="mt-4 rounded-xl border border-white/20 p-4 text-sm leading-6">{notice}</p>}
+          <div className="mt-6 flex flex-wrap gap-4 text-sm">
+            <Link href="/login" className="underline">Sign in</Link>
+            {authenticated && <Link href="/app" className="underline">Open existing workspace</Link>}
+            <Link href="/landing" className="text-zinc-300 underline">Back to AssetFlow</Link>
+          </div>
         </div>
-
-        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm p-8">
-          <h1 className="text-xl font-semibold text-white text-center mb-6">
-            Create your workspace
-          </h1>
-
-          <form onSubmit={handleCreateWorkspace} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-zinc-500 mb-1.5">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white outline-none focus:border-white/20 transition-colors"
-                  placeholder="John Doe"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-zinc-500 mb-1.5">
-                  Company Name
-                </label>
-                <input
-                  type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  required
-                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white outline-none focus:border-white/20 transition-colors"
-                  placeholder="Acme Properties"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-500 mb-1.5">
-                Work Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white outline-none focus:border-white/20 transition-colors"
-                placeholder="you@company.com"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-500 mb-1.5">
-                Mobile Number (optional)
-              </label>
-              <input
-                type="tel"
-                value={mobile}
-                onChange={(e) => setMobile(e.target.value)}
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white outline-none focus:border-white/20 transition-colors"
-                placeholder="+27 82 123 4567"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-500 mb-1.5">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white outline-none focus:border-white/20 transition-colors"
-                placeholder="Min 8 characters"
-              />
-            </div>
-
-            {error && (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
-                <p className="text-sm text-red-400">{error}</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-white py-3 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-40 transition-all"
-            >
-              {loading ? "Creating..." : "Create Workspace"}
-            </button>
-          </form>
-        </div>
-
-        <p className="mt-6 text-center text-sm text-zinc-600">
-          Already have an account?{" "}
-          <Link
-            href="/login"
-            className="text-white hover:text-zinc-300 transition-colors"
-          >
-            Sign in
-          </Link>
-        </p>
       </div>
-    </div>
+    </main>
   );
 }

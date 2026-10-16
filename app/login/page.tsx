@@ -2,11 +2,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
-  const router = useRouter();
   const supabase = createClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,42 +16,22 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    console.log('Attempting login with:', email);
 
-    const { data, error } = await supabase.auth.signInWithPassword({ 
-      email: email.trim(), 
-      password 
-    });
-
-    console.log('Login response:', { data, error });
-
-    if (error) {
-      console.error('Login error:', error.message);
-      setError(error.message);
+    try {
+      const { error: loginError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (loginError) throw loginError;
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !data.session) throw new Error("Your session could not be established. Please try again.");
+      // Refresh platform providers when switching accounts.
+      window.location.assign("/app");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to sign in. Please retry.");
       setLoading(false);
-    } else {
-  console.log("Login successful");
-
-  const { data: sessionData, error: sessionError } =
-    await supabase.auth.getSession();
-
-  console.log("SESSION AFTER LOGIN:", sessionData.session);
-  console.log("SESSION ERROR:", sessionError);
-
-  if (!sessionData.session) {
-    setError("Login succeeded, but the session could not be established. Please try again.");
-    setLoading(false);
-    return;
-  }
-
-  console.log("Session established:", sessionData.session.user.id);
-
-  router.replace("/app");
-}
+    }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0A0A0B]">
+    <div className="min-h-screen flex items-center justify-center bg-[#0A0A0B] px-4 py-10">
       <div className="w-full max-w-md rounded-3xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-8">
         <div className="text-center mb-8">
           <a href="/"><img src="/logo.png" alt="AssetFlow" className="h-10 w-auto mx-auto mb-3" /></a>
@@ -62,30 +40,30 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-xs text-[var(--text-muted)] mb-1.5">Email</label>
-            <input 
-              type="email" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
+            <label htmlFor="email" className="block text-xs text-[var(--text-muted)] mb-1.5">Email</label>
+            <input
+              id="email" autoComplete="email" type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]" 
+              className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]"
             />
           </div>
           <div>
-            <label className="block text-xs text-[var(--text-muted)] mb-1.5">Password</label>
-            <input 
-              type="password" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
+            <label htmlFor="password" className="block text-xs text-[var(--text-muted)] mb-1.5">Password</label>
+            <input
+              id="password" autoComplete="current-password" type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]" 
+              className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)]/40 px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-hover)]"
             />
           </div>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             className="w-full rounded-2xl bg-[var(--text-primary)] text-[var(--bg-primary)] px-6 py-3 text-sm font-semibold hover:opacity-90 disabled:opacity-40"
           >

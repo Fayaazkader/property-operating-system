@@ -1265,3 +1265,34 @@ tenant self-service, media, routing, live provider/browser and full conversation
 quality remain open. No deployment or new capability auto-grant. Provider replay
 returns committed outcomes; failed preparation retains inbox and rolls back issue,
 order and audit. Existing finance/deposit and security dependency work is preserved.
+
+## First-client onboarding — 2026-10-16 integration milestone
+
+Entry: `/signup` handles new registration, email-confirmation waiting, and an
+already-authenticated user without membership. It calls
+`lib/onboarding/service.ts` -> `provision_client_account` with the caller's
+Supabase session and verified email. No browser entity insert, service-role key,
+legacy `provision_workspace`, or parallel financial bootstrap is used. Client,
+legal entity, entity code and organisational role are explicitly supplied; the
+role label is not operational authority. Completion reloads `/app` to refresh
+canonical providers. `/welcome` legacy data-entry shortcuts are not used.
+
+Migration `20261016140000_retry_safe_client_onboarding.sql` preserves the canonical
+provisioning body and adds actor-scoped transaction locking and a private RLS
+receipt. Client graph, financial foundation and receipt commit atomically.
+Retries return the original result (they do not rename or create another client).
+Existing membership without a receipt requires administration; suspended,
+removed or demoted receipt owners cannot recover obsolete authority. Platform
+roles remain unchanged. Canonical template accounts and posting lines must exist;
+an empty template foundation fails rather than reporting false completion.
+
+The protected layout uses verified identity and fails closed on membership or
+network errors, with retry/sign-in recovery. Unassigned users can choose initial
+setup or request existing-client access. Login no longer logs session tokens.
+
+Local verification: actual TypeScript service -> canonical provisioning SQL ->
+actual Standard Access and financial-foundation functions in embedded PostgreSQL;
+auth/role fixtures and selected actual table DDL, not the full deployed RLS stack.
+See `docs/CLIENT_ONBOARDING_20261016.md` for tests and outstanding staging gates.
+The migration has NOT been deployed by this development batch. WhatsApp scope,
+release candidate 13a8467, staging configuration and Production are unchanged.
