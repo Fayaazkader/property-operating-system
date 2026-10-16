@@ -1,9 +1,5 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  outputFileTracingIncludes: {
-    '/api/execution/pdf-worker': ['./node_modules/pdfjs-dist/build/pdf.worker.min.js'],
-  },
-};
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

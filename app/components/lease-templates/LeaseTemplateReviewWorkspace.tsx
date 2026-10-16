@@ -29,7 +29,7 @@ import type {
 } from '@/lib/lease/templates/types';
 
 pdfjs.GlobalWorkerOptions.workerSrc =
-  'https://unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs';
+  '/pdf-workers/react-pdf.worker.min.mjs';
 
 interface LeaseTemplateReviewWorkspaceProps {
   templateId: string;

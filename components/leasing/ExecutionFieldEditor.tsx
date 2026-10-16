@@ -61,8 +61,8 @@ export default function ExecutionFieldEditor({ executionId, entityId, participan
     void (async () => {
       try {
         const pdfjs = await import('pdfjs-dist');
-        pdfjs.GlobalWorkerOptions.workerSrc = '/api/execution/pdf-worker';
-        const task = pdfjs.getDocument({ data: new Uint8Array(pdfBytes.slice(0)), isEvalSupported: false });
+        pdfjs.GlobalWorkerOptions.workerSrc = '/pdf-workers/execution.worker.min.mjs';
+        const task = pdfjs.getDocument({ data: new Uint8Array(pdfBytes.slice(0)) });
         cancel = () => { void task.destroy(); };
         const document = await task.promise;
         const pdfPage = await document.getPage(page);
@@ -74,7 +74,7 @@ export default function ExecutionFieldEditor({ executionId, entityId, participan
         setDisplay({ width: scaled.width, height: scaled.height });
         const context = target.getContext('2d');
         if (!context) throw new Error('Document preview unavailable.');
-        await pdfPage.render({ canvasContext: context, viewport: scaled }).promise;
+        await pdfPage.render({ canvas: target, canvasContext: context, viewport: scaled }).promise;
         if (current === sequence.current) setRendered(true);
       } catch { if (current === sequence.current) setError('Could not render this PDF page.'); }
     })();

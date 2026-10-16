@@ -5,7 +5,7 @@ import { CoordinateTransformService, type CanvasField } from '@/lib/signing/coor
 import type { SigningField } from '@/lib/signing/types';
 import { Document, Page, pdfjs } from 'react-pdf';
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf-workers/react-pdf.worker.min.mjs';
 
 interface PageClickEvent {
   x: number;
