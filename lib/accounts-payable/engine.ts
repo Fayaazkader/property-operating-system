@@ -1,5 +1,5 @@
 // lib/accounts-payable/engine.ts
-// Accounts Payable Engine — Production Complete
+// Canonical AP entry point; maintenance commands enforce transactional authority.
 
 import { supabase } from '@/lib/supabase';
 import { postingEngine } from '@/lib/financial/posting-engine';
@@ -8,6 +8,7 @@ import { publish } from '@/lib/platform/events/event-bus';
 export type LifecycleStatus = 'captured' | 'ocr_processing' | 'ocr_review' | 'finance_review' | 'approved' | 'posting_queue' | 'posted' | 'partially_paid' | 'paid' | 'closed';
 
 export interface SupplierInvoiceInput {
+  workOrderId?: string; documentId?: string;
   entityId: string; supplierId: string; invoiceNumber: string;
   invoiceDate: string; dueDate: string; description?: string;
   source?: string; ocrData?: any; ocrConfidence?: number;
@@ -21,7 +22,20 @@ export interface InvoiceLineInput {
 }
 
 export const apEngine = {
+  async listMaintenancePaymentAllocations(entityId: string, invoiceId: string): Promise<any[]> {
+    const {data,error}=await supabase.rpc('list_maintenance_payment_allocations',{p_entity_id:entityId,p_invoice_id:invoiceId});
+    if(error)throw new Error(error.message);return data??[];
+  },
+  async reconcileMaintenancePayment(entityId: string, invoiceId: string, allocationId: string): Promise<number> {
+    const {data,error}=await supabase.rpc('reconcile_maintenance_supplier_payment',{p_entity_id:entityId,p_invoice_id:invoiceId,p_allocation_id:allocationId});
+    if(error)throw new Error(error.message);return Number(data);
+  },
   async captureInvoice(input: SupplierInvoiceInput): Promise<any> {
+    if(input.workOrderId){
+      const {data,error}=await supabase.rpc('capture_maintenance_supplier_invoice',{p_entity_id:input.entityId,p_work_order_id:input.workOrderId,p_input:{invoiceNumber:input.invoiceNumber,invoiceDate:input.invoiceDate,dueDate:input.dueDate,description:input.description??'',documentId:input.documentId,lines:input.lines}});
+      if(error)throw new Error(error.message);return data;
+    }
+
     const { data: existing } = await supabase.from('supplier_invoices_new').select('id').eq('supplier_id', input.supplierId).eq('invoice_number', input.invoiceNumber).eq('invoice_date', input.invoiceDate).single();
     const initialStatus: LifecycleStatus = input.requiresReview ? 'captured' : 'finance_review';
     const totalAmount = input.lines.reduce((s, l) => s + l.amount, 0);
@@ -49,6 +63,9 @@ export const apEngine = {
   approvedBy: string,
   entityId: string
 ): Promise<void> {
+  const scoped=await supabase.from('supplier_invoices_new').select('maintenance_work_order_id').eq('id',invoiceId).eq('entity_id',entityId).single();
+  if(scoped.error||!scoped.data)throw new Error('Supplier invoice unavailable in this entity');
+  if(scoped.data.maintenance_work_order_id){const {error}=await supabase.rpc('approve_maintenance_supplier_invoice',{p_entity_id:entityId,p_invoice_id:invoiceId});if(error)throw new Error(error.message);return;}
   const { permissionService } = await import('@/lib/rbac/permission-service');
 
 await permissionService.require(
@@ -64,6 +81,9 @@ await permissionService.require(
   postedBy: string,
   entityId: string
 ): Promise<void> {
+  const scoped=await supabase.from('supplier_invoices_new').select('maintenance_work_order_id').eq('id',invoiceId).eq('entity_id',entityId).single();
+  if(scoped.error||!scoped.data)throw new Error('Supplier invoice unavailable in this entity');
+  if(scoped.data.maintenance_work_order_id){const {error}=await supabase.rpc('post_maintenance_supplier_invoice',{p_entity_id:entityId,p_invoice_id:invoiceId});if(error)throw new Error(error.message);return;}
   const { permissionService } = await import('@/lib/rbac/permission-service');
 
 await permissionService.require(

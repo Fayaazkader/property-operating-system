@@ -13,17 +13,7 @@ export class SubLedgerEngine {
       // restricted to AR control lines. Posting both sides here cancels receivables
       // and leaves an invoice committed without its tenant ledger on failure.
 
-      if (line.supplier_id) {
-        entries.push(
-          await this.buildEntry(
-            journal,
-            line,
-            "supplier",
-            undefined,
-            line.supplier_id,
-          ),
-        );
-      }
+      // Supplier AP-control projections commit in the same SQL transaction.
 
       if (line.broker_id) {
         entries.push(

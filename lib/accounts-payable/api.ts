@@ -2,6 +2,8 @@ import { apEngine } from './engine';
 import type { SupplierInvoiceInput } from './engine';
 
 export const apApi = {
+  listMaintenancePaymentAllocations: apEngine.listMaintenancePaymentAllocations,
+  reconcileMaintenancePayment: apEngine.reconcileMaintenancePayment,
   captureInvoice: (input: SupplierInvoiceInput) => apEngine.captureInvoice(input),
   postInvoice: (
   invoiceId: string,

@@ -9,7 +9,21 @@ import { timelineService } from '../timeline/timeline.service';
 import { publish } from '@/lib/platform/events';
 import { slaEngine } from '@/lib/platform/policies/sla.engine';
 
+export type MaintenanceAction = 'quote'|'approve'|'reject_quote'|'authorize'|'accept'|'schedule'|'start'|'progress'|'complete'|'reject_completion'|'certify'|'cancel';
+export interface MaintenanceCommand {entityId:string;workOrderId:string;requestId:string;expectedVersion:number;action:MaintenanceAction;payload:Record<string,unknown>}
+export interface MaintenanceCommandResult {workOrder:WorkOrder & {lifecycle_version:number};recordId:string|null;visitId:string|null;authority:unknown[]}
+
 export class WorkOrderService {
+  async commandLifecycle(command:MaintenanceCommand):Promise<MaintenanceCommandResult> {
+    const {data,error}=await supabase.rpc('command_maintenance_work_order',{p_entity_id:command.entityId,p_work_order_id:command.workOrderId,p_request_id:command.requestId,p_expected_version:command.expectedVersion,p_action:command.action,p_payload:command.payload});
+    if(error)throw new Error(error.message);
+    if(data?.workOrder?.id!==command.workOrderId||data?.workOrder?.entity_id!==command.entityId||!Number.isInteger(data.workOrder.lifecycle_version))throw new Error('Maintenance result requires recovery');
+    return data as MaintenanceCommandResult;
+  }
+
+  async closeAfterReconciliation(entityId:string,workOrderId:string):Promise<void>{
+    const {error}=await supabase.rpc('close_maintenance_work_order',{p_entity_id:entityId,p_work_order_id:workOrderId});if(error)throw new Error(error.message);
+  }
   private repository = workOrderRepository;
 
   async prepareFromIssue(issueId:string,entityId:string,propertyId:string):Promise<ServiceResult<WorkOrder & {entity_id:string;issue_id:string;tenant_chargeable:boolean}>> {

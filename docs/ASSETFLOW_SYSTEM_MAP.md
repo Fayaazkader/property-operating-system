@@ -1204,3 +1204,46 @@ single register. Whole-platform reconciliation is still incomplete. Deposit
 receipts/reconciliation/refunds/reversals, recurring issuance, supplier atomic
 posting, maintenance quote/authority/contractor/completion and WhatsApp provider
 integration remain explicit open gates. No beta or production certification.
+
+
+## 2026-10-16 governed maintenance execution and financial closure
+
+Checkpoint extends 59491f48b7f97daf6b105f08673d21e2cf42a5ef without replacing
+lease execution, commercial terms, commencement billing or previous recovery artifacts.
+`workOrderService.commandLifecycle` is the canonical transition boundary for
+issue-bound work orders. SQL migration 20261016050000 reuses maintenance_quotes,
+maintenance_approval_rules, purchase_orders, supplier_visits, work_order_events
+and expected_supplier_invoices. Client mutations cannot bypass commands. Matching
+is advisory, not contractor authorization. Explicit new capabilities require
+configured role grants; legacy approval labels never imply spending authority.
+
+`apApi` → `apEngine` → maintenance invoice RPCs (20261016060000) reuse
+supplier_invoices_new/supplier_invoice_lines, atomic_post_journal_internal,
+general_ledger and sub_ledger_entries. Supplier projection now occurs atomically
+on AP-control lines only; the old client-side all-line supplier projection is
+removed. Invoice cost and configured VAT reconcile to certified gross cost.
+The source document hash and independent approver are retained. Replay verifies
+GL/subledger evidence; posted invoice data cannot be altered through browser CRUD.
+
+20261016070000 extends existing transaction_allocations with a distinct AP invoice
+FK and authoritative payment journal. It never repurposes the existing AR invoice
+FK or initiates a bank transfer. Scoped allocation review and reconciliation are
+exposed through the same AP service and maintenance workspace. Financial closure
+requires full verified payment allocation, same-entity/account statement coverage,
+canonical payment journal, balanced GL and supplier evidence. Operational states
+completed/verified remain separate from closed. Partial payments remain open.
+
+Local SQL uses actual selected repository DDL, fixture auth/permissions and PGlite.
+Actual TypeScript work-order and AP service entrypoints are exercised against
+those RPCs. Tests include retries, stale competing commands, rollback on audit
+failure, entity isolation, VAT, closed periods, overpayment, incomplete statement
+proof and corrupted ledger evidence. Single PGlite execution is not independent
+Postgres session concurrency. No live provider, browser or production claim.
+See `docs/MAINTENANCE_DELIVERY_20261016.md` for evidence and remaining gates.
+
+The new AF-MAINT register namespace preserves the entire expanded maintenance,
+WhatsApp and inspections acceptance scope. Existing WhatsApp webhook phone-only
+identity and unsigned inbound processing are unsafe; secure provider/identity
+ingress is the next dependency. Existing inspection engine completion ignores
+update errors and lacks demonstrated atomic evidence/defect integration. Neither
+is certified. No public signing/WhatsApp enablement or production change occurred.

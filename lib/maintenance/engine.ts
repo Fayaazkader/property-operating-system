@@ -62,69 +62,26 @@ export class MaintenanceEngine {
 
   async matchSupplier(workOrderId: string, entityId: string): Promise<string | null> {
     const { data: wo } = await supabase.from('work_orders').select('*').eq('id', workOrderId).single();
-    if (!wo) return null;
+    if (!wo || wo.entity_id !== entityId) throw new Error('Work order entity mismatch');
 
     const priority = (wo as any)?.priority || 'routine';
     const bestSupplier = await supplierMatchingEngine.getBestSupplier(entityId, wo.category || 'other', priority);
     if (!bestSupplier) return null;
 
-    await supabase.from('work_orders').update({
-      supplier_id: bestSupplier.supplier_id, status: 'assigned',
-    }).eq('id', workOrderId);
-
-    await publish('maintenance.supplier.matched', {
-      correlationId: crypto.randomUUID(), source: 'maintenance-engine', version: '1.0',
-      payload: { workOrderId, supplierId: bestSupplier.supplier_id, score: bestSupplier.overall_score },
-    });
-
+    // Matching is advisory. Only the governed quotation/authorization command assigns work.
     return bestSupplier.supplier_id;
   }
 
-  async scheduleVisit(workOrderId: string, supplierId: string, scheduledAt: string): Promise<string> {
-    const { data, error } = await supabase.from('supplier_visits').insert({
-      work_order_id: workOrderId, supplier_id: supplierId,
-      scheduled_at: scheduledAt, status: 'scheduled',
-    }).select('id').single();
-
-    if (error) throw error;
-    await publish('maintenance.visit.scheduled', {
-      correlationId: crypto.randomUUID(), source: 'maintenance-engine', version: '1.0',
-      payload: { visitId: data.id, workOrderId, supplierId, scheduledAt },
-    });
-    return data.id;
+  async scheduleVisit(_workOrderId: string, _supplierId: string, _scheduledAt: string): Promise<string> {
+    throw new Error('Use WorkOrderService.commandLifecycle with an authorized order, version and stable request ID to schedule a visit.');
   }
 
-  async completeWork(workOrderId: string, visitId: string, cost: number, notes?: string): Promise<void> {
-    await supabase.from('supplier_visits').update({
-      status: 'completed', completed_at: new Date().toISOString(), notes,
-    }).eq('id', visitId);
-
-    await supabase.from('work_orders').update({
-      status: 'completed', completed_date: new Date().toISOString().split('T')[0], supplier_cost: cost,
-    }).eq('id', workOrderId);
-
-    const { data: wo } = await supabase.from('work_orders').select('*').eq('id', workOrderId).single();
-    await supabase.from('expected_supplier_invoices').insert({
-      work_order_id: workOrderId, supplier_id: wo.supplier_id, entity_id: wo.entity_id,
-      expected_amount: cost, expected_date: new Date().toISOString().split('T')[0], status: 'pending',
-    });
-
-    await publish('maintenance.work.completed', {
-      correlationId: crypto.randomUUID(), source: 'maintenance-engine', version: '1.0',
-      payload: { workOrderId, visitId, cost },
-    });
+  async completeWork(_workOrderId: string, _visitId: string, _cost: number, _notes?: string): Promise<void> {
+    throw new Error('Use the governed progress, completion and independent certification commands.');
   }
 
-  async requestApproval(issueId: string, entityId: string, estimatedCost: number): Promise<void> {
-    await publish('approval.requested', {
-      correlationId: crypto.randomUUID(), source: 'maintenance-engine', version: '1.0',
-      payload: {
-        entity_type: 'maintenance_issue', entity_id: issueId,
-        action: 'approve_work_order', amount: estimatedCost, entityId,
-        title: `Maintenance approval: R${estimatedCost.toLocaleString()}`,
-      },
-    });
+  async requestApproval(_issueId: string, _entityId: string, _estimatedCost: number): Promise<void> {
+    throw new Error('Submit a documented quotation through the work order workspace for configured approval authority.');
   }
 }
-
 export const maintenanceEngine = new MaintenanceEngine();

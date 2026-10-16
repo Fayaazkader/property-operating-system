@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { MaintenanceInvoiceReview } from '@/components/maintenance/MaintenanceInvoiceReview';
+import { WorkOrderLifecycle } from '@/components/maintenance/WorkOrderLifecycle';
 import { PrepareWorkOrderAction } from '@/components/maintenance/PrepareWorkOrderAction';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Clock, MapPin, User, FileText, Wrench, MessageSquare } from 'lucide-react';
@@ -92,9 +94,10 @@ export default function IssueWorkspace() {
           <PrepareWorkOrderAction issueId={String(id)} entityId={issue.entity_id} propertyId={issue.property_id} exists={workOrders.length>0}
             onPrepared={order=>setWorkOrders(previous=>previous.some(w=>w.id===order.id)?previous:[...previous,order])}/>
 
-          <button className="af-control border border-[var(--border-default)] text-xs text-[var(--text-primary)] hover:border-white/20" disabled title="Quotation requests are not available in this workspace yet.">Request Quotes</button>
-          <button className="af-control border border-[var(--border-default)] text-xs text-[var(--text-primary)] hover:border-white/20" disabled title="Contractor assignment is not available in this workspace yet.">Assign Supplier</button>
+
         </div>
+        {workOrders.map(order=><WorkOrderLifecycle key={order.id} order={order} onChanged={()=>setGeneration(n=>n+1)}/>)}
+        {workOrders.filter(order=>['verified','closed'].includes(order.status)).map(order=><MaintenanceInvoiceReview key={'finance-'+order.id} order={order} onChanged={()=>setGeneration(n=>n+1)}/>)}
       </div>
 
       {/* Right: Timeline */}
