@@ -32,6 +32,9 @@ try {
   assert.equal(completed.status(), 200);
   const result = await completed.json();
   assert.equal(result.status, 'provisioned'); assert.ok(result.entity_id);
+  await page.waitForURL(url => url.pathname === '/settings/financial/readiness');
+  await page.getByRole('heading', { name: 'Financial setup', exact: true }).waitFor();
+  await page.getByRole('link', { name: 'Return to workspace' }).click();
   await page.waitForURL(url => url.pathname === '/app');
   await page.getByText('Verifying workspace access…', { exact: true }).waitFor({ state: 'hidden' });
   await page.getByRole('heading', { name: /^Good (morning|afternoon|evening)/ }).waitFor();
