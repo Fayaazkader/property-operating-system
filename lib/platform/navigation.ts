@@ -7,6 +7,7 @@ export const navigation: NavigationItem[] = [
   { label: "Revenue Ops", href: "/financials/revenue", roles: ["executive", "admin", "finance"], icon: "revenue", section: "operations" },
   { label: "Cash Book", href: "/financials/cash-book", roles: ["executive", "admin", "finance"], icon: "cashbook", section: "operations" },
   { label: "Communications", href: "/communications", roles: ["executive", "admin", "leasing", "finance", "operations"], icon: "maintenance", section: "operations" },
+  { label: "Flow", href: "/flow", roles: ["executive", "admin", "leasing", "finance", "operations"], icon: "maintenance", section: "operations" },
   { label: "Tasks", href: "/tasks", roles: ["executive", "admin", "leasing", "finance", "operations"], icon: "documents", section: "operations" },
   // PORTFOLIO
   { label: "Properties", href: "/properties", roles: ["executive", "admin", "leasing", "finance", "operations"], icon: "properties", section: "portfolio" },

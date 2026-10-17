@@ -73,10 +73,14 @@ export class CommunicationsWorker {
           type: msg.type,
           channels: [msg.channel],
           body: msg.body,
-          status: 'delivered',
+          status: 'sent', // Provider acceptance is not delivery confirmation.
           sourceId: msg.id,
         });
       } else {
+        if (msg.channel === 'email' && !result.definitiveRejection) {
+          await supabase.from('communications_queue').update({ status: 'reconciliation_required', last_error: 'Email submission outcome unknown; reconcile provider before retrying' }).eq('id', msg.id);
+          return;
+        }
         const attempts = (msg.attempts || 0) + 1;
         const maxAttempts = msg.max_attempts || 3;
 

@@ -459,3 +459,16 @@ Evidence E7: `docs/WHATSAPP_INTAKE_20261016.md`; no full-domain completion claim
 | ID | Requirement | Status | Evidence / remaining gates |
 |---|---|---|---|
 | AF-ARCH-001 | Platform-owned engines and system capabilities; client-owned financial configuration; organisation creation independent of financial readiness | Implemented; locally integration-tested, staging unverified | `docs/FINANCIAL_READINESS_20261016.md`; migration `20261016160000_client_financial_readiness.sql`; `tests/financial-readiness/integration.test.mjs`. Client JSON import/review and database posting gates. Deployed isolation, browser and independent-session concurrency remain open. |
+
+## AF-FLOW-001 — Governed statement communication action (additional requirement)
+
+Source: Flow Intelligent Action Orchestration directive, 2026-10-16. Preserve the
+original audit IDs and any unresolved historical FLO definition separately.
+Implemented/local-test evidence: `docs/FLOW_STATEMENTS_20261016.md`, `tests/flow`,
+`lib/flow`, `/flow`, `/api/flow/statements`, migration
+`20261016180000_flow_statement_actions.sql`. Reuses canonical identity, accounting
+snapshots, PDF rendering, queue and audit. Supports WhatsApp request initiation and
+web approval of exact recipients/documents. 23 targeted tests plus 214 regressions.
+Status: locally tested slice; overall requirement remains partial until deployed
+RBAC/concurrency/browser/provider acceptance and verified delivery/reconciliation.
+No claim of general conversational orchestration or fully delivered flagship flow.

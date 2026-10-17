@@ -17,6 +17,7 @@ export interface DeliveryResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  definitiveRejection?: boolean;
 }
 
 export async function deliver(request: DeliveryRequest): Promise<DeliveryResult> {
@@ -26,17 +27,17 @@ export async function deliver(request: DeliveryRequest): Promise<DeliveryResult>
       const result = await provider.send({
         to: request.recipient,
         subject: request.subject || 'AssetFlow',
-        text: request.body.replace(/<[^>]*>/g, ''),
+        text: request.body.replace(/<br\s*\/?\s*>/gi, '\n').replace(/<[^>]*>/g, ''),
         html: request.body,
         attachments: request.attachments,
       });
-      return { channel: 'email', success: result.success, messageId: result.messageId, error: result.error };
+      return { channel: 'email', success: result.success, messageId: result.messageId, error: result.error, definitiveRejection: result.definitiveRejection };
     }
 
     if (request.channel === 'whatsapp') {
       const provider = getWhatsAppProvider();
       const result = await provider.send(request.recipient, request.body);
-      return { channel: 'whatsapp', success: result.success, messageId: result.messageId, error: result.error };
+      return { channel: 'whatsapp', success: result.success, messageId: result.messageId, error: result.error, definitiveRejection: result.definitiveRejection };
     }
 
     return { channel: request.channel, success: false, error: 'Unsupported channel' };
