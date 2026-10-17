@@ -31,16 +31,16 @@ export class FinancialGovernanceEngine {
       return { valid: false, reason: "Transaction date is required" };
 
     try {
-      const periodId = await financialRulesEngine.getPeriodForDate(
-        event.entity_id,
-        effectiveDate,
-      );
-
-      if (event.period_id && event.period_id !== periodId) {
-        return {
-          valid: false,
-          reason: "Supplied financial period does not match the transaction date",
-        };
+      if (event.period_id) {
+        await financialRulesEngine.getExplicitPostingPeriod(
+          event.entity_id,
+          event.period_id,
+        );
+      } else {
+        await financialRulesEngine.getPeriodForDate(
+          event.entity_id,
+          effectiveDate,
+        );
       }
     } catch (error) {
       return {

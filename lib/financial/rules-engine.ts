@@ -59,18 +59,72 @@ export class FinancialRulesEngine {
     return (data?.vat_category as VatCategory) || 'non_vatable';
   }
 
+  /**
+   * Resolve the entity's current financial period.
+   * The immediately following calendar month is advance-postable,
+   * but is never considered the current/open period.
+   */
+  private async assertPostingPeriod(
+    entityId: string,
+    period: {
+      id: string;
+      status: string;
+      period_start: string;
+      period_end: string;
+    },
+  ): Promise<string> {
+    const { data: current, error } = await supabase
+      .from('financial_periods')
+      .select('id, period_start, period_end')
+      .eq('entity_id', entityId)
+      .eq('period_type', 'financial')
+      .eq('status', 'open')
+      .limit(2);
+
+    if (error || !current || current.length !== 1) {
+      throw new Error('Exactly one current financial period is required');
+    }
+
+    if (period.id === current[0].id && period.status === 'open') {
+      return period.id;
+    }
+
+    const currentStart = current[0].period_start;
+    const [year, month] = currentStart.split('-').map(Number);
+
+    const nextStart = new Date(Date.UTC(year, month, 1))
+      .toISOString()
+      .slice(0, 10);
+
+    const nextEnd = new Date(Date.UTC(year, month + 1, 0))
+      .toISOString()
+      .slice(0, 10);
+
+    if (
+      period.status === 'advance' &&
+      period.period_start === nextStart &&
+      period.period_end === nextEnd
+    ) {
+      return period.id;
+    }
+
+    throw new Error(
+      'Posting is permitted only in the current or immediately next financial period',
+    );
+  }
+
   async getPeriodForDate(
     entityId: string,
-    effectiveDate: string
+    effectiveDate: string,
   ): Promise<string> {
     const date = requireTransactionDate(effectiveDate);
 
     const { data, error } = await supabase
       .from('financial_periods')
-      .select('id, entity_id, period_type, status, period_start, period_end')
+      .select('id, status, period_start, period_end')
       .eq('entity_id', entityId)
       .eq('period_type', 'financial')
-      .eq('status', 'open')
+      .in('status', ['open', 'advance'])
       .lte('period_start', date)
       .gte('period_end', date)
       .limit(2);
@@ -79,7 +133,32 @@ export class FinancialRulesEngine {
       throw new Error(`Financial period lookup failed: ${error.message}`);
     }
 
-    return selectFinancialPeriod(entityId, date, data ?? []);
+    if (!data || data.length !== 1) {
+      throw new Error('Exactly one eligible financial period is required for transaction date');
+    }
+
+    return this.assertPostingPeriod(entityId, data[0]);
+  }
+
+  async getExplicitPostingPeriod(
+    entityId: string,
+    periodId: string,
+  ): Promise<string> {
+    const { data, error } = await supabase
+      .from('financial_periods')
+      .select('id, status, period_start, period_end')
+      .eq('id', periodId)
+      .eq('entity_id', entityId)
+      .eq('period_type', 'financial')
+      .maybeSingle();
+
+    if (error || !data) {
+      throw new Error(
+        'Selected financial period is unavailable or belongs to another entity',
+      );
+    }
+
+    return this.assertPostingPeriod(entityId, data);
   }
 
   async getCurrentPeriod(entityId: string): Promise<string | null> {

@@ -1,3 +1,4 @@
+import { financialRulesEngine } from '@/lib/financial/rules-engine';
 // lib/revenue/billing-freeze.ts
 // Billing Freeze — Creates authoritative invoice, accounting and statement records
 
@@ -319,6 +320,14 @@ export async function freezeBilling(params: {
        * invoice_id travels in metadata. The PostingEngine remains the
        * authoritative accounting mechanism and remains atomic/idempotent.
        */
+      // Resolve the accounting period from the billed service month,
+      // independently of when the invoice is created or issued.
+      const financialPeriodId =
+        await financialRulesEngine.getPeriodForDate(
+          params.entityId,
+          statementPeriod.period_start,
+        );
+
       for (const charge of billableCharges) {
         if (Number(charge.amount || 0) <= 0) continue;
 
@@ -333,7 +342,7 @@ export async function freezeBilling(params: {
           business_event: businessEvent,
           entity_id: params.entityId,
           amount: Number(charge.amount || 0),
-          period_id: undefined,
+          period_id: financialPeriodId,
           occurred_at: new Date().toISOString(),
           effective_date: billingDate,
           dimensions: {

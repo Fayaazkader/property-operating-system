@@ -38,19 +38,15 @@ export class PostingEngine {
       throw new Error("Financial posting requires a transaction date");
     }
 
-    const resolvedPeriodId = await financialRulesEngine.getPeriodForDate(
-      event.entity_id,
-      effectiveDate,
-    );
-
-    // Explicit period IDs must agree with the date-based resolution.
-    if (event.period_id && event.period_id !== resolvedPeriodId) {
-      throw new Error(
-        `Financial period mismatch: the supplied period does not match ${event.effective_date}`,
-      );
-    }
-
-    const periodId = resolvedPeriodId;
+    const periodId = event.period_id
+      ? await financialRulesEngine.getExplicitPostingPeriod(
+          event.entity_id,
+          event.period_id,
+        )
+      : await financialRulesEngine.getPeriodForDate(
+          event.entity_id,
+          effectiveDate,
+        );
     const period = await financialRulesEngine.getPeriodById(periodId);
     if (!period) {
       throw new Error("Resolved financial period could not be loaded");
