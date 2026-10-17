@@ -3,8 +3,8 @@
 
 export interface WhatsAppProvider {
   name: string;
-  send(to: string, message: string): Promise<{ success: boolean; messageId: string; error?: string }>;
-  getStatus(messageId: string): Promise<{ status: string; error?: string }>;
+  send(to: string, message: string): Promise<{ success: boolean; messageId: string; error?: string; definitiveRejection?: boolean }>;
+  getStatus(messageId: string): Promise<{ status: string; error?: string; definitiveRejection?: boolean }>;
 }
 
 export interface EmailProvider {
@@ -15,12 +15,12 @@ export interface EmailProvider {
     text: string;
     html: string;
     attachments?: Array<{ filename: string; content: string; type: string }>;
-  }): Promise<{ success: boolean; messageId: string; error?: string }>;
-  getStatus(messageId: string): Promise<{ status: string; error?: string }>;
+  }): Promise<{ success: boolean; messageId: string; error?: string; definitiveRejection?: boolean }>;
+  getStatus(messageId: string): Promise<{ status: string; error?: string; definitiveRejection?: boolean }>;
 }
 
 export interface SMSProvider {
   name: string;
-  send(to: string, message: string): Promise<{ success: boolean; messageId: string; error?: string }>;
-  getStatus(messageId: string): Promise<{ status: string; error?: string }>;
+  send(to: string, message: string): Promise<{ success: boolean; messageId: string; error?: string; definitiveRejection?: boolean }>;
+  getStatus(messageId: string): Promise<{ status: string; error?: string; definitiveRejection?: boolean }>;
 }

@@ -1296,3 +1296,24 @@ auth/role fixtures and selected actual table DDL, not the full deployed RLS stac
 See `docs/CLIENT_ONBOARDING_20261016.md` for tests and outstanding staging gates.
 The migration has NOT been deployed by this development batch. WhatsApp scope,
 release candidate 13a8467, staging configuration and Production are unchanged.
+
+## Flow statement orchestration — 2026-10-16
+
+Independent branch based on ae738aae; see `docs/FLOW_STATEMENTS_20261016.md`.
+`/flow` → authenticated `/api/flow/statements` → private canonical SQL action
+commands → issued monthly statements → existing PDF renderer → exact manifest
+review → operation-specific approval → existing communications queue/provider.
+Verified WhatsApp ingress creates the same action and returns a web-review reference.
+
+Core files: `lib/flow/statement-intent.ts`, `lib/flow/statements.ts`,
+`supabase/migrations/20261016180000_flow_statement_actions.sql` and `tests/flow`.
+No financial engine, configuration or posting changes. New client-assigned prepare
+and send capabilities, private action/attachment access, immutable audit, source
+revalidation, approval expiry and duplicate-claim protections. Provider acceptance
+is distinct from delivery; unknown outcomes require reconciliation, never automatic
+resend. Existing email adapter/worker now avoid invented IDs/delivery claims.
+
+237 local tests pass, including 23 Flow tests; TypeScript and diff checks pass.
+Embedded SQL and controlled transport tests are not deployed certification.
+Independent-session races, full Supabase RBAC, browser acceptance and real provider
+acceptance/delivery remain staging gates. No deployment or main merge performed.

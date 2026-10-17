@@ -453,3 +453,16 @@ Evidence E7: `docs/WHATSAPP_INTAKE_20261016.md`; no full-domain completion claim
 | AF-COMM-013 | Demonstrated productivity | Not yet verified | Representative mixed municipal/supplier/property/period/duplicate/exception/VAT batches; measure extraction/matching/GL/VAT accuracy, exception/correction rates, machine/human time, posting recovery and reconciliation differences. No demonstrated time savings yet. |
 | AF-COMM-014 | Conversation quality suite | Partially implemented | Test maintenance/emergency/recurrence/arrears/statements/leases/invoices/contractors/inspections/approvals, ambiguity/multiple properties/frustration/missing info/backend failure/unsupported/cross-client. Current tests cover trusted ingress, isolation and truthful transactional outcomes; full quality evaluation open. |
 | AF-COMM-015 | Dependency-ordered delivery | Partially implemented | Secure maintenance intake, then native inspections; bulk expense discovery preserved for next financial batch. Preserve all requirements/history, coherent commits/recovery, no production deployment or main merge. |
+
+## AF-FLOW-001 — Governed statement communication action (additional requirement)
+
+Source: Flow Intelligent Action Orchestration directive, 2026-10-16. Preserve the
+original audit IDs and any unresolved historical FLO definition separately.
+Implemented/local-test evidence: `docs/FLOW_STATEMENTS_20261016.md`, `tests/flow`,
+`lib/flow`, `/flow`, `/api/flow/statements`, migration
+`20261016180000_flow_statement_actions.sql`. Reuses canonical identity, accounting
+snapshots, PDF rendering, queue and audit. Supports WhatsApp request initiation and
+web approval of exact recipients/documents. 23 targeted tests plus 214 regressions.
+Status: locally tested slice; overall requirement remains partial until deployed
+RBAC/concurrency/browser/provider acceptance and verified delivery/reconciliation.
+No claim of general conversational orchestration or fully delivered flagship flow.
