@@ -1296,3 +1296,51 @@ auth/role fixtures and selected actual table DDL, not the full deployed RLS stac
 See `docs/CLIENT_ONBOARDING_20261016.md` for tests and outstanding staging gates.
 The migration has NOT been deployed by this development batch. WhatsApp scope,
 release candidate 13a8467, staging configuration and Production are unchanged.
+
+## Client financial configuration boundary — 2026-10-16
+
+Supersedes the template dependency in the preceding onboarding milestone.
+`provision_client_account` still atomically creates the client, initial Super User,
+entity, canonical membership, Standard Access and retry receipt. It no longer
+clones a chart, posting templates, financial periods or invoice settings.
+Its `financial_foundation.status` is `configuration_required`; organisation
+creation succeeds with empty template tables. Existing provisioning receipts and
+all prior financial records are preserved, not rewritten.
+
+`/settings/financial/readiness` is the scoped setup/review entry point, linked from
+signup and settings. Clients explicitly supply accounting structures (JSON import
+or existing canonical configuration), role-to-account mappings and tax codes,
+then confirm accounting method, currency, year start and VAT registration.
+No recommended chart is bundled or silently adopted. The private historical
+financial bootstrap is not invoked by signup; no replacement posting engine exists.
+
+Migration `20261016160000_client_financial_readiness.sql` adds a private
+`entity_financial_readiness` revision/review record and canonical read/import/review
+RPCs. Authority is an active client Super User with entity scope or the explicitly
+assigned system capability `finance.configuration.manage` with entity scope.
+Organisational role labels do not confer this capability. No automatic operational
+permission grants. Imports are transactional, additive, preserve conflicting
+existing records and support hierarchy references by client GL code.
+
+Readiness distinguishes generic journals, receivables, payables and deposits.
+Configuration revision and explicit client review are necessary; dependent
+operations additionally require their valid canonical control mappings.
+Unregistered VAT cannot carry positive VAT rates or recoverable tax codes.
+Configuration mutations invalidate review; stale review/import requests fail.
+Review audit evidence records the full configuration snapshot and actor.
+Accounting method/currency/year changes after posted history require a separate
+controlled transition and are rejected by this setup command.
+
+Database triggers guard new posted journals, approved/posted charges and issued
+invoices, including the existing internal journal primitive. Existing balanced
+posting, period validation, tenant/supplier projection, payment reconciliation,
+invoice evidence and workflow authority remain in their canonical services.
+Draft capture/nonfinancial operations remain available. Exact committed command
+replays retain their existing behavior; no posted transaction is re-created.
+Readiness is a configuration prerequisite, not proof a particular transaction or
+period is eligible. Configuration changes may require retry after PostgreSQL lock
+conflicts; no partial transaction may commit.
+
+Local evidence and staging integration gates: `docs/FINANCIAL_READINESS_20261016.md`.
+No migration was deployed by this batch; existing entities also require client
+review before new financial postings after migration application.

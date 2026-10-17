@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
 export default function OrganisationPage() {
@@ -28,7 +29,7 @@ export default function OrganisationPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-2xl"><Link href="/settings/financial/readiness" className="inline-block underline">Financial setup and readiness</Link>
       <div className="flex items-center justify-between"><h1 className="text-2xl font-light tracking-[-0.02em] text-white">Organisation</h1>{saved && <span className="text-xs text-emerald-400">✓ Saved</span>}</div>
       <div className="space-y-4">
         <input value={form.company_name} onChange={(e) => setForm({...form, company_name: e.target.value})} placeholder="Company Name" className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none" />

@@ -453,3 +453,9 @@ Evidence E7: `docs/WHATSAPP_INTAKE_20261016.md`; no full-domain completion claim
 | AF-COMM-013 | Demonstrated productivity | Not yet verified | Representative mixed municipal/supplier/property/period/duplicate/exception/VAT batches; measure extraction/matching/GL/VAT accuracy, exception/correction rates, machine/human time, posting recovery and reconciliation differences. No demonstrated time savings yet. |
 | AF-COMM-014 | Conversation quality suite | Partially implemented | Test maintenance/emergency/recurrence/arrears/statements/leases/invoices/contractors/inspections/approvals, ambiguity/multiple properties/frustration/missing info/backend failure/unsupported/cross-client. Current tests cover trusted ingress, isolation and truthful transactional outcomes; full quality evaluation open. |
 | AF-COMM-015 | Dependency-ordered delivery | Partially implemented | Secure maintenance intake, then native inspections; bulk expense discovery preserved for next financial batch. Preserve all requirements/history, coherent commits/recovery, no production deployment or main merge. |
+
+## Product architecture clarification — client configuration (2026-10-16)
+
+| ID | Requirement | Status | Evidence / remaining gates |
+|---|---|---|---|
+| AF-ARCH-001 | Platform-owned engines and system capabilities; client-owned financial configuration; organisation creation independent of financial readiness | Implemented; locally integration-tested, staging unverified | `docs/FINANCIAL_READINESS_20261016.md`; migration `20261016160000_client_financial_readiness.sql`; `tests/financial-readiness/integration.test.mjs`. Client JSON import/review and database posting gates. Deployed isolation, browser and independent-session concurrency remain open. |

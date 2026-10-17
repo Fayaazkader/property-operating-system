@@ -74,7 +74,7 @@ export default function SignupPage() {
       }
       await provisionInitialWorkspace(supabase, details);
       // Reload canonical providers after membership creation; no stale empty scope.
-      window.location.assign('/app');
+      window.location.assign('/settings/financial/readiness');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Setup could not be confirmed. Please retry.');
     } finally {
@@ -89,7 +89,7 @@ export default function SignupPage() {
         <Link href="/landing" className="text-2xl font-semibold tracking-tight focus-visible:outline focus-visible:outline-2">AssetFlow</Link>
         <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-8">
           <h1 className="text-2xl font-semibold">{authenticated ? 'Finish your workspace setup' : 'Create your AssetFlow workspace'}</h1>
-          <p className="mt-3 text-sm leading-6 text-zinc-300">Set up a new client account and its first legal entity. You will be its initial Super User. Joining an existing organisation? Ask its administrator for access instead.</p>
+          <p className="mt-3 text-sm leading-6 text-zinc-300">Set up a new client account and its first legal entity. You will be its initial Super User. Financial setup can be completed afterwards; no chart of accounts or VAT treatment will be adopted automatically. Joining an existing organisation? Ask its administrator for access instead.</p>
           {checking ? <p role="status" className="mt-6">Checking your account…</p> : checkFailed ? null : (
             <form onSubmit={submit} className="mt-6 space-y-4" aria-busy={busy}>
               <fieldset disabled={busy} className="space-y-4 disabled:opacity-60">
