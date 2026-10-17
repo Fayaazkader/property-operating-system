@@ -8,7 +8,16 @@ assert.ok(base&&email&&password&&instruction,'Explicit isolated staging URL, tes
 assert.equal(new URL(base).protocol,'https:');
 const browser=await chromium.launch();
 try{
- const page=await browser.newPage({viewport:{width:390,height:844}});
+ const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+ if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+  const stagingOrigin = new URL(base).origin;
+  await context.route("**/*", async route => {
+   const request = route.request();
+   if (new URL(request.url()).origin !== stagingOrigin) return route.continue();
+   await route.continue({ headers: { ...request.headers(), "x-vercel-protection-bypass": process.env.VERCEL_AUTOMATION_BYPASS_SECRET } });
+  });
+ }
+  const page = await context.newPage();
  await page.goto(new URL('/login',base).href);
  await page.getByLabel('Email',{exact:true}).fill(email);await page.getByLabel('Password',{exact:true}).fill(password);
  await page.getByRole('button',{name:'Sign In',exact:true}).click();await page.waitForURL(url=>url.pathname!=='/login');
